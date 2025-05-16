@@ -5,14 +5,130 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 
 ## Technical Stack
 - Frontend: Nuxt 3 (Vue 3)
-- Styling: Tailwind css
+- Styling: Tailwind CSS
 - Database & Hosting: Firebase
 - State Management: Pinia (with Firestore integration)
 - Current Scope: Admin dashboard (client portal planned for future)
 
-## Core Modules
+## Code Architecture
 
-### 1. Purchase Management
+### Existing Pattern: Samby Application Architecture
+#### (based on project /home/imanol/projects/wiseutils/samby-repo)
+
+#### Login System Architecture
+The login system uses Firebase Authentication:
+
+- **Entry Point**: `welcome.vue`
+  - Users are redirected here if not authenticated
+  - Sign-in is handled with Google OAuth via Firebase
+
+- **Authentication Flow**:
+  - `googleSignIn()` function triggers Firebase authentication
+  - Upon successful authentication, users are redirected to their requested page or the default route
+
+- **Auth Middleware**:
+  - Global route middleware in `auth.global.ts` checks authentication state
+  - Uses `getCurrentUser()` to verify if a user is logged in
+  - Unauthenticated users are redirected to `/welcome` with the intended destination in query params
+  - Also checks business selection and permissions
+
+- **Sign Out**:
+  - Implemented in `signOut()` function in both `default.vue` layout and `blocked.vue`
+  - Calls Firebase Auth's `signOut()` method and redirects to `/welcome`
+
+#### Business Selection Architecture
+- **Business Storage**:
+  - Businesses are stored in Firestore's `userBusiness` collection
+  - The selected business ID is stored in localStorage with key `cBId`
+
+- **Selection Flow**:
+  - Users see businesses in `index.vue`
+  - Selection is managed by `changeCurrentBusiness()` in `index.ts`
+  - When a business is selected, ID is saved to localStorage and page is reloaded
+
+- **Business Types**:
+  - Two types: owner-created businesses and employee-joined businesses
+  - Distinction is made with `isEmployee` field in the database
+  - Role-based permissions stored in `roles` collection
+
+- **Create/Join Flow**:
+  - Create: `saveBusiness()` in `index.ts` handles business creation
+  - Join: Employees use invitation codes via `joinBusiness()` function
+  - Codes follow format: `${businessId}-${4-digit-number}`
+
+#### Firebase Deployment Architecture
+The application is configured for Firebase hosting and services:
+
+- **Environment Configuration**:
+  - Development/production environment distinction via `config.public.env`
+  - Firebase configuration is injected through Nuxt's runtime config
+
+- **Firebase Services Used**:
+  - Authentication (Google sign-in)
+  - Firestore Database (data storage)
+  - Hosting (web application)
+
+- **Environment Indication**:
+  - Development environment shows "Test Environment" banner
+
+#### Firestore Connection Architecture
+- **Store Pattern**:
+  - Uses Pinia stores (`defineStore`) to manage state and Firebase interactions
+  - Main stores: `index.ts`, `clients.ts`, `products.ts`, `orders.ts`, `dashboard.ts`, `zones.ts`, `stock.ts`
+
+- **Common Connection Pattern**:
+  - Each store validates prerequisites with helper functions that check:
+    - User authentication status via `useCurrentUser()`
+    - Selected business ID via `useLocalStorage("cBId", null)`
+  - CRUD operations follow consistent patterns with error handling and toast notifications
+
+- **Data Flow Pattern**:
+  - Fetch: Query Firestore collections with filters (typically `businessId`)
+  - Update: Use `updateDoc` with specific document references
+  - Create: Use `addDoc` with collection references
+  - Delete: Use `deleteDoc` or set archive flag via `updateDoc`
+
+- **Business Context**:
+  - All data operations filtered by current business ID
+  - Role-based access controls verified before operations
+
+#### Page Structure Architecture
+- **Main Layout** (`/layouts/default.vue`):
+  - Sidebar navigation with business selector and menu items
+  - Role-based menu visibility
+  - Mobile-responsive design with collapsible sidebar
+
+- **Core Components**:
+  - `ModalStructure.vue`: Reusable modal dialog component
+  - `ConfirmDialogue.vue`: Confirmation dialog system
+  - `Loader.vue`: Loading indicator
+  - Various detail components following naming pattern: `EntityDetails.vue`
+
+- **Page Structure Pattern**:
+  - List views → Detail views → Edit views
+  - Common sections: header with title/description, action buttons, content area
+
+- **Design System**:
+  - Based on Tailwind CSS with custom color scheme
+  - Main colors: primary (actions), secondary (background), danger (destructive)
+  - Form inputs use FormKit for consistent styling
+  - Icons from various icon packs using the syntax `~icons/pack-name/icon-name`
+  - Toast notification system for user feedback
+
+- **Data Interaction Pattern**:
+  - Components expose `showModal()` method for displaying details/editors
+  - CRUD operations trigger store actions
+  - Success/error feedback via toast notifications
+
+This architecture follows a consistent pattern across the application, making it maintainable and extensible while leveraging Firebase services.
+
+## Pet Shop Management System Architecture
+
+Following the established Samby architecture pattern, the Pet Shop Management System will implement these core modules using the same architectural principles:
+
+### Core Modules Implementation
+
+#### 1. Purchase Management
 **Data Requirements:**
 - Expense categories:
   * Services
@@ -23,13 +139,17 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 - Payment tracking for cash flow analysis
 - Option to classify transactions as reported (white) or non-reported (black)
 
-**Suggested Pages:**
-- Purchase Entry Form
-- Purchase History & Search
-- Expense Dashboard
-- Payment Tracking
+**Implementation Pattern:**
+- **Store**: `purchases.ts` Pinia store for managing purchase data
+- **Components**: 
+  * `PurchaseList.vue` - Main list view with filters
+  * `PurchaseDetails.vue` - Modal component for viewing details
+  * `PurchaseForm.vue` - Modal component for creating/editing purchases
+- **Firestore Collections**:
+  * `purchases` - Main purchase records
+  * `expenseCategories` - Catalog of expense types
 
-### 2. Sales Management
+#### 2. Sales Management
 **Data Requirements:**
 - Daily sales register that updates inventory automatically
 - Multiple payment method support for a single transaction
@@ -48,13 +168,19 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 - Sales analysis by day/week/month and payment method
 - Option to classify transactions as reported (white) or non-reported (black)
 
-**Suggested Pages:**
-- POS/Cash Register Interface
-- Sales History & Search
-- Promotions Management
-- Sales Analytics Dashboard
+**Implementation Pattern:**
+- **Store**: `sales.ts` Pinia store for managing sales data
+- **Components**: 
+  * `SalesList.vue` - List of completed sales
+  * `SalesDetails.vue` - Modal for viewing sale details
+  * `POSInterface.vue` - Point of sale interface component
+  * `PaymentMethodSelector.vue` - Component for handling multiple payment methods
+- **Firestore Collections**:
+  * `sales` - Main sales records
+  * `saleItems` - Individual items in each sale
+  * `promotions` - Active promotions
 
-### 3. Inventory Management
+#### 3. Inventory Management
 **Data Requirements:**
 - Accessories tracked by unit
 - Pet food tracking with dual-unit system:
@@ -66,13 +192,19 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 - Product rotation analytics
 - Cost and price tracking
 
-**Suggested Pages:**
-- Inventory Dashboard
-- Product Management
-- Stock Alerts
-- Inventory Adjustment
+**Implementation Pattern:**
+- **Store**: `inventory.ts` and `products.ts` Pinia stores
+- **Components**: 
+  * `ProductList.vue` - List of all products
+  * `ProductDetails.vue` - Modal for viewing product details
+  * `ProductForm.vue` - Modal for creating/editing products
+  * `InventoryAdjustment.vue` - Modal for adjusting inventory levels
+- **Firestore Collections**:
+  * `products` - Product catalog
+  * `inventory` - Current inventory levels
+  * `inventoryHistory` - Record of inventory changes
 
-### 4. Customer Management
+#### 4. Customer Management
 **Data Requirements:**
 - Customer profiles with contact information
 - Pet information for each customer (species, name, birthdate)
@@ -81,13 +213,19 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 - Customer loyalty status
 - Notifications for upcoming pet food purchases based on consumption patterns
 
-**Suggested Pages:**
-- Customer Directory
-- Customer Detail View
-- Pet Profiles
-- Customer Analytics
+**Implementation Pattern:**
+- **Store**: `clients.ts` Pinia store (following existing naming pattern)
+- **Components**: 
+  * `ClientList.vue` - List of all clients
+  * `ClientDetails.vue` - Modal for viewing client details
+  * `ClientForm.vue` - Modal for creating/editing clients
+  * `PetForm.vue` - Modal for adding/editing client pets
+- **Firestore Collections**:
+  * `clients` - Customer information
+  * `pets` - Pet information with client reference
+  * `clientPurchases` - Purchase history reference
 
-### 5. Supplier Management
+#### 5. Supplier Management
 **Data Requirements:**
 - Supplier profiles with contact information
 - Purchase history by supplier
@@ -95,13 +233,18 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 - Notifications for important dates
 - Outstanding balances
 
-**Suggested Pages:**
-- Supplier Directory
-- Supplier Detail View
-- Order & Payment History
-- Supplier Performance Analytics
+**Implementation Pattern:**
+- **Store**: `suppliers.ts` Pinia store
+- **Components**: 
+  * `SupplierList.vue` - List of all suppliers
+  * `SupplierDetails.vue` - Modal for viewing supplier details
+  * `SupplierForm.vue` - Modal for creating/editing suppliers
+  * `PaymentSchedule.vue` - Component for managing payment schedules
+- **Firestore Collections**:
+  * `suppliers` - Supplier information
+  * `paymentOrders` - Payment schedules and tracking
 
-### 6. Payment Methods & Accounts
+#### 6. Payment Methods & Accounts
 **Data Requirements:**
 - Complete list of payment methods with their codes:
   * EFECTIVO (EFT) - Cash
@@ -117,12 +260,17 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 - Daily balances by payment method/account
 - Transaction history by account
 
-**Suggested Pages:**
-- Payment Methods Configuration
-- Account Balances Dashboard
-- Payment Method Analytics
+**Implementation Pattern:**
+- **Store**: `payments.ts` Pinia store
+- **Components**: 
+  * `PaymentMethodsList.vue` - Configuration interface
+  * `PaymentMethodDetails.vue` - Modal for viewing/editing payment methods
+  * `AccountBalances.vue` - Component showing current balances
+- **Firestore Collections**:
+  * `paymentMethods` - Payment method definitions
+  * `accounts` - Account tracking information
 
-### 7. Daily Cash Register (Caja Diaria)
+#### 7. Daily Cash Register (Caja Diaria)
 **Data Requirements:**
 - Daily register sheets with:
   * Opening balance
@@ -133,13 +281,18 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 - Complete transaction flow from register to financial and economic reports
 - Discrepancy tracking
 
-**Suggested Pages:**
-- Daily Register Opening
-- Transaction Entry Interface
-- Daily Register Closing & Reconciliation
-- Register History
+**Implementation Pattern:**
+- **Store**: `cashRegister.ts` Pinia store
+- **Components**: 
+  * `CashRegisterStatus.vue` - Current day's register
+  * `RegisterOpeningForm.vue` - Modal for opening the register
+  * `RegisterClosingForm.vue` - Modal for closing the register
+  * `TransactionEntry.vue` - Modal for adding transactions
+- **Firestore Collections**:
+  * `cashRegisters` - Daily register records
+  * `registerTransactions` - Transactions within each register
 
-### 8. Financial Management
+#### 8. Financial Management
 **Data Requirements:**
 - Financial Book (FINANCIERO):
   * Separate tracking of movements by account/payment method
@@ -157,13 +310,19 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 - Complete data flow: Cash Register → Financial → Economic
 - Income/expense category catalog matching the Excel structure
 
-**Suggested Pages:**
-- Financial Dashboard
-- Monthly Financial Report
-- Economic Summary Report
-- Category Management
+**Implementation Pattern:**
+- **Store**: `finances.ts` Pinia store
+- **Components**: 
+  * `FinancialDashboard.vue` - Overview component
+  * `FinancialBookReport.vue` - Financial book view component
+  * `EconomicBookReport.vue` - Economic book view component
+  * `CategoryManagement.vue` - Modal for managing categories
+- **Firestore Collections**:
+  * `financialEntries` - Financial book entries
+  * `economicEntries` - Economic book summaries
+  * `categories` - Income/expense categories
 
-### 9. Notification System
+#### 9. Notification System
 **Data Requirements:**
 - Calendar integration
 - Alert types:
@@ -173,12 +332,17 @@ A comprehensive management system for pet shops that handles purchases, sales, i
   * Debt collection reminders
   * Low stock alerts
 
-**Suggested Pages:**
-- Notification Center
-- Calendar View
-- System Settings for Alerts
+**Implementation Pattern:**
+- **Store**: `notifications.ts` Pinia store
+- **Components**: 
+  * `NotificationCenter.vue` - Central notification list
+  * `CalendarView.vue` - Calendar interface component
+  * `NotificationSettings.vue` - Modal for configuring notification preferences
+- **Firestore Collections**:
+  * `notifications` - System notifications
+  * `notificationSettings` - User preferences
 
-### 10. Reporting
+#### 10. Reporting
 **Data Requirements:**
 - Financial reports (monthly):
   * Revenue breakdown by payment method
@@ -203,19 +367,86 @@ A comprehensive management system for pet shops that handles purchases, sales, i
   * Expired product write-offs
   * Other losses
 
-**Suggested Pages:**
-- Financial Dashboard
-- Sales Reports
-- Inventory Reports
-- Supplier Reports
-- Custom Report Builder
+**Implementation Pattern:**
+- **Store**: `reports.ts` Pinia store
+- **Components**: 
+  * Various report components following pattern: `ReportType.vue`
+  * `ReportFilters.vue` - Common filter component
+  * `ChartDisplay.vue` - Reusable chart component
+- **Firestore Queries**:
+  * Uses aggregation queries on existing collections
 
-### 11. Future Enhancements
-**Planned Features:**
-- Multi-store support with segregated data
-- Employee management with role-based access control
-- Integrated invoicing system for reported transactions
-- Data purging capability for non-reported transactions
+## Page Folder Structure (Adapted to Samby Pattern)
+
+Following the Samby pattern of using modals for details and edits rather than separate pages:
+
+### 1. Dashboard
+- `/dashboard`
+  - `/dashboard/index.vue` - Main dashboard overview with key metrics and notifications
+
+### 2. Caja (Cash Register)
+- `/caja`
+  - `/caja/index.vue` - Current day's register with status, transactions, and modal triggers for:
+    - `RegisterOpeningModal.vue` - Opening the register
+    - `TransactionEntryModal.vue` - New transactions (sales and expenses)
+    - `RegisterClosingModal.vue` - End-of-day closing
+  - `/caja/historico.vue` - Past register closings
+
+### 3. Ventas (Sales)
+- `/ventas`
+  - `/ventas/index.vue` - Sales dashboard and history with modals for:
+    - `SaleDetailsModal.vue` - View sale details
+    - `NewSaleModal.vue` - POS interface for new sales
+  - `/ventas/promociones.vue` - Promotion management with modals for:
+    - `PromotionDetailsModal.vue` - View/edit promotion details
+
+### 4. Inventario (Inventory)
+- `/inventario`
+  - `/inventario/index.vue` - Inventory overview and product listing with modals for:
+    - `ProductDetailsModal.vue` - View product details
+    - `ProductFormModal.vue` - Add/edit products
+    - `InventoryAdjustmentModal.vue` - Make inventory adjustments
+  - `/inventario/categorias.vue` - Product categories management
+
+### 5. Clientes (Clients)
+- `/clientes`
+  - `/clientes/index.vue` - Client directory with modals for:
+    - `ClientDetailsModal.vue` - View client profile with tabs for:
+      - Client information
+      - Client's pets with `PetFormModal.vue` for adding/editing
+      - Purchase history
+    - `ClientFormModal.vue` - Add/edit client information
+
+### 6. Proveedores (Suppliers)
+- `/proveedores`
+  - `/proveedores/index.vue` - Supplier directory with modals for:
+    - `SupplierDetailsModal.vue` - View supplier details with tabs for:
+      - Supplier information
+      - Purchase history
+      - Payment tracking
+    - `SupplierFormModal.vue` - Add/edit supplier information
+    - `PaymentOrderModal.vue` - Create/edit payment orders
+
+### 7. Finanzas (Finances)
+- `/finanzas`
+  - `/finanzas/index.vue` - Financial overview dashboard with tabs for:
+    - Account balances
+    - Financial book reporting
+    - Economic book reporting
+  - `/finanzas/categorias.vue` - Income/expense category management
+
+### 8. Reportes (Reports)
+- `/reportes`
+  - `/reportes/index.vue` - Report dashboard with configurable reports and filters
+  - Dynamic report generation based on selected parameters
+
+### 9. Configuración (Settings)
+- `/configuracion`
+  - `/configuracion/index.vue` - General settings with tabs for:
+    - User management
+    - Store settings
+    - Payment methods configuration
+    - System parameters and notifications
 
 ## Data Flow and Process Structure
 
@@ -245,95 +476,32 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 - **FALTANTE** - Recorded shortages or discrepancies
 - **PRESTAMO** - Loan payments or receipts
 
-## Page Folder Structure (for Spanish-based interface)
+## UI/UX Implementation
 
-### 1. Dashboard (Dashboard)
-- `/dashboard`
-  - `/dashboard/index.vue` - Main dashboard overview with key metrics
-  - `/dashboard/notificaciones.vue` - Notification center
+Following the Samby architecture pattern:
 
-### 2. Caja (Cash Register)
-- `/caja`
-  - `/caja/index.vue` - Current day's register status
-  - `/caja/nueva-venta.vue` - New sale entry
-  - `/caja/gastos.vue` - Daily expenses entry
-  - `/caja/cierre-diario.vue` - End-of-day closing and reconciliation
-  - `/caja/historico.vue` - Past register closings
+### Common UI Components
+- **ModalStructure.vue** - Will be used for all detail views and forms
+- **TableComponent.vue** - Standardized table component for listings
+- **FilterComponent.vue** - Reusable filter interface
+- **DashboardCard.vue** - Standard card component for metrics
+- **FormKit** - For consistent form styling and behavior
 
-### 3. Ventas (Sales)
-- `/ventas`
-  - `/ventas/index.vue` - Sales dashboard
-  - `/ventas/historial.vue` - Sales history and search
-  - `/ventas/promociones.vue` - Promotion management
-  - `/ventas/metodos-pago.vue` - Payment method analytics
+### UI Flow Patterns
+- **List → Modal Pattern**: All entity management follows list-with-modal pattern instead of navigating to separate detail pages
+- **Toast Notifications**: All operations provide feedback through toast notifications
+- **Confirmation Dialogs**: All destructive actions require confirmation
+- **Mobile Responsiveness**: Sidebar collapses to menu button on small screens
 
-### 4. Inventario (Inventory)
-- `/inventario`
-  - `/inventario/index.vue` - Inventory overview
-  - `/inventario/productos` 
-    - `/inventario/productos/index.vue` - Product listing
-    - `/inventario/productos/[id].vue` - Product detail/edit
-    - `/inventario/productos/nuevo.vue` - Add new product
-  - `/inventario/categorias.vue` - Product categories
-  - `/inventario/ajustes.vue` - Inventory adjustments
-  - `/inventario/alertas.vue` - Low stock alerts
+### Design System
+- **Tailwind CSS**: Custom color scheme matching existing system:
+  - Primary: Action buttons and highlighted items
+  - Secondary: Background elements
+  - Danger: Destructive actions and errors
+- **Icon System**: Using icon packs with `~icons/pack-name/icon-name` syntax
 
-### 5. Clientes (Clients)
-- `/clientes`
-  - `/clientes/index.vue` - Client directory
-  - `/clientes/[id]` 
-    - `/clientes/[id]/index.vue` - Client profile
-    - `/clientes/[id]/mascotas.vue` - Client's pets
-    - `/clientes/[id]/compras.vue` - Purchase history
-  - `/clientes/nuevo.vue` - Add new client
-  - `/clientes/cumpleanos.vue` - Birthday calendar
-
-### 6. Proveedores (Suppliers)
-- `/proveedores`
-  - `/proveedores/index.vue` - Supplier directory
-  - `/proveedores/[id].vue` - Supplier detail/management
-  - `/proveedores/compras.vue` - Purchase orders
-  - `/proveedores/pagos.vue` - Payment tracking
-
-### 7. Finanzas (Finances)
-- `/finanzas`
-  - `/finanzas/index.vue` - Financial overview dashboard
-  - `/finanzas/cuentas.vue` - Account balances and tracking
-  - `/finanzas/financiero.vue` - Financial book reporting
-  - `/finanzas/economico.vue` - Economic book reporting
-  - `/finanzas/categorias.vue` - Income/expense category management
-
-### 8. Reportes (Reports)
-- `/reportes`
-  - `/reportes/index.vue` - Report dashboard
-  - `/reportes/ventas.vue` - Sales analytics
-  - `/reportes/inventario.vue` - Inventory analytics
-  - `/reportes/clientes.vue` - Customer analytics
-  - `/reportes/blanco-negro.vue` - Reported vs non-reported analysis
-
-### 9. Configuración (Settings)
-- `/configuracion`
-  - `/configuracion/index.vue` - General settings
-  - `/configuracion/usuarios.vue` - User management
-  - `/configuracion/tienda.vue` - Store settings
-  - `/configuracion/medios-pago.vue` - Payment methods configuration
-  - `/configuracion/sistema.vue` - System parameters
-
-## Data Structure Considerations
-- Clear separation between reported and non-reported transactions
-- Flexible product definitions to handle both unit and weight-based items
-- Customer relationship tracking with purchase predictions
-- Multi-level pricing system based on payment method, quantity, and customer status
-- Account structure matching the existing Excel-based system
-- Category structure matching the existing economic classification
-
-## UI/UX Requirements
-- Intuitive POS interface for quick sales processing
-- Dashboard-style analytics for key metrics
-- Calendar view for upcoming events and notifications
-- Mobile-friendly design for in-store use
-- Familiar data presentation mimicking current Excel reports
-
-## API Requirements
-- Firebase authentication integration
-- Firestore data models for real-time updates
+## Future Enhancements
+- Multi-store support with segregated data (leveraging existing business selection system)
+- Employee management with role-based access control (extending current permissions system)
+- Integrated invoicing system for reported transactions
+- Data purging capability for non-reported transactions
