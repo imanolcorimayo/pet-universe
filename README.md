@@ -9,11 +9,65 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 - Database & Hosting: Firebase
 - State Management: Pinia (with Firestore integration)
 - Current Scope: Admin dashboard (client portal planned for future)
+- Package dependencies: yarn (not npm)
 
 ## Code Architecture
 
 ### Existing Pattern: Samby Application Architecture
 #### (based on project /home/imanol/projects/wiseutils/samby-repo)
+
+#### Package JSON scripts and dependencies
+
+```
+{
+  "name": "nuxt-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "prodDeploy": "cp .env.samby-prod .env && nuxt generate && firebase use samby-prod && firebase deploy",
+    "devDeploy": "cp .env.samby-dev .env && nuxt generate && firebase use samby-dev && firebase deploy",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "switchProd": "cp .env.samby-prod .env",
+    "switchDev": "cp .env.samby-dev .env"
+  },
+  "dependencies": {
+    "@formkit/nuxt": "^1.6.5",
+    "@nuxtjs/google-fonts": "^3.2.0",
+    "@pinia/nuxt": "^0.5.3",
+    "@vueuse/nuxt": "^10.11.1",
+    "chart.js": "^4.4.3",
+    "chartjs-plugin-datalabels": "^2.2.0",
+    "csv-parser": "^3.2.0",
+    "csv-writer": "^1.6.0",
+    "firebase": "^10.12.5",
+    "jszip": "^3.10.1",
+    "marked": "^15.0.7",
+    "nuxt": "^3.12.4",
+    "nuxt-vuefire": "^1.0.3",
+    "pinia": "^2.2.1",
+    "unplugin-icons": "^0.19.2",
+    "vue": "latest",
+    "vue3-toastify": "^0.2.2",
+    "vuefire": "^3.1.24",
+    "xmldom": "^0.6.0"
+  },
+  "devDependencies": {
+    "@iconify/json": "^2.2.237",
+    "@iconify/utils": "^2.1.30",
+    "@turf/turf": "^7.2.0",
+    "autoprefixer": "^10.4.20",
+    "dayjs-nuxt": "^2.1.9",
+    "firebase-admin": "^12.5.0",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.10"
+  }
+}
+
+```
 
 #### Login System Architecture
 The login system uses Firebase Authentication:
