@@ -21,7 +21,7 @@ export default defineNuxtConfig({
   plugins: [],
   runtimeConfig: {
     public: {
-      env: process.env.NODE_ENV || "dev",
+      env: process.env.ENVIRONMENT || "dev",
       firebaseApiKey: process.env.FIREBASE_API_KEY,
       firebaseAuthDomain: process.env.FIREBASE_AUTH_DOMAIN,
       firebaseProjectId: process.env.FIREBASE_PROJECT_ID,

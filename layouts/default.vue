@@ -7,7 +7,7 @@
         class="absolute z-50 max-h-screen min-h-screen min-w-[90vw] flex flex-col gap-8 w-[15rem] bg-white py-[1.429rem] px-2 border-r-2 border-r-gray-300 md:static md:min-w-[unset]"
       >
         <div class="flex flex-col gap-4">
-          <div v-if="config.public.env === 'dev'" class="w-full">
+          <div v-if="config.public.env !== 'prod'" class="w-full">
             <div class="m-auto flex justify-end w-full">
               <div class="bg-red-600 text-white font-bold py-2 px-4 rounded-bl-lg shadow-lg w-fit">
                 Test Environment
@@ -92,7 +92,7 @@
                       >
                         <GravityUiGear class="text-gray-600 text-[1.4rem]" />
                       </div>
-                      <span class="w-full text-start text-nowrap text-md font-medium">Configuración</span></NuxtLink
+                      <span class="w-full text-start text-nowrap text-md font-medium">Ver negocios</span></NuxtLink
                     >
                   </li>
                 </ul>
@@ -190,7 +190,7 @@
         </div>
       </div>
     </Transition>
-    <div class="flex-1 flex flex-col max-h-screen overflow-y-scroll pt-[1.429rem] relative">
+    <div class="flex-1 flex flex-col max-h-screen overflow-y-scroll relative">
       <TheHeader class="md:hidden" @switchMenu="switchMenu" />
       <main class="flex-1 flex px-2 max-w-[80rem] mx-auto w-full">
         <slot />

@@ -1,3 +1,5 @@
+import { ToastEvents } from "~/interfaces";
+
 export default defineNuxtRouteMiddleware(async (to, from) => {
   // If going to /welcome or blocked just continue
   // process.server should never be activated since ssr was set to false
@@ -26,11 +28,11 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   }
 
   try {
-    // Update in store to manage roles globally
-    const userRole = await indexStore.updateUserRole();
+    // This func also updates the role in store to manage roles globally
+    const userRole = await indexStore.updateRoleInStore();
 
     if (!userRole && to.path !== "/negocios") {
-      useToast("error", "No tienes permisos para acceder a esta sección. Elegí una tienda para continuar.");
+      useToast(ToastEvents.error, "No tienes permisos para acceder a esta sección. Elegí una tienda para continuar.");
       return navigateTo("/negocios");
     }
 
@@ -41,7 +43,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       return;
     }
 
-    useToast("error", "No tienes permisos para acceder a esta sección. Contactate con soporte si tenés problemas.");
+    useToast(ToastEvents.error, "No tienes permisos para acceder a esta sección. Contactate con soporte si tenés problemas.");
     return navigateTo("/dashboard");
   } catch (error) {
     console.error("ERROR ", error);

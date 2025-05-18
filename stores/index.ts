@@ -11,6 +11,7 @@ import {
   limit
 } from "firebase/firestore";
 import { defineStore } from "pinia";
+import { ToastEvents } from "~/interfaces";
 
 const defaultObject = {
   userRole: "employee",
@@ -48,7 +49,7 @@ export const useIndexStore = defineStore("index", {
     getEmployees: (state) => state.currentBusiness.employees
   },
   actions: {
-    async updateUserRole() {
+    async updateRoleInStore() {
       const user = await getCurrentUser();
       const db = useFirestore();
       const businessId = useLocalStorage("cBId", null);
@@ -174,7 +175,7 @@ export const useIndexStore = defineStore("index", {
             type: business.type
           };
 
-          this.updateUserRole();
+          this.updateRoleInStore();
         }
 
         // If not business is found, clear the current business id
@@ -197,7 +198,7 @@ export const useIndexStore = defineStore("index", {
         return true;
       } catch (error) {
         console.error(error);
-        useToast("error", "Hubo un error al obtener la información, por favor intenta nuevamente");
+        useToast(ToastEvents.error, "Hubo un error al obtener la información, por favor intenta nuevamente");
         return false;
       }
     },
@@ -213,13 +214,13 @@ export const useIndexStore = defineStore("index", {
 
       // Validate information. Name is the only field required
       if (!businessInfo.name || typeof businessInfo.name !== "string") {
-        useToast("error", "El nombre de la tienda es requerido. Si el error persiste, contáctese con soporte");
+        useToast(ToastEvents.error, "El nombre de la tienda es requerido. Si el error persiste, contáctese con soporte");
         return false;
       }
 
       // Validate it has phone
-      if (!businessInfo.phone || typeof businessInfo.phone !== "string" || businessInfo.phone.length < 14) {
-        useToast("error", "El teléfono de la tienda no es válido. Si el error persiste, contáctese con soporte");
+      if (!businessInfo.phone || typeof businessInfo.phone !== "string" || businessInfo.phone.length != 14) {
+        useToast(ToastEvents.error, "El teléfono de la tienda no es válido. Si el error persiste, contáctese con soporte");
         return false;
       }
 
@@ -230,7 +231,7 @@ export const useIndexStore = defineStore("index", {
           query(collection(db, "userBusiness"), where("userUid", "==", user.value.uid))
         );
         if (userBusiness.docs.length >= 3) {
-          useToast("error", "No puedes tener mas de 3 tiendas registradas");
+          useToast(ToastEvents.error, "No puedes tener mas de 3 tiendas registradas");
           return false;
         }
 
@@ -256,11 +257,12 @@ export const useIndexStore = defineStore("index", {
         });
 
         // Update user business image
-        if (businessInfo.userBusinessImageId) {
+        // TODO: Implement image on businesses
+        /* if (businessInfo.userBusinessImageId) {
           await updateDoc(doc(db, "userBusinessImage", businessInfo.userBusinessImageId), {
             businessId: newBusiness.id
           });
-        }
+        } */
 
         // Update current business id in localStorage in case it's not set
         if (!this.currentBusiness.id) {
@@ -298,7 +300,7 @@ export const useIndexStore = defineStore("index", {
         return true;
       } catch (error) {
         console.error(error);
-        useToast("error", "Hubo un error al guardar la información, por favor intenta nuevamente");
+        useToast(ToastEvents.error, "Hubo un error al guardar la información, por favor intenta nuevamente");
         return false;
       }
     },
@@ -321,7 +323,7 @@ export const useIndexStore = defineStore("index", {
         return true;
       } catch (error) {
         console.error(error);
-        useToast("error", "Hubo un error al cambiar de tienda, por favor intenta nuevamente");
+        useToast(ToastEvents.error, "Hubo un error al cambiar de tienda, por favor intenta nuevamente");
         return false;
       }
     },
@@ -336,12 +338,12 @@ export const useIndexStore = defineStore("index", {
 
       // Validate information
       if (!code || typeof code !== "string") {
-        useToast("error", "El código es requerido. Por favor ingresalo e intenta nuevamente");
+        useToast(ToastEvents.error, "El código es requerido. Por favor ingresalo e intenta nuevamente");
         return false;
       }
 
       if (!code.includes("-")) {
-        useToast("error", "El código ingresado no es válido. Por favor intenta nuevamente");
+        useToast(ToastEvents.error, "El código ingresado no es válido. Por favor intenta nuevamente");
         return false;
       }
 
@@ -358,7 +360,7 @@ export const useIndexStore = defineStore("index", {
 
         if (userBusiness.docs.length === 0) {
           useToast(
-            "error",
+            ToastEvents.error,
             "El código ingresado no es válido. Es probable que ya haya sido utilizado o estes intentando unirte a tu propia tienda"
           );
           return false;
@@ -426,7 +428,7 @@ export const useIndexStore = defineStore("index", {
         return true;
       } catch (error) {
         console.error(error);
-        useToast("error", "Hubo un error al guardar la información, por favor intenta nuevamente");
+        useToast(ToastEvents.error, "Hubo un error al guardar la información, por favor intenta nuevamente");
         return false;
       }
     }

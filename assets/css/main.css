@@ -79,6 +79,15 @@
   background-color: rgba(245, 158, 11, 0.2);
 }
 
+body.modal-opened {
+  overflow: hidden;
+}
+
+body,
+#__nuxt {
+  min-height: 100vh;
+}
+
 /* Hide scrollbar but keep functionality */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

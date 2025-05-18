@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-4 w-full">
+  <div class="flex flex-col gap-4 w-full py-[1.429rem]">
     <h1 class="text-2xl font-bold">Administrar Tiendas</h1>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -80,9 +80,11 @@
           <div class="form-control">
             <label class="label">Teléfono*</label>
             <input
+              @input="() => (newBusiness.phone = formatPhoneNumber(newBusiness.phone))"
+              maxlength="20"
               v-model="newBusiness.phone"
               type="tel"
-              placeholder="Ej: +54 11 1234-5678"
+              placeholder="Ej: (351) 123-4567"
               class="input input-bordered"
               required
             />
@@ -125,6 +127,7 @@ import PhCalendarCheck from "~icons/ph/calendar-check";
 import PhX from "~icons/ph/x";
 import IconParkOutlinePlus from "~icons/icon-park-outline/plus";
 import MaterialSymbolsLightPetSupplies from '~icons/material-symbols-light/pet-supplies';
+import { ToastEvents } from '~/interfaces';
 
 
 const indexStore = useIndexStore();
@@ -141,29 +144,24 @@ const newBusiness = ref({
 
 async function createBusiness() {
   if (!newBusiness.value.name || !newBusiness.value.phone) {
-    useToast("error", "Por favor completa todos los campos obligatorios");
+    useToast(ToastEvents.error, "Por favor completa todos los campos obligatorios");
     return;
   }
 
   // Simple phone validation
   if (newBusiness.value.phone.length < 8) {
-    useToast("error", "El número de teléfono no es válido");
+    useToast(ToastEvents.error, "El número de teléfono no es válido");
     return;
   }
 
   try {
     isLoading.value = true;
-    
-    // Format phone if needed (add country code, etc.)
-    if (!newBusiness.value.phone.startsWith('+')) {
-      newBusiness.value.phone = '+54 ' + newBusiness.value.phone;
-    }
-    
+
     const result = await indexStore.saveBusiness(newBusiness.value);
     
     if (result) {
       isCreatingBusiness.value = false;
-      useToast("success", "Tienda creada correctamente");
+      useToast(ToastEvents.success, "Tienda creada correctamente");
       newBusiness.value = {
         name: '',
         phone: '',
@@ -173,7 +171,7 @@ async function createBusiness() {
     }
   } catch (error) {
     console.error("Error creating business:", error);
-    useToast("error", "Ocurrió un error al crear la tienda. Por favor intenta nuevamente.");
+    useToast(ToastEvents.error, "Ocurrió un error al crear la tienda. Por favor intenta nuevamente.");
   } finally {
     isLoading.value = false;
   }
