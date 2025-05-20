@@ -35,7 +35,6 @@ A comprehensive management system for pet shops that handles purchases, sales, i
     "switchDev": "cp .env.samby-dev .env"
   },
   "dependencies": {
-    "@formkit/nuxt": "^1.6.5",
     "@nuxtjs/google-fonts": "^3.2.0",
     "@pinia/nuxt": "^0.5.3",
     "@vueuse/nuxt": "^10.11.1",
@@ -165,7 +164,6 @@ The application is configured for Firebase hosting and services:
 - **Design System**:
   - Based on Tailwind CSS with custom color scheme
   - Main colors: primary (actions), secondary (background), danger (destructive)
-  - Form inputs use FormKit for consistent styling
   - Icons from various icon packs using the syntax `~icons/pack-name/icon-name`
   - Toast notification system for user feedback
 
@@ -329,7 +327,6 @@ Following the established Samby architecture pattern, the Pet Shop Management Sy
 - Daily register sheets with:
   * Opening balance
   * All income/expense entries
-  * Duplicate columns for each entry (income-expense)
   * Payment method codes for each transaction
   * Daily closing balance
 - Complete transaction flow from register to financial and economic reports
@@ -539,7 +536,6 @@ Following the Samby architecture pattern:
 - **TableComponent.vue** - Standardized table component for listings
 - **FilterComponent.vue** - Reusable filter interface
 - **DashboardCard.vue** - Standard card component for metrics
-- **FormKit** - For consistent form styling and behavior
 
 ### UI Flow Patterns
 - **List → Modal Pattern**: All entity management follows list-with-modal pattern instead of navigating to separate detail pages

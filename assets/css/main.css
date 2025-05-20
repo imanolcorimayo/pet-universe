@@ -97,3 +97,107 @@ body,
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+
+.badge {
+  @apply inline-block rounded-full px-3 py-1 text-xs font-semibold;
+}
+
+
+#__nuxt {
+  overflow: hidden;
+}
+
+input:disabled {
+  background-color: grey;
+  color: rgb(44, 44, 44);
+}
+
+.no-button {
+  cursor: pointer;
+  background-color: unset;
+  border: unset;
+  color: black;
+}
+
+/* Remove the arrow */
+select {
+  appearance: none;
+  /* safari */
+  -webkit-appearance: none;
+}
+
+/* Remove the arrow */
+select option {
+  background-color: var(--base-color);
+  color: black;
+  height: 48px;
+  box-shadow: none;
+}
+
+input,
+textarea,
+select {
+  background-color: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  color: inherit;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button,
+input[type="submit"] {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Remove decoration to inputs */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
+select,
+textarea {
+  border: 1px solid #ccc;
+  border-radius: 0.428rem;
+  padding: 0.714rem;
+  font-size: 1rem;
+  color: black;
+  width: 100%;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* Style disabled inputs */
+input[type="text"]:disabled,
+input[type="email"]:disabled,
+input[type="password"]:disabled,
+input[type="number"]:disabled,
+input[type="date"]:disabled,
+input[type="datetime-local"]:disabled,
+select:disabled,
+button:disabled,
+textarea:disabled {
+  background-color: #a8a8a8;
+  color: #333;
+  cursor: not-allowed;
+}
+
+/* Hide the default radio button */
+input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  -o-appearance: none;
+  outline: none;
+}
