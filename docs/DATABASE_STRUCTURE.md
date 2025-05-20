@@ -27,12 +27,11 @@ userBusiness/
 Stores role information for all users associated with a business.
 
 ```
-
 userRole/ 
   {document-id}/ 
     userUid: string // User ID (null until invitation is accepted) 
     businessId: string // Business ID this role is for 
-    role: string // Role name (e.g., "propietario", "vendedor") 
+    role: string // Role name (e.g., "propietario", "vendedor", "administrador", "empleado") 
     status: string // Status ("active", "pending", "archived") 
     code: string // Invitation code (format: businessId-XXXX) 
     invitedBy: string // User ID who created the invitation 
@@ -40,6 +39,12 @@ userRole/
     acceptedAt: Timestamp // When the invitation was accepted (null if pending) 
     createdAt: Timestamp // When the record was created 
     updatedAt: Timestamp // When the record was last updated
+    
+    // Employee deactivation fields
+    archivedBy: string // User ID who deactivated the employee (if applicable)
+    archivedAt: Timestamp // When the employee was deactivated (if applicable)
+    reactivatedBy: string // User ID who reactivated the employee (if applicable)
+    reactivatedAt: Timestamp // When the employee was reactivated (if applicable)
 ```
 
 ## Cash Register System

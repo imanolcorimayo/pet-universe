@@ -162,14 +162,33 @@
               <PhFileTextFill class="text-gray-500" /> Reportes
             </NuxtLink>
           </li>
-          <li>
-            <NuxtLink
-              v-if="indexStore.isOwner"
-              to="/configuracion"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+          <li v-if="indexStore.isOwner">
+            <button
+              @click="toggleConfig"
+              class="w-full flex items-center justify-between text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
-              <GravityUiGear class="text-gray-500" /> Configuración
-            </NuxtLink>
+              <div class="flex items-center gap-2">
+                <GravityUiGear class="text-gray-500" /> Configuración
+              </div>
+              <MaterialSymbolsKeyboardArrowDown
+                class="text-gray-600 transition-transform"
+                :class="{ 'rotate-180': configExpanded }"
+              />
+            </button>
+            <div v-if="configExpanded" class="pl-6 ml-1 border-l border-gray-300 mt-1 space-y-2">
+              <NuxtLink
+                to="/configuracion"
+                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              >
+                <GravityUiGear class="text-gray-500" /> General
+              </NuxtLink>
+              <NuxtLink
+                to="/configuracion/empleados"
+                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              >
+                <BiPersonFill class="text-gray-500" /> Empleados
+              </NuxtLink>
+            </div>
           </li>
         </ul>
         <div class="mt-auto">
@@ -220,6 +239,7 @@ indexStore.fetchBusinesses();
 // ------ Define Vars --------
 const showSideBar = ref(false);
 const menu = ref(null);
+const configExpanded = ref(false);
 
 // If clicking outside the menu, and screen is smaller than 768px, close it
 onClickOutside(menu, () => {
@@ -253,6 +273,10 @@ async function signOut() {
 
 function switchMenu() {
   showSideBar.value = !showSideBar.value;
+}
+
+function toggleConfig() {
+  configExpanded.value = !configExpanded.value;
 }
 
 // ------ Define Watchers --------

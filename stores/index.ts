@@ -10,7 +10,8 @@ import {
   where,
   deleteDoc,
   limit,
-  documentId
+  documentId,
+  orderBy
 } from "firebase/firestore";
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
@@ -281,7 +282,7 @@ export const useIndexStore = defineStore("index", {
             phone: business.phone,
             imageUrl: business.imageUrl,
             imageUrlThumbnail: business.imageUrlThumbnail,
-            employees: [],
+            employees: this.$state.employeesFetched ? this.$state.currentBusiness.employees : [],
             createdAt: business.createdAt,
             type: business.type
           };
@@ -541,6 +542,286 @@ export const useIndexStore = defineStore("index", {
       } catch (error) {
         console.error(error);
         useToast(ToastEvents.error, "Hubo un error al unirte al negocio, por favor intenta nuevamente");
+        return false;
+      }
+    },
+    
+    async fetchEmployees(): Promise<boolean> {
+      // Get Firestore and Current User
+      const db = useFirestore();
+      const { $dayjs } = useNuxtApp();
+    
+      // Get current business ID
+      const businessId = useLocalStorage("cBId", null).value;
+      
+      if (!businessId) {
+        useToast(ToastEvents.error, "No se encontró un negocio seleccionado");
+        return false;
+      }
+      
+      // Check if already fetched employees and prevent redundant fetches
+      if (this.employeesFetched) {
+        return true;
+      }
+      
+      try {
+        // Get all roles for this business (active, pending and archived)
+        const rolesSnapshot = await getDocs(
+          query(
+            collection(db, "userRole"),
+            where("businessId", "==", businessId),
+            orderBy("createdAt", "desc")
+          )
+        );
+
+        // If no roles, set empty array and return
+        if (rolesSnapshot.empty) {
+          this.currentBusiness.employees = [];
+          this.employeesFetched = true;
+          return true;
+        }
+        
+        // Process roles
+        const roles = rolesSnapshot.docs.map((doc) => {
+          const roleData = doc.data();
+          
+          // Format creation date
+          let createdAt = "";
+          if (roleData.createdAt) {
+            createdAt = $dayjs(roleData.createdAt.toDate()).format("DD/MM/YYYY");
+          }
+          
+          // Get name and email (if user is linked)
+          let name = "";
+          let email = "";
+          
+          // Return role data with id
+          return {
+            id: doc.id,
+            name: roleData.name || name,
+            email: roleData.email || email,
+            role: roleData.role,
+            status: roleData.status,
+            code: roleData.code || null,
+            userUid: roleData.userUid || null,
+            createdAt,
+          } as Employee;
+        });
+        
+        // Get all user information for linked users
+        const userUids = roles
+          .filter(role => role.userUid)
+          .map(role => role.userUid);
+          
+        if (userUids.length > 0) {
+          // Query Firebase Auth users or user profile collection
+          // Implementation depends on how user data is stored
+          // This is a placeholder for actual implementation
+        }
+        
+        // Set employees and update fetched flag
+        this.currentBusiness.employees = roles;
+        this.employeesFetched = true;
+        return true;
+      } catch (error) {
+        console.error("Error fetching employees:", error);
+        useToast(ToastEvents.error, "Hubo un error al obtener los empleados, por favor intenta nuevamente");
+        return false;
+      }
+    },
+    
+    async deactivateEmployee(roleId: string): Promise<boolean> {
+      // Get Firestore and Current User
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      if (!user.value) {
+        return false;
+      }
+      
+      // Get current business ID
+      const businessId = useLocalStorage("cBId", null).value;
+      
+      if (!businessId) {
+        useToast(ToastEvents.error, "No se encontró un negocio seleccionado");
+        return false;
+      }
+      
+      try {
+        // Get the role document
+        const roleDoc = await getDoc(doc(db, "userRole", roleId));
+        
+        if (!roleDoc.exists()) {
+          useToast(ToastEvents.error, "El rol especificado no existe");
+          return false;
+        }
+        
+        const roleData = roleDoc.data();
+        
+        // Validate role belongs to current business
+        if (roleData.businessId !== businessId) {
+          useToast(ToastEvents.error, "No tienes permisos para modificar este rol");
+          return false;
+        }
+        
+        // Update role status to archived
+        await updateDoc(doc(db, "userRole", roleId), {
+          status: "archived" as RoleStatus,
+          updatedAt: serverTimestamp(),
+          archivedBy: user.value.uid,
+          archivedAt: serverTimestamp()
+        });
+        
+        // Update in store
+        if (this.currentBusiness.employees) {
+          const employeeIndex = this.currentBusiness.employees.findIndex(emp => emp.id === roleId);
+          
+          if (employeeIndex >= 0) {
+            this.currentBusiness.employees[employeeIndex].status = "archived";
+          }
+        }
+        
+        useToast(ToastEvents.success, "El empleado ha sido desactivado exitosamente");
+        return true;
+      } catch (error) {
+        console.error("Error deactivating employee:", error);
+        useToast(ToastEvents.error, "Hubo un error al desactivar el empleado, por favor intenta nuevamente");
+        return false;
+      }
+    },
+    
+    async reactivateEmployee(roleId: string): Promise<boolean> {
+      // Get Firestore and Current User
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      if (!user.value) {
+        return false;
+      }
+      
+      // Get current business ID
+      const businessId = useLocalStorage("cBId", null).value;
+      
+      if (!businessId) {
+        useToast(ToastEvents.error, "No se encontró un negocio seleccionado");
+        return false;
+      }
+      
+      try {
+        // Get the role document
+        const roleDoc = await getDoc(doc(db, "userRole", roleId));
+        
+        if (!roleDoc.exists()) {
+          useToast(ToastEvents.error, "El rol especificado no existe");
+          return false;
+        }
+        
+        const roleData = roleDoc.data();
+        
+        // Validate role belongs to current business
+        if (roleData.businessId !== businessId) {
+          useToast(ToastEvents.error, "No tienes permisos para modificar este rol");
+          return false;
+        }
+        
+        // Can only reactivate if status is archived
+        if (roleData.status !== "archived") {
+          useToast(ToastEvents.error, "Solo se pueden reactivar empleados archivados");
+          return false;
+        }
+        
+        // Update role status to active
+        await updateDoc(doc(db, "userRole", roleId), {
+          status: "active" as RoleStatus,
+          updatedAt: serverTimestamp(),
+          reactivatedBy: user.value.uid,
+          reactivatedAt: serverTimestamp()
+        });
+        
+        // Update in store
+        if (this.currentBusiness.employees) {
+          const employeeIndex = this.currentBusiness.employees.findIndex(emp => emp.id === roleId);
+          
+          if (employeeIndex >= 0) {
+            this.currentBusiness.employees[employeeIndex].status = "active";
+          }
+        }
+        
+        useToast(ToastEvents.success, "El empleado ha sido reactivado exitosamente");
+        return true;
+      } catch (error) {
+        console.error("Error reactivating employee:", error);
+        useToast(ToastEvents.error, "Hubo un error al reactivar el empleado, por favor intenta nuevamente");
+        return false;
+      }
+    },
+    
+    async updateEmployeeRole(roleId: string, newRole: UserRoleType): Promise<boolean> {
+      // Get Firestore and Current User
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      if (!user.value) {
+        return false;
+      }
+      
+      // Get current business ID
+      const businessId = useLocalStorage("cBId", null).value;
+      
+      if (!businessId) {
+        useToast(ToastEvents.error, "No se encontró un negocio seleccionado");
+        return false;
+      }
+      
+      // Validate new role
+      if (!newRole || typeof newRole !== "string") {
+        useToast(ToastEvents.error, "El rol es requerido");
+        return false;
+      }
+      
+      try {
+        // Get the role document
+        const roleDoc = await getDoc(doc(db, "userRole", roleId));
+        
+        if (!roleDoc.exists()) {
+          useToast(ToastEvents.error, "El rol especificado no existe");
+          return false;
+        }
+        
+        const roleData = roleDoc.data();
+        
+        // Validate role belongs to current business
+        if (roleData.businessId !== businessId) {
+          useToast(ToastEvents.error, "No tienes permisos para modificar este rol");
+          return false;
+        }
+        
+        // Cannot change role for owners
+        if (roleData.role === "propietario") {
+          useToast(ToastEvents.error, "No se puede cambiar el rol del propietario");
+          return false;
+        }
+        
+        // Update role
+        await updateDoc(doc(db, "userRole", roleId), {
+          role: newRole,
+          updatedAt: serverTimestamp()
+        });
+        
+        // Update in store
+        if (this.currentBusiness.employees) {
+          const employeeIndex = this.currentBusiness.employees.findIndex(emp => emp.id === roleId);
+          
+          if (employeeIndex >= 0) {
+            this.currentBusiness.employees[employeeIndex].role = newRole;
+          }
+        }
+        
+        useToast(ToastEvents.success, "El rol del empleado ha sido actualizado exitosamente");
+        return true;
+      } catch (error) {
+        console.error("Error updating employee role:", error);
+        useToast(ToastEvents.error, "Hubo un error al actualizar el rol del empleado, por favor intenta nuevamente");
         return false;
       }
     },

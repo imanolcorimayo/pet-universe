@@ -2,7 +2,6 @@
   <Teleport to="body">
     <div
       v-if="isVisible"
-      @click="closeOnBackdrop($event)"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm overflow-auto py-8"
     >
       <div
