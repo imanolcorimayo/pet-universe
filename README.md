@@ -443,14 +443,6 @@ Following the Samby pattern of using modals for details and edits rather than se
     - `RegisterClosingModal.vue` - End-of-day closing
   - `/caja/historico.vue` - Past register closings
 
-### 3. Ventas (Sales)
-- `/ventas`
-  - `/ventas/index.vue` - Sales dashboard and history with modals for:
-    - `SaleDetailsModal.vue` - View sale details
-    - `NewSaleModal.vue` - POS interface for new sales
-  - `/ventas/promociones.vue` - Promotion management with modals for:
-    - `PromotionDetailsModal.vue` - View/edit promotion details
-
 ### 4. Inventario (Inventory)
 - `/inventario`
   - `/inventario/index.vue` - Inventory overview and product listing with modals for:
@@ -494,10 +486,10 @@ Following the Samby pattern of using modals for details and edits rather than se
 ### 9. Configuración (Settings)
 - `/configuracion`
   - `/configuracion/index.vue` - General settings with tabs for:
-    - User management
     - Store settings
     - Payment methods configuration
     - System parameters and notifications
+  - `/configuracion/empleados.vue` - General settings for employees
 
 ## Data Flow and Process Structure
 

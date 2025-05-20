@@ -37,7 +37,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     }
 
     // Allowed routes to navigate for non admin users
-    const allowedRoutes = ["/dashboard", "/caja", "/ventas", "/blocked", "/404", "/negocios", "/"];
+    const allowedRoutes = ["/dashboard", "/caja", "/blocked", "/404", "/negocios", "/"];
 
     if (userRole === "propietario" || allowedRoutes.includes(to.path)) {
       return;

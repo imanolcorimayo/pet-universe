@@ -10,35 +10,36 @@ Stores information about pet shops owned by users or where users are employed.
 ```
 userBusiness/
   {document-id}/
-    name: string                 // Name of the business
-    phone: string                // Business phone number
-    description: string|null     // Business description
-    address: string|null         // Physical address
-    imageUrl: string|null        // URL for business logo/image
-    imageUrlThumbnail: string|null // URL for thumbnail version of the business image
-    userBusinessImageId: string|null // Reference to image document (if applicable)
-    isEmployee: boolean          // Whether record represents employment (true) or ownership (false)
-    userUid: string              // UID of owner/employee
-    businessId: string           // Original business ID (for employee records only)
-    createdAt: Timestamp         // When the business was created
-    
-    // For employee invitations
-    code: string                 // Invitation code for employees (format: businessId-XXXX)
-    status: string               // Status of invitation (e.g., "Pending", "Active")
-    role: string                 // Employee role (e.g., "vendedor", "admin")
-    acceptedAt: Timestamp        // When an employee accepted the invitation
+    name: string // Name of the business 
+    phone: string // Business phone number 
+    description: string|null // Business description 
+    address: string|null // Physical address 
+    imageUrl: string|null // URL for business logo/image 
+    imageUrlThumbnail: string|null // URL for thumbnail version of the business image 
+    userBusinessImageId: string|null // Reference to image document (if applicable) 
+    ownerUid: string // UID of business owner 
+    createdAt: Timestamp // When the business was created 
+    updatedAt: Timestamp // When the business was last updated 
+    archivedAt: Timestamp // When the business was archived (if applicable)
 ```
 
-### roles
+### userRole
 Stores role information for all users associated with a business.
 
 ```
-roles/
-  {document-id}/
-    userUid: string              // User ID 
-    businessId: string           // Business ID
-    role: string                 // Role name (e.g., "propietario", "vendedor")
-    createdAt: Timestamp         // When the role was assigned
+
+userRole/ 
+  {document-id}/ 
+    userUid: string // User ID (null until invitation is accepted) 
+    businessId: string // Business ID this role is for 
+    role: string // Role name (e.g., "propietario", "vendedor") 
+    status: string // Status ("active", "pending", "archived") 
+    code: string // Invitation code (format: businessId-XXXX) 
+    invitedBy: string // User ID who created the invitation 
+    invitedAt: Timestamp // When the invitation was created 
+    acceptedAt: Timestamp // When the invitation was accepted (null if pending) 
+    createdAt: Timestamp // When the record was created 
+    updatedAt: Timestamp // When the record was last updated
 ```
 
 ## Cash Register System
