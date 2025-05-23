@@ -234,6 +234,19 @@ export const useCashRegisterStore = defineStore('cashRegister', {
       const currentBusinessId = useLocalStorage('cBId', null);
       const isLoggedIn = !!user.value?.uid;
       const hasActiveBusiness = !!currentBusinessId.value;
+
+      // Get available payment methods
+      const indexStore = useIndexStore();
+      await indexStore.loadBusinessConfig();
+
+      const activePaymentMethods = indexStore.getActivePaymentMethods;
+  
+      // Validate that all payment methods in openingBalances exist
+      for (const method in data.openingBalances) {
+        if (!activePaymentMethods[method]) {
+          throw new Error(`El método de pago ${method} no está configurado en el sistema`);
+        }
+      }
       
       if (!isLoggedIn || !hasActiveBusiness) {
         throw new Error('Debes iniciar sesión y seleccionar un negocio');

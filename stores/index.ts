@@ -45,6 +45,7 @@ interface Business {
 
 interface Employee {
   id: string;
+  userUid: string;
   name: string;
   email: string;
   role: UserRoleType;
@@ -73,6 +74,8 @@ interface IndexState {
   businesses: Business[];
   businessesFetched: boolean;
   employeesFetched: boolean;
+  businessConfig: BusinessConfig | null;
+  businessConfigFetched: boolean;
 }
 
 // Method responses
@@ -98,6 +101,31 @@ interface EmployeeInfo {
   name?: string;
 }
 
+// -------------- Configuration Interfaces --------------
+
+interface PaymentMethod {
+  name: string;
+  type: 'cash' | 'transfer' | 'posnet';
+  active: boolean;
+  isDefault?: boolean;
+}
+
+interface Category {
+  name: string;
+  active: boolean;
+  isDefault?: boolean;
+}
+
+interface BusinessConfig {
+  id: string;
+  businessId: string;
+  paymentMethods: Record<string, PaymentMethod>;
+  incomeCategories: Record<string, Category>;
+  expenseCategories: Record<string, Category>;
+  createdAt: any;
+  updatedAt: any;
+}
+
 export const useIndexStore = defineStore("index", {
   state: (): IndexState => {
     return {
@@ -118,7 +146,9 @@ export const useIndexStore = defineStore("index", {
       },
       businesses: [],
       businessesFetched: false,
-      employeesFetched: false
+      employeesFetched: false,
+      businessConfig: null,
+      businessConfigFetched: false
     };
   },
   getters: {
@@ -129,7 +159,54 @@ export const useIndexStore = defineStore("index", {
     areEmployeesFetched: (state): boolean => state.employeesFetched,
     getBusinesses: (state): Business[] => state.businesses,
     getCurrentBusiness: (state): Business => state.currentBusiness,
-    getEmployees: (state) => state.currentBusiness.employees || []
+    getEmployees: (state) => state.currentBusiness.employees || [],
+
+    // ----------- Configuration Getters
+    getBusinessConfig: (state): BusinessConfig | null => state.businessConfig,
+    getActivePaymentMethods: (state): Record<string, PaymentMethod> => {
+      if (!state.businessConfig) return {};
+      
+      const result: Record<string, PaymentMethod> = {};
+      Object.entries(state.businessConfig.paymentMethods).forEach(([code, method]) => {
+        if (method.active) {
+          result[code] = method;
+        }
+      });
+      return result;
+    },
+    getPaymentMethodsByType: (state) => (type: 'cash' | 'transfer' | 'posnet') => {
+      if (!state.businessConfig) return {};
+      
+      const result: Record<string, PaymentMethod> = {};
+      Object.entries(state.businessConfig.paymentMethods).forEach(([code, method]) => {
+        if (method.active && method.type === type) {
+          result[code] = method;
+        }
+      });
+      return result;
+    },
+    getActiveIncomeCategories: (state): Record<string, Category> => {
+      if (!state.businessConfig) return {};
+      
+      const result: Record<string, Category> = {};
+      Object.entries(state.businessConfig.incomeCategories).forEach(([code, category]) => {
+        if (category.active) {
+          result[code] = category;
+        }
+      });
+      return result;
+    },
+    getActiveExpenseCategories: (state): Record<string, Category> => {
+      if (!state.businessConfig) return {};
+      
+      const result: Record<string, Category> = {};
+      Object.entries(state.businessConfig.expenseCategories).forEach(([code, category]) => {
+        if (category.active) {
+          result[code] = category;
+        }
+      });
+      return result;
+    }
   },
   actions: {
     async updateRoleInStore(): Promise<UserRoleType | boolean> {
@@ -361,6 +438,8 @@ export const useIndexStore = defineStore("index", {
         await addDoc(collection(db, "userRole"), {
           userUid: user.value.uid,
           businessId: newBusiness.id,
+          userName: user.value.displayName,
+          userEmail: user.value.email,
           role: "propietario" as UserRoleType,
           status: "active",
           createdAt: serverTimestamp(),
@@ -488,6 +567,8 @@ export const useIndexStore = defineStore("index", {
         // Update the userRole document to link it to this user
         await updateDoc(doc(db, "userRole", invitation.id), {
           userUid: user.value.uid,
+          userName: user.value.displayName,
+          userEmail: user.value.email,
           status: "active",
           acceptedAt: serverTimestamp(),
           updatedAt: serverTimestamp()
@@ -598,8 +679,8 @@ export const useIndexStore = defineStore("index", {
           // Return role data with id
           return {
             id: doc.id,
-            name: roleData.name || name,
-            email: roleData.email || email,
+            name: roleData.userName || name,
+            email: roleData.userEmail || email,
             role: roleData.role,
             status: roleData.status,
             code: roleData.code || null,
@@ -878,6 +959,287 @@ export const useIndexStore = defineStore("index", {
       } catch (error) {
         console.error(error);
         useToast(ToastEvents.error, "Hubo un error al crear la invitación, por favor intenta nuevamente");
+        return false;
+      }
+    },
+
+    // -------------- Configuration Methods --------------
+
+    async loadBusinessConfig(): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const currentBusinessId = useLocalStorage('cBId', null);
+      const isLoggedIn = !!user.value?.uid;
+      const hasActiveBusiness = !!currentBusinessId.value;
+      
+      if (!isLoggedIn || !hasActiveBusiness) return false;
+      
+      try {
+        // Check if config exists for this business
+        const configQuery = query(
+          collection(db, 'businessConfig'),
+          where('businessId', '==', currentBusinessId.value),
+          limit(1)
+        );
+        
+        const configSnapshot = await getDocs(configQuery);
+        
+        if (!configSnapshot.empty) {
+          // Config exists, load it
+          const configData = configSnapshot.docs[0].data();
+          this.businessConfig = {
+            id: configSnapshot.docs[0].id,
+            ...configData
+          } as BusinessConfig;
+        } else {
+          // Config doesn't exist, create default
+          await this.createDefaultBusinessConfig();
+        }
+        
+        this.businessConfigFetched = true;
+        return true;
+      } catch (error) {
+        console.error('Error loading business config:', error);
+        useToast(ToastEvents.error, 'Error al cargar la configuración del negocio');
+        return false;
+      }
+    },
+    
+    async createDefaultBusinessConfig(): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const currentBusinessId = useLocalStorage('cBId', null);
+      const isLoggedIn = !!user.value?.uid;
+      const hasActiveBusiness = !!currentBusinessId.value;
+      
+      if (!isLoggedIn || !hasActiveBusiness || !user.value) return false;
+      
+      try {
+        // Default payment methods
+        const defaultPaymentMethods: Record<string, PaymentMethod> = {
+          "EFECTIVO": { name: "Efectivo", type: "cash", active: true, isDefault: true },
+          "SANTANDER": { name: "Santander", type: "transfer", active: true },
+          "MACRO": { name: "Macro", type: "transfer", active: true },
+          "UALA": { name: "Ualá", type: "transfer", active: true },
+          "MPG": { name: "Mercado Pago", type: "transfer", active: true },
+          "VAT": { name: "Naranja X/Viumi", type: "transfer", active: true },
+          "TDB": { name: "T. Débito", type: "posnet", active: true },
+          "TCR": { name: "T. Crédito", type: "posnet", active: true },
+          "TRA": { name: "Transferencia", type: "transfer", active: true }
+        };
+        
+        // Default income categories
+        const defaultIncomeCategories: Record<string, Category> = {
+          "sales": { name: "Ventas", active: true, isDefault: true },
+          "other_income": { name: "Otros ingresos", active: true }
+        };
+        
+        // Default expense categories
+        const defaultExpenseCategories: Record<string, Category> = {
+          "purchases": { name: "Compras", active: true, isDefault: true },
+          "services": { name: "Servicios", active: true },
+          "maintenance": { name: "Mantenimiento", active: true },
+          "salaries": { name: "Sueldos", active: true },
+          "misc_expenses": { name: "Gastos varios", active: true }
+        };
+        
+        const configData = {
+          businessId: currentBusinessId.value,
+          paymentMethods: defaultPaymentMethods,
+          incomeCategories: defaultIncomeCategories,
+          expenseCategories: defaultExpenseCategories,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          createdBy: user.value.uid,
+          updatedBy: user.value.uid
+        };
+        
+        // Add to Firestore
+        const configRef = await addDoc(collection(db, 'businessConfig'), configData);
+        
+        // Update local state
+        this.businessConfig = {
+          id: configRef.id,
+          ...configData
+        } as unknown as BusinessConfig;
+        
+        return true;
+      } catch (error) {
+        console.error('Error creating default business config:', error);
+        useToast(ToastEvents.error, 'Error al crear la configuración del negocio');
+        return false;
+      }
+    },
+    
+    async updatePaymentMethod(code: string, data: PaymentMethod): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const isLoggedIn = !!user.value?.uid;
+      
+      if (!isLoggedIn || !this.businessConfig) return false;
+      
+      // TypeScript type assertion
+      if (!user.value) {
+        useToast(ToastEvents.error, 'No se encontró el usuario');
+        return false;
+      }
+      
+      try {
+        // Update in Firestore
+        await updateDoc(doc(db, 'businessConfig', this.businessConfig.id), {
+          [`paymentMethods.${code}`]: data,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.value.uid
+        });
+        
+        // Update local state
+        if (this.businessConfig.paymentMethods) {
+          this.businessConfig.paymentMethods[code] = data;
+        }
+        
+        useToast(ToastEvents.success, 'Método de pago actualizado correctamente');
+        return true;
+      } catch (error) {
+        console.error('Error updating payment method:', error);
+        useToast(ToastEvents.error, 'Error al actualizar el método de pago');
+        return false;
+      }
+    },
+    
+    async addPaymentMethod(code: string, data: PaymentMethod): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const isLoggedIn = !!user.value?.uid;
+      
+      if (!isLoggedIn || !this.businessConfig) return false;
+      
+      // TypeScript type assertion
+      if (!user.value) {
+        useToast(ToastEvents.error, 'No se encontró el usuario');
+        return false;
+      }
+      
+      // Validate code format (alphanumeric, no spaces)
+      if (!/^[A-Z0-9_]+$/.test(code)) {
+        useToast(ToastEvents.error, 'El código debe contener solo letras mayúsculas, números y guiones bajos');
+        return false;
+      }
+      
+      // Check if code already exists
+      if (this.businessConfig.paymentMethods && this.businessConfig.paymentMethods[code]) {
+        useToast(ToastEvents.error, 'Ya existe un método de pago con este código');
+        return false;
+      }
+      
+      try {
+        // Update in Firestore
+        await updateDoc(doc(db, 'businessConfig', this.businessConfig.id), {
+          [`paymentMethods.${code}`]: data,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.value.uid
+        });
+        
+        // Update local state
+        if (this.businessConfig.paymentMethods) {
+          this.businessConfig.paymentMethods[code] = data;
+        }
+        
+        useToast(ToastEvents.success, 'Método de pago añadido correctamente');
+        return true;
+      } catch (error) {
+        console.error('Error adding payment method:', error);
+        useToast(ToastEvents.error, 'Error al añadir el método de pago');
+        return false;
+      }
+    },
+    
+    async updateCategory(type: 'income' | 'expense', code: string, data: Category): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const isLoggedIn = !!user.value?.uid;
+      
+      if (!isLoggedIn || !this.businessConfig) return false;
+      
+      // TypeScript type assertion
+      if (!user.value) {
+        useToast(ToastEvents.error, 'No se encontró el usuario');
+        return false;
+      }
+      
+      const categoryType = type === 'income' ? 'incomeCategories' : 'expenseCategories';
+      
+      try {
+        // Update in Firestore
+        await updateDoc(doc(db, 'businessConfig', this.businessConfig.id), {
+          [`${categoryType}.${code}`]: data,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.value.uid
+        });
+        
+        // Update local state
+        if (type === 'income' && this.businessConfig.incomeCategories) {
+          this.businessConfig.incomeCategories[code] = data;
+        } else if (type === 'expense' && this.businessConfig.expenseCategories) {
+          this.businessConfig.expenseCategories[code] = data;
+        }
+        
+        useToast(ToastEvents.success, 'Categoría actualizada correctamente');
+        return true;
+      } catch (error) {
+        console.error('Error updating category:', error);
+        useToast(ToastEvents.error, 'Error al actualizar la categoría');
+        return false;
+      }
+    },
+    
+    async addCategory(type: 'income' | 'expense', code: string, data: Category): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const isLoggedIn = !!user.value?.uid;
+      
+      if (!isLoggedIn || !this.businessConfig) return false;
+      
+      // TypeScript type assertion
+      if (!user.value) {
+        useToast(ToastEvents.error, 'No se encontró el usuario');
+        return false;
+      }
+      
+      // Validate code format (alphanumeric, no spaces)
+      if (!/^[a-z0-9_]+$/.test(code)) {
+        useToast(ToastEvents.error, 'El código debe contener solo letras minúsculas, números y guiones bajos');
+        return false;
+      }
+      
+      const categoryType = type === 'income' ? 'incomeCategories' : 'expenseCategories';
+      const categories = type === 'income' ? this.businessConfig.incomeCategories : this.businessConfig.expenseCategories;
+      
+      // Check if code already exists
+      if (categories && categories[code]) {
+        useToast(ToastEvents.error, 'Ya existe una categoría con este código');
+        return false;
+      }
+      
+      try {
+        // Update in Firestore
+        await updateDoc(doc(db, 'businessConfig', this.businessConfig.id), {
+          [`${categoryType}.${code}`]: data,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.value.uid
+        });
+        
+        // Update local state
+        if (type === 'income' && this.businessConfig.incomeCategories) {
+          this.businessConfig.incomeCategories[code] = data;
+        } else if (type === 'expense' && this.businessConfig.expenseCategories) {
+          this.businessConfig.expenseCategories[code] = data;
+        }
+        
+        useToast(ToastEvents.success, 'Categoría añadida correctamente');
+        return true;
+      } catch (error) {
+        console.error('Error adding category:', error);
+        useToast(ToastEvents.error, 'Error al añadir la categoría');
         return false;
       }
     }

@@ -34,25 +34,82 @@
               </div>
             </div>
             
-            <div class="font-medium text-gray-700 mb-2">Conteo final por forma de pago</div>
-            <div class="space-y-3">
-              <div v-for="(balance, code) in balances" :key="code" class="flex items-center gap-2">
-                <div class="w-1/2">
-                  <span class="text-sm font-medium text-gray-700">{{ getPaymentMethodName(code) }}</span>
+            <!-- Cash payment methods -->
+            <div v-if="Object.keys(cashBalances).length > 0">
+              <div class="text-sm font-medium text-gray-500 mt-4 mb-2 border-b pb-1">Efectivo</div>
+              <div class="space-y-3">
+                <div v-for="(balance, code) in cashBalances" :key="code" class="flex items-center gap-2">
+                  <div class="w-1/2">
+                    <span class="text-sm font-medium text-gray-700">{{ getPaymentMethodName(code) }}</span>
+                  </div>
+                  <div class="w-1/2">
+                    <div class="flex items-center gap-1">
+                      <span class="text-xs text-gray-500">Calculado: {{ formatCurrency(balance) }}</span>
+                      <FormKit
+                        :name="`closingAmounts.${code}`"
+                        type="number"
+                        placeholder="0.00"
+                        validation="required|min:0"
+                        :validation-label="getPaymentMethodName(code)"
+                        :value="balance"
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div class="w-1/2">
-                  <div class="flex items-center gap-1">
-                    <span class="text-xs text-gray-500">Calculado: {{ formatCurrency(balance) }}</span>
-                    <FormKit
-                      :name="`closingAmounts.${code}`"
-                      type="number"
-                      placeholder="0.00"
-                      validation="required|min:0"
-                      :validation-label="getPaymentMethodName(code)"
-                      :value="balance"
-                      step="0.01"
-                      min="0"
-                    />
+              </div>
+            </div>
+            
+            <!-- Transfer payment methods -->
+            <div v-if="Object.keys(transferBalances).length > 0">
+              <div class="text-sm font-medium text-gray-500 mt-4 mb-2 border-b pb-1">Transferencias</div>
+              <div class="space-y-3">
+                <div v-for="(balance, code) in transferBalances" :key="code" class="flex items-center gap-2">
+                  <div class="w-1/2">
+                    <span class="text-sm font-medium text-gray-700">{{ getPaymentMethodName(code) }}</span>
+                  </div>
+                  <div class="w-1/2">
+                    <div class="flex items-center gap-1">
+                      <span class="text-xs text-gray-500">Calculado: {{ formatCurrency(balance) }}</span>
+                      <FormKit
+                        :name="`closingAmounts.${code}`"
+                        type="number"
+                        placeholder="0.00"
+                        validation="required|min:0"
+                        :validation-label="getPaymentMethodName(code)"
+                        :value="balance"
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Posnet payment methods -->
+            <div v-if="Object.keys(posnetBalances).length > 0">
+              <div class="text-sm font-medium text-gray-500 mt-4 mb-2 border-b pb-1">Posnet</div>
+              <div class="space-y-3">
+                <div v-for="(balance, code) in posnetBalances" :key="code" class="flex items-center gap-2">
+                  <div class="w-1/2">
+                    <span class="text-sm font-medium text-gray-700">{{ getPaymentMethodName(code) }}</span>
+                  </div>
+                  <div class="w-1/2">
+                    <div class="flex items-center gap-1">
+                      <span class="text-xs text-gray-500">Calculado: {{ formatCurrency(balance) }}</span>
+                      <FormKit
+                        :name="`closingAmounts.${code}`"
+                        type="number"
+                        placeholder="0.00"
+                        validation="required|min:0"
+                        :validation-label="getPaymentMethodName(code)"
+                        :value="balance"
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -94,11 +151,14 @@
 
 <script setup>
 import { useCashRegisterStore } from "~/stores/cashRegister";
+import { useIndexStore } from "~/stores/index";
 import { toast } from "vue3-toastify";
+import { ToastEvents } from "~/interfaces";
 
 // ----- Define Refs ---------
 const mainModal = ref(null);
 const cashRegisterStore = useCashRegisterStore();
+const indexStore = useIndexStore();
 const submitting = ref(false);
 const loading = ref(false);
 const balances = ref({});
@@ -108,18 +168,39 @@ const totals = ref({
   balance: 0
 });
 
-// Payment methods mapping
-const paymentMethods = {
-  "EFECTIVO": "Efectivo",
-  "SANTANDER": "Banco Santander",
-  "MACRO": "Banco Macro",
-  "UALA": "Ualá",
-  "MPG": "Mercado Pago",
-  "VAT": "Naranja X/Viumi",
-  "TDB": "Tarjeta Débito",
-  "TCR": "Tarjeta Crédito",
-  "TRA": "Transferencias"
-};
+// Group balances by payment method type
+const cashBalances = computed(() => {
+  const result = {};
+  Object.entries(balances.value).forEach(([code, balance]) => {
+    const method = indexStore.businessConfig?.paymentMethods?.[code];
+    if (method && method.type === 'cash') {
+      result[code] = balance;
+    }
+  });
+  return result;
+});
+
+const transferBalances = computed(() => {
+  const result = {};
+  Object.entries(balances.value).forEach(([code, balance]) => {
+    const method = indexStore.businessConfig?.paymentMethods?.[code];
+    if (method && method.type === 'transfer') {
+      result[code] = balance;
+    }
+  });
+  return result;
+});
+
+const posnetBalances = computed(() => {
+  const result = {};
+  Object.entries(balances.value).forEach(([code, balance]) => {
+    const method = indexStore.businessConfig?.paymentMethods?.[code];
+    if (method && method.type === 'posnet') {
+      result[code] = balance;
+    }
+  });
+  return result;
+});
 
 // ----- Define Data ---------
 const formData = ref({
@@ -129,19 +210,24 @@ const formData = ref({
 
 // ----- Define Methods ---------
 function getPaymentMethodName(code) {
-  return paymentMethods[code] || code;
+  return indexStore.businessConfig?.paymentMethods?.[code]?.name || code;
 }
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: 'ARS'
-  }).format(value);
+  }).format(value || 0);
 }
 
 async function fetchCurrentBalances() {
   loading.value = true;
   try {
+    // Make sure we have the business configuration
+    if (!indexStore.businessConfigFetched) {
+      await indexStore.loadBusinessConfig();
+    }
+    
     // Get today's register summary
     const registerSummary = await cashRegisterStore.getCurrentRegisterSummary();
     
@@ -189,12 +275,18 @@ async function registerClosing() {
     toast.success("Caja cerrada correctamente");
     mainModal.value.closeModal();
     
+    // Emit event to notify parent
+    emit('register-closed');
+    
   } catch (error) {
     toast.error(`Error al cerrar la caja: ${error.message}`);
   } finally {
     submitting.value = false;
   }
 }
+
+// Define emits
+const emit = defineEmits(['register-closed']);
 
 // When modal opens, fetch current balances
 defineExpose({

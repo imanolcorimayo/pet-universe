@@ -182,10 +182,9 @@
       </button>
     </div>
     
-    <!-- Modals -->
-    <!-- <CashRegisterOpening ref="openRegisterModal" @register-opened="cashRegisterStore.loadCurrentRegister()" /> -->
-    <!-- <CashRegisterTransaction ref="transactionModal" :transaction-to-edit="transactionToEdit" /> -->
-    <!-- <CashRegisterClosing ref="closeRegisterModal" @register-closed="cashRegisterStore.loadCurrentRegister()" /> -->
+    <CashRegisterOpening ref="openRegisterModal" @register-opened="cashRegisterStore.loadCurrentRegister()" />
+    <CashRegisterTransaction ref="transactionModal" :transaction-to-edit="transactionToEdit" />
+    <CashRegisterClosing ref="closeRegisterModal" @register-closed="cashRegisterStore.loadCurrentRegister()" />
   </div>
 </template>
 

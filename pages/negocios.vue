@@ -94,7 +94,7 @@
           <div class="form-control">
             <label class="label">Teléfono*</label>
             <input
-              @input="() => (newBusiness.phone = formatPhoneNumber(newBusiness.phone))"
+              @input="() => {(newBusiness.phone = formatPhoneNumber(newBusiness.phone));}"
               maxlength="20"
               v-model="newBusiness.phone"
               type="tel"
@@ -221,12 +221,6 @@ async function joinBusiness() {
   } finally {
     isLoadingJoin.value = false;
   }
-}
-
-// Format phone number function
-function formatPhoneNumber(phoneNumber) {
-  // Add phone number formatting implementation if needed
-  return phoneNumber;
 }
 
 async function createBusiness() {

@@ -111,3 +111,38 @@ registerTransaction/
     updatedBy: string            // User ID who updated the transaction
     updatedByName: string        // Name of user who updated the transaction
 ```
+
+### businessConfig
+Stores configuration settings for businesses including payment methods and categories.
+
+```
+businessConfig/ 
+  {document-id}/ 
+    businessId: string // References the business this config belongs to 
+    paymentMethods: { // Available payment methods for this business 
+      [methodCode]: { // e.g., "EFECTIVO", "SANTANDER", etc. 
+        name: string // Display name of the payment method 
+        type: string // "cash" | "transfer" | "posnet" - Used for grouping 
+        active: boolean // Whether this method is active 
+        isDefault: boolean // Whether this is a default/suggested method 
+      } 
+    } 
+    incomeCategories: { // Available income categories 
+      [categoryCode]: { // e.g., "sales", "other_income", etc. 
+        name: string // Display name of the category 
+        active: boolean // Whether this category is active 
+        isDefault: boolean // Whether this is a default category 
+      } 
+    } 
+    expenseCategories: { // Available expense categories 
+      [categoryCode]: { // e.g., "purchases", "services", etc. 
+        name: string // Display name of the category 
+        active: boolean // Whether this category is active 
+        isDefault: boolean // Whether this is a default category 
+      } 
+    } 
+    createdAt: Timestamp // When the config was created 
+    updatedAt: Timestamp // When the config was last updated 
+    createdBy: string // User ID who created the config 
+    updatedBy: string // User ID who last updated the config
+```
