@@ -3,7 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineNuxtConfig({
   devtools: { enabled: true },
   ssr: false,
-  css: ["~/assets/css/main.css"],
+  css: ["~/assets/css/main.css", "vue3-toastify/dist/index.css"],
   modules: [
     "@pinia/nuxt", 
     "nuxt-vuefire",

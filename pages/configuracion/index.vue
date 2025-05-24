@@ -1,13 +1,18 @@
-// filepath: /home/imanol/projects/wiseutils/pet-universe/pages/configuracion/index.vue
+// filepath:
+/home/imanol/projects/wiseutils/pet-universe/pages/configuracion/index.vue
 <template>
   <div class="w-full p-4">
     <div class="w-full max-w-6xl mx-auto">
       <h1 class="text-2xl font-bold text-gray-800">Configuración General</h1>
-      <p class="text-gray-600 mb-6">Administra los parámetros generales de tu tienda</p>
+      <p class="text-gray-600 mb-6">
+        Administra los parámetros generales de tu tienda
+      </p>
 
       <!-- Loading state -->
       <div v-if="loading" class="flex justify-center items-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div
+          class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"
+        ></div>
       </div>
 
       <!-- Configuration content -->
@@ -15,12 +20,16 @@
         <!-- Tabs -->
         <div class="border-b">
           <nav class="flex -mb-px">
-            <button 
-              v-for="tab in tabs" 
+            <button
+              v-for="tab in tabs"
               :key="tab.id"
               @click="activeTab = tab.id"
               class="px-6 py-3 border-b-2 font-medium text-sm"
-              :class="activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+              :class="
+                activeTab === tab.id
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              "
             >
               {{ tab.name }}
             </button>
@@ -31,8 +40,8 @@
         <div v-if="activeTab === 'payment-methods'" class="p-6">
           <div class="flex justify-between items-center mb-6">
             <h2 class="text-lg font-medium">Métodos de Pago</h2>
-            <button 
-              @click="showNewPaymentMethodModal = true" 
+            <button
+              @click="showNewPaymentMethodModal = true"
               class="btn bg-primary text-white hover:bg-primary/90 text-sm"
             >
               <span class="flex items-center gap-1">
@@ -54,35 +63,71 @@
                 <table class="min-w-full">
                   <thead>
                     <tr>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Código
+                      </th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Nombre
+                      </th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Estado
+                      </th>
+                      <th
+                        class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-200">
-                    <tr v-for="(method, code) in cashMethods" :key="code" class="text-sm">
+                    <tr
+                      v-for="(method, code) in cashMethods"
+                      :key="code"
+                      class="text-sm"
+                    >
                       <td class="py-3 pr-3 font-medium">{{ code }}</td>
                       <td class="py-3 pr-3">{{ method.name }}</td>
                       <td class="py-3 pr-3">
-                        <span 
+                        <span
                           class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                          :class="method.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+                          :class="
+                            method.active
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          "
                         >
-                          {{ method.active ? 'Activo' : 'Inactivo' }}
+                          {{ method.active ? "Activo" : "Inactivo" }}
                         </span>
                       </td>
                       <td class="py-3 text-right">
-                        <button 
-                          @click="editPaymentMethod(code, method)"
-                          class="text-indigo-600 hover:text-indigo-900 text-sm"
-                        >
-                          Editar
-                        </button>
+                        <div class="flex justify-end gap-2">
+                          <button
+                            @click="editPaymentMethod(code, method)"
+                            class="text-indigo-600 hover:text-indigo-900 text-sm"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            @click="
+                              confirmDeletePaymentMethod(code, method.name)
+                            "
+                            class="text-red-600 hover:text-red-900 text-sm"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     <tr v-if="Object.keys(cashMethods).length === 0">
-                      <td colspan="4" class="py-4 text-center text-gray-500">No hay métodos de pago configurados en esta categoría</td>
+                      <td colspan="4" class="py-4 text-center text-gray-500">
+                        No hay métodos de pago configurados en esta categoría
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -99,35 +144,71 @@
                 <table class="min-w-full">
                   <thead>
                     <tr>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Código
+                      </th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Nombre
+                      </th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Estado
+                      </th>
+                      <th
+                        class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-200">
-                    <tr v-for="(method, code) in transferMethods" :key="code" class="text-sm">
+                    <tr
+                      v-for="(method, code) in transferMethods"
+                      :key="code"
+                      class="text-sm"
+                    >
                       <td class="py-3 pr-3 font-medium">{{ code }}</td>
                       <td class="py-3 pr-3">{{ method.name }}</td>
                       <td class="py-3 pr-3">
-                        <span 
+                        <span
                           class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                          :class="method.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+                          :class="
+                            method.active
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          "
                         >
-                          {{ method.active ? 'Activo' : 'Inactivo' }}
+                          {{ method.active ? "Activo" : "Inactivo" }}
                         </span>
                       </td>
                       <td class="py-3 text-right">
-                        <button 
-                          @click="editPaymentMethod(code, method)"
-                          class="text-indigo-600 hover:text-indigo-900 text-sm"
-                        >
-                          Editar
-                        </button>
+                        <div class="flex justify-end gap-2">
+                          <button
+                            @click="editPaymentMethod(code, method)"
+                            class="text-indigo-600 hover:text-indigo-900 text-sm"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            @click="
+                              confirmDeletePaymentMethod(code, method.name)
+                            "
+                            class="text-red-600 hover:text-red-900 text-sm"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     <tr v-if="Object.keys(transferMethods).length === 0">
-                      <td colspan="4" class="py-4 text-center text-gray-500">No hay métodos de pago configurados en esta categoría</td>
+                      <td colspan="4" class="py-4 text-center text-gray-500">
+                        No hay métodos de pago configurados en esta categoría
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -144,35 +225,71 @@
                 <table class="min-w-full">
                   <thead>
                     <tr>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Código
+                      </th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Nombre
+                      </th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Estado
+                      </th>
+                      <th
+                        class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-200">
-                    <tr v-for="(method, code) in posnetMethods" :key="code" class="text-sm">
+                    <tr
+                      v-for="(method, code) in posnetMethods"
+                      :key="code"
+                      class="text-sm"
+                    >
                       <td class="py-3 pr-3 font-medium">{{ code }}</td>
                       <td class="py-3 pr-3">{{ method.name }}</td>
                       <td class="py-3 pr-3">
-                        <span 
+                        <span
                           class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                          :class="method.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+                          :class="
+                            method.active
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          "
                         >
-                          {{ method.active ? 'Activo' : 'Inactivo' }}
+                          {{ method.active ? "Activo" : "Inactivo" }}
                         </span>
                       </td>
                       <td class="py-3 text-right">
-                        <button 
-                          @click="editPaymentMethod(code, method)"
-                          class="text-indigo-600 hover:text-indigo-900 text-sm"
-                        >
-                          Editar
-                        </button>
+                        <div class="flex justify-end gap-2">
+                          <button
+                            @click="editPaymentMethod(code, method)"
+                            class="text-indigo-600 hover:text-indigo-900 text-sm"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            @click="
+                              confirmDeletePaymentMethod(code, method.name)
+                            "
+                            class="text-red-600 hover:text-red-900 text-sm"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     <tr v-if="Object.keys(posnetMethods).length === 0">
-                      <td colspan="4" class="py-4 text-center text-gray-500">No hay métodos de pago configurados en esta categoría</td>
+                      <td colspan="4" class="py-4 text-center text-gray-500">
+                        No hay métodos de pago configurados en esta categoría
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -188,8 +305,8 @@
             <div>
               <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-medium">Categorías de Ingresos</h2>
-                <button 
-                  @click="showNewIncomeCategoryModal = true" 
+                <button
+                  @click="showNewIncomeCategoryModal = true"
                   class="btn bg-primary text-white hover:bg-primary/90 text-sm"
                 >
                   <span class="flex items-center gap-1">
@@ -198,40 +315,80 @@
                   </span>
                 </button>
               </div>
-              
+
               <div class="bg-gray-50 rounded-lg p-4">
                 <table class="min-w-full">
                   <thead>
                     <tr>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Código
+                      </th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Nombre
+                      </th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Estado
+                      </th>
+                      <th
+                        class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-200">
-                    <tr v-for="(category, code) in incomeCategories" :key="code" class="text-sm">
+                    <tr
+                      v-for="(category, code) in incomeCategories"
+                      :key="code"
+                      class="text-sm"
+                    >
                       <td class="py-3 pr-3 font-medium">{{ code }}</td>
                       <td class="py-3 pr-3">{{ category.name }}</td>
                       <td class="py-3 pr-3">
-                        <span 
+                        <span
                           class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                          :class="category.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+                          :class="
+                            category.active
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          "
                         >
-                          {{ category.active ? 'Activa' : 'Inactiva' }}
+                          {{ category.active ? "Activa" : "Inactiva" }}
                         </span>
                       </td>
                       <td class="py-3 text-right">
-                        <button 
-                          @click="editCategory('income', code, category)"
-                          class="text-indigo-600 hover:text-indigo-900 text-sm"
-                        >
-                          Editar
-                        </button>
+                        <div class="flex justify-end gap-2">
+                          <button
+                            @click="editCategory('income', code, category)"
+                            class="text-indigo-600 hover:text-indigo-900 text-sm"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            @click="
+                              confirmDeleteCategory(
+                                'income',
+                                code,
+                                category.name
+                              )
+                            "
+                            class="text-red-600 hover:text-red-900 text-sm"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     <tr v-if="Object.keys(incomeCategories).length === 0">
-                      <td colspan="4" class="py-4 text-center text-gray-500">No hay categorías configuradas</td>
+                      <td colspan="4" class="py-4 text-center text-gray-500">
+                        No hay categorías configuradas
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -242,8 +399,8 @@
             <div>
               <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-medium">Categorías de Egresos</h2>
-                <button 
-                  @click="showNewExpenseCategoryModal = true" 
+                <button
+                  @click="showNewExpenseCategoryModal = true"
                   class="btn bg-primary text-white hover:bg-primary/90 text-sm"
                 >
                   <span class="flex items-center gap-1">
@@ -252,40 +409,80 @@
                   </span>
                 </button>
               </div>
-              
+
               <div class="bg-gray-50 rounded-lg p-4">
                 <table class="min-w-full">
                   <thead>
                     <tr>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Código
+                      </th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Nombre
+                      </th>
+                      <th
+                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Estado
+                      </th>
+                      <th
+                        class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-200">
-                    <tr v-for="(category, code) in expenseCategories" :key="code" class="text-sm">
+                    <tr
+                      v-for="(category, code) in expenseCategories"
+                      :key="code"
+                      class="text-sm"
+                    >
                       <td class="py-3 pr-3 font-medium">{{ code }}</td>
                       <td class="py-3 pr-3">{{ category.name }}</td>
                       <td class="py-3 pr-3">
-                        <span 
+                        <span
                           class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                          :class="category.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+                          :class="
+                            category.active
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          "
                         >
-                          {{ category.active ? 'Activa' : 'Inactiva' }}
+                          {{ category.active ? "Activa" : "Inactiva" }}
                         </span>
                       </td>
                       <td class="py-3 text-right">
-                        <button 
-                          @click="editCategory('expense', code, category)"
-                          class="text-indigo-600 hover:text-indigo-900 text-sm"
-                        >
-                          Editar
-                        </button>
+                        <div class="flex justify-end gap-2">
+                          <button
+                            @click="editCategory('expense', code, category)"
+                            class="text-indigo-600 hover:text-indigo-900 text-sm"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            @click="
+                              confirmDeleteCategory(
+                                'expense',
+                                code,
+                                category.name
+                              )
+                            "
+                            class="text-red-600 hover:text-red-900 text-sm"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     <tr v-if="Object.keys(expenseCategories).length === 0">
-                      <td colspan="4" class="py-4 text-center text-gray-500">No hay categorías configuradas</td>
+                      <td colspan="4" class="py-4 text-center text-gray-500">
+                        No hay categorías configuradas
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -297,38 +494,42 @@
     </div>
 
     <!-- New Payment Method Modal -->
-    <ModalStructure
-      ref="newPaymentMethodModal"
-      title="Nuevo Método de Pago"
-    >
+    <ModalStructure ref="newPaymentMethodModal" title="Nuevo Método de Pago">
       <form @submit.prevent="addPaymentMethod">
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700">Código</label>
-            <input 
-              v-model="newPaymentMethod.code" 
-              type="text" 
+            <label class="block text-sm font-medium text-gray-700"
+              >Código</label
+            >
+            <input
+              v-model="newPaymentMethod.code"
+              @input="newPaymentMethod.code = codifyCode(newPaymentMethod.code)"
+              type="text"
               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
               placeholder="EJ: EFECTIVO, SANTANDER"
               maxlength="10"
             />
-            <p class="text-xs text-gray-500 mt-1">Solo letras mayúsculas, números y guiones bajos</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Solo letras mayúsculas, números y guiones bajos
+            </p>
           </div>
-          
+
           <div>
-            <label class="block text-sm font-medium text-gray-700">Nombre</label>
-            <input 
-              v-model="newPaymentMethod.name" 
-              type="text" 
+            <label class="block text-sm font-medium text-gray-700"
+              >Nombre</label
+            >
+            <input
+              v-model="newPaymentMethod.name"
+              type="text"
               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
               placeholder="Ej: Efectivo, Santander"
             />
           </div>
-          
+
           <div>
             <label class="block text-sm font-medium text-gray-700">Tipo</label>
-            <select 
-              v-model="newPaymentMethod.type" 
+            <select
+              v-model="newPaymentMethod.type"
               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
             >
               <option value="cash">Efectivo</option>
@@ -336,36 +537,38 @@
               <option value="posnet">Posnet</option>
             </select>
           </div>
-          
+
           <div class="flex items-center">
-            <input 
-              v-model="newPaymentMethod.active" 
-              type="checkbox" 
+            <input
+              v-model="newPaymentMethod.active"
+              type="checkbox"
               class="rounded border-gray-300 text-primary focus:ring-primary"
             />
             <label class="ml-2 block text-sm text-gray-700">Activo</label>
           </div>
-          
+
           <div class="flex items-center">
-            <input 
-              v-model="newPaymentMethod.isDefault" 
-              type="checkbox" 
+            <input
+              v-model="newPaymentMethod.isDefault"
+              type="checkbox"
               class="rounded border-gray-300 text-primary focus:ring-primary"
             />
-            <label class="ml-2 block text-sm text-gray-700">Predeterminado</label>
+            <label class="ml-2 block text-sm text-gray-700"
+              >Predeterminado</label
+            >
           </div>
         </div>
       </form>
-      
+
       <template #footer>
-        <button 
-          type="button" 
-          @click="closeNewPaymentMethodModal" 
+        <button
+          type="button"
+          @click="closeNewPaymentMethodModal"
           class="btn btn-outline"
         >
           Cancelar
         </button>
-        <button 
+        <button
           type="button"
           @click="addPaymentMethod"
           class="btn bg-primary text-white hover:bg-primary/90"
@@ -377,35 +580,36 @@
     </ModalStructure>
 
     <!-- Edit Payment Method Modal -->
-    <ModalStructure
-      ref="editPaymentMethodModal"
-      title="Editar Método de Pago"
-    >
+    <ModalStructure ref="editPaymentMethodModal" title="Editar Método de Pago">
       <form @submit.prevent="updatePaymentMethod">
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700">Código</label>
-            <input 
-              :value="editingPaymentMethodCode" 
-              type="text" 
+            <label class="block text-sm font-medium text-gray-700"
+              >Código</label
+            >
+            <input
+              :value="editingPaymentMethodCode"
+              type="text"
               class="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm"
               disabled
             />
           </div>
-          
+
           <div>
-            <label class="block text-sm font-medium text-gray-700">Nombre</label>
-            <input 
-              v-model="editingPaymentMethod.name" 
-              type="text" 
+            <label class="block text-sm font-medium text-gray-700"
+              >Nombre</label
+            >
+            <input
+              v-model="editingPaymentMethod.name"
+              type="text"
               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
             />
           </div>
-          
+
           <div>
             <label class="block text-sm font-medium text-gray-700">Tipo</label>
-            <select 
-              v-model="editingPaymentMethod.type" 
+            <select
+              v-model="editingPaymentMethod.type"
               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
             >
               <option value="cash">Efectivo</option>
@@ -413,36 +617,38 @@
               <option value="posnet">Posnet</option>
             </select>
           </div>
-          
+
           <div class="flex items-center">
-            <input 
-              v-model="editingPaymentMethod.active" 
-              type="checkbox" 
+            <input
+              v-model="editingPaymentMethod.active"
+              type="checkbox"
               class="rounded border-gray-300 text-primary focus:ring-primary"
             />
             <label class="ml-2 block text-sm text-gray-700">Activo</label>
           </div>
-          
+
           <div class="flex items-center">
-            <input 
-              v-model="editingPaymentMethod.isDefault" 
-              type="checkbox" 
+            <input
+              v-model="editingPaymentMethod.isDefault"
+              type="checkbox"
               class="rounded border-gray-300 text-primary focus:ring-primary"
             />
-            <label class="ml-2 block text-sm text-gray-700">Predeterminado</label>
+            <label class="ml-2 block text-sm text-gray-700"
+              >Predeterminado</label
+            >
           </div>
         </div>
       </form>
-      
+
       <template #footer>
-        <button 
-          type="button" 
-          @click="closeEditPaymentMethodModal" 
+        <button
+          type="button"
+          @click="closeEditPaymentMethodModal"
           class="btn btn-outline"
         >
           Cancelar
         </button>
-        <button 
+        <button
           type="button"
           @click="updatePaymentMethod"
           class="btn bg-primary text-white hover:bg-primary/90"
@@ -461,56 +667,65 @@
       <form @submit.prevent="addIncomeCategory">
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700">Código</label>
-            <input 
-              v-model="newCategory.code" 
-              type="text" 
+            <label class="block text-sm font-medium text-gray-700"
+              >Código</label
+            >
+            <input
+              v-model="newCategory.code"
+              @input="newCategory.code = slugify(newCategory.code)"
+              type="text"
               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
               placeholder="Ej: sales, other_income"
               maxlength="20"
             />
-            <p class="text-xs text-gray-500 mt-1">Solo letras minúsculas, números y guiones bajos</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Solo letras minúsculas, números y guiones bajos
+            </p>
           </div>
-          
+
           <div>
-            <label class="block text-sm font-medium text-gray-700">Nombre</label>
-            <input 
-              v-model="newCategory.name" 
-              type="text" 
+            <label class="block text-sm font-medium text-gray-700"
+              >Nombre</label
+            >
+            <input
+              v-model="newCategory.name"
+              type="text"
               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
               placeholder="Ej: Ventas, Otros ingresos"
             />
           </div>
-          
+
           <div class="flex items-center">
-            <input 
-              v-model="newCategory.active" 
-              type="checkbox" 
+            <input
+              v-model="newCategory.active"
+              type="checkbox"
               class="rounded border-gray-300 text-primary focus:ring-primary"
             />
             <label class="ml-2 block text-sm text-gray-700">Activa</label>
           </div>
-          
+
           <div class="flex items-center">
-            <input 
-              v-model="newCategory.isDefault" 
-              type="checkbox" 
+            <input
+              v-model="newCategory.isDefault"
+              type="checkbox"
               class="rounded border-gray-300 text-primary focus:ring-primary"
             />
-            <label class="ml-2 block text-sm text-gray-700">Predeterminada</label>
+            <label class="ml-2 block text-sm text-gray-700"
+              >Predeterminada</label
+            >
           </div>
         </div>
       </form>
-      
+
       <template #footer>
-        <button 
-          type="button" 
-          @click="closeNewIncomeCategoryModal" 
+        <button
+          type="button"
+          @click="closeNewIncomeCategoryModal"
           class="btn btn-outline"
         >
           Cancelar
         </button>
-        <button 
+        <button
           type="button"
           @click="addIncomeCategory"
           class="btn bg-primary text-white hover:bg-primary/90"
@@ -529,56 +744,65 @@
       <form @submit.prevent="addExpenseCategory">
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700">Código</label>
-            <input 
-              v-model="newCategory.code" 
-              type="text" 
+            <label class="block text-sm font-medium text-gray-700"
+              >Código</label
+            >
+            <input
+              v-model="newCategory.code"
+              @input="newCategory.code = slugify(newCategory.code)"
+              type="text"
               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
               placeholder="Ej: purchases, services"
               maxlength="20"
             />
-            <p class="text-xs text-gray-500 mt-1">Solo letras minúsculas, números y guiones bajos</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Solo letras minúsculas, números y guiones medios
+            </p>
           </div>
-          
+
           <div>
-            <label class="block text-sm font-medium text-gray-700">Nombre</label>
-            <input 
-              v-model="newCategory.name" 
-              type="text" 
+            <label class="block text-sm font-medium text-gray-700"
+              >Nombre</label
+            >
+            <input
+              v-model="newCategory.name"
+              type="text"
               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
               placeholder="Ej: Compras, Servicios"
             />
           </div>
-          
+
           <div class="flex items-center">
-            <input 
-              v-model="newCategory.active" 
-              type="checkbox" 
+            <input
+              v-model="newCategory.active"
+              type="checkbox"
               class="rounded border-gray-300 text-primary focus:ring-primary"
             />
             <label class="ml-2 block text-sm text-gray-700">Activa</label>
           </div>
-          
+
           <div class="flex items-center">
-            <input 
-              v-model="newCategory.isDefault" 
-              type="checkbox" 
+            <input
+              v-model="newCategory.isDefault"
+              type="checkbox"
               class="rounded border-gray-300 text-primary focus:ring-primary"
             />
-            <label class="ml-2 block text-sm text-gray-700">Predeterminada</label>
+            <label class="ml-2 block text-sm text-gray-700"
+              >Predeterminada</label
+            >
           </div>
         </div>
       </form>
-      
+
       <template #footer>
-        <button 
-          type="button" 
-          @click="closeNewExpenseCategoryModal" 
+        <button
+          type="button"
+          @click="closeNewExpenseCategoryModal"
           class="btn btn-outline"
         >
           Cancelar
         </button>
-        <button 
+        <button
           type="button"
           @click="addExpenseCategory"
           class="btn bg-primary text-white hover:bg-primary/90"
@@ -592,58 +816,66 @@
     <!-- Edit Category Modal -->
     <ModalStructure
       ref="editCategoryModal"
-      :title="`Editar Categoría de ${editingCategoryType === 'income' ? 'Ingreso' : 'Egreso'}`"
+      :title="`Editar Categoría de ${
+        editingCategoryType === 'income' ? 'Ingreso' : 'Egreso'
+      }`"
     >
       <form @submit.prevent="updateCategory">
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700">Código</label>
-            <input 
-              :value="editingCategoryCode" 
-              type="text" 
+            <label class="block text-sm font-medium text-gray-700"
+              >Código</label
+            >
+            <input
+              :value="editingCategoryCode"
+              type="text"
               class="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm"
               disabled
             />
           </div>
-          
+
           <div>
-            <label class="block text-sm font-medium text-gray-700">Nombre</label>
-            <input 
-              v-model="editingCategory.name" 
-              type="text" 
+            <label class="block text-sm font-medium text-gray-700"
+              >Nombre</label
+            >
+            <input
+              v-model="editingCategory.name"
+              type="text"
               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
             />
           </div>
-          
+
           <div class="flex items-center">
-            <input 
-              v-model="editingCategory.active" 
-              type="checkbox" 
+            <input
+              v-model="editingCategory.active"
+              type="checkbox"
               class="rounded border-gray-300 text-primary focus:ring-primary"
             />
             <label class="ml-2 block text-sm text-gray-700">Activa</label>
           </div>
-          
+
           <div class="flex items-center">
-            <input 
-              v-model="editingCategory.isDefault" 
-              type="checkbox" 
+            <input
+              v-model="editingCategory.isDefault"
+              type="checkbox"
               class="rounded border-gray-300 text-primary focus:ring-primary"
             />
-            <label class="ml-2 block text-sm text-gray-700">Predeterminada</label>
+            <label class="ml-2 block text-sm text-gray-700"
+              >Predeterminada</label
+            >
           </div>
         </div>
       </form>
-      
+
       <template #footer>
-        <button 
-          type="button" 
-          @click="closeEditCategoryModal" 
+        <button
+          type="button"
+          @click="closeEditCategoryModal"
           class="btn btn-outline"
         >
           Cancelar
         </button>
-        <button 
+        <button
           type="button"
           @click="updateCategory"
           class="btn bg-primary text-white hover:bg-primary/90"
@@ -653,15 +885,48 @@
         </button>
       </template>
     </ModalStructure>
+
+    <!-- Delete Confirmation Modal -->
+    <ModalStructure
+      ref="deleteConfirmationModal"
+      :title="deleteModalTitle"
+    >
+      <div class="space-y-4">
+        <p class="text-gray-700">
+          ¿Estás seguro que deseas eliminar <span class="font-medium">{{ deleteItemName }}</span>?
+        </p>
+        <p class="text-sm text-gray-500">
+          Esta acción no se puede deshacer. Si este elemento está siendo utilizado en transacciones anteriores, 
+          podría afectar la consistencia de los datos. Para esconderlo, usa "Editar" y desactivalo.
+        </p>
+      </div>
+      
+      <template #footer>
+        <button 
+          type="button" 
+          @click="closeDeleteConfirmationModal" 
+          class="btn btn-outline"
+        >
+          Cancelar
+        </button>
+        <button 
+          type="button"
+          @click="executeDelete"
+          class="btn bg-red-600 hover:bg-red-700 text-white"
+        >
+          Eliminar
+        </button>
+      </template>
+    </ModalStructure>
   </div>
 </template>
 
 <script setup>
-import { ToastEvents } from '~/interfaces';
+import { ToastEvents } from "~/interfaces";
 import IconParkOutlinePlus from "~icons/icon-park-outline/plus";
-import LucideBanknote from '~icons/lucide/banknote';
+import LucideBanknote from "~icons/lucide/banknote";
 import IconParkOutlineGlobe from "~icons/icon-park-outline/globe";
-import QuillCreditcard from '~icons/quill/creditcard';
+import QuillCreditcard from "~icons/quill/creditcard";
 
 // Store
 const indexStore = useIndexStore();
@@ -671,10 +936,10 @@ const loading = ref(true);
 
 // Tabs
 const tabs = [
-  { id: 'payment-methods', name: 'Métodos de Pago' },
-  { id: 'categories', name: 'Categorías' }
+  { id: "payment-methods", name: "Métodos de Pago" },
+  { id: "categories", name: "Categorías" },
 ];
-const activeTab = ref('payment-methods');
+const activeTab = ref("payment-methods");
 
 // Modal references - updated to use ModalStructure
 const newPaymentMethodModal = ref(null);
@@ -682,79 +947,92 @@ const editPaymentMethodModal = ref(null);
 const newIncomeCategoryModal = ref(null);
 const newExpenseCategoryModal = ref(null);
 const editCategoryModal = ref(null);
+const deleteConfirmationModal = ref(null);
 
 // Modal visibility states
 const showNewPaymentMethodModal = ref(false);
 const showNewIncomeCategoryModal = ref(false);
 const showNewExpenseCategoryModal = ref(false);
+const deleteModalTitle = ref('');
+const deleteItemName = ref('');
+const deleteType = ref(''); // 'payment-method', 'income-category', 'expense-category'
+const deleteItemCode = ref('');
 
 // New payment method form
 const newPaymentMethod = ref({
-  code: '',
-  name: '',
-  type: 'cash',
+  code: "",
+  name: "",
+  type: "cash",
   active: true,
-  isDefault: false
+  isDefault: false,
 });
 
 // New category form
 const newCategory = ref({
-  code: '',
-  name: '',
+  code: "",
+  name: "",
   active: true,
-  isDefault: false
+  isDefault: false,
 });
 
 // Editing states
-const editingPaymentMethodCode = ref('');
-const editingPaymentMethod = ref({ name: '', type: 'cash', active: true, isDefault: false });
-const editingCategoryType = ref('income');
-const editingCategoryCode = ref('');
-const editingCategory = ref({ name: '', active: true, isDefault: false });
+const editingPaymentMethodCode = ref("");
+const editingPaymentMethod = ref({
+  name: "",
+  type: "cash",
+  active: true,
+  isDefault: false,
+});
+const editingCategoryType = ref("income");
+const editingCategoryCode = ref("");
+const editingCategory = ref({ name: "", active: true, isDefault: false });
 
 // Form validation
 const canAddPaymentMethod = computed(() => {
   return (
-    newPaymentMethod.value.code && 
-    newPaymentMethod.value.code.trim() !== '' && 
+    newPaymentMethod.value.code &&
+    newPaymentMethod.value.code.trim() !== "" &&
     /^[A-Z0-9_]+$/.test(newPaymentMethod.value.code) &&
-    newPaymentMethod.value.name && 
-    newPaymentMethod.value.name.trim() !== ''
+    newPaymentMethod.value.name &&
+    newPaymentMethod.value.name.trim() !== ""
   );
 });
 
 const canUpdatePaymentMethod = computed(() => {
-  return editingPaymentMethod.value.name && editingPaymentMethod.value.name.trim() !== '';
+  return (
+    editingPaymentMethod.value.name &&
+    editingPaymentMethod.value.name.trim() !== ""
+  );
 });
 
 const canAddCategory = computed(() => {
   return (
-    newCategory.value.code && 
-    newCategory.value.code.trim() !== '' && 
-    /^[a-z0-9_]+$/.test(newCategory.value.code) &&
-    newCategory.value.name && 
-    newCategory.value.name.trim() !== ''
+    newCategory.value.code &&
+    newCategory.value.code.trim() !== "" &&
+    /^[a-z0-9\-]+$/.test(newCategory.value.code) && // This checks that ONLY allowed characters exist
+    newCategory.value.name &&
+    newCategory.value.name.trim() !== ""
   );
 });
 
 const canUpdateCategory = computed(() => {
-  return editingCategory.value.name && editingCategory.value.name.trim() !== '';
+  return editingCategory.value.name && editingCategory.value.name.trim() !== "";
 });
 
 // Data computed properties
 const cashMethods = computed(() => {
   if (!indexStore.businessConfig) return {};
-  return indexStore.getPaymentMethodsByType('cash');
+  return indexStore.getPaymentMethodsByType("cash");
 });
 
 const transferMethods = computed(() => {
   if (!indexStore.businessConfig) return {};
-  return indexStore.getPaymentMethodsByType('transfer');
+  return indexStore.getPaymentMethodsByType("transfer");
 });
 
 const posnetMethods = computed(() => {
   if (!indexStore.businessConfig) return {};
-  return indexStore.getPaymentMethodsByType('posnet');
+  return indexStore.getPaymentMethodsByType("posnet");
 });
 
 const incomeCategories = computed(() => {
@@ -815,20 +1093,20 @@ function closeEditCategoryModal() {
 
 function resetNewPaymentMethod() {
   newPaymentMethod.value = {
-    code: '',
-    name: '',
-    type: 'cash',
+    code: "",
+    name: "",
+    type: "cash",
     active: true,
-    isDefault: false
+    isDefault: false,
   };
 }
 
 function resetNewCategory() {
   newCategory.value = {
-    code: '',
-    name: '',
+    code: "",
+    name: "",
     active: true,
-    isDefault: false
+    isDefault: false,
   };
 }
 
@@ -846,6 +1124,27 @@ function editCategory(type, code, category) {
   editCategoryModal.value.showModal();
 }
 
+// Delete confirmation handlers
+function confirmDeletePaymentMethod(code, name) {
+  deleteModalTitle.value = 'Eliminar Método de Pago';
+  deleteItemName.value = name;
+  deleteItemCode.value = code;
+  deleteType.value = 'payment-method';
+  deleteConfirmationModal.value.showModal();
+}
+
+function confirmDeleteCategory(type, code, name) {
+  deleteModalTitle.value = `Eliminar Categoría de ${type === 'income' ? 'Ingreso' : 'Egreso'}`;
+  deleteItemName.value = name;
+  deleteItemCode.value = code;
+  deleteType.value = `${type}-category`;
+  deleteConfirmationModal.value.showModal();
+}
+
+function closeDeleteConfirmationModal() {
+  deleteConfirmationModal.value.closeModal();
+}
+
 // Submit methods
 async function addPaymentMethod() {
   const success = await indexStore.addPaymentMethod(
@@ -854,10 +1153,10 @@ async function addPaymentMethod() {
       name: newPaymentMethod.value.name,
       type: newPaymentMethod.value.type,
       active: newPaymentMethod.value.active,
-      isDefault: newPaymentMethod.value.isDefault
+      isDefault: newPaymentMethod.value.isDefault,
     }
   );
-  
+
   if (success) {
     closeNewPaymentMethodModal();
   }
@@ -870,10 +1169,10 @@ async function updatePaymentMethod() {
       name: editingPaymentMethod.value.name,
       type: editingPaymentMethod.value.type,
       active: editingPaymentMethod.value.active,
-      isDefault: editingPaymentMethod.value.isDefault || false
+      isDefault: editingPaymentMethod.value.isDefault || false,
     }
   );
-  
+
   if (success) {
     closeEditPaymentMethodModal();
   }
@@ -881,15 +1180,15 @@ async function updatePaymentMethod() {
 
 async function addIncomeCategory() {
   const success = await indexStore.addCategory(
-    'income',
+    "income",
     newCategory.value.code,
     {
       name: newCategory.value.name,
       active: newCategory.value.active,
-      isDefault: newCategory.value.isDefault
+      isDefault: newCategory.value.isDefault,
     }
   );
-  
+
   if (success) {
     closeNewIncomeCategoryModal();
   }
@@ -897,15 +1196,15 @@ async function addIncomeCategory() {
 
 async function addExpenseCategory() {
   const success = await indexStore.addCategory(
-    'expense',
+    "expense",
     newCategory.value.code,
     {
       name: newCategory.value.name,
       active: newCategory.value.active,
-      isDefault: newCategory.value.isDefault
+      isDefault: newCategory.value.isDefault,
     }
   );
-  
+
   if (success) {
     closeNewExpenseCategoryModal();
   }
@@ -918,12 +1217,33 @@ async function updateCategory() {
     {
       name: editingCategory.value.name,
       active: editingCategory.value.active,
-      isDefault: editingCategory.value.isDefault
+      isDefault: editingCategory.value.isDefault,
     }
   );
-  
+
   if (success) {
     closeEditCategoryModal();
+  }
+}
+
+async function executeDelete() {
+  let success = false;
+
+  try {
+    if (deleteType.value === 'payment-method') {
+      success = await indexStore.deletePaymentMethod(deleteItemCode.value);
+    } else if (deleteType.value === 'income-category') {
+      success = await indexStore.deleteCategory('income', deleteItemCode.value);
+    } else if (deleteType.value === 'expense-category') {
+      success = await indexStore.deleteCategory('expense', deleteItemCode.value);
+    }
+    
+    if (success) {
+      closeDeleteConfirmationModal();
+    }
+  } catch (error) {
+    console.error('Error during deletion:', error);
+    useToast(ToastEvents.error, `Error al eliminar: ${error.message}`);
   }
 }
 
@@ -934,8 +1254,8 @@ onMounted(async () => {
     await indexStore.loadBusinessConfig();
     loading.value = false;
   } catch (error) {
-    console.error('Error loading business configuration:', error);
-    useToast(ToastEvents.error, 'Error al cargar la configuración del negocio');
+    console.error("Error loading business configuration:", error);
+    useToast(ToastEvents.error, "Error al cargar la configuración del negocio");
     loading.value = false;
   }
 });

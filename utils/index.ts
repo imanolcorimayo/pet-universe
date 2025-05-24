@@ -223,7 +223,6 @@ export const slugify = (text: string) => {
       // Normalize Unicode characters
       // Breaks down accented characters into their base letter and separate diacritical marks (e.g., é becomes e + ´).
       .normalize("NFD")
-      .trim()
       // Remove diacritical marks
       .replace(/[\u0300-\u036f]/g, "")
       // Remove non alphanumeric characters except spaces
@@ -231,6 +230,14 @@ export const slugify = (text: string) => {
       // Replace spaces with dashes
       .replace(/\s+/g, "-")
   );
+};
+
+// codifyCode for payment methods - converts input to uppercase and replaces spaces with underscores
+export const codifyCode = (code: string) => {
+  return code
+    .toUpperCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Z0-9_]/g, "");
 };
 
 // For business configuration

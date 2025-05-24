@@ -11,7 +11,8 @@ import {
   deleteDoc,
   limit,
   documentId,
-  orderBy
+  orderBy,
+  deleteField
 } from "firebase/firestore";
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
@@ -1030,17 +1031,17 @@ export const useIndexStore = defineStore("index", {
         
         // Default income categories
         const defaultIncomeCategories: Record<string, Category> = {
-          "sales": { name: "Ventas", active: true, isDefault: true },
-          "other_income": { name: "Otros ingresos", active: true }
+          "ventas": { name: "Ventas", active: true, isDefault: true },
+          "otros-ingresos": { name: "Otros ingresos", active: true }
         };
         
         // Default expense categories
         const defaultExpenseCategories: Record<string, Category> = {
-          "purchases": { name: "Compras", active: true, isDefault: true },
-          "services": { name: "Servicios", active: true },
-          "maintenance": { name: "Mantenimiento", active: true },
-          "salaries": { name: "Sueldos", active: true },
-          "misc_expenses": { name: "Gastos varios", active: true }
+          "compras": { name: "Compras", active: true, isDefault: true },
+          "servicios": { name: "Servicios", active: true },
+          "mantenimiento": { name: "Mantenimiento", active: true },
+          "salarios": { name: "Sueldos", active: true },
+          "varios": { name: "Gastos varios", active: true }
         };
         
         const configData = {
@@ -1240,6 +1241,104 @@ export const useIndexStore = defineStore("index", {
       } catch (error) {
         console.error('Error adding category:', error);
         useToast(ToastEvents.error, 'Error al añadir la categoría');
+        return false;
+      }
+    },
+    async deletePaymentMethod(code: string): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const isLoggedIn = !!user.value?.uid;
+      
+      if (!isLoggedIn || !this.businessConfig) return false;
+      
+      // TypeScript type assertion
+      if (!user.value) {
+        useToast(ToastEvents.error, 'No se encontró el usuario');
+        return false;
+      }
+      
+      // Check if payment method exists
+      if (!this.businessConfig.paymentMethods || !this.businessConfig.paymentMethods[code]) {
+        useToast(ToastEvents.error, 'El método de pago no existe');
+        return false;
+      }
+      
+      try {
+        // Use Firebase field delete functionality
+        const updateData = {
+          [`paymentMethods.${code}`]: deleteField(),
+          updatedAt: serverTimestamp(),
+          updatedBy: user.value.uid
+        };
+        
+        // Update in Firestore
+        await updateDoc(doc(db, 'businessConfig', this.businessConfig.id), updateData);
+        
+        // Update local state - remove the payment method
+        if (this.businessConfig.paymentMethods) {
+          delete this.businessConfig.paymentMethods[code];
+        }
+        
+        useToast(ToastEvents.success, 'Método de pago eliminado correctamente');
+        return true;
+      } catch (error) {
+        console.error('Error deleting payment method:', error);
+        useToast(ToastEvents.error, 'Error al eliminar el método de pago');
+        return false;
+      }
+    },
+    
+    async deleteCategory(type: 'income' | 'expense', code: string): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const isLoggedIn = !!user.value?.uid;
+      
+      if (!isLoggedIn || !this.businessConfig) return false;
+      
+      // TypeScript type assertion
+      if (!user.value) {
+        useToast(ToastEvents.error, 'No se encontró el usuario');
+        return false;
+      }
+      
+      const categoryType = type === 'income' ? 'incomeCategories' : 'expenseCategories';
+      const categories = type === 'income' ? this.businessConfig.incomeCategories : this.businessConfig.expenseCategories;
+      
+      // Check if category exists
+      if (!categories || !categories[code]) {
+        useToast(ToastEvents.error, 'La categoría no existe');
+        return false;
+      }
+
+      // Check if it's the default category
+      if (categories[code].isDefault) {
+        useToast(ToastEvents.error, 'No se puede eliminar la categoría predeterminada');
+        return false;
+      }
+      
+      try {
+        // Use Firebase field delete functionality
+        const updateData = {
+          [`${categoryType}.${code}`]: deleteField(),
+          updatedAt: serverTimestamp(),
+          updatedBy: user.value.uid
+        };
+        
+        // Update in Firestore
+        await updateDoc(doc(db, 'businessConfig', this.businessConfig.id), updateData);
+        
+        // Update local state - remove the category
+        if (type === 'income' && this.businessConfig.incomeCategories) {
+          delete this.businessConfig.incomeCategories[code];
+        } else if (type === 'expense' && this.businessConfig.expenseCategories) {
+          delete this.businessConfig.expenseCategories[code];
+        }
+        
+        useToast(ToastEvents.success, 'Categoría eliminada correctamente');
+        return true;
+      } catch (error) {
+        console.error('Error deleting category:', error);
+        useToast(ToastEvents.error, 'Error al eliminar la categoría');
         return false;
       }
     }
