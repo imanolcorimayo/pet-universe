@@ -11,7 +11,8 @@ import {
   where, 
   orderBy, 
   serverTimestamp,
-  Timestamp 
+  Timestamp ,
+  limit
 } from 'firebase/firestore';
 import { useLocalStorage } from '@vueuse/core';
 import { ToastEvents } from '~/interfaces';
@@ -192,8 +193,7 @@ export const useCashRegisterStore = defineStore('cashRegister', {
         throw new Error('Error al cargar las transacciones');
       }
     },
-    
-    async loadRegisterHistory(limit = 10) {
+    async loadRegisterHistory(limitElement = 10, fromDate = null, toDate = null) {
       const db = useFirestore();
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
@@ -207,12 +207,28 @@ export const useCashRegisterStore = defineStore('cashRegister', {
       try {
         const cashRegisterRef = collection(db, 'cashRegister');
         
-        const q = query(
-          cashRegisterRef,
+        let queryConstraints = [
           where('businessId', '==', currentBusinessId.value),
+        ];
+        
+        // Add date range filters if provided
+        if (fromDate) {
+          queryConstraints.push(where('openingDate', '>=', Timestamp.fromDate(fromDate)));
+        }
+        
+        if (toDate) {
+          queryConstraints.push(where('openingDate', '<=', Timestamp.fromDate(toDate)));
+        }
+        
+        // Always order by date
+        queryConstraints = [
+          ...queryConstraints,
           orderBy('openingDate', 'desc'),
-          orderBy('createdAt', 'desc')
-        );
+          orderBy('createdAt', 'desc'),
+          limit(limitElement)
+        ] as unknown as any;
+        
+        const q = query(cashRegisterRef, ...queryConstraints);
         
         const snapshot = await getDocs(q);
         

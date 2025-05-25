@@ -541,6 +541,8 @@ Following the Samby architecture pattern:
   - Secondary: Background elements
   - Danger: Destructive actions and errors
 - **Icon System**: Using icon packs with `~icons/pack-name/icon-name` syntax
+- **Utils functions**: For commons functions like "formatCurrency" or "formatQuantity" let's always create the function in `@/utils/index.ts` if doesn't exist already.
+- **Dates management**: Always choose to use $dayjs library instead of Date native object
 
 ## Future Enhancements
 - Multi-store support with segregated data (leveraging existing business selection system)

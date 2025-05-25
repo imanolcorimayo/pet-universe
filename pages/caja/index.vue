@@ -230,12 +230,6 @@ const balance = computed(() => {
 });
 
 // ----- Define Methods ---------
-function formatCurrency(value) {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS'
-  }).format(value || 0);
-}
 
 function formatDate(timestamp) {
   if (!timestamp) return '';

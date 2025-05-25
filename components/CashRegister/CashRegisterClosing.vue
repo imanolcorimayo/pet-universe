@@ -209,13 +209,6 @@ function getPaymentMethodName(code) {
   return indexStore.businessConfig?.paymentMethods?.[code]?.name || code;
 }
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS'
-  }).format(value || 0);
-}
-
 async function fetchCurrentBalances() {
   loading.value = true;
   try {

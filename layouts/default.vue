@@ -119,6 +119,14 @@
           </li>
           <li>
             <NuxtLink
+              to="/caja/historico"
+              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+            >
+              <PhClockCounterClockwiseFill class="text-gray-500" /> Historial de Cajas
+            </NuxtLink>
+          </li>
+          <li>
+            <NuxtLink
               v-if="indexStore.isOwner"
               to="/inventario"
               class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
@@ -144,7 +152,7 @@
               <PhTruckFill class="text-gray-500" /> Proveedores
             </NuxtLink>
           </li>
-          <li>
+          <!-- <li>
             <NuxtLink
               v-if="indexStore.isOwner"
               to="/finanzas"
@@ -152,7 +160,7 @@
             >
               <PhChartBarFill class="text-gray-500" /> Finanzas
             </NuxtLink>
-          </li>
+          </li> -->
           <li>
             <NuxtLink
               v-if="indexStore.isOwner"
@@ -214,13 +222,13 @@
 import MaterialSymbolsLightPetSupplies from '~icons/material-symbols-light/pet-supplies';
 import IcTwotonePets from '~icons/ic/twotone-pets';
 import MaterialSymbolsDashboard from "~icons/material-symbols/dashboard";
-import MaterialSymbolsPointOfSale from "~icons/material-symbols/point-of-sale";
 import MingcuteInventoryFill from "~icons/mingcute/inventory-fill";
 import BiPersonFill from "~icons/bi/person-fill";
 import PhTruckFill from "~icons/ph/truck-fill";
 import PhChartBarFill from "~icons/ph/chart-bar-fill";
 import PhFileTextFill from "~icons/ph/file-text-fill";
 import PhMoneyFill from "~icons/ph/money-fill";
+import PhClockCounterClockwiseFill from "~icons/ph/clock-counter-clockwise-fill";
 import GravityUiGear from "~icons/gravity-ui/gear";
 import IconParkOutlineCheckOne from "~icons/icon-park-outline/check-one";
 import SiSignOutFill from "~icons/si/sign-out-fill";
