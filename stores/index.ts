@@ -1026,7 +1026,6 @@ export const useIndexStore = defineStore("index", {
           "VAT": { name: "Naranja X/Viumi", type: "transfer", active: true },
           "TDB": { name: "T. Débito", type: "posnet", active: true },
           "TCR": { name: "T. Crédito", type: "posnet", active: true },
-          "TRA": { name: "Transferencia", type: "transfer", active: true }
         };
         
         // Default income categories

@@ -131,10 +131,8 @@ export const useCashRegisterStore = defineStore('cashRegister', {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        const cashRegisterRef = collection(db, 'cashRegister');
-        
         const q = query(
-          cashRegisterRef,
+          collection(db, 'cashRegister'),
           where('businessId', '==', currentBusinessId.value),
           where('openingDate', '>=', Timestamp.fromDate(today)),
           orderBy('openingDate', 'desc'),
@@ -144,6 +142,8 @@ export const useCashRegisterStore = defineStore('cashRegister', {
         const snapshot = await getDocs(q);
         
         if (!snapshot.empty) {
+
+          console.log("LALA")
           this.currentRegister = {
             id: snapshot.docs[0].id,
             ...snapshot.docs[0].data()

@@ -94,16 +94,25 @@
                       <td class="py-3 pr-3 font-medium">{{ code }}</td>
                       <td class="py-3 pr-3">{{ method.name }}</td>
                       <td class="py-3 pr-3">
-                        <span
-                          class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                          :class="
-                            method.active
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          "
+                        <div
+                          class="flex flex-col gap-1 items-center text-center"
                         >
-                          {{ method.active ? "Activo" : "Inactivo" }}
-                        </span>
+                          <span
+                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                            :class="
+                              method.active
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            "
+                          >
+                            {{ method.active ? "Activo" : "Inactivo" }}
+                          </span>
+                          <span
+                            v-if="method.isDefault"
+                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"
+                            >Predeterminado</span
+                          >
+                        </div>
                       </td>
                       <td class="py-3 text-right">
                         <div class="flex justify-end gap-2">
@@ -175,16 +184,25 @@
                       <td class="py-3 pr-3 font-medium">{{ code }}</td>
                       <td class="py-3 pr-3">{{ method.name }}</td>
                       <td class="py-3 pr-3">
-                        <span
-                          class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                          :class="
-                            method.active
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          "
+                        <div
+                          class="flex flex-col gap-1 items-center text-center"
                         >
-                          {{ method.active ? "Activo" : "Inactivo" }}
-                        </span>
+                          <span
+                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                            :class="
+                              method.active
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            "
+                          >
+                            {{ method.active ? "Activo" : "Inactivo" }}
+                          </span>
+                          <span
+                            v-if="method.isDefault"
+                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"
+                            >Predeterminado</span
+                          >
+                        </div>
                       </td>
                       <td class="py-3 text-right">
                         <div class="flex justify-end gap-2">
@@ -256,16 +274,25 @@
                       <td class="py-3 pr-3 font-medium">{{ code }}</td>
                       <td class="py-3 pr-3">{{ method.name }}</td>
                       <td class="py-3 pr-3">
-                        <span
-                          class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                          :class="
-                            method.active
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          "
+                        <div
+                          class="flex flex-col gap-1 items-center text-center"
                         >
-                          {{ method.active ? "Activo" : "Inactivo" }}
-                        </span>
+                          <span
+                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                            :class="
+                              method.active
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            "
+                          >
+                            {{ method.active ? "Activo" : "Inactivo" }}
+                          </span>
+                          <span
+                            v-if="method.isDefault"
+                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"
+                            >Predeterminado</span
+                          >
+                        </div>
                       </td>
                       <td class="py-3 text-right">
                         <div class="flex justify-end gap-2">
@@ -351,16 +378,25 @@
                       <td class="py-3 pr-3 font-medium">{{ code }}</td>
                       <td class="py-3 pr-3">{{ category.name }}</td>
                       <td class="py-3 pr-3">
-                        <span
-                          class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                          :class="
-                            category.active
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          "
+                        <div
+                          class="flex flex-col gap-1 items-center text-center"
                         >
-                          {{ category.active ? "Activa" : "Inactiva" }}
-                        </span>
+                          <span
+                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                            :class="
+                              category.active
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            "
+                          >
+                            {{ category.active ? "Activa" : "Inactiva" }}
+                          </span>
+                          <span
+                            v-if="category.isDefault"
+                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"
+                            >Predeterminada</span
+                          >
+                        </div>
                       </td>
                       <td class="py-3 text-right">
                         <div class="flex justify-end gap-2">
@@ -445,16 +481,25 @@
                       <td class="py-3 pr-3 font-medium">{{ code }}</td>
                       <td class="py-3 pr-3">{{ category.name }}</td>
                       <td class="py-3 pr-3">
-                        <span
-                          class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                          :class="
-                            category.active
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          "
+                        <div
+                          class="flex flex-col gap-1 items-center text-center"
                         >
-                          {{ category.active ? "Activa" : "Inactiva" }}
-                        </span>
+                          <span
+                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                            :class="
+                              category.active
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            "
+                          >
+                            {{ category.active ? "Activa" : "Inactiva" }}
+                          </span>
+                          <span
+                            v-if="category.isDefault"
+                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"
+                            >Predeterminada</span
+                          >
+                        </div>
                       </td>
                       <td class="py-3 text-right">
                         <div class="flex justify-end gap-2">
@@ -887,29 +932,29 @@
     </ModalStructure>
 
     <!-- Delete Confirmation Modal -->
-    <ModalStructure
-      ref="deleteConfirmationModal"
-      :title="deleteModalTitle"
-    >
+    <ModalStructure ref="deleteConfirmationModal" :title="deleteModalTitle">
       <div class="space-y-4">
         <p class="text-gray-700">
-          ¿Estás seguro que deseas eliminar <span class="font-medium">{{ deleteItemName }}</span>?
+          ¿Estás seguro que deseas eliminar
+          <span class="font-medium">{{ deleteItemName }}</span
+          >?
         </p>
         <p class="text-sm text-gray-500">
-          Esta acción no se puede deshacer. Si este elemento está siendo utilizado en transacciones anteriores, 
-          podría afectar la consistencia de los datos. Para esconderlo, usa "Editar" y desactivalo.
+          Esta acción no se puede deshacer. Si este elemento está siendo
+          utilizado en transacciones anteriores, podría afectar la consistencia
+          de los datos. Para esconderlo, usa "Editar" y desactivalo.
         </p>
       </div>
-      
+
       <template #footer>
-        <button 
-          type="button" 
-          @click="closeDeleteConfirmationModal" 
+        <button
+          type="button"
+          @click="closeDeleteConfirmationModal"
           class="btn btn-outline"
         >
           Cancelar
         </button>
-        <button 
+        <button
           type="button"
           @click="executeDelete"
           class="btn bg-red-600 hover:bg-red-700 text-white"
@@ -953,10 +998,10 @@ const deleteConfirmationModal = ref(null);
 const showNewPaymentMethodModal = ref(false);
 const showNewIncomeCategoryModal = ref(false);
 const showNewExpenseCategoryModal = ref(false);
-const deleteModalTitle = ref('');
-const deleteItemName = ref('');
-const deleteType = ref(''); // 'payment-method', 'income-category', 'expense-category'
-const deleteItemCode = ref('');
+const deleteModalTitle = ref("");
+const deleteItemName = ref("");
+const deleteType = ref(""); // 'payment-method', 'income-category', 'expense-category'
+const deleteItemCode = ref("");
 
 // New payment method form
 const newPaymentMethod = ref({
@@ -1126,15 +1171,17 @@ function editCategory(type, code, category) {
 
 // Delete confirmation handlers
 function confirmDeletePaymentMethod(code, name) {
-  deleteModalTitle.value = 'Eliminar Método de Pago';
+  deleteModalTitle.value = "Eliminar Método de Pago";
   deleteItemName.value = name;
   deleteItemCode.value = code;
-  deleteType.value = 'payment-method';
+  deleteType.value = "payment-method";
   deleteConfirmationModal.value.showModal();
 }
 
 function confirmDeleteCategory(type, code, name) {
-  deleteModalTitle.value = `Eliminar Categoría de ${type === 'income' ? 'Ingreso' : 'Egreso'}`;
+  deleteModalTitle.value = `Eliminar Categoría de ${
+    type === "income" ? "Ingreso" : "Egreso"
+  }`;
   deleteItemName.value = name;
   deleteItemCode.value = code;
   deleteType.value = `${type}-category`;
@@ -1230,19 +1277,22 @@ async function executeDelete() {
   let success = false;
 
   try {
-    if (deleteType.value === 'payment-method') {
+    if (deleteType.value === "payment-method") {
       success = await indexStore.deletePaymentMethod(deleteItemCode.value);
-    } else if (deleteType.value === 'income-category') {
-      success = await indexStore.deleteCategory('income', deleteItemCode.value);
-    } else if (deleteType.value === 'expense-category') {
-      success = await indexStore.deleteCategory('expense', deleteItemCode.value);
+    } else if (deleteType.value === "income-category") {
+      success = await indexStore.deleteCategory("income", deleteItemCode.value);
+    } else if (deleteType.value === "expense-category") {
+      success = await indexStore.deleteCategory(
+        "expense",
+        deleteItemCode.value
+      );
     }
-    
+
     if (success) {
       closeDeleteConfirmationModal();
     }
   } catch (error) {
-    console.error('Error during deletion:', error);
+    console.error("Error during deletion:", error);
     useToast(ToastEvents.error, `Error al eliminar: ${error.message}`);
   }
 }

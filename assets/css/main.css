@@ -1,6 +1,8 @@
 @import "tailwindcss";
+@config "../../tailwind.config.js";
 
 
+/* Define CSS Variables */
 :root {
   --primary-color: #6366f1;
   --primary-color-light: #818cf8;
@@ -11,16 +13,13 @@
   --info-color: #3b82f6;
 }
 
+/* Component Styles */
 .btn {
   @apply px-4 py-2 rounded-md transition-colors duration-200 font-medium cursor-pointer;
 }
 
 .input, .textarea, .select {
   @apply border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent transition-all duration-200;
-}
-
-.input-bordered, .textarea-bordered, .select-bordered {
-  @apply border border-gray-300;
 }
 
 .form-control {
@@ -39,46 +38,11 @@
   @apply p-2 border-b border-gray-200 text-left;
 }
 
-.text-primary {
-  color: var(--primary-color);
+.badge {
+  @apply inline-block rounded-full px-3 py-1 text-xs font-semibold;
 }
 
-.bg-primary {
-  background-color: var(--primary-color);
-}
-
-.bg-primary\/20 {
-  background-color: rgba(99, 102, 241, 0.2);
-}
-
-.bg-primary\/40 {
-  background-color: rgba(99, 102, 241, 0.4);
-}
-
-.bg-primary\/60 {
-  background-color: rgba(99, 102, 241, 0.6);
-}
-
-.hover\:bg-primary\/40:hover {
-  background-color: rgba(99, 102, 241, 0.4);
-}
-
-.text-success {
-  color: var(--success-color);
-}
-
-.bg-success\/20 {
-  background-color: rgba(34, 197, 94, 0.2);
-}
-
-.text-warning {
-  color: var(--warning-color);
-}
-
-.bg-warning\/20 {
-  background-color: rgba(245, 158, 11, 0.2);
-}
-
+/* Layout & Body Styles */
 body.modal-opened {
   overflow: hidden;
 }
@@ -88,7 +52,11 @@ body,
   min-height: 100vh;
 }
 
-/* Hide scrollbar but keep functionality */
+#__nuxt {
+  overflow: hidden;
+}
+
+/* Scrollbar Utilities */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -98,69 +66,46 @@ body,
   scrollbar-width: none;
 }
 
-
-.badge {
-  @apply inline-block rounded-full px-3 py-1 text-xs font-semibold;
-}
-
-
-#__nuxt {
-  overflow: hidden;
-}
-
-input:disabled {
-  background-color: grey;
-  color: rgb(44, 44, 44);
-}
-
-.no-button {
-  cursor: pointer;
-  background-color: unset;
-  border: unset;
-  color: black;
-}
-
-/* Remove the arrow */
-select {
-  appearance: none;
-  /* safari */
-  -webkit-appearance: none;
-}
-
-/* Remove the arrow */
-select option {
-  background-color: var(--base-color);
-  color: black;
-  height: 48px;
-  box-shadow: none;
-}
-
-input,
-textarea,
-select {
-  background-color: transparent;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  color: inherit;
-}
-
-/* Chrome, Safari, Edge, Opera */
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button,
-input[type="submit"] {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-/* Firefox */
-input[type="number"] {
-  -moz-appearance: textfield;
-}
-
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
 
-/* Remove decoration to inputs */
+/* Form Elements */
+input:disabled, 
+select:disabled,
+button:disabled,
+textarea:disabled {
+  @apply bg-gray-300 text-gray-700 cursor-not-allowed;
+}
+
+.no-button {
+  @apply cursor-pointer bg-transparent border-0 text-black;
+}
+
+/* Remove Select Arrows */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+select option {
+  @apply bg-white text-black;
+  height: 48px;
+  box-shadow: none;
+}
+
+/* Remove Number Input Arrows */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Base Input Styles */
 input[type="text"],
 input[type="email"],
 input[type="password"],
@@ -169,35 +114,51 @@ input[type="date"],
 input[type="datetime-local"],
 select,
 textarea {
-  border: 1px solid #ccc;
-  border-radius: 0.428rem;
-  padding: 0.714rem;
-  font-size: 1rem;
-  color: black;
-  width: 100%;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  @apply border border-gray-300 rounded p-3 text-base text-black w-full shadow-md;
 }
 
-/* Style disabled inputs */
-input[type="text"]:disabled,
-input[type="email"]:disabled,
-input[type="password"]:disabled,
-input[type="number"]:disabled,
-input[type="date"]:disabled,
-input[type="datetime-local"]:disabled,
-select:disabled,
-button:disabled,
-textarea:disabled {
-  background-color: #a8a8a8;
-  color: #333;
-  cursor: not-allowed;
-}
-
-/* Hide the default radio button */
+/* Radio Button Styles */
 input[type="radio"] {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
   -o-appearance: none;
   outline: none;
+}
+
+/* Radio Button Custom Appearance */
+.radio-custom {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--primary-color);
+  background-color: white;
+  cursor: pointer;
+}
+
+.radio-custom:checked {
+  border-color: var(--primary-color);
+}
+
+.radio-custom:checked::before {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  opacity: 1;
+}
+
+/* For Firefox */
+@-moz-document url-prefix() {
+  .radio-custom:checked {
+    background-image: radial-gradient(var(--primary-color) 40%, white 50%);
+    background-position: center;
+    background-repeat: no-repeat;
+  }
 }

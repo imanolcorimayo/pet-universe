@@ -6,13 +6,7 @@
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
       <div v-else>
-        <FormKit
-          v-model="formData"
-          type="form"
-          :actions="false"
-          @submit="registerClosing"
-          :config="{ validationVisibility: 'submit' }"
-        >
+        <form @submit.prevent="registerClosing">
           <div class="space-y-4">
             <div class="mb-4">
               <h3 class="font-medium text-lg mb-2">Resumen del día</h3>
@@ -38,22 +32,22 @@
             <div v-if="Object.keys(cashBalances).length > 0">
               <div class="text-sm font-medium text-gray-500 mt-4 mb-2 border-b pb-1">Efectivo</div>
               <div class="space-y-3">
-                <div v-for="(balance, code) in cashBalances" :key="code" class="flex items-center gap-2">
-                  <div class="w-1/2">
+                <div v-for="(balance, code) in cashBalances" :key="code" class="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div class="sm:w-1/2">
                     <span class="text-sm font-medium text-gray-700">{{ getPaymentMethodName(code) }}</span>
                   </div>
-                  <div class="w-1/2">
+                  <div class="sm:w-1/2">
                     <div class="flex items-center gap-1">
                       <span class="text-xs text-gray-500">Calculado: {{ formatCurrency(balance) }}</span>
-                      <FormKit
-                        :name="`closingAmounts.${code}`"
+                      <input
+                        :id="`closingAmount-${code}`"
+                        v-model="formData.closingAmounts[code]"
                         type="number"
                         placeholder="0.00"
-                        validation="required|min:0"
-                        :validation-label="getPaymentMethodName(code)"
-                        :value="balance"
+                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                         step="0.01"
                         min="0"
+                        required
                       />
                     </div>
                   </div>
@@ -65,22 +59,22 @@
             <div v-if="Object.keys(transferBalances).length > 0">
               <div class="text-sm font-medium text-gray-500 mt-4 mb-2 border-b pb-1">Transferencias</div>
               <div class="space-y-3">
-                <div v-for="(balance, code) in transferBalances" :key="code" class="flex items-center gap-2">
-                  <div class="w-1/2">
+                <div v-for="(balance, code) in transferBalances" :key="code" class="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div class="sm:w-1/2">
                     <span class="text-sm font-medium text-gray-700">{{ getPaymentMethodName(code) }}</span>
                   </div>
-                  <div class="w-1/2">
+                  <div class="sm:w-1/2">
                     <div class="flex items-center gap-1">
                       <span class="text-xs text-gray-500">Calculado: {{ formatCurrency(balance) }}</span>
-                      <FormKit
-                        :name="`closingAmounts.${code}`"
+                      <input
+                        :id="`closingAmount-${code}`"
+                        v-model="formData.closingAmounts[code]"
                         type="number"
                         placeholder="0.00"
-                        validation="required|min:0"
-                        :validation-label="getPaymentMethodName(code)"
-                        :value="balance"
+                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                         step="0.01"
                         min="0"
+                        required
                       />
                     </div>
                   </div>
@@ -92,22 +86,22 @@
             <div v-if="Object.keys(posnetBalances).length > 0">
               <div class="text-sm font-medium text-gray-500 mt-4 mb-2 border-b pb-1">Posnet</div>
               <div class="space-y-3">
-                <div v-for="(balance, code) in posnetBalances" :key="code" class="flex items-center gap-2">
-                  <div class="w-1/2">
+                <div v-for="(balance, code) in posnetBalances" :key="code" class="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div class="sm:w-1/2">
                     <span class="text-sm font-medium text-gray-700">{{ getPaymentMethodName(code) }}</span>
                   </div>
-                  <div class="w-1/2">
+                  <div class="sm:w-1/2">
                     <div class="flex items-center gap-1">
                       <span class="text-xs text-gray-500">Calculado: {{ formatCurrency(balance) }}</span>
-                      <FormKit
-                        :name="`closingAmounts.${code}`"
+                      <input
+                        :id="`closingAmount-${code}`"
+                        v-model="formData.closingAmounts[code]"
                         type="number"
                         placeholder="0.00"
-                        validation="required|min:0"
-                        :validation-label="getPaymentMethodName(code)"
-                        :value="balance"
+                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                         step="0.01"
                         min="0"
+                        required
                       />
                     </div>
                   </div>
@@ -115,15 +109,18 @@
               </div>
             </div>
 
-            <FormKit
-              name="notes"
-              type="textarea"
-              label="Notas"
-              placeholder="Observaciones adicionales (opcional)"
-              rows="3"
-            />
+            <div class="mb-4">
+              <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+              <textarea
+                id="notes"
+                v-model="formData.notes"
+                placeholder="Observaciones adicionales (opcional)"
+                rows="3"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              ></textarea>
+            </div>
           </div>
-        </FormKit>
+        </form>
       </div>
     </template>
     <template #footer>
@@ -153,7 +150,6 @@
 import { useCashRegisterStore } from "~/stores/cashRegister";
 import { useIndexStore } from "~/stores/index";
 import { toast } from "vue3-toastify";
-import { ToastEvents } from "~/interfaces";
 
 // ----- Define Refs ---------
 const mainModal = ref(null);

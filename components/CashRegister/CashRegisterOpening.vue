@@ -126,6 +126,11 @@ import { useIndexStore } from "~/stores/index";
 import { toast } from "vue3-toastify";
 import { ToastEvents } from "~/interfaces";
 
+
+// ----- Import Useful Properties ---------
+const { $dayjs } = useNuxtApp();
+
+
 // ----- Define Refs ---------
 const mainModal = ref(null);
 const cashRegisterStore = useCashRegisterStore();
@@ -136,7 +141,7 @@ const errors = ref({});
 
 // Format current date to YYYY-MM-DD
 const currentDate = computed(() => {
-  const today = new Date();
+  const today = $dayjs().toDate();
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 });
 
@@ -211,7 +216,7 @@ async function registerOpening() {
     }
     
     // Call store method to open the register
-    const openDate = new Date(formData.value.openingDate);
+    const openDate = $dayjs(formData.value.openingDate).toDate();
     await cashRegisterStore.openCashRegister({ 
       date: openDate,
       openingBalances: processedAmounts,

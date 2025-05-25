@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full">
+  <div class="w-full flex flex-col gap-4 p-6">
     <!-- Page Header -->
     <div class="flex justify-between items-center">
       <div>
@@ -21,7 +21,7 @@
         
         <button
           v-if="isRegisterOpen"
-          @click="transactionModal.showModal()"
+          @click="() => {transactionToEdit = null; transactionModal.showModal()}" 
           class="btn bg-secondary text-white hover:bg-secondary/90"
         >
           <span class="flex items-center gap-1">
@@ -175,7 +175,7 @@
       <h2 class="text-xl font-semibold mb-2">No hay transacciones</h2>
       <p class="text-gray-600 mb-4">No se han registrado transacciones en esta caja todavía</p>
       <button 
-        @click="transactionModal.showModal()" 
+        @click="() => {transactionToEdit = null; transactionModal.showModal()}" 
         class="btn bg-primary text-white hover:bg-primary/90"
       >
         Registrar Transacción
@@ -190,6 +190,9 @@
 
 <script setup>
 import { ToastEvents } from '~/interfaces';
+import LucideUnlock from '~icons/lucide/unlock';
+import LucidePlus from '~icons/lucide/plus';
+import LucideLock from '~icons/lucide/lock';
 
 // ----- Define Component Refs ---------
 const openRegisterModal = ref(null);
@@ -199,6 +202,7 @@ const transactionToEdit = ref(null);
 
 // ----- Define Store ---------
 const cashRegisterStore = useCashRegisterStore();
+cashRegisterStore.loadCurrentRegister();
 
 // ----- Import Store State ---------
 const { 
