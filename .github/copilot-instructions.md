@@ -13,9 +13,6 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 
 ## Code Architecture
 
-### Existing Pattern: Samby Application Architecture
-#### (based on project /home/imanol/projects/wiseutils/samby-repo)
-
 #### Package JSON scripts and dependencies
 
 ```
@@ -27,44 +24,31 @@ A comprehensive management system for pet shops that handles purchases, sales, i
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
-    "prodDeploy": "cp .env.samby-prod .env && nuxt generate && firebase use samby-prod && firebase deploy",
-    "devDeploy": "cp .env.samby-dev .env && nuxt generate && firebase use samby-dev && firebase deploy",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare",
-    "switchProd": "cp .env.samby-prod .env",
-    "switchDev": "cp .env.samby-dev .env"
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
-    "@nuxtjs/google-fonts": "^3.2.0",
-    "@pinia/nuxt": "^0.5.3",
-    "@vueuse/nuxt": "^10.11.1",
-    "chart.js": "^4.4.3",
-    "chartjs-plugin-datalabels": "^2.2.0",
-    "csv-parser": "^3.2.0",
-    "csv-writer": "^1.6.0",
-    "firebase": "^10.12.5",
-    "jszip": "^3.10.1",
-    "marked": "^15.0.7",
-    "nuxt": "^3.12.4",
-    "nuxt-vuefire": "^1.0.3",
-    "pinia": "^2.2.1",
-    "unplugin-icons": "^0.19.2",
-    "vue": "latest",
-    "vue3-toastify": "^0.2.2",
-    "vuefire": "^3.1.24",
-    "xmldom": "^0.6.0"
+    "@pinia/nuxt": "0.11.0",
+    "@tailwindcss/vite": "^4.1.7",
+    "@vueuse/nuxt": "13.2.0",
+    "firebase": "^11.7.3",
+    "nuxt": "^3.17.3",
+    "nuxt-vuefire": "1.0.5",
+    "pinia": "^3.0.2",
+    "tailwindcss": "^4.1.7",
+    "unplugin-icons": "^22.1.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.1",
+    "vue3-toastify": "^0.2.8",
+    "vuefire": "^3.2.1"
   },
   "devDependencies": {
-    "@iconify/json": "^2.2.237",
-    "@iconify/utils": "^2.1.30",
-    "@turf/turf": "^7.2.0",
-    "autoprefixer": "^10.4.20",
-    "dayjs-nuxt": "^2.1.9",
-    "firebase-admin": "^12.5.0",
-    "postcss": "^8.4.41",
-    "tailwindcss": "^3.4.10"
+    "@iconify/json": "^2.2.339",
+    "@iconify/utils": "^2.3.0",
+    "dayjs-nuxt": "^2.1.11"
   }
 }
+
 
 ```
 
@@ -102,7 +86,7 @@ The login system uses Firebase Authentication:
 - **Business Types**:
   - Two types: owner-created businesses and employee-joined businesses
   - Distinction is made with `isEmployee` field in the database
-  - Role-based permissions stored in `roles` collection
+  - Role-based permissions stored in `userRole` collection
 
 - **Create/Join Flow**:
   - Create: `saveBusiness()` in `index.ts` handles business creation
@@ -127,7 +111,7 @@ The application is configured for Firebase hosting and services:
 #### Firestore Connection Architecture
 - **Store Pattern**:
   - Uses Pinia stores (`defineStore`) to manage state and Firebase interactions
-  - Main stores: `index.ts`, `clients.ts`, `products.ts`, `orders.ts`, `dashboard.ts`, `zones.ts`, `stock.ts`
+  - Main stores: `index.ts`, `cashRegister.ts`, `products.ts`, `clients.ts` 
 
 - **Common Connection Pattern**:
   - Each store validates prerequisites with helper functions that check:
@@ -155,7 +139,7 @@ The application is configured for Firebase hosting and services:
   - `ModalStructure.vue`: Reusable modal dialog component
   - `ConfirmDialogue.vue`: Confirmation dialog system
   - `Loader.vue`: Loading indicator
-  - Various detail components following naming pattern: `EntityDetails.vue`
+  - All components follow the naming convention `/entity/EntityDetails.vue` Where the folder is included in the name of the component
 
 - **Page Structure Pattern**:
   - List views → Detail views → Edit views
@@ -176,32 +160,39 @@ This architecture follows a consistent pattern across the application, making it
 
 ## Pet Shop Management System Architecture
 
-Following the established Samby architecture pattern, the Pet Shop Management System will implement these core modules using the same architectural principles:
+Following the established architecture pattern, the Pet Shop Management System will implement these core modules using the same architectural principles:
 
 ### Core Modules Implementation
 
-#### 1. Purchase Management
+#### 1. Big Cash Flow Management
 **Data Requirements:**
+
+- Daily register with:
+  * Opening balance
+  * All income/expense entries
+  * Payment method codes for each transaction
+  * Daily closing balance
+- Complete transaction flow from register to financial and economic reports
 - Expense categories:
   * Services
   * Maintenance
   * Miscellaneous expenses
   * Salaries
-- Product purchases (accessories and pet food) that increase inventory
-- Payment tracking for cash flow analysis
+- Payment type:
+  * Cash
+  * Transfer (Bank or virtual bank)
+  * Posnet
+  * Other
+- Payment Method:
+  * (none if cash selected)
+  * Santander
+  * Mercado Pago
+  * Naranja X
 - Option to classify transactions as reported (white) or non-reported (black)
+- Discrepancy tracking
 
-**Implementation Pattern:**
-- **Store**: `purchases.ts` Pinia store for managing purchase data
-- **Components**: 
-  * `PurchaseList.vue` - Main list view with filters
-  * `PurchaseDetails.vue` - Modal component for viewing details
-  * `PurchaseForm.vue` - Modal component for creating/editing purchases
-- **Firestore Collections**:
-  * `purchases` - Main purchase records
-  * `expenseCategories` - Catalog of expense types
 
-#### 2. Sales Management
+#### 2. Sales Management - Small cash flow
 **Data Requirements:**
 - Daily sales register that updates inventory automatically
 - Multiple payment method support for a single transaction
@@ -225,12 +216,8 @@ Following the established Samby architecture pattern, the Pet Shop Management Sy
 - **Components**: 
   * `SalesList.vue` - List of completed sales
   * `SalesDetails.vue` - Modal for viewing sale details
-  * `POSInterface.vue` - Point of sale interface component
-  * `PaymentMethodSelector.vue` - Component for handling multiple payment methods
 - **Firestore Collections**:
   * `sales` - Main sales records
-  * `saleItems` - Individual items in each sale
-  * `promotions` - Active promotions
 
 #### 3. Inventory Management
 **Data Requirements:**
@@ -252,9 +239,9 @@ Following the established Samby architecture pattern, the Pet Shop Management Sy
   * `ProductForm.vue` - Modal for creating/editing products
   * `InventoryAdjustment.vue` - Modal for adjusting inventory levels
 - **Firestore Collections**:
-  * `products` - Product catalog
+  * `product` - Product catalog
   * `inventory` - Current inventory levels
-  * `inventoryHistory` - Record of inventory changes
+  * `inventoryMovement` - Record of inventory changes
 
 #### 4. Customer Management
 **Data Requirements:**
@@ -273,9 +260,8 @@ Following the established Samby architecture pattern, the Pet Shop Management Sy
   * `ClientForm.vue` - Modal for creating/editing clients
   * `PetForm.vue` - Modal for adding/editing client pets
 - **Firestore Collections**:
-  * `clients` - Customer information
-  * `pets` - Pet information with client reference
-  * `clientPurchases` - Purchase history reference
+  * `client` - Customer information
+  * `pet` - Pet information with client reference
 
 #### 5. Supplier Management
 **Data Requirements:**
@@ -291,10 +277,8 @@ Following the established Samby architecture pattern, the Pet Shop Management Sy
   * `SupplierList.vue` - List of all suppliers
   * `SupplierDetails.vue` - Modal for viewing supplier details
   * `SupplierForm.vue` - Modal for creating/editing suppliers
-  * `PaymentSchedule.vue` - Component for managing payment schedules
 - **Firestore Collections**:
-  * `suppliers` - Supplier information
-  * `paymentOrders` - Payment schedules and tracking
+  * `supplier` - Supplier information
 
 #### 6. Payment Methods & Accounts
 **Data Requirements:**
@@ -315,121 +299,19 @@ Following the established Samby architecture pattern, the Pet Shop Management Sy
 **Implementation Pattern:**
 - **Store**: `payments.ts` Pinia store
 - **Components**: 
-  * `PaymentMethodsList.vue` - Configuration interface
-  * `PaymentMethodDetails.vue` - Modal for viewing/editing payment methods
-  * `AccountBalances.vue` - Component showing current balances
+  * No components. Everything managed in the page `/configuration/index.vue`
 - **Firestore Collections**:
-  * `paymentMethods` - Payment method definitions
-  * `accounts` - Account tracking information
+  * `businessConfig` - Global business configuration
 
-#### 7. Daily Cash Register (Caja Diaria)
-**Data Requirements:**
-- Daily register sheets with:
-  * Opening balance
-  * All income/expense entries
-  * Payment method codes for each transaction
-  * Daily closing balance
-- Complete transaction flow from register to financial and economic reports
-- Discrepancy tracking
-
-**Implementation Pattern:**
-- **Store**: `cashRegister.ts` Pinia store
-- **Components**: 
-  * `CashRegisterStatus.vue` - Current day's register
-  * `RegisterOpeningForm.vue` - Modal for opening the register
-  * `RegisterClosingForm.vue` - Modal for closing the register
-  * `TransactionEntry.vue` - Modal for adding transactions
-- **Firestore Collections**:
-  * `cashRegisters` - Daily register records
-  * `registerTransactions` - Transactions within each register
-
-#### 8. Financial Management
-**Data Requirements:**
-- Financial Book (FINANCIERO):
-  * Separate tracking of movements by account/payment method
-  * Consolidated results combining cash register and bank accounts
-- Economic Book (ECONOMICO):
-  * Monthly summaries by category:
-    - VENTAS (Sales)
-    - COMPRAS (Purchases)
-    - GASTO (Expenses)
-    - NEGOCIO (Business expenses)
-    - COMIDA (Food)
-    - RENDIMIENTOS (Returns/Yields)
-    - FALTANTE (Shortages/Discrepancies)
-    - PRESTAMO (Loans)
-- Complete data flow: Cash Register → Financial → Economic
-- Income/expense category catalog matching the Excel structure
-
-**Implementation Pattern:**
-- **Store**: `finances.ts` Pinia store
-- **Components**: 
-  * `FinancialDashboard.vue` - Overview component
-  * `FinancialBookReport.vue` - Financial book view component
-  * `EconomicBookReport.vue` - Economic book view component
-  * `CategoryManagement.vue` - Modal for managing categories
-- **Firestore Collections**:
-  * `financialEntries` - Financial book entries
-  * `economicEntries` - Economic book summaries
-  * `categories` - Income/expense categories
-
-#### 9. Notification System
-**Data Requirements:**
-- Calendar integration
-- Alert types:
-  * Customer and pet birthdays
-  * Predicted pet food consumption dates
-  * Invoice due dates
-  * Debt collection reminders
-  * Low stock alerts
-
-**Implementation Pattern:**
-- **Store**: `notifications.ts` Pinia store
-- **Components**: 
-  * `NotificationCenter.vue` - Central notification list
-  * `CalendarView.vue` - Calendar interface component
-  * `NotificationSettings.vue` - Modal for configuring notification preferences
-- **Firestore Collections**:
-  * `notifications` - System notifications
-  * `notificationSettings` - User preferences
 
 #### 10. Reporting
 **Data Requirements:**
-- Financial reports (monthly):
-  * Revenue breakdown by payment method
-  * Expense categorization
-  * Profit/loss analysis
-  * Separate tracking for reported (white) and non-reported (black) transactions
-- Supplier reports:
-  * Purchase invoices
-  * Payment orders
-  * Outstanding balances
-- Sales reports:
-  * Daily/weekly/monthly totals
-  * Breakdown by payment method
-  * Product categories
-- Inventory reports:
-  * Current stock levels (quantity and value)
-  * Product rotation metrics
-  * Profitability by product
-  * Margin analysis for loose vs. packaged pet food
-- Loss reports:
-  * Payment discrepancies
-  * Expired product write-offs
-  * Other losses
+- Financial reports (monthly): (TO BE DEFINED)
 
-**Implementation Pattern:**
-- **Store**: `reports.ts` Pinia store
-- **Components**: 
-  * Various report components following pattern: `ReportType.vue`
-  * `ReportFilters.vue` - Common filter component
-  * `ChartDisplay.vue` - Reusable chart component
-- **Firestore Queries**:
-  * Uses aggregation queries on existing collections
 
-## Page Folder Structure (Adapted to Samby Pattern)
+## Page Folder Structure
 
-Following the Samby pattern of using modals for details and edits rather than separate pages:
+Following the architecture pattern of using modals for details and edits rather than separate pages:
 
 ### 1. Dashboard
 - `/dashboard`
@@ -438,10 +320,19 @@ Following the Samby pattern of using modals for details and edits rather than se
 ### 2. Caja (Cash Register)
 - `/caja`
   - `/caja/index.vue` - Current day's register with status, transactions, and modal triggers for:
-    - `RegisterOpeningModal.vue` - Opening the register
+    - `RegisterOpeningModal.vue` - Opening the monthly global register
     - `TransactionEntryModal.vue` - New transactions (sales and expenses)
     - `RegisterClosingModal.vue` - End-of-day closing
   - `/caja/historico.vue` - Past register closings
+
+### 3. Ventas / Caja Chica (Small cash registers)
+- `/venta`
+  - `/venta/index.vue` - Current day's register with status, transactions, and modal triggers for:
+    - `SaleRegisterOpeningModal.vue` - Opening the daily register
+    - `SaleTransactionEntryModal.vue` - New transactions (inflows and outflows)
+    - `SaleRegisterClosingModal.vue` - End-of-day closing
+    - `SaleDetails.vue` - End-of-day closing
+  - `/venta/historico.vue` - Past register closings
 
 ### 4. Inventario (Inventory)
 - `/inventario`
@@ -468,22 +359,11 @@ Following the Samby pattern of using modals for details and edits rather than se
       - Purchase history
       - Payment tracking
     - `SupplierFormModal.vue` - Add/edit supplier information
-    - `PaymentOrderModal.vue` - Create/edit payment orders
 
-### 7. Finanzas (Finances)
-- `/finanzas`
-  - `/finanzas/index.vue` - Financial overview dashboard with tabs for:
-    - Account balances
-    - Financial book reporting
-    - Economic book reporting
-  - `/finanzas/categorias.vue` - Income/expense category management
+### 7. Reportes (Reports)
+- TO BE DEFINED
 
-### 8. Reportes (Reports)
-- `/reportes`
-  - `/reportes/index.vue` - Report dashboard with configurable reports and filters
-  - Dynamic report generation based on selected parameters
-
-### 9. Configuración (Settings)
+### 8. Configuración (Settings)
 - `/configuracion`
   - `/configuracion/index.vue` - General settings with tabs for:
     - Store settings
@@ -491,47 +371,13 @@ Following the Samby pattern of using modals for details and edits rather than se
     - System parameters and notifications
   - `/configuracion/empleados.vue` - General settings for employees
 
-## Data Flow and Process Structure
-
-### Cash Flow Process
-1. **Daily Cash Register (Caja Diaria)**
-   - Records all daily transactions with payment method codes
-   - Tracks opening and closing balances
-   - Categorizes all income and expenses
-
-2. **Financial Book (Financiero)**
-   - Groups transactions by payment method/account
-   - Consolidates all accounts in the "RESULTADO" sheet
-   - Provides account-specific balance tracking
-
-3. **Economic Book (Económico)**
-   - Summarizes monthly data across standard categories
-   - Shows business performance metrics
-   - Provides year-to-date analysis
-
-### Expense/Income Category Catalog
-- **VENTAS** - All sales income
-- **COMPRAS** - Inventory purchases
-- **GASTO** - General expenses
-- **NEGOCIO** - Business-specific expenses
-- **COMIDA** - Food expenses
-- **RENDIMIENTOS** - Returns on investments/deposits
-- **FALTANTE** - Recorded shortages or discrepancies
-- **PRESTAMO** - Loan payments or receipts
-
 ## UI/UX Implementation
 
-Following the Samby architecture pattern:
-
-### Common UI Components
-- **ModalStructure.vue** - Will be used for all detail views and forms
-- **TableComponent.vue** - Standardized table component for listings
-- **FilterComponent.vue** - Reusable filter interface
-- **DashboardCard.vue** - Standard card component for metrics
+Following the architecture pattern:
 
 ### UI Flow Patterns
-- **List → Modal Pattern**: All entity management follows list-with-modal pattern instead of navigating to separate detail pages
-- **Toast Notifications**: All operations provide feedback through toast notifications
+- **Addition/Edition → Modal Pattern**: All entity management follows add/edit-with-modal pattern instead of navigating to separate add/detail pages
+- **Toast Notifications**: All operations provide feedback through toast notifications (`useToast` composable)
 - **Confirmation Dialogs**: All destructive actions require confirmation
 - **Mobile Responsiveness**: Sidebar collapses to menu button on small screens
 
@@ -545,7 +391,153 @@ Following the Samby architecture pattern:
 - **Dates management**: Always choose to use $dayjs library instead of Date native object
 
 ## Future Enhancements
-- Multi-store support with segregated data (leveraging existing business selection system)
-- Employee management with role-based access control (extending current permissions system)
-- Integrated invoicing system for reported transactions
-- Data purging capability for non-reported transactions
+- TBD
+---
+# Pet Universe Database Structure
+
+This document outlines the Firestore database structure for the Pet Universe application.
+
+## Business Management
+
+### userBusiness
+Stores information about pet shops owned by users or where users are employed.
+
+```
+userBusiness/
+  {document-id}/
+    name: string // Name of the business 
+    phone: string // Business phone number 
+    description: string|null // Business description 
+    address: string|null // Physical address 
+    imageUrl: string|null // URL for business logo/image 
+    imageUrlThumbnail: string|null // URL for thumbnail version of the business image 
+    userBusinessImageId: string|null // Reference to image document (if applicable) 
+    ownerUid: string // UID of business owner 
+    createdAt: Timestamp // When the business was created 
+    updatedAt: Timestamp // When the business was last updated 
+    archivedAt: Timestamp // When the business was archived (if applicable)
+```
+
+### userRole
+Stores role information for all users associated with a business.
+
+```
+userRole/ 
+  {document-id}/ 
+    userUid: string // User ID (null until invitation is accepted) 
+    businessId: string // Business ID this role is for 
+    role: string // Role name (e.g., "propietario", "vendedor", "administrador", "empleado") 
+    status: string // Status ("active", "pending", "archived") 
+    code: string // Invitation code (format: businessId-XXXX) 
+    invitedBy: string // User ID who created the invitation 
+    invitedAt: Timestamp // When the invitation was created 
+    acceptedAt: Timestamp // When the invitation was accepted (null if pending) 
+    createdAt: Timestamp // When the record was created 
+    updatedAt: Timestamp // When the record was last updated
+    
+    // Employee deactivation fields
+    archivedBy: string // User ID who deactivated the employee (if applicable)
+    archivedAt: Timestamp // When the employee was deactivated (if applicable)
+    reactivatedBy: string // User ID who reactivated the employee (if applicable)
+    reactivatedAt: Timestamp // When the employee was reactivated (if applicable)
+```
+
+## Cash Register System
+
+### cashRegister
+Daily register sheets for tracking opening/closing balances and all transactions.
+
+```
+cashRegister/
+  {document-id}/
+    businessId: string           // References the business this register belongs to
+    openingDate: Timestamp       // When the register was opened (date)
+    openingBalances: {           // Starting balances for each payment method
+      [paymentMethod]: number    // e.g., { "EFECTIVO": 1000, "SANTANDER": 0 }
+    }
+    openedBy: string             // User ID who opened the register
+    openedByName: string         // Display name of user who opened the register
+    notes: string                // Notes about the opening
+    createdAt: Timestamp         // When the document was created
+    updatedAt: Timestamp         // When the document was last updated
+    
+    // Fields added when register is closed
+    closingBalances: {           // Reported final balances for each payment method
+      [paymentMethod]: number
+    }
+    calculatedBalances: {        // Calculated final balances based on transactions
+      [paymentMethod]: number
+    }
+    discrepancies: {             // Differences between reported and calculated balances
+      [paymentMethod]: number
+    }
+    totals: {                    // Transaction totals for the day
+      income: number
+      expense: number
+      balance: number
+    }
+    closingNotes: string         // Notes about the closing
+    closedAt: Timestamp          // When the register was closed
+    closedBy: string             // User ID who closed the register
+    closedByName: string         // Display name of user who closed the register
+```
+
+### registerTransaction
+Records all financial transactions that occur during a cash register session.
+
+```
+registerTransaction/
+  {document-id}/
+    cashRegisterId: string       // References the cash register this transaction belongs to
+    businessId: string           // References the business this transaction belongs to
+    type: "income" | "expense"   // Whether money is coming in or going out
+    category: string             // Transaction category (e.g., "VENTAS", "COMPRAS", etc.)
+    description: string          // Description of the transaction
+    amount: number               // Amount of money involved
+    paymentMethod: string        // Payment method used (e.g., "EFECTIVO", "SANTANDER")
+    isReported: boolean          // Whether this transaction is reported for accounting (white/black)
+    notes: string                // Additional notes
+    createdBy: string            // User ID who created the transaction
+    createdByName: string        // Name of user who created the transaction
+    createdAt: Timestamp         // When the transaction was created
+    updatedAt: Timestamp         // When the transaction was last updated
+    
+    // Fields added if transaction is updated
+    updatedBy: string            // User ID who updated the transaction
+    updatedByName: string        // Name of user who updated the transaction
+```
+
+### businessConfig
+Stores configuration settings for businesses including payment methods and categories.
+
+```
+businessConfig/ 
+  {document-id}/ 
+    businessId: string // References the business this config belongs to 
+    paymentMethods: { // Available payment methods for this business 
+      [methodCode]: { // e.g., "EFECTIVO", "SANTANDER", etc. 
+        name: string // Display name of the payment method 
+        type: string // "cash" | "transfer" | "posnet" - Used for grouping 
+        active: boolean // Whether this method is active 
+        isDefault: boolean // Whether this is a default/suggested method 
+      } 
+    } 
+    incomeCategories: { // Available income categories 
+      [categoryCode]: { // e.g., "sales", "other_income", etc. 
+        name: string // Display name of the category 
+        active: boolean // Whether this category is active 
+        isDefault: boolean // Whether this is a default category 
+      } 
+    } 
+    expenseCategories: { // Available expense categories 
+      [categoryCode]: { // e.g., "purchases", "services", etc. 
+        name: string // Display name of the category 
+        active: boolean // Whether this category is active 
+        isDefault: boolean // Whether this is a default category 
+      } 
+    } 
+    createdAt: Timestamp // When the config was created 
+    updatedAt: Timestamp // When the config was last updated 
+    createdBy: string // User ID who created the config 
+    updatedBy: string // User ID who last updated the config
+```
