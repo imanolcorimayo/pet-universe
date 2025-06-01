@@ -8,7 +8,7 @@
       </div>
 
       <div class="flex gap-2">
-        <NuxtLink to="/caja" class="btn bg-primary text-white hover:bg-primary/90">
+        <NuxtLink to="/caja-global" class="btn bg-primary text-white hover:bg-primary/90">
           <span class="flex items-center gap-1">
             <PhMoneyFill class="h-4 w-4" />
             Caja Actual
@@ -148,12 +148,12 @@
     </div>
     
     <!-- Register Details Modal -->
-    <CashRegisterDetails ref="detailsModal" :register="selectedRegister" />
+    <GlobalCashRegisterDetails ref="detailsModal" :register="selectedRegister" />
   </div>
 </template>
 
 <script setup>
-import { useCashRegisterStore } from '~/stores/cashRegister';
+import { useCashRegisterStore } from '~/stores/globalCashRegister';
 import { storeToRefs } from 'pinia';
 import { ToastEvents } from '~/interfaces';
 import PhMoneyFill from '~icons/ph/money-fill';

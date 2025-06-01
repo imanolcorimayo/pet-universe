@@ -1,4 +1,3 @@
-<!-- components/caja/RegisterClosingModal.vue -->
 <template>
   <ModalStructure ref="mainModal" title="Cierre de Caja">
     <template #default>
@@ -147,7 +146,7 @@
 </template>
 
 <script setup>
-import { useCashRegisterStore } from "~/stores/cashRegister";
+import { useCashRegisterStore } from "~/stores/globalCashRegister";
 import { useIndexStore } from "~/stores/index";
 import { toast } from "vue3-toastify";
 

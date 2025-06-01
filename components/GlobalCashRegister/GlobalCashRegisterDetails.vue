@@ -281,7 +281,7 @@
 
 <script setup>
 import { useIndexStore } from "~/stores/index";
-import { useCashRegisterStore } from "~/stores/cashRegister";
+import { useCashRegisterStore } from "~/stores/globalCashRegister";
 import { ToastEvents } from "~/interfaces";
 
 // ----- Define Props ---------

@@ -80,6 +80,8 @@ interface CashRegisterState {
   loadingHistory: boolean;
 }
 
+
+
 export const useCashRegisterStore = defineStore('cashRegister', {
   state: (): CashRegisterState => ({
     currentRegister: null,

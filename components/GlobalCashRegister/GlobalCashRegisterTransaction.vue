@@ -180,7 +180,7 @@
 </template>
 
 <script setup>
-import { useCashRegisterStore } from "~/stores/cashRegister";
+import { useCashRegisterStore } from "~/stores/globalCashRegister";
 import { useIndexStore } from "~/stores/index";
 import { toast } from "vue3-toastify";
 import { ToastEvents } from "~/interfaces";

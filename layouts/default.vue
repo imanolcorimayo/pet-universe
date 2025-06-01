@@ -17,7 +17,7 @@
           <!-- Logo -->
           <div class="flex gap-4 w-fit">
             <NuxtLink
-              to="/caja"
+              to="/caja-global"
               class="flex-1 shrink-0 flex items-center space-x-3 rtl:space-x-reverse hover:bg-transparent no-hover"
             >
               <IcTwotonePets class="w-16 h-16 text-primary" />
@@ -111,23 +111,38 @@
           </li>
           <li>
             <NuxtLink
-              to="/caja"
+              to="/caja-global"
               class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
-              <PhMoneyFill class="text-gray-500" /> Caja Diaria
+              <PhMoneyFill class="text-gray-500" /> Caja Global
             </NuxtLink>
           </li>
           <li>
             <NuxtLink
-              to="/caja/historico"
+              to="/caja-global/historico"
               class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
-              <PhClockCounterClockwiseFill class="text-gray-500" /> Historial de Cajas
+              <PhClockCounterClockwiseFill class="text-gray-500" /> Historial Caja Global
             </NuxtLink>
           </li>
           <li>
             <NuxtLink
-              v-if="indexStore.isOwner"
+              to="/ventas"
+              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+            >
+              <PhMoneyFill class="text-gray-500" /> Ventas (Caja Diaria)
+            </NuxtLink>
+          </li>
+          <li>
+            <NuxtLink
+              to="/ventas/historico"
+              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+            >
+              <PhClockCounterClockwiseFill class="text-gray-500" /> Historial Ventas
+            </NuxtLink>
+          </li>
+          <li>
+            <NuxtLink
               to="/inventario"
               class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
@@ -136,7 +151,14 @@
           </li>
           <li>
             <NuxtLink
-              v-if="indexStore.isOwner"
+              to="/productos"
+              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+            >
+              <MingcuteInventoryFill class="text-gray-500" /> Productos
+            </NuxtLink>
+          </li>
+          <li>
+            <NuxtLink
               to="/clientes"
               class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
@@ -145,32 +167,21 @@
           </li>
           <li>
             <NuxtLink
-              v-if="indexStore.isOwner"
               to="/proveedores"
               class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
               <PhTruckFill class="text-gray-500" /> Proveedores
             </NuxtLink>
           </li>
-          <!-- <li>
-            <NuxtLink
-              v-if="indexStore.isOwner"
-              to="/finanzas"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
-            >
-              <PhChartBarFill class="text-gray-500" /> Finanzas
-            </NuxtLink>
-          </li> -->
           <li>
             <NuxtLink
-              v-if="indexStore.isOwner"
               to="/reportes"
               class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
               <PhFileTextFill class="text-gray-500" /> Reportes
             </NuxtLink>
           </li>
-          <li v-if="indexStore.isOwner">
+          <li>
             <button
               @click="toggleConfig"
               class="w-full flex items-center justify-between text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
