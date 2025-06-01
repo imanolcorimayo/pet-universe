@@ -101,12 +101,13 @@ input::-webkit-inner-spin-button {
   margin: 0;
 }
 
-input[type="number"] {
+input[type="number"], input[type="tel"] {
   -moz-appearance: textfield;
 }
 
 /* Base Input Styles */
 input[type="text"],
+input[type="tel"],
 input[type="email"],
 input[type="password"],
 input[type="number"],
