@@ -1,7 +1,7 @@
 # Pet Shop Management System Specifications
 
 ## Overview
-A comprehensive management system for pet shops that handles purchases, sales, inventory, client management, supplier tracking, and financial reporting. The system needs to track both officially reported transactions (white) and non-reported transactions (black), with combined totals.
+A comprehensive management system for pet shops that handles purchases, sales, inventory, client management, supplier tracking, and financial reporting. The system implements a dual cash register approach with a global business register for major operations and daily sales registers for point-of-sale transactions. The system tracks both officially reported transactions (white) and non-reported transactions (black), with combined totals.
 
 ## Technical Stack
 - Frontend: Nuxt 3 (Vue 3)
@@ -111,7 +111,7 @@ The application is configured for Firebase hosting and services:
 #### Firestore Connection Architecture
 - **Store Pattern**:
   - Uses Pinia stores (`defineStore`) to manage state and Firebase interactions
-  - Main stores: `index.ts`, `cashRegister.ts`, `products.ts`, `clients.ts` 
+  - Main stores: `index.ts`, `cashRegister.ts`, `salesRegister.ts`, `products.ts`, `clients.ts` 
 
 - **Common Connection Pattern**:
   - Each store validates prerequisites with helper functions that check:
@@ -162,41 +162,56 @@ This architecture follows a consistent pattern across the application, making it
 
 Following the established architecture pattern, the Pet Shop Management System will implement these core modules using the same architectural principles:
 
-### Core Modules Implementation
+### Dual Cash Register System
 
-#### 1. Big Cash Flow Management
+The system implements a dual cash register approach:
+
+#### 1. Global Cash Register (Business-Level)
+**Purpose:** Track all major business operations and financial movements at the business level.
+
+**Scope:** Business-level (each business has its own global register)
+**Frequency:** Weekly cycles with manual opening/closing
+**Access:** Only managers and business owners
+
 **Data Requirements:**
-
-- Daily register with:
-  * Opening balance
-  * All income/expense entries
-  * Payment method codes for each transaction
-  * Daily closing balance
-- Complete transaction flow from register to financial and economic reports
-- Expense categories:
-  * Services
-  * Maintenance
-  * Miscellaneous expenses
-  * Salaries
-- Payment type:
-  * Cash
-  * Transfer (Bank or virtual bank)
-  * Posnet
-  * Other
-- Payment Method:
-  * (none if cash selected)
-  * Santander
-  * Mercado Pago
-  * Naranja X
+- Weekly register with:
+  * Opening balances for all payment methods
+  * Major business transactions:
+    - Inventory purchases from suppliers
+    - Payroll and salary payments
+    - Tax payments and government fees
+    - Utilities and service expenses
+    - Large capital expenses
+    - Loan payments
+    - **Automatic daily sales summaries from sales registers**
+  * Weekly closing balances
+  * Discrepancy tracking between expected and actual balances
+- Payment method tracking with same codes as sales registers
+- Transaction categorization (income/expense with subcategories)
 - Option to classify transactions as reported (white) or non-reported (black)
-- Discrepancy tracking
+- Complete audit trail of all register operations
 
+#### 2. Sales Register (Daily Point-of-Sale)
+**Purpose:** Handle daily sales operations with integrated inventory management.
 
-#### 2. Sales Management - Small cash flow
+**Scope:** Location/point-of-sale level
+**Frequency:** Daily cycles with manual opening/closing
+**Access:** All employees (based on role permissions)
+
 **Data Requirements:**
-- Daily sales register that updates inventory automatically
-- Multiple payment method support for a single transaction
-- Pricing structure:
+- Daily sales register with:
+  * Opening cash balance
+  * Individual sale transactions with automatic inventory updates
+  * Minor daily expenses (petty cash, small supplies)
+  * Daily closing balance and reconciliation
+  * Discrepancy tracking
+- **Integrated Sales Processing:**
+  * Product selection interface with real-time inventory
+  * Multiple payment methods per transaction
+  * Automatic inventory deduction per sale
+  * Receipt generation
+  * Customer assignment (optional)
+- **Pricing Structure Integration:**
   * For bagged pet food:
     - Regular price (card price - predefined)
     - Cash discount price (predefined)
@@ -208,28 +223,31 @@ Following the established architecture pattern, the Pet Shop Management System w
     - Regular price
     - VIP/special discount price (for cash or quantity purchases)
   * Promotions (typically cash-only)
-- Sales analysis by day/week/month and payment method
+- Daily summary automatically fed to global register upon closing
 - Option to classify transactions as reported (white) or non-reported (black)
 
-**Implementation Pattern:**
-- **Store**: `sales.ts` Pinia store for managing sales data
-- **Components**: 
-  * `SalesList.vue` - List of completed sales
-  * `SalesDetails.vue` - Modal for viewing sale details
-- **Firestore Collections**:
-  * `sales` - Main sales records
+### Core Modules Implementation
 
 #### 3. Inventory Management
 **Data Requirements:**
-- Accessories tracked by unit
-- Pet food tracking with dual-unit system:
+- **Dual-Unit System for Pet Food:**
   * Closed bags (counted as units)
   * Open bags (tracked by weight in kg)
-  * Example: 14 closed bags plus 1 open bag with 10kg remaining should display as "14 units + 10kg"
-- Minimum stock alerts
-- Not all pet food types are sold by weight (loose)
-- Product rotation analytics
-- Cost and price tracking
+  * Display format: "14 units + 10kg" for mixed inventory
+- **Accessories:** Tracked by unit only
+- **Automatic Integration with Sales:**
+  * Real-time stock updates per sale transaction
+  * Automatic deduction based on sale quantities
+  * Support for partial bag sales (weight-based)
+- **Stock Management:**
+  * Minimum stock alerts
+  * Product rotation analytics
+  * Cost and price tracking
+  * Inventory adjustment capabilities
+- **Product Classification:**
+  * Not all pet food types are sold by weight (loose)
+  * Product categories and subcategories
+  * Supplier association
 
 **Implementation Pattern:**
 - **Store**: `inventory.ts` and `products.ts` Pinia stores
@@ -248,7 +266,7 @@ Following the established architecture pattern, the Pet Shop Management System w
 - Customer profiles with contact information
 - Pet information for each customer (species, name, birthdate)
 - Customer birthday tracking
-- Purchase history
+- Purchase history linked to sales transactions
 - Customer loyalty status
 - Notifications for upcoming pet food purchases based on consumption patterns
 
@@ -293,7 +311,7 @@ Following the established architecture pattern, the Pet Shop Management System w
   * Tarjeta Crédito (TCR) - Credit Card
   * Transferencias (TRA) - Bank Transfers
 - Account tracking for each payment method
-- Daily balances by payment method/account
+- Daily/weekly balances by payment method/account
 - Transaction history by account
 
 **Implementation Pattern:**
@@ -303,11 +321,9 @@ Following the established architecture pattern, the Pet Shop Management System w
 - **Firestore Collections**:
   * `businessConfig` - Global business configuration
 
-
-#### 10. Reporting
+#### 7. Reporting
 **Data Requirements:**
-- Financial reports (monthly): (TO BE DEFINED)
-
+- TO BE DEFINED
 
 ## Page Folder Structure
 
@@ -317,22 +333,23 @@ Following the architecture pattern of using modals for details and edits rather 
 - `/dashboard`
   - `/dashboard/index.vue` - Main dashboard overview with key metrics and notifications
 
-### 2. Caja (Cash Register)
-- `/caja`
-  - `/caja/index.vue` - Current day's register with status, transactions, and modal triggers for:
-    - `RegisterOpeningModal.vue` - Opening the monthly global register
-    - `TransactionEntryModal.vue` - New transactions (sales and expenses)
-    - `RegisterClosingModal.vue` - End-of-day closing
-  - `/caja/historico.vue` - Past register closings
+### 2. Caja Global (Global Cash Register)
+- `/caja-global`
+  - `/caja-global/index.vue` - Current week's global register with status, major transactions, and modal triggers for:
+    - `GlobalRegisterOpeningModal.vue` - Opening the weekly global register
+    - `GlobalTransactionEntryModal.vue` - New major business transactions
+    - `GlobalRegisterClosingModal.vue` - End-of-week closing with sales register summaries
+  - `/caja-global/historico.vue` - Past global register closings
 
-### 3. Ventas / Caja Chica (Small cash registers)
-- `/venta`
-  - `/venta/index.vue` - Current day's register with status, transactions, and modal triggers for:
-    - `SaleRegisterOpeningModal.vue` - Opening the daily register
-    - `SaleTransactionEntryModal.vue` - New transactions (inflows and outflows)
-    - `SaleRegisterClosingModal.vue` - End-of-day closing
-    - `SaleDetails.vue` - End-of-day closing
-  - `/venta/historico.vue` - Past register closings
+### 3. Ventas (Sales Register - Daily POS)
+- `/ventas`
+  - `/ventas/index.vue` - Current day's sales register with status, transactions, and modal triggers for:
+    - `SalesRegisterOpeningModal.vue` - Opening the daily sales register
+    - `SaleTransactionModal.vue` - New sale with product selection and inventory integration
+    - `ExpenseEntryModal.vue` - Small daily expenses
+    - `SalesRegisterClosingModal.vue` - End-of-day closing
+    - `SaleDetails.vue` - View individual sale details
+  - `/ventas/historico.vue` - Past sales register closings
 
 ### 4. Inventario (Inventory)
 - `/inventario`
@@ -392,7 +409,9 @@ Following the architecture pattern:
 
 ## Future Enhancements
 - TBD
+
 ---
+
 # Pet Universe Database Structure
 
 This document outlines the Firestore database structure for the Pet Universe application.
@@ -442,18 +461,91 @@ userRole/
     reactivatedAt: Timestamp // When the employee was reactivated (if applicable)
 ```
 
-## Cash Register System
+## Dual Cash Register System
 
-### cashRegister
-Daily register sheets for tracking opening/closing balances and all transactions.
+### globalCashRegister
+Weekly register sheets for tracking major business operations and financial movements.
 
 ```
-cashRegister/
+globalCashRegister/
+  {document-id}/
+    businessId: string           // References the business this register belongs to
+    openingDate: Timestamp       // When the register was opened (week start date)
+    openingBalances: {           // Starting balances for each payment method
+      [paymentMethod]: number    // e.g., { "EFECTIVO": 5000, "SANTANDER": 10000 }
+    }
+    openedBy: string             // User ID who opened the register
+    openedByName: string         // Display name of user who opened the register
+    notes: string                // Notes about the opening
+    createdAt: Timestamp         // When the document was created
+    updatedAt: Timestamp         // When the document was last updated
+    
+    // Fields added when register is closed
+    closingBalances: {           // Reported final balances for each payment method
+      [paymentMethod]: number
+    }
+    calculatedBalances: {        // Calculated final balances based on transactions
+      [paymentMethod]: number
+    }
+    discrepancies: {             // Differences between reported and calculated balances
+      [paymentMethod]: number
+    }
+    totals: {                    // Transaction totals for the week
+      income: number             // Including automatic sales summaries
+      expense: number
+      balance: number
+    }
+    salesSummaries: {            // Automatic summaries from closed sales registers
+      [date]: {                  // Daily summaries by date
+        totalSales: number
+        totalExpenses: number
+        netAmount: number
+        registerIds: string[]    // References to closed sales registers
+      }
+    }
+    closingNotes: string         // Notes about the closing
+    closedAt: Timestamp          // When the register was closed
+    closedBy: string             // User ID who closed the register
+    closedByName: string         // Display name of user who closed the register
+```
+
+### globalRegisterTransaction
+Records all major business transactions in the global cash register.
+
+```
+globalRegisterTransaction/
+  {document-id}/
+    globalCashRegisterId: string // References the global cash register
+    businessId: string           // References the business this transaction belongs to
+    type: "income" | "expense"   // Whether money is coming in or going out
+    category: string             // Transaction category (e.g., "COMPRAS", "SUELDOS", "IMPUESTOS", "VENTAS_DIARIAS")
+    description: string          // Description of the transaction
+    amount: number               // Amount of money involved
+    paymentMethod: string        // Payment method used (e.g., "EFECTIVO", "SANTANDER")
+    isReported: boolean          // Whether this transaction is reported for accounting (white/black)
+    isAutomatic: boolean         // Whether this was automatically generated from sales register
+    sourceRegisterId: string     // Reference to source sales register (if automatic)
+    notes: string                // Additional notes
+    createdBy: string            // User ID who created the transaction
+    createdByName: string        // Name of user who created the transaction
+    createdAt: Timestamp         // When the transaction was created
+    updatedAt: Timestamp         // When the transaction was last updated
+    
+    // Fields added if transaction is updated
+    updatedBy: string            // User ID who updated the transaction
+    updatedByName: string        // Name of user who updated the transaction
+```
+
+### salesRegister
+Daily register sheets for tracking sales operations and minor expenses.
+
+```
+salesRegister/
   {document-id}/
     businessId: string           // References the business this register belongs to
     openingDate: Timestamp       // When the register was opened (date)
-    openingBalances: {           // Starting balances for each payment method
-      [paymentMethod]: number    // e.g., { "EFECTIVO": 1000, "SANTANDER": 0 }
+    openingBalances: {           // Starting balances for each payment method (mainly cash)
+      [paymentMethod]: number    // e.g., { "EFECTIVO": 1000 }
     }
     openedBy: string             // User ID who opened the register
     openedByName: string         // Display name of user who opened the register
@@ -472,72 +564,242 @@ cashRegister/
       [paymentMethod]: number
     }
     totals: {                    // Transaction totals for the day
-      income: number
-      expense: number
-      balance: number
+      sales: number              // Total sales amount
+      expenses: number           // Total daily expenses
+      netAmount: number          // Net amount (sales - expenses)
     }
     closingNotes: string         // Notes about the closing
     closedAt: Timestamp          // When the register was closed
     closedBy: string             // User ID who closed the register
     closedByName: string         // Display name of user who closed the register
+    transferredToGlobal: boolean // Whether this summary was transferred to global register
+    transferredAt: Timestamp     // When it was transferred to global register
 ```
 
-### registerTransaction
-Records all financial transactions that occur during a cash register session.
+### sale
+Individual sale transactions with integrated inventory management.
 
 ```
-registerTransaction/
+sale/
   {document-id}/
-    cashRegisterId: string       // References the cash register this transaction belongs to
-    businessId: string           // References the business this transaction belongs to
-    type: "income" | "expense"   // Whether money is coming in or going out
-    category: string             // Transaction category (e.g., "VENTAS", "COMPRAS", etc.)
-    description: string          // Description of the transaction
-    amount: number               // Amount of money involved
-    paymentMethod: string        // Payment method used (e.g., "EFECTIVO", "SANTANDER")
-    isReported: boolean          // Whether this transaction is reported for accounting (white/black)
-    notes: string                // Additional notes
-    createdBy: string            // User ID who created the transaction
-    createdByName: string        // Name of user who created the transaction
-    createdAt: Timestamp         // When the transaction was created
-    updatedAt: Timestamp         // When the transaction was last updated
+    salesRegisterId: string      // References the sales register this sale belongs to
+    businessId: string           // References the business this sale belongs to
+    saleNumber: string           // Sequential sale number (daily)
+    clientId: string|null        // Reference to client (optional)
+    clientName: string|null      // Client name for quick reference
     
-    // Fields added if transaction is updated
-    updatedBy: string            // User ID who updated the transaction
-    updatedByName: string        // Name of user who updated the transaction
+    items: [{                    // Array of sold items
+      productId: string          // Reference to product
+      productName: string        // Product name for reference
+      quantity: number           // Quantity sold
+      unitType: string           // "unit" | "kg" (for pet food weight sales)
+      unitPrice: number          // Price per unit/kg
+      totalPrice: number         // Total for this item
+      appliedDiscount: number    // Discount applied (if any)
+      priceType: string          // "regular" | "cash" | "vip" | "bulk" | "promotion"
+    }]
+    
+    paymentDetails: [{           // Array of payment methods used
+      paymentMethod: string      // Payment method code
+      amount: number             // Amount paid with this method
+    }]
+    
+    subtotal: number             // Subtotal before discounts
+    totalDiscount: number        // Total discount applied
+    total: number                // Final total amount
+    isReported: boolean          // Whether this sale is reported for accounting (white/black)
+    notes: string                // Additional notes
+    
+    createdBy: string            // User ID who processed the sale
+    createdByName: string        // Name of user who processed the sale
+    createdAt: Timestamp         // When the sale was created
+    updatedAt: Timestamp         // When the sale was last updated
+    
+    // Inventory integration flags
+    inventoryUpdated: boolean    // Whether inventory was automatically updated
+    inventoryUpdateAt: Timestamp // When inventory was updated
 ```
 
-### businessConfig
-Stores configuration settings for businesses including payment methods and categories.
+### salesRegisterExpense
+Minor daily expenses recorded in the sales register.
 
 ```
-businessConfig/ 
-  {document-id}/ 
-    businessId: string // References the business this config belongs to 
-    paymentMethods: { // Available payment methods for this business 
-      [methodCode]: { // e.g., "EFECTIVO", "SANTANDER", etc. 
-        name: string // Display name of the payment method 
-        type: string // "cash" | "transfer" | "posnet" - Used for grouping 
-        active: boolean // Whether this method is active 
-        isDefault: boolean // Whether this is a default/suggested method 
-      } 
-    } 
-    incomeCategories: { // Available income categories 
-      [categoryCode]: { // e.g., "sales", "other_income", etc. 
-        name: string // Display name of the category 
-        active: boolean // Whether this category is active 
-        isDefault: boolean // Whether this is a default category 
-      } 
-    } 
-    expenseCategories: { // Available expense categories 
-      [categoryCode]: { // e.g., "purchases", "services", etc. 
-        name: string // Display name of the category 
-        active: boolean // Whether this category is active 
-        isDefault: boolean // Whether this is a default category 
-      } 
-    } 
-    createdAt: Timestamp // When the config was created 
-    updatedAt: Timestamp // When the config was last updated 
-    createdBy: string // User ID who created the config 
-    updatedBy: string // User ID who last updated the config
+salesRegisterExpense/
+  {document-id}/
+    salesRegisterId: string      // References the sales register this expense belongs to
+    businessId: string           // References the business this expense belongs to
+    category: string             // Expense category (e.g., "LIMPIEZA", "REPARACIONES", "VARIOS")
+    description: string          // Description of the expense
+    amount: number               // Amount spent
+    paymentMethod: string        // Payment method used
+    isReported: boolean          // Whether this expense is reported for accounting (white/black)
+    notes: string                // Additional notes
+    createdBy: string            // User ID who created the expense
+    createdByName: string        // Name of user who created the expense
+    createdAt: Timestamp         // When the expense was created
+    updatedAt: Timestamp         // When the expense was last updated
 ```
+
+## Product & Inventory Management
+
+### product
+Product catalog for the business.
+
+```
+product/
+  {document-id}/
+    businessId: string           // References the business this product belongs to
+    name: string                 // Product name
+    description: string          // Product description
+    category: string             // Product category (e.g., "ALIMENTO", "ACCESORIO")
+    subcategory: string          // Product subcategory
+    brand: string                // Product brand
+    
+    // Pricing structure
+    prices: {
+      regular: number            // Regular/card price
+      cash: number              // Cash discount price (for applicable products)
+      vip: number               // VIP/special customer price (variable)
+      bulk: number              // Bulk purchase price (for weight-based sales)
+    }
+    
+    // Inventory tracking configuration
+    trackingType: string         // "unit" | "weight" | "dual" (for pet food)
+    unitType: string             // "bag" | "kg" | "piece" | etc.
+    allowsLooseSales: boolean    // Whether this product can be sold by weight
+    
+    // Stock information
+    minimumStock: number         // Minimum stock level for alerts
+    supplierIds: string[]        // Array of supplier references
+    
+    // Status
+    isActive: boolean            // Whether product is active
+    createdBy: string            // User ID who created the product
+    createdAt: Timestamp         // When the product was created
+    updatedAt: Timestamp         // When the product was last updated
+    archivedAt: Timestamp|null   // When the product was archived (if applicable)
+```
+
+### inventory
+Current inventory levels for products.
+
+```
+inventory/
+  {document-id}/
+    businessId: string           // References the business
+    productId: string            // References the product
+    productName: string          // Product name for quick reference
+    
+    // Current stock levels
+    unitsInStock: number         // Closed bags/units in stock
+    openUnitsWeight: number      // Weight of open bags/units (in kg)
+    totalWeight: number          // Total weight available (calculated)
+    
+    // Stock control
+    minimumStock: number         // Minimum stock level
+    isLowStock: boolean          // Whether stock is below minimum    
+    
+    // Cost tracking
+    averageCost: number          // Weighted average cost per unit
+    lastPurchaseCost: number     // Cost of last purchase
+    totalCostValue: number       // Total inventory value at cost
+    
+    // Purchase history summary
+    lastPurchaseAt: Timestamp    // When last purchased
+    lastSupplierId: string       // Last supplier used
+    
+    // Last movement tracking
+    lastMovementAt: Timestamp    // When stock was last updated
+    lastMovementType: string     // "sale" | "purchase" | "adjustment"
+    lastMovementBy: string       // User who made the last movement
+    
+    updatedAt: Timestamp         // When the inventory was last updated
+```
+
+### inventoryMovement
+Historical record of all inventory changes.
+
+```
+inventoryMovement/
+  {document-id}/
+    businessId: string           // References the business
+    productId: string            // References the product
+    productName: string          // Product name for reference
+    
+    movementType: string         // "sale" | "purchase" | "adjustment" | "opening"
+    referenceType: string        // "sale" | "purchase_order" | "manual_adjustment"
+    referenceId: string          // ID of the source transaction (sale ID, purchase order ID, etc.)
+    
+    // Movement details
+    quantityChange: number       // Change in units (positive = increase, negative = decrease)
+    weightChange: number         // Change in weight (for weight-tracked products)    
+    
+    // Cost information (for purchase movements)
+    unitCost: number|null        // Cost per unit when purchased
+    previousCost: number|null    // Previous unit cost from inventory
+    totalCost: number|null       // Total cost of this movement
+    supplierId: string|null      // Supplier (for purchase movements)
+    
+    // Before/after snapshots
+    unitsBefore: number          // Units before this movement
+    unitsAfter: number           // Units after this movement
+    weightBefore: number         // Weight before this movement
+    weightAfter: number          // Weight after this movement
+    
+    notes: string                // Additional notes about the movement
+    createdBy: string            // User ID who caused this movement
+    createdByName: string        // Name of user who caused this movement
+    createdAt: Timestamp         // When the movement occurred
+```
+
+## Customer Management
+
+### client
+Customer information and profiles.
+
+```
+client/
+  {document-id}/
+    businessId: string           // References the business
+    name: string                 // Client full name
+    email: string|null           // Client email
+    phone: string|null           // Client phone number
+    address: string|null         // Client address
+    birthdate: Timestamp|null    // Client birthdate
+    
+    // Customer status
+    isVip: boolean               // Whether client has VIP status
+    loyaltyLevel: string         // "regular" | "silver" | "gold" | "platinum"
+    totalPurchases: number       // Total amount spent (lifetime)
+    lastPurchaseAt: Timestamp|null // When client last made a purchase
+    
+    // Preferences and notes
+    preferences: string          // Client preferences or special notes
+    notes: string                // Additional notes about the client
+    
+    // Status
+    isActive: boolean            // Whether client is active
+    createdBy: string            // User ID who created the client
+    createdAt: Timestamp         // When the client was created
+    updatedAt: Timestamp         // When the client was last updated
+    archivedAt: Timestamp|null   // When the client was archived (if applicable)
+```
+
+### pet
+Pet information associated with clients.
+
+```
+pet/
+  {document-id}/
+    businessId: string           // References the business
+    clientId: string             // References the client owner
+    name: string                 // Pet name
+    species: string              // Pet species (e.g., "dog", "cat", "bird")
+    breed: string|null           // Pet breed
+    birthdate: Timestamp|null    // Pet birthdate
+    weight: number|null          // Pet weight (in kg)
+    
+    // Health and dietary information
+    dietaryRestrictions: string  // Any dietary restrictions or special needs
+    foodPreferences: string[]    // Array of preferred food brands/types
+    feedingSchedule: string      // Feeding
