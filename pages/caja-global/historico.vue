@@ -153,17 +153,14 @@
 </template>
 
 <script setup>
-import { useCashRegisterStore } from '~/stores/globalCashRegister';
-import { storeToRefs } from 'pinia';
-import { ToastEvents } from '~/interfaces';
 import PhMoneyFill from '~icons/ph/money-fill';
 import BiSearch from '~icons/bi/search';
 import BiJournalText from '~icons/bi/journal-text';
 
 // ----- Define Refs ---------
 const detailsModal = ref(null);
-const cashRegisterStore = useCashRegisterStore();
-const { registerHistory } = storeToRefs(cashRegisterStore);
+const globalCashRegisterStore = useGlobalCashRegisterStore();
+const { registerHistory } = storeToRefs(globalCashRegisterStore);
 const loading = ref(true);
 const loadingMore = ref(false);
 const selectedRegister = ref(null);
@@ -201,7 +198,7 @@ async function loadHistory() {
     const fromDate = $dayjs(filters.value.dateFrom).startOf('day').toDate();
     const toDate = $dayjs(filters.value.dateTo).endOf('day').toDate();
     
-    await cashRegisterStore.loadRegisterHistory(limit.value, fromDate, toDate);
+    await globalCashRegisterStore.loadRegisterHistory(limit.value, fromDate, toDate);
   } catch (error) {
     useToast(ToastEvents.error, `Error al cargar el historial: ${error.message}`);
   } finally {

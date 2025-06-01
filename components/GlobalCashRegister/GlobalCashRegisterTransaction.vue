@@ -180,10 +180,7 @@
 </template>
 
 <script setup>
-import { useCashRegisterStore } from "~/stores/globalCashRegister";
-import { useIndexStore } from "~/stores/index";
-import { toast } from "vue3-toastify";
-import { ToastEvents } from "~/interfaces";
+import { ToastEvents } from '~/interfaces';
 
 // ----- Define Props ---------
 const props = defineProps({
@@ -195,7 +192,7 @@ const props = defineProps({
 
 // ----- Define Refs ---------
 const mainModal = ref(null);
-const cashRegisterStore = useCashRegisterStore();
+const globalCashRegisterStore = useGlobalCashRegisterStore();
 const indexStore = useIndexStore();
 const submitting = ref(false);
 const loading = ref(true);
@@ -232,8 +229,6 @@ const getCategoriesByType = computed(() => {
   const categories =
     type === "income" ? incomeCategories.value : expenseCategories.value;
 
-  console.log("Categories by Type:", categories);
-
   // Select the default category if available
   let defaultCategory = false;
 
@@ -248,7 +243,6 @@ const getCategoriesByType = computed(() => {
   } else {
   }
 
-  console.log("Default Category:", defaultCategory);
   if (defaultCategory) {
     formData.value.category = defaultCategory[0];
   }
@@ -377,22 +371,22 @@ async function saveTransaction() {
 
     if (isEditing.value) {
       // Update existing transaction
-      await cashRegisterStore.updateTransaction(
+      await globalCashRegisterStore.updateTransaction(
         props.transactionToEdit.id,
         dataToSave
       );
-      toast.success("Transacción actualizada correctamente");
+      useToast(ToastEvents.success, "Transacción actualizada correctamente");
     } else {
       // Create new transaction
-      await cashRegisterStore.addTransaction(dataToSave);
-      toast.success("Transacción agregada correctamente");
+      await globalCashRegisterStore.addTransaction(dataToSave);
+      useToast(ToastEvents.success, "Transacción agregada correctamente");
     }
 
     // Close modal and reset form
     mainModal.value.closeModal();
     resetForm();
   } catch (error) {
-    toast.error(`Error: ${error.message}`);
+    useToast(ToastEvents.error, `Error: ${error.message}`);
   } finally {
     submitting.value = false;
   }

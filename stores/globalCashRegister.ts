@@ -1,26 +1,50 @@
-// stores/cashRegister.ts
 import { defineStore } from 'pinia';
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
   serverTimestamp,
-  Timestamp ,
+  Timestamp,
   limit
 } from 'firebase/firestore';
 import { useLocalStorage } from '@vueuse/core';
 import { ToastEvents } from '~/interfaces';
 
-// Define interfaces for the state
-interface Transaction {
+// --- Interfaces ---
+interface GlobalRegister {
   id: string;
-  cashRegisterId: string;
+  businessId: string;
+  openingDate: any; // Timestamp
+  openingBalances: Record<string, number>;
+  openedBy: string;
+  openedByName: string;
+  notes?: string;
+  closingBalances?: Record<string, number>;
+  calculatedBalances?: Record<string, number>;
+  discrepancies?: Record<string, number>;
+  totals?: {
+    income: number;
+    expense: number;
+    balance: number;
+  };
+  salesSummaries?: Record<string, any>;
+  closingNotes?: string;
+  closedAt?: any;
+  closedBy?: string;
+  closedByName?: string;
+  createdAt: any;
+  updatedAt: any;
+}
+
+interface GlobalRegisterTransaction {
+  id: string;
+  globalCashRegisterId: string;
   businessId: string;
   type: 'income' | 'expense';
   category: string;
@@ -28,262 +52,119 @@ interface Transaction {
   amount: number;
   paymentMethod: string;
   isReported: boolean;
+  isAutomatic: boolean;
+  sourceRegisterId?: string;
   notes?: string;
   createdBy: string;
   createdByName: string;
-  createdAt: any; // Timestamp
-  updatedAt: any; // Timestamp
+  createdAt: any;
+  updatedAt: any;
   updatedBy?: string;
   updatedByName?: string;
 }
 
-interface Balance {
-  [method: string]: number;
-}
-
-interface Totals {
-  income: number;
-  expense: number;
-  balance: number;
-}
-
-interface RegisterSummary {
-  totals: Totals;
-  balancesByMethod: Balance;
-}
-
-interface CashRegister {
-  id: string;
-  businessId: string;
-  openingDate: any; // Timestamp
-  openingBalances: Balance;
-  openedBy: string;
-  openedByName: string;
-  notes?: string;
-  closingBalances?: Balance;
-  calculatedBalances?: Balance;
-  discrepancies?: Balance;
-  totals?: Totals;
-  closingNotes?: string;
-  closedAt?: any; // Timestamp
-  closedBy?: string;
-  closedByName?: string;
-  createdAt: any; // Timestamp
-  updatedAt: any; // Timestamp
-}
-
-interface CashRegisterState {
-  currentRegister: CashRegister | null;
-  transactions: Transaction[];
-  registerHistory: CashRegister[];
+interface GlobalRegisterState {
+  currentRegister: GlobalRegister | null;
+  transactions: GlobalRegisterTransaction[];
+  registerHistory: GlobalRegister[];
   isLoading: boolean;
   loadingHistory: boolean;
 }
 
-
-
-export const useCashRegisterStore = defineStore('cashRegister', {
-  state: (): CashRegisterState => ({
+// --- Store ---
+export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
+  state: (): GlobalRegisterState => ({
     currentRegister: null,
     transactions: [],
     registerHistory: [],
     isLoading: false,
     loadingHistory: false
   }),
-  
+
   getters: {
-    isRegisterOpen: (state) => {
-      return state.currentRegister && !state.currentRegister.closedAt;
-    },
-    
-    todayTransactions: (state) => {
-      return state.transactions || [];
-    },
-    
+    isRegisterOpen: (state) => state.currentRegister && !state.currentRegister.closedAt,
     transactionsByType: (state) => {
       const income = state.transactions.filter(t => t.type === 'income');
       const expense = state.transactions.filter(t => t.type === 'expense');
       return { income, expense };
-    },
-    
-    transactionsByPaymentMethod: (state) => {
-      const result: Record<string, Transaction[]> = {};
-      state.transactions.forEach(t => {
-        if (!result[t.paymentMethod]) {
-          result[t.paymentMethod] = [];
-        }
-        result[t.paymentMethod].push(t);
-      });
-      return result;
     }
   },
-  
+
   actions: {
     async loadCurrentRegister() {
       const db = useFirestore();
       const user = useCurrentUser();
+      const { $dayjs } = useNuxtApp();
+
       const currentBusinessId = useLocalStorage('cBId', null);
-      const isLoggedIn = !!user.value?.uid;
-      const hasActiveBusiness = !!currentBusinessId.value;
-      
-      if (!isLoggedIn || !hasActiveBusiness) return;
+      if (!user.value?.uid || !currentBusinessId.value) return;
 
       this.isLoading = true;
-      
       try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
+        // Find the latest open global register for this business (week start)
+        const weekStart = $dayjs().startOf('week').toDate();
         const q = query(
-          collection(db, 'cashRegister'),
+          collection(db, 'globalCashRegister'),
           where('businessId', '==', currentBusinessId.value),
-          where('openingDate', '>=', Timestamp.fromDate(today)),
+          where('openingDate', '>=', Timestamp.fromDate(weekStart)),
           orderBy('openingDate', 'desc'),
           orderBy('createdAt', 'desc')
         );
-        
         const snapshot = await getDocs(q);
-        
         if (!snapshot.empty) {
-
-          console.log("LALA")
           this.currentRegister = {
             id: snapshot.docs[0].id,
             ...snapshot.docs[0].data()
-          } as CashRegister;
-          
-          // Load transactions for this register
+          } as GlobalRegister;
           await this.loadRegisterTransactions(this.currentRegister.id);
         } else {
           this.currentRegister = null;
           this.transactions = [];
         }
       } catch (error) {
-        console.error('Error loading current register:', error);
-        throw new Error('Error al cargar la caja del día');
+        console.error('Error loading global register:', error);
+        throw new Error('Error al cargar la caja global');
       } finally {
         this.isLoading = false;
       }
     },
-    
-    async loadRegisterTransactions(cashRegisterId: string) {
+
+    async loadRegisterTransactions(globalRegisterId: string) {
       const db = useFirestore();
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
-      const isLoggedIn = !!user.value?.uid;
-      const hasActiveBusiness = !!currentBusinessId.value;
-      
-      if (!isLoggedIn || !hasActiveBusiness) return;
-      
+      if (!user.value?.uid || !currentBusinessId.value) return;
+
       try {
-        const registerTransactionRef = collection(db, 'registerTransaction');
-        
+        const ref = collection(db, 'globalRegisterTransaction');
         const q = query(
-          registerTransactionRef,
-          where('cashRegisterId', '==', cashRegisterId),
+          ref,
+          where('globalCashRegisterId', '==', globalRegisterId),
           orderBy('createdAt', 'desc')
         );
-        
         const snapshot = await getDocs(q);
-        
         this.transactions = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        })) as Transaction[];
+        })) as GlobalRegisterTransaction[];
       } catch (error) {
-        console.error('Error loading register transactions:', error);
-        throw new Error('Error al cargar las transacciones');
+        console.error('Error loading global register transactions:', error);
+        throw new Error('Error al cargar las transacciones de caja global');
       }
     },
-    async loadRegisterHistory(limitElement = 10, fromDate = null, toDate = null) {
+
+    async openGlobalRegister(data: { date: Date; openingBalances: Record<string, number>; notes?: string }) {
       const db = useFirestore();
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
-      const isLoggedIn = !!user.value?.uid;
-      const hasActiveBusiness = !!currentBusinessId.value;
-      
-      if (!isLoggedIn || !hasActiveBusiness) return;
-      
-      this.loadingHistory = true;
-      
-      try {
-        const cashRegisterRef = collection(db, 'cashRegister');
-        
-        let queryConstraints = [
-          where('businessId', '==', currentBusinessId.value),
-        ];
-        
-        // Add date range filters if provided
-        if (fromDate) {
-          queryConstraints.push(where('openingDate', '>=', Timestamp.fromDate(fromDate)));
-        }
-        
-        if (toDate) {
-          queryConstraints.push(where('openingDate', '<=', Timestamp.fromDate(toDate)));
-        }
-        
-        // Always order by date
-        queryConstraints = [
-          ...queryConstraints,
-          orderBy('openingDate', 'desc'),
-          orderBy('createdAt', 'desc'),
-          limit(limitElement)
-        ] as unknown as any;
-        
-        const q = query(cashRegisterRef, ...queryConstraints);
-        
-        const snapshot = await getDocs(q);
-        
-        this.registerHistory = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as CashRegister[];
-      } catch (error) {
-        console.error('Error loading register history:', error);
-        throw new Error('Error al cargar el historial de cajas');
-      } finally {
-        this.loadingHistory = false;
-      }
-    },
-    
-    async openCashRegister(data: { date: Date; openingBalances: Balance; notes?: string }) {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const currentBusinessId = useLocalStorage('cBId', null);
-      const isLoggedIn = !!user.value?.uid;
-      const hasActiveBusiness = !!currentBusinessId.value;
+      if (!user.value?.uid || !currentBusinessId.value) throw new Error('Debes iniciar sesión y seleccionar un negocio');
 
-      // Get available payment methods
-      const indexStore = useIndexStore();
-      await indexStore.loadBusinessConfig();
-
-      const activePaymentMethods = indexStore.getActivePaymentMethods;
-  
-      // Validate that all payment methods in openingBalances exist
-      for (const method in data.openingBalances) {
-        if (!activePaymentMethods[method]) {
-          throw new Error(`El método de pago ${method} no está configurado en el sistema`);
-        }
-      }
-      
-      if (!isLoggedIn || !hasActiveBusiness) {
-        throw new Error('Debes iniciar sesión y seleccionar un negocio');
-      }
-      
-      // Check if there's already an open register
+      // Check if already open for this week
       await this.loadCurrentRegister();
-      if (this.isRegisterOpen) {
-        throw new Error('Ya existe una caja abierta para hoy');
-      }
+      if (this.isRegisterOpen) throw new Error('Ya existe una caja global abierta para esta semana');
 
-      // TypeScript type assertion
-      if (!user.value) {
-        return null;
-      }
-      
       try {
-        const cashRegisterRef = collection(db, 'cashRegister');
-        
+        const ref = collection(db, 'globalCashRegister');
         const registerData = {
           businessId: currentBusinessId.value,
           openingDate: Timestamp.fromDate(new Date(data.date)),
@@ -294,25 +175,20 @@ export const useCashRegisterStore = defineStore('cashRegister', {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
-        
-        const docRef = await addDoc(cashRegisterRef, registerData);
-        
-        // Load the newly created register
+        const docRef = await addDoc(ref, registerData);
         const newRegister = await getDoc(docRef);
         this.currentRegister = {
           id: newRegister.id,
           ...newRegister.data()
-        } as CashRegister;
-        
+        } as GlobalRegister;
         this.transactions = [];
-        
         return this.currentRegister;
       } catch (error) {
-        console.error('Error opening cash register:', error);
-        throw new Error('Error al abrir la caja');
+        console.error('Error opening global register:', error);
+        throw new Error('Error al abrir la caja global');
       }
     },
-    
+
     async addTransaction(data: {
       type: 'income' | 'expense';
       category: string;
@@ -320,40 +196,20 @@ export const useCashRegisterStore = defineStore('cashRegister', {
       amount: number;
       paymentMethod: string;
       isReported: boolean;
+      isAutomatic?: boolean;
+      sourceRegisterId?: string;
       notes?: string;
     }) {
       const db = useFirestore();
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
-      const isLoggedIn = !!user.value?.uid;
-      const hasActiveBusiness = !!currentBusinessId.value;
-      
-      if (!isLoggedIn || !hasActiveBusiness) {
-        throw new Error('Debes iniciar sesión y seleccionar un negocio');
-      }
-      
-      if (!this.isRegisterOpen) {
-        throw new Error('No hay una caja abierta para registrar transacciones');
-      }
+      if (!user.value?.uid || !currentBusinessId.value) throw new Error('Debes iniciar sesión y seleccionar un negocio');
+      if (!this.isRegisterOpen || !this.currentRegister) throw new Error('No hay una caja global abierta');
 
-
-      // TypeScript type assertion
-      if (!this.currentRegister) {
-        useToast(ToastEvents.error, 'No se encontró la caja abierta');
-        return null;
-      }
-
-      // TypeScript type assertion
-      if (!user.value) {
-        useToast(ToastEvents.error, 'No se encontró el usuario');
-        return null;
-      }
-      
       try {
-        const registerTransactionRef = collection(db, 'registerTransaction');
-        
+        const ref = collection(db, 'globalRegisterTransaction');
         const transactionData = {
-          cashRegisterId: this.currentRegister.id,
+          globalCashRegisterId: this.currentRegister.id,
           businessId: currentBusinessId.value,
           type: data.type,
           category: data.category,
@@ -361,28 +217,23 @@ export const useCashRegisterStore = defineStore('cashRegister', {
           amount: data.amount,
           paymentMethod: data.paymentMethod,
           isReported: data.isReported,
+          isAutomatic: !!data.isAutomatic,
+          sourceRegisterId: data.sourceRegisterId || null,
           notes: data.notes || '',
           createdBy: user.value.uid,
           createdByName: user.value.displayName || user.value.email,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
-        
-        const docRef = await addDoc(registerTransactionRef, transactionData);
-        
-        // Refresh transactions list
+        const docRef = await addDoc(ref, transactionData);
         await this.loadRegisterTransactions(this.currentRegister.id);
-        
-        return {
-          id: docRef.id,
-          ...transactionData
-        };
+        return { id: docRef.id, ...transactionData };
       } catch (error) {
-        console.error('Error adding transaction:', error);
+        console.error('Error adding global register transaction:', error);
         throw new Error('Error al agregar la transacción');
       }
     },
-    
+
     async updateTransaction(id: string, data: {
       type: 'income' | 'expense';
       category: string;
@@ -394,42 +245,14 @@ export const useCashRegisterStore = defineStore('cashRegister', {
     }) {
       const db = useFirestore();
       const user = useCurrentUser();
-      const currentBusinessId = useLocalStorage('cBId', null);
-      const isLoggedIn = !!user.value?.uid;
-      const hasActiveBusiness = !!currentBusinessId.value;
-      
-      if (!isLoggedIn || !hasActiveBusiness) {
-        throw new Error('Debes iniciar sesión y seleccionar un negocio');
-      }
-      
-      if (!this.isRegisterOpen) {
-        throw new Error('No se puede modificar una transacción sin una caja abierta');
-      }
+      if (!user.value?.uid || !this.isRegisterOpen || !this.currentRegister) throw new Error('No hay una caja global abierta');
 
-      // TypeScript type assertion
-      if (!this.currentRegister) {
-        useToast(ToastEvents.error, 'No se encontró la caja abierta');
-        return null;
-      }
+      const transactionDoc = await getDoc(doc(db, 'globalRegisterTransaction', id));
+      if (!transactionDoc.exists()) throw new Error('Transacción no encontrada');
 
-      // TypeScript type assertion
-      if (!user.value) {
-        useToast(ToastEvents.error, 'No se encontró el usuario');
-        return null;
-      }
-
-      // Check if the transaction belongs to the current register
-      const transactionDoc = await getDoc(doc(db, 'registerTransaction', id));
-      if (!transactionDoc.exists()) {
-        useToast(ToastEvents.error, 'Transacción no encontrada. Por favor, contactese con nosotros si el error persiste.');
-        return null;
-      }
-      
       try {
-        const registerTransactionRef = collection(db, 'registerTransaction');
-        const transactionRef = doc(registerTransactionRef, id);
-        
-        await updateDoc(transactionRef, {
+        const ref = doc(db, 'globalRegisterTransaction', id);
+        await updateDoc(ref, {
           type: data.type,
           category: data.category,
           description: data.description,
@@ -441,121 +264,149 @@ export const useCashRegisterStore = defineStore('cashRegister', {
           updatedBy: user.value.uid,
           updatedByName: user.value.displayName || user.value.email,
         });
-        
-        // Refresh transactions list
         await this.loadRegisterTransactions(this.currentRegister.id);
-        
         return true;
       } catch (error) {
-        console.error('Error updating transaction:', error);
+        console.error('Error updating global register transaction:', error);
         throw new Error('Error al actualizar la transacción');
       }
     },
-    
-    async getCurrentRegisterSummary() {
-      if (!this.isRegisterOpen) {
-        throw new Error('No hay una caja abierta');
-      }
-      
-      // Calculate totals
-      const incomeTotal = this.transactionsByType.income.reduce((sum, t) => sum + t.amount, 0);
-      const expenseTotal = this.transactionsByType.expense.reduce((sum, t) => sum + t.amount, 0);
-      const balance = incomeTotal - expenseTotal;
-      
-      // Calculate balances by payment method
-      const balancesByMethod = {} as Balance;
 
-      // TypeScript type assertion
-      if (!this.currentRegister) {
-        useToast(ToastEvents.error, 'No se encontró la caja abierta');
-        return null;
-      }
-      
-      // Initialize with opening balances
-      for (const [method, amount] of Object.entries(this.currentRegister.openingBalances)) {
-        balancesByMethod[method] = parseFloat(String(amount)) || 0;
-      }
-      
-      // Add income and subtract expenses for each payment method
-      this.transactions.forEach(t => {
-        if (!balancesByMethod[t.paymentMethod]) {
-          balancesByMethod[t.paymentMethod] = 0;
-        }
-        
-        if (t.type === 'income') {
-          balancesByMethod[t.paymentMethod] += t.amount;
-        } else {
-          balancesByMethod[t.paymentMethod] -= t.amount;
-        }
-      });
-      
-      return {
-        totals: {
-          income: incomeTotal,
-          expense: expenseTotal,
-          balance
-        },
-        balancesByMethod
-      };
-    },
-    
-    async closeCashRegister(data: {
-      closingBalances: Balance;
-      calculatedBalances: Balance;
-      discrepancies: Balance;
-      totals: Totals;
+    async closeGlobalRegister(data: {
+      closingBalances: Record<string, number>;
+      calculatedBalances: Record<string, number>;
+      discrepancies: Record<string, number>;
+      totals: { income: number; expense: number; balance: number };
+      salesSummaries: Record<string, any>;
       notes?: string;
     }) {
       const db = useFirestore();
       const user = useCurrentUser();
-      const currentBusinessId = useLocalStorage('cBId', null);
-      const isLoggedIn = !!user.value?.uid;
-      const hasActiveBusiness = !!currentBusinessId.value;
-      
-      if (!isLoggedIn || !hasActiveBusiness) {
-        throw new Error('Debes iniciar sesión y seleccionar un negocio');
-      }
-      
-      if (!this.isRegisterOpen) {
-        throw new Error('No hay una caja abierta para cerrar');
-      }
+      if (!user.value?.uid || !this.isRegisterOpen || !this.currentRegister) throw new Error('No hay una caja global abierta');
 
-      // TypeScript type assertion
-      if (!this.currentRegister) {
-        useToast(ToastEvents.error, 'No se encontró la caja abierta');
-        return null;
-      }
-
-      // TypeScript type assertion
-      if (!user.value) {
-        useToast(ToastEvents.error, 'No se encontró el usuario');
-        return null;
-      }
-      
       try {
-        const cashRegisterRef = collection(db, 'cashRegister');
-        const registerRef = doc(cashRegisterRef, this.currentRegister.id);
-        
-        await updateDoc(registerRef, {
+        const ref = doc(db, 'globalCashRegister', this.currentRegister.id);
+        await updateDoc(ref, {
           closingBalances: data.closingBalances,
           calculatedBalances: data.calculatedBalances,
           discrepancies: data.discrepancies,
           totals: data.totals,
+          salesSummaries: data.salesSummaries,
           closingNotes: data.notes || '',
           closedAt: serverTimestamp(),
           closedBy: user.value.uid,
           closedByName: user.value.displayName || user.value.email,
           updatedAt: serverTimestamp(),
         });
-        
-        // Reload current register to reflect changes
         await this.loadCurrentRegister();
-        
         return true;
       } catch (error) {
-        console.error('Error closing cash register:', error);
-        throw new Error('Error al cerrar la caja');
+        console.error('Error closing global register:', error);
+        throw new Error('Error al cerrar la caja global');
       }
-    }
+    },
+
+    async loadRegisterHistory(limitElement = 10, fromDate = null, toDate = null) {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return;
+
+      this.loadingHistory = true;
+      try {
+        const ref = collection(db, 'globalCashRegister');
+        let queryConstraints = [
+          where('businessId', '==', currentBusinessId.value),
+        ];
+        if (fromDate) queryConstraints.push(where('openingDate', '>=', Timestamp.fromDate(fromDate)));
+        if (toDate) queryConstraints.push(where('openingDate', '<=', Timestamp.fromDate(toDate)));
+        queryConstraints = [
+          ...queryConstraints,
+          orderBy('openingDate', 'desc'),
+          orderBy('createdAt', 'desc'),
+          limit(limitElement)
+        ] as unknown as any;
+        const q = query(ref, ...queryConstraints);
+        const snapshot = await getDocs(q);
+        this.registerHistory = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as GlobalRegister[];
+      } catch (error) {
+        console.error('Error loading global register history:', error);
+        throw new Error('Error al cargar el historial de cajas globales');
+      } finally {
+        this.loadingHistory = false;
+      }
+    },
+    
+    /**
+    * Returns a summary for the current week's global cash register:
+    * - totals (income, expense, balance)
+    * - balancesByMethod (by payment method)
+    * - salesSummaries (daily sales summaries)
+    * - openingBalances (for display)
+    */
+    async getCurrentRegisterSummary() {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const { $dayjs } = useNuxtApp();
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) throw new Error('Debes iniciar sesión y seleccionar un negocio');
+
+      // Find current week's global register
+      await this.loadCurrentRegister();
+      if (!this.currentRegister) throw new Error('No hay una caja global abierta');
+
+      // Fetch all transactions for this register
+      await this.loadRegisterTransactions(this.currentRegister.id);
+
+      // Calculate totals and balances by payment method
+      const balancesByMethod: any = {};
+      const totals = { income: 0, expense: 0, balance: 0 };
+      this.transactions.forEach(tx => {
+        const sign = tx.type === 'income' ? 1 : -1;
+        if (!balancesByMethod[tx.paymentMethod]) balancesByMethod[tx.paymentMethod] = 0;
+        balancesByMethod[tx.paymentMethod] += sign * tx.amount;
+        if (tx.type === 'income') totals.income += tx.amount;
+        else totals.expense += tx.amount;
+      });
+      totals.balance = totals.income - totals.expense;
+
+      // Add opening balances
+      Object.entries(this.currentRegister.openingBalances || {}).forEach(([code, amount]) => {
+        if (!balancesByMethod[code]) balancesByMethod[code] = 0;
+        balancesByMethod[code] += amount;
+      });
+
+      // Compose salesSummaries from transactions with category "VENTAS_DIARIAS"
+      const salesSummaries:any = {};
+      this.transactions
+        .filter(tx => tx.category === 'VENTAS_DIARIAS' && tx.isAutomatic && tx.sourceRegisterId)
+        .forEach(tx => {
+          const dateKey = tx.description || '';
+          if (!salesSummaries[dateKey]) {
+            salesSummaries[dateKey] = {
+              totalSales: 0,
+              totalExpenses: 0,
+              netAmount: 0,
+              registerIds: []
+            };
+          }
+          if (tx.type === 'income') salesSummaries[dateKey].totalSales += tx.amount;
+          if (tx.type === 'expense') salesSummaries[dateKey].totalExpenses += tx.amount;
+          salesSummaries[dateKey].netAmount = salesSummaries[dateKey].totalSales - salesSummaries[dateKey].totalExpenses;
+          if (!salesSummaries[dateKey].registerIds.includes(tx.sourceRegisterId))
+            salesSummaries[dateKey].registerIds.push(tx.sourceRegisterId);
+        });
+
+      // Return openingBalances for display
+      return {
+        totals,
+        balancesByMethod,
+        salesSummaries,
+        openingBalances: this.currentRegister.openingBalances || {}
+      };
+    },
   }
 });

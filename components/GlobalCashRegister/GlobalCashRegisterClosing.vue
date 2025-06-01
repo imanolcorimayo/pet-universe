@@ -1,5 +1,5 @@
 <template>
-  <ModalStructure ref="mainModal" title="Cierre de Caja">
+  <ModalStructure ref="mainModal" title="Cierre de Caja Global">
     <template #default>
       <div v-if="loading" class="flex justify-center items-center py-8">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -8,7 +8,7 @@
         <form @submit.prevent="registerClosing">
           <div class="space-y-4">
             <div class="mb-4">
-              <h3 class="font-medium text-lg mb-2">Resumen del día</h3>
+              <h3 class="font-medium text-lg mb-2">Resumen semanal</h3>
               <div class="bg-gray-50 p-3 rounded-lg space-y-2">
                 <div class="flex justify-between">
                   <span>Total Ingresos:</span>
@@ -19,79 +19,53 @@
                   <span class="font-medium text-red-600">{{ formatCurrency(totals.expense) }}</span>
                 </div>
                 <div class="border-t border-gray-200 my-1 pt-1 flex justify-between">
-                  <span>Balance del día:</span>
+                  <span>Balance semanal:</span>
                   <span class="font-medium" :class="totals.balance >= 0 ? 'text-green-600' : 'text-red-600'">
                     {{ formatCurrency(totals.balance) }}
                   </span>
                 </div>
               </div>
             </div>
-            
-            <!-- Cash payment methods -->
-            <div v-if="Object.keys(cashBalances).length > 0">
-              <div class="text-sm font-medium text-gray-500 mt-4 mb-2 border-b pb-1">Efectivo</div>
-              <div class="space-y-3">
-                <div v-for="(balance, code) in cashBalances" :key="code" class="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <div class="sm:w-1/2">
-                    <span class="text-sm font-medium text-gray-700">{{ getPaymentMethodName(code) }}</span>
-                  </div>
-                  <div class="sm:w-1/2">
-                    <div class="flex items-center gap-1">
-                      <span class="text-xs text-gray-500">Calculado: {{ formatCurrency(balance) }}</span>
-                      <input
-                        :id="`closingAmount-${code}`"
-                        v-model="formData.closingAmounts[code]"
-                        type="number"
-                        placeholder="0.00"
-                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                        step="0.01"
-                        min="0"
-                        required
-                      />
-                    </div>
-                  </div>
+
+            <!-- Sales summaries by day -->
+            <div v-if="Object.keys(salesSummaries).length > 0" class="mb-4">
+              <h4 class="font-medium text-base mb-2">Resumen de ventas diarias</h4>
+              <div class="bg-gray-50 p-3 rounded-lg space-y-2">
+                <div
+                  v-for="(summary, date) in salesSummaries"
+                  :key="date"
+                  class="flex flex-col sm:flex-row sm:items-center justify-between border-b last:border-b-0 py-1"
+                >
+                  <span class="text-sm text-gray-700">{{ $dayjs(date).format('dddd DD/MM') }}</span>
+                  <span class="text-xs text-gray-500">Ventas: {{ formatCurrency(summary.totalSales) }}</span>
+                  <span class="text-xs text-gray-500">Egresos: {{ formatCurrency(summary.totalExpenses) }}</span>
+                  <span class="text-xs font-medium" :class="summary.netAmount >= 0 ? 'text-green-600' : 'text-red-600'">
+                    Neto: {{ formatCurrency(summary.netAmount) }}
+                  </span>
                 </div>
               </div>
             </div>
-            
-            <!-- Transfer payment methods -->
-            <div v-if="Object.keys(transferBalances).length > 0">
-              <div class="text-sm font-medium text-gray-500 mt-4 mb-2 border-b pb-1">Transferencias</div>
-              <div class="space-y-3">
-                <div v-for="(balance, code) in transferBalances" :key="code" class="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <div class="sm:w-1/2">
-                    <span class="text-sm font-medium text-gray-700">{{ getPaymentMethodName(code) }}</span>
-                  </div>
-                  <div class="sm:w-1/2">
-                    <div class="flex items-center gap-1">
-                      <span class="text-xs text-gray-500">Calculado: {{ formatCurrency(balance) }}</span>
-                      <input
-                        :id="`closingAmount-${code}`"
-                        v-model="formData.closingAmounts[code]"
-                        type="number"
-                        placeholder="0.00"
-                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                        step="0.01"
-                        min="0"
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
+
+            <!-- Payment methods closing -->
+            <div v-for="(group, groupKey) in paymentGroups" :key="groupKey" class="mb-4">
+              <div class="text-sm font-medium text-gray-500 mt-4 mb-2 border-b pb-1">
+                {{ group.label }}
               </div>
-            </div>
-            
-            <!-- Posnet payment methods -->
-            <div v-if="Object.keys(posnetBalances).length > 0">
-              <div class="text-sm font-medium text-gray-500 mt-4 mb-2 border-b pb-1">Posnet</div>
               <div class="space-y-3">
-                <div v-for="(balance, code) in posnetBalances" :key="code" class="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div
+                  v-for="(balance, code) in group.balances"
+                  :key="code"
+                  class="flex flex-col sm:flex-row sm:items-center gap-2"
+                >
                   <div class="sm:w-1/2">
                     <span class="text-sm font-medium text-gray-700">{{ getPaymentMethodName(code) }}</span>
                   </div>
                   <div class="sm:w-1/2">
-                    <div class="flex items-center gap-1">
-                      <span class="text-xs text-gray-500">Calculado: {{ formatCurrency(balance) }}</span>
+                    <div class="flex flex-col gap-1">
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-500">Inicial: {{ formatCurrency(openingBalances[code] ?? 0) }}</span>
+                        <span class="text-xs text-gray-500">Calculado: {{ formatCurrency(balance) }}</span>
+                      </div>
                       <input
                         :id="`closingAmount-${code}`"
                         v-model="formData.closingAmounts[code]"
@@ -146,13 +120,11 @@
 </template>
 
 <script setup>
-import { useCashRegisterStore } from "~/stores/globalCashRegister";
-import { useIndexStore } from "~/stores/index";
-import { toast } from "vue3-toastify";
+import { ToastEvents } from '~/interfaces';
 
 // ----- Define Refs ---------
 const mainModal = ref(null);
-const cashRegisterStore = useCashRegisterStore();
+const globalCashRegisterStore = useGlobalCashRegisterStore();
 const indexStore = useIndexStore();
 const submitting = ref(false);
 const loading = ref(false);
@@ -162,39 +134,26 @@ const totals = ref({
   expense: 0,
   balance: 0
 });
+const salesSummaries = ref({});
+const openingBalances = ref({});
 
-// Group balances by payment method type
-const cashBalances = computed(() => {
-  const result = {};
+// Group balances by payment method type for UI
+const paymentGroups = computed(() => {
+  const groups = {
+    cash: { label: 'Efectivo', balances: {} },
+    transfer: { label: 'Transferencias', balances: {} },
+    posnet: { label: 'Posnet', balances: {} },
+    other: { label: 'Otros', balances: {} }
+  };
   Object.entries(balances.value).forEach(([code, balance]) => {
     const method = indexStore.businessConfig?.paymentMethods?.[code];
-    if (method && method.type === 'cash') {
-      result[code] = balance;
-    }
+    if (method?.type === 'cash') groups.cash.balances[code] = balance;
+    else if (method?.type === 'transfer') groups.transfer.balances[code] = balance;
+    else if (method?.type === 'posnet') groups.posnet.balances[code] = balance;
+    else groups.other.balances[code] = balance;
   });
-  return result;
-});
-
-const transferBalances = computed(() => {
-  const result = {};
-  Object.entries(balances.value).forEach(([code, balance]) => {
-    const method = indexStore.businessConfig?.paymentMethods?.[code];
-    if (method && method.type === 'transfer') {
-      result[code] = balance;
-    }
-  });
-  return result;
-});
-
-const posnetBalances = computed(() => {
-  const result = {};
-  Object.entries(balances.value).forEach(([code, balance]) => {
-    const method = indexStore.businessConfig?.paymentMethods?.[code];
-    if (method && method.type === 'posnet') {
-      result[code] = balance;
-    }
-  });
-  return result;
+  // Only return groups with balances
+  return Object.fromEntries(Object.entries(groups).filter(([_, g]) => Object.keys(g.balances).length > 0));
 });
 
 // ----- Define Data ---------
@@ -208,28 +167,21 @@ function getPaymentMethodName(code) {
   return indexStore.businessConfig?.paymentMethods?.[code]?.name || code;
 }
 
-async function fetchCurrentBalances() {
+async function fetchCurrentRegisterSummary() {
   loading.value = true;
   try {
-    // Make sure we have the business configuration
     if (!indexStore.businessConfigFetched) {
       await indexStore.loadBusinessConfig();
     }
-    
-    // Get today's register summary
-    const registerSummary = await cashRegisterStore.getCurrentRegisterSummary();
-    
-    // Set totals
-    totals.value = registerSummary.totals;
-    
-    // Set balances by payment method
-    balances.value = registerSummary.balancesByMethod;
-    
-    // Initialize form data with calculated balances
-    formData.value.closingAmounts = { ...registerSummary.balancesByMethod };
-    
+    // Get current week's register summary (new function)
+    const summary = await globalCashRegisterStore.getCurrentRegisterSummary();
+    totals.value = summary.totals;
+    balances.value = summary.balancesByMethod;
+    salesSummaries.value = summary.salesSummaries || {};
+    formData.value.closingAmounts = { ...summary.balancesByMethod };
+    openingBalances.value = summary.openingBalances || {};
   } catch (error) {
-    toast.error(`Error al cargar datos: ${error.message}`);
+    useToast(ToastEvents.error, `Error al cargar datos: ${error.message}`);
   } finally {
     loading.value = false;
   }
@@ -238,48 +190,37 @@ async function fetchCurrentBalances() {
 async function registerClosing() {
   try {
     submitting.value = true;
-    
-    // Convert amounts to numbers
     const processedAmounts = {};
     for (const [key, value] of Object.entries(formData.value.closingAmounts)) {
       processedAmounts[key] = parseFloat(value) || 0;
     }
-    
-    // Calculate discrepancies
     const discrepancies = {};
     for (const [key, value] of Object.entries(processedAmounts)) {
       discrepancies[key] = value - balances.value[key];
     }
-    
-    // Close the register
-    await cashRegisterStore.closeCashRegister({
+    await globalCashRegisterStore.closeGlobalRegister({
       closingBalances: processedAmounts,
       calculatedBalances: balances.value,
       discrepancies,
-      notes: formData.value.notes,
-      totals: totals.value
+      totals: totals.value,
+      salesSummaries: salesSummaries.value,
+      notes: formData.value.notes
     });
-    
-    toast.success("Caja cerrada correctamente");
+    useToast(ToastEvents.success, "Caja global cerrada correctamente");
     mainModal.value.closeModal();
-    
-    // Emit event to notify parent
     emit('register-closed');
-    
   } catch (error) {
-    toast.error(`Error al cerrar la caja: ${error.message}`);
+    useToast(ToastEvents.error, `Error al cerrar la caja: ${error.message}`);
   } finally {
     submitting.value = false;
   }
 }
 
-// Define emits
 const emit = defineEmits(['register-closed']);
 
-// When modal opens, fetch current balances
 defineExpose({
   showModal: async () => {
-    await fetchCurrentBalances();
+    await fetchCurrentRegisterSummary();
     mainModal.value?.showModal();
   }
 });

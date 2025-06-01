@@ -280,8 +280,6 @@
 </template>
 
 <script setup>
-import { useIndexStore } from "~/stores/index";
-import { useCashRegisterStore } from "~/stores/globalCashRegister";
 import { ToastEvents } from "~/interfaces";
 
 // ----- Define Props ---------
@@ -295,7 +293,7 @@ const props = defineProps({
 // ----- Define Refs ---------
 const mainModal = ref(null);
 const indexStore = useIndexStore();
-const cashRegisterStore = useCashRegisterStore();
+const globalCashRegisterStore = useGlobalCashRegisterStore();
 const loading = ref(false);
 const activeTab = ref('summary');
 const transactions = ref([]);
@@ -332,8 +330,8 @@ async function loadTransactions() {
   loading.value = true;
   try {
     // Use the store method instead of direct Firestore access
-    await cashRegisterStore.loadRegisterTransactions(props.register.id);
-    transactions.value = cashRegisterStore.transactions;
+    await globalCashRegisterStore.loadRegisterTransactions(props.register.id);
+    transactions.value = globalCashRegisterStore.transactions;
   } catch (error) {
     useToast(ToastEvents.error, `Error al cargar las transacciones: ${error.message}`);
   } finally {
@@ -352,7 +350,7 @@ watch(() => props.register, async (newRegister) => {
 });
 
 // Watch for changes in store transactions
-watch(() => cashRegisterStore.transactions, (newTransactions) => {
+watch(() => globalCashRegisterStore.transactions, (newTransactions) => {
   transactions.value = newTransactions;
 }, { deep: true });
 

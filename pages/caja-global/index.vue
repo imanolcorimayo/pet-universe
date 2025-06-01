@@ -182,9 +182,9 @@
       </button>
     </div>
     
-    <GlobalCashRegisterOpening ref="openRegisterModal" @register-opened="cashRegisterStore.loadCurrentRegister()" />
+    <GlobalCashRegisterOpening ref="openRegisterModal" @register-opened="globalCashRegisterStore.loadCurrentRegister()" />
     <GlobalCashRegisterTransaction ref="transactionModal" :transaction-to-edit="transactionToEdit" />
-    <GlobalCashRegisterClosing ref="closeRegisterModal" @register-closed="cashRegisterStore.loadCurrentRegister()" />
+    <GlobalCashRegisterClosing ref="closeRegisterModal" @register-closed="globalCashRegisterStore.loadCurrentRegister()" />
   </div>
 </template>
 
@@ -201,8 +201,8 @@ const closeRegisterModal = ref(null);
 const transactionToEdit = ref(null);
 
 // ----- Define Store ---------
-const cashRegisterStore = useCashRegisterStore();
-cashRegisterStore.loadCurrentRegister();
+const globalCashRegisterStore = useGlobalCashRegisterStore();
+globalCashRegisterStore.loadCurrentRegister();
 
 // ----- Import Store State ---------
 const { 
@@ -210,7 +210,7 @@ const {
   isRegisterOpen, 
   transactions,
   isLoading
-} = storeToRefs(cashRegisterStore);
+} = storeToRefs(globalCashRegisterStore);
 
 // ----- Define Computed Values ---------
 const incomesTotal = computed(() => {
@@ -284,7 +284,7 @@ function editTransaction(transaction) {
 // ----- Define Lifecycle Hooks ---------
 onMounted(async () => {
   try {
-    await cashRegisterStore.loadCurrentRegister();
+    await globalCashRegisterStore.loadCurrentRegister();
   } catch (error) {
     useToast(ToastEvents.error,'Error al cargar la caja: ' + error.message);
   }

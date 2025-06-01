@@ -121,10 +121,7 @@
 </template>
 
 <script setup>
-import { useCashRegisterStore } from "~/stores/globalCashRegister";
-import { useIndexStore } from "~/stores/index";
-import { toast } from "vue3-toastify";
-import { ToastEvents } from "~/interfaces";
+import { ToastEvents } from '~/interfaces';
 
 
 // ----- Import Useful Properties ---------
@@ -133,7 +130,7 @@ const { $dayjs } = useNuxtApp();
 
 // ----- Define Refs ---------
 const mainModal = ref(null);
-const cashRegisterStore = useCashRegisterStore();
+const globalCashRegisterStore = useGlobalCashRegisterStore();
 const indexStore = useIndexStore();
 const submitting = ref(false);
 const loading = ref(true);
@@ -205,7 +202,7 @@ async function registerOpening() {
     // Validate at least one payment method has an amount
     const hasAmount = Object.values(formData.value.amounts).some(amount => parseFloat(amount) > 0);
     if (!hasAmount) {
-      toast.error("Debes ingresar al menos un monto inicial");
+      useToast(ToastEvents.error, "Debes ingresar al menos un monto inicial");
       return;
     }
     
@@ -217,20 +214,20 @@ async function registerOpening() {
     
     // Call store method to open the register
     const openDate = $dayjs(formData.value.openingDate).toDate();
-    await cashRegisterStore.openCashRegister({ 
+    await globalCashRegisterStore.openGlobalRegister({ 
       date: openDate,
       openingBalances: processedAmounts,
       notes: formData.value.notes
     });
     
-    toast.success("Caja abierta correctamente");
+    useToast(ToastEvents.success, "Caja abierta correctamente");
     mainModal.value.closeModal();
     
     // Emit event to notify parent
     emit('register-opened');
     
   } catch (error) {
-    toast.error(`Error al abrir la caja: ${error.message}`);
+    useToast(ToastEvents.error, `Error al abrir la caja: ${error.message}`);
   } finally {
     submitting.value = false;
   }
