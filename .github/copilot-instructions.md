@@ -723,6 +723,7 @@ Historical record of all inventory changes.
 inventoryMovement/
   {document-id}/
     businessId: string           // References the business
+    supplierId: string|null      // References the supplier if exist
     productId: string            // References the product
     productName: string          // Product name for reference
     
