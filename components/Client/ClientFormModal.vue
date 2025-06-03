@@ -35,7 +35,7 @@
               id="phone"
               v-model="formData.phone"
               type="tel"
-              @input="formatPhoneNumber"
+              @input="() => {(formData.phone = formatPhoneNumber(formData.phone));}"
               class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
               placeholder="(123) 456-7890"
             >
@@ -179,33 +179,6 @@ function resetForm() {
     preferences: '',
     notes: ''
   };
-}
-
-function formatPhoneNumber() {
-  if (!formData.value.phone) return;
-  
-  // Remove all non-digit characters
-  let cleaned = formData.value.phone.replace(/\D/g, '');
-  
-  // Limit to 10 digits
-  cleaned = cleaned.substring(0, 10);
-  
-  // Format the number with parentheses and dashes
-  let formatted = '';
-  if (cleaned.length > 0) {
-    formatted += '(';
-    formatted += cleaned.substring(0, 3);
-    if (cleaned.length > 3) {
-      formatted += ') ';
-      formatted += cleaned.substring(3, 6);
-      if (cleaned.length > 6) {
-        formatted += '-';
-        formatted += cleaned.substring(6, 10);
-      }
-    }
-  }
-  
-  formData.value.phone = formatted || null;
 }
 
 function populateForm() {

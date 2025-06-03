@@ -1,6 +1,8 @@
 <template>
   <teleport to="body">
-    <div class="fixed inset-0 z-[3500] flex items-center justify-center bg-black bg-opacity-50">
+    <div
+      @click.stop 
+      class="fixed inset-0 z-[3500] flex items-center justify-center bg-black/20">
       <div class="flex justify-center items-center space-x-4">
         <svg
           aria-hidden="true"
