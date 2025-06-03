@@ -1,7 +1,7 @@
 <template>
-  <ModalStructure ref="mainModal" :title="'Detalle de Producto'" size="lg">
+  <ModalStructure ref="mainModal" :title="'Detalle de Producto'">
     <div v-if="loading" class="flex justify-center items-center py-12">
-      <Loader size="lg" />
+      <Loader />
     </div>
 
     <div v-else-if="product" class="space-y-6">
@@ -214,7 +214,7 @@
   />
 
   <!-- Product Form Modal -->
-  <ProductForm
+  <ProductFormModal
     ref="productFormModal"
     :edit-mode="true"
     :product-data="product"

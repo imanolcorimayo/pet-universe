@@ -31,7 +31,7 @@ interface Inventory {
   totalCostValue: number;
   lastPurchaseAt?: string;
   originalLastPurchaseAt?: any;
-  lastSupplierId?: string;
+  lastSupplierId?: string | null;
   lastMovementAt?: string;
   originalLastMovementAt?: any;
   lastMovementType?: string;
@@ -80,6 +80,35 @@ interface InventoryState {
   inventoryMovements: Record<string, InventoryMovement[]>; // Keyed by productId
   inventoryLoaded: boolean;
   isLoading: boolean;
+}
+
+interface InventoryAdditionData {
+  productId: string;
+  unitsChange: number;
+  weightChange: number;
+  unitCost: number;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  notes?: string;
+}
+
+interface InventoryReductionData {
+  productId: string;
+  unitsChange: number;
+  weightChange: number;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  reason?: string | null;
+  notes?: string;
+  isLoss: boolean; // true for losses, false for returns
+}
+
+interface InventoryAdjustmentToValuesData {
+  productId: string;
+  newUnits: number;
+  newWeight: number;
+  newCost: number;
+  notes?: string;
 }
 
 export const useInventoryStore = defineStore("inventory", {
@@ -618,6 +647,329 @@ export const useInventoryStore = defineStore("inventory", {
       } catch (error) {
         console.error("Error recording inventory movement:", error);
         useToast(ToastEvents.error, "Hubo un error al registrar el movimiento de inventario");
+        return false;
+      }
+    },// New action for adding inventory (purchases)
+    async addInventory(data: InventoryAdditionData): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isLoading = true;
+        
+        // Get existing inventory record
+        const inventoryQuery = query(
+          collection(db, 'inventory'),
+          where('businessId', '==', currentBusinessId.value),
+          where('productId', '==', data.productId)
+        );
+        
+        const inventorySnapshot = await getDocs(inventoryQuery);
+        if (inventorySnapshot.empty) {
+          useToast(ToastEvents.error, "No se encontró el registro de inventario");
+          this.isLoading = false;
+          return false;
+        }
+        
+        const inventoryData = inventorySnapshot.docs[0].data();
+        const inventoryRef = doc(db, 'inventory', inventorySnapshot.docs[0].id);
+        
+        // Calculate new inventory values
+        const currentUnits = inventoryData.unitsInStock || 0;
+        const currentWeight = inventoryData.openUnitsWeight || 0;
+        const currentCost = inventoryData.averageCost || 0;
+        
+        const newUnitsInStock = currentUnits + data.unitsChange;
+        const newOpenUnitsWeight = currentWeight + data.weightChange;
+        
+        // Calculate new average cost (weighted average)
+        let newAverageCost = currentCost;
+        if (data.unitsChange > 0) {
+          const currentValue = currentUnits * currentCost;
+          const addedValue = data.unitsChange * data.unitCost;
+          if (newUnitsInStock > 0) {
+            newAverageCost = (currentValue + addedValue) / newUnitsInStock;
+          }
+        }
+        
+        // Calculate if product is low in stock
+        const isLowStock = newUnitsInStock < (inventoryData.minimumStock || 0);
+        
+        // Update inventory document
+        await updateDoc(inventoryRef, {
+          unitsInStock: newUnitsInStock,
+          openUnitsWeight: newOpenUnitsWeight,
+          averageCost: newAverageCost,
+          lastPurchaseCost: data.unitCost,
+          totalCostValue: newUnitsInStock * newAverageCost,
+          isLowStock: isLowStock,
+          lastPurchaseAt: serverTimestamp(),
+          lastSupplierId: data.supplierId || null,
+          lastMovementAt: serverTimestamp(),
+          lastMovementType: "purchase",
+          lastMovementBy: user.value.uid,
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Record inventory movement
+        const success = await this.recordInventoryMovement({
+          productId: data.productId,
+          movementType: "purchase",
+          referenceType: "manual_adjustment",
+          referenceId: null,
+          quantityChange: data.unitsChange,
+          weightChange: data.weightChange,
+          unitCost: data.unitCost,
+          previousCost: currentCost,
+          totalCost: data.unitsChange * data.unitCost,
+          supplierId: data.supplierId || null,
+          unitsBefore: currentUnits,
+          unitsAfter: newUnitsInStock,
+          weightBefore: currentWeight,
+          weightAfter: newOpenUnitsWeight,
+          notes: data.notes || `Adición de ${data.unitsChange} unidades al inventario`,
+          productName: inventoryData.productName,
+        });
+        
+        if (success) {
+          // Update local cache
+          const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
+          if (index >= 0) {
+            const { $dayjs } = useNuxtApp();
+            this.inventoryItems[index].unitsInStock = newUnitsInStock;
+            this.inventoryItems[index].openUnitsWeight = newOpenUnitsWeight;
+            this.inventoryItems[index].averageCost = newAverageCost;
+            this.inventoryItems[index].lastPurchaseCost = data.unitCost;
+            this.inventoryItems[index].totalCostValue = newUnitsInStock * newAverageCost;
+            this.inventoryItems[index].isLowStock = isLowStock;
+            this.inventoryItems[index].lastPurchaseAt = $dayjs().format('DD/MM/YYYY');
+            this.inventoryItems[index].lastSupplierId = data.supplierId || null;
+            this.inventoryItems[index].lastMovementAt = $dayjs().format('DD/MM/YYYY');
+            this.inventoryItems[index].lastMovementType = "purchase";
+            this.inventoryItems[index].lastMovementBy = user.value.uid;
+          }
+          
+          useToast(ToastEvents.success, "Inventario actualizado exitosamente");
+        }
+        
+        this.isLoading = false;
+        return success;
+      } catch (error) {
+        console.error("Error adding inventory:", error);
+        useToast(ToastEvents.error, "Hubo un error al agregar inventario. Por favor intenta nuevamente.");
+        this.isLoading = false;
+        return false;
+      }
+    },
+    
+    // New action for reducing inventory (losses/returns)
+    async reduceInventory(data: InventoryReductionData): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isLoading = true;
+        
+        // Get existing inventory record
+        const inventoryQuery = query(
+          collection(db, 'inventory'),
+          where('businessId', '==', currentBusinessId.value),
+          where('productId', '==', data.productId)
+        );
+        
+        const inventorySnapshot = await getDocs(inventoryQuery);
+        if (inventorySnapshot.empty) {
+          useToast(ToastEvents.error, "No se encontró el registro de inventario");
+          this.isLoading = false;
+          return false;
+        }
+        
+        const inventoryData = inventorySnapshot.docs[0].data();
+        const inventoryRef = doc(db, 'inventory', inventorySnapshot.docs[0].id);
+        
+        // Calculate new inventory values
+        const currentUnits = inventoryData.unitsInStock || 0;
+        const currentWeight = inventoryData.openUnitsWeight || 0;
+        
+        // Cap to avoid negative inventory
+        const actualUnitsChange = Math.min(data.unitsChange, currentUnits);
+        const actualWeightChange = Math.min(data.weightChange, currentWeight);
+        
+        const newUnitsInStock = currentUnits - actualUnitsChange;
+        const newOpenUnitsWeight = currentWeight - actualWeightChange;
+        
+        // Calculate if product is low in stock
+        const isLowStock = newUnitsInStock < (inventoryData.minimumStock || 0);
+        
+        // Update inventory document
+        await updateDoc(inventoryRef, {
+          unitsInStock: newUnitsInStock,
+          openUnitsWeight: newOpenUnitsWeight,
+          isLowStock: isLowStock,
+          lastMovementAt: serverTimestamp(),
+          lastMovementType: data.isLoss ? "loss" : "return",
+          lastMovementBy: user.value.uid,
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Record inventory movement
+        const movementType = data.isLoss ? "loss" : "return";
+        const success = await this.recordInventoryMovement({
+          productId: data.productId,
+          movementType: movementType as "sale" | "purchase" | "adjustment" | "opening",
+          referenceType: "manual_adjustment",
+          referenceId: null,
+          quantityChange: -actualUnitsChange, // Negative for reductions
+          weightChange: -actualWeightChange, // Negative for reductions
+          unitCost: null,
+          previousCost: null,
+          totalCost: null,
+          supplierId: data.supplierId || null,
+          unitsBefore: currentUnits,
+          unitsAfter: newUnitsInStock,
+          weightBefore: currentWeight,
+          weightAfter: newOpenUnitsWeight,
+          notes: data.notes || (data.isLoss 
+            ? `Pérdida de ${actualUnitsChange} unidades${data.reason ? ` por ${data.reason}` : ''}`
+            : `Devolución de ${actualUnitsChange} unidades`),
+          productName: inventoryData.productName,
+        });
+        
+        if (success) {
+          // Update local cache
+          const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
+          if (index >= 0) {
+            const { $dayjs } = useNuxtApp();
+            this.inventoryItems[index].unitsInStock = newUnitsInStock;
+            this.inventoryItems[index].openUnitsWeight = newOpenUnitsWeight;
+            this.inventoryItems[index].isLowStock = isLowStock;
+            this.inventoryItems[index].lastMovementAt = $dayjs().format('DD/MM/YYYY');
+            this.inventoryItems[index].lastMovementType = data.isLoss ? "loss" : "return";
+            this.inventoryItems[index].lastMovementBy = user.value.uid;
+          }
+          
+          useToast(ToastEvents.success, `Inventario ${data.isLoss ? 'reducido' : 'devuelto'} exitosamente`);
+        }
+        
+        this.isLoading = false;
+        return success;
+      } catch (error) {
+        console.error("Error reducing inventory:", error);
+        useToast(ToastEvents.error, `Hubo un error al ${data.isLoss ? 'reducir' : 'devolver'} inventario. Por favor intenta nuevamente.`);
+        this.isLoading = false;
+        return false;
+      }
+    },
+    
+    // New action for adjusting inventory to specific values
+    async adjustInventoryToValues(data: InventoryAdjustmentToValuesData): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isLoading = true;
+        
+        // Get existing inventory record
+        const inventoryQuery = query(
+          collection(db, 'inventory'),
+          where('businessId', '==', currentBusinessId.value),
+          where('productId', '==', data.productId)
+        );
+        
+        const inventorySnapshot = await getDocs(inventoryQuery);
+        if (inventorySnapshot.empty) {
+          useToast(ToastEvents.error, "No se encontró el registro de inventario");
+          this.isLoading = false;
+          return false;
+        }
+        
+        const inventoryData = inventorySnapshot.docs[0].data();
+        const inventoryRef = doc(db, 'inventory', inventorySnapshot.docs[0].id);
+        
+        // Calculate changes
+        const currentUnits = inventoryData.unitsInStock || 0;
+        const currentWeight = inventoryData.openUnitsWeight || 0;
+        const currentCost = inventoryData.averageCost || 0;
+        
+        const unitsChange = data.newUnits - currentUnits;
+        const weightChange = data.newWeight - currentWeight;
+        
+        // Validate new values
+        if (data.newUnits < 0 || data.newWeight < 0) {
+          useToast(ToastEvents.error, "No se pueden establecer valores negativos para el inventario");
+          this.isLoading = false;
+          return false;
+        }
+        
+        // Calculate if product is low in stock
+        const isLowStock = data.newUnits < (inventoryData.minimumStock || 0);
+        
+        // Update inventory document
+        await updateDoc(inventoryRef, {
+          unitsInStock: data.newUnits,
+          openUnitsWeight: data.newWeight,
+          averageCost: data.newCost,
+          totalCostValue: data.newUnits * data.newCost,
+          isLowStock: isLowStock,
+          lastMovementAt: serverTimestamp(),
+          lastMovementType: "adjustment",
+          lastMovementBy: user.value.uid,
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Record inventory movement
+        const success = await this.recordInventoryMovement({
+          productId: data.productId,
+          movementType: "adjustment",
+          referenceType: "manual_adjustment",
+          referenceId: null,
+          quantityChange: unitsChange,
+          weightChange: weightChange,
+          unitCost: data.newCost,
+          previousCost: currentCost,
+          totalCost: null,
+          supplierId: null,
+          unitsBefore: currentUnits,
+          unitsAfter: data.newUnits,
+          weightBefore: currentWeight,
+          weightAfter: data.newWeight,
+          notes: data.notes || `Ajuste manual de inventario a ${data.newUnits} unidades`,
+          productName: inventoryData.productName,
+        });
+        
+        if (success) {
+          // Update local cache
+          const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
+          if (index >= 0) {
+            const { $dayjs } = useNuxtApp();
+            this.inventoryItems[index].unitsInStock = data.newUnits;
+            this.inventoryItems[index].openUnitsWeight = data.newWeight;
+            this.inventoryItems[index].averageCost = data.newCost;
+            this.inventoryItems[index].totalCostValue = data.newUnits * data.newCost;
+            this.inventoryItems[index].isLowStock = isLowStock;
+            this.inventoryItems[index].lastMovementAt = $dayjs().format('DD/MM/YYYY');
+            this.inventoryItems[index].lastMovementType = "adjustment";
+            this.inventoryItems[index].lastMovementBy = user.value.uid;
+          }
+          
+          useToast(ToastEvents.success, "Inventario ajustado exitosamente");
+        }
+        
+        this.isLoading = false;
+        return success;
+      } catch (error) {
+        console.error("Error adjusting inventory to values:", error);
+        useToast(ToastEvents.error, "Hubo un error al ajustar el inventario. Por favor intenta nuevamente.");
+        this.isLoading = false;
         return false;
       }
     },

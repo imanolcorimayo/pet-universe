@@ -3,7 +3,7 @@
     ref="dialogModal" 
     :title="dialogTitle || ''" 
     :close-on-backdrop-click="false"
-    modalClass="max-w-md"
+    modalClass="max-w-md z-75"
   >
     <template #header v-if="!dialogTitle">
       <!-- No title when dialogTitle is empty -->

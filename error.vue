@@ -55,6 +55,10 @@ function goBack() {
   router.back();
 }
 
+onMounted(() => {
+  console.warn('Page not found:', props.error);
+});
+
 
 useHead({
   title: "Página no encontrada - Pet Universe",
