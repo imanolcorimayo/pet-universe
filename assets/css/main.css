@@ -22,10 +22,6 @@
   @apply border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent transition-all duration-200;
 }
 
-.form-control {
-  @apply flex flex-col gap-1;
-}
-
 .label {
   @apply text-sm font-medium text-gray-700;
 }
@@ -115,7 +111,7 @@ input[type="date"],
 input[type="datetime-local"],
 select,
 textarea {
-  @apply border border-gray-300 rounded p-3 text-base text-black w-full shadow-md;
+  @apply border border-gray-300 rounded px-3 py-[0.625rem] text-base text-black w-full shadow-md;
 }
 
 /* Radio Button Styles */

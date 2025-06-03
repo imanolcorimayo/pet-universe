@@ -18,35 +18,33 @@
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-lg shadow p-4">
-      <div class="flex flex-col sm:flex-row gap-4">
-        <div class="flex-1">
-          <label for="dateFrom" class="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+    <div class="bg-white rounded-lg shadow p-4 mb-4">
+      <div class="flex flex-col md:flex-row gap-4 items-end">
+        <div class="md:flex-1">
+          <label for="dateFrom" class="block text-sm font-medium text-gray-700 mb-2">Desde</label>
           <input
             id="dateFrom"
             v-model="filters.dateFrom"
             type="date"
-            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+            class="w-full rounded-lg border border-gray-300 py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
-        <div class="flex-1">
-          <label for="dateTo" class="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+        <div class="md:flex-1">
+          <label for="dateTo" class="block text-sm font-medium text-gray-700 mb-2">Hasta</label>
           <input
             id="dateTo"
             v-model="filters.dateTo"
             type="date"
-            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+            class="w-full rounded-lg border border-gray-300 py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
-        <div class="flex-1 flex items-end">
+        <div class="md:flex-none">
           <button 
             @click="loadHistory" 
-            class="btn bg-secondary text-white hover:bg-secondary/90 h-[42px]"
+            class="w-full md:w-auto px-4 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
           >
-            <span class="flex items-center gap-1">
-              <BiSearch class="h-4 w-4" />
-              Filtrar
-            </span>
+            <BiSearch class="h-4 w-4" />
+            Filtrar
           </button>
         </div>
       </div>

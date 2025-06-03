@@ -26,15 +26,15 @@
     </div>
     
     <!-- Search & Filters -->
-    <div v-else class="bg-white p-4 rounded-lg shadow mb-4">
+    <div v-else class="bg-white rounded-lg shadow p-4 mb-4">
       <div class="flex flex-col md:flex-row gap-4 justify-between">
         <!-- Search -->
-        <div class="relative flex-grow max-w-xl">
+        <div class="relative flex-grow md:max-w-md h-fit">
           <input
             v-model="searchQuery"
             type="text"
             placeholder="Buscar por nombre, marca o descripción..."
-            class="w-full !pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            class="w-full !pl-10 !pr-4 !py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
           <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
             <LucideSearch class="w-5 h-5" />
@@ -46,22 +46,22 @@
           <div class="flex gap-2">
             <button 
               @click="setFilter('all')" 
-              class="px-3 py-1 rounded-md border"
-              :class="{'bg-primary text-white border-primary': productFilter === 'all', 'bg-white text-gray-700 border-gray-300': productFilter !== 'all'}"
+              class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              :class="productFilter === 'all' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             >
               Todos
             </button>
             <button 
               @click="setFilter('active')" 
-              class="px-3 py-1 rounded-md border"
-              :class="{'bg-primary text-white border-primary': productFilter === 'active', 'bg-white text-gray-700 border-gray-300': productFilter !== 'active'}"
+              class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              :class="productFilter === 'active' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             >
               Activos
             </button>
             <button 
               @click="setFilter('archived')" 
-              class="px-3 py-1 rounded-md border"
-              :class="{'bg-primary text-white border-primary': productFilter === 'archived', 'bg-white text-gray-700 border-gray-300': productFilter !== 'archived'}"
+              class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              :class="productFilter === 'archived' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             >
               Archivados
             </button>
@@ -70,7 +70,7 @@
           <!-- Category Filter -->
           <select
             v-model="selectedCategory"
-            class="px-3 py-1 rounded-md border border-gray-300 bg-white"
+            class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 border-none hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="all">Todas las categorías</option>
             <option v-for="category in productCategories" :key="category" :value="category">

@@ -7,54 +7,57 @@
     </div>
 
     <!-- Actions & Filters Row -->
-    <div class="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
-      <!-- Left side: Filters -->
-      <div class="flex items-center space-x-2">
-        <div class="relative w-full md:w-64">
-          <div class="absolute inset-y-0 start-0 flex items-center pl-3 pointer-events-none">
-            <LucideSearch class="w-4 h-4 text-gray-500" />
+    <div class="bg-white rounded-lg shadow p-4 mb-4">
+      <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div class="flex flex-col md:flex-row gap-4 md:items-center flex-grow">
+          <!-- Search -->
+          <div class="relative flex-grow md:max-w-md">
+            <input
+              type="text"
+              v-model="searchQuery"
+              placeholder="Buscar proveedores..."
+              class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+            <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              <LucideSearch class="w-5 h-5" />
+            </div>
           </div>
-          <input
-            type="text"
-            v-model="searchQuery"
-            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full !pl-10 p-2.5"
-            placeholder="Buscar proveedores..."
-          />
+          
+          <!-- Filter Buttons -->
+          <div class="flex flex-wrap gap-2">
+            <button
+              @click="setSupplierFilter('active')"
+              class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              :class="supplierFilter === 'active' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+            >
+              Activos
+            </button>
+            <button
+              @click="setSupplierFilter('archived')"
+              class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              :class="supplierFilter === 'archived' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+            >
+              Archivados
+            </button>
+            <button
+              @click="setSupplierFilter('all')"
+              class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              :class="supplierFilter === 'all' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+            >
+              Todos
+            </button>
+          </div>
         </div>
 
-        <div class="flex space-x-2">
-          <button
-            @click="setSupplierFilter('active')"
-            class="px-4 py-2 text-sm font-medium rounded-md"
-            :class="supplierFilter === 'active' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-          >
-            Activos
-          </button>
-          <button
-            @click="setSupplierFilter('archived')"
-            class="px-4 py-2 text-sm font-medium rounded-md"
-            :class="supplierFilter === 'archived' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-          >
-            Archivados
-          </button>
-          <button
-            @click="setSupplierFilter('all')"
-            class="px-4 py-2 text-sm font-medium rounded-md"
-            :class="supplierFilter === 'all' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-          >
-            Todos
-          </button>
-        </div>
-      </div>
-
-      <!-- Right side: Actions -->
-      <div>
+        <!-- Action Button -->
         <button
           @click="showCreateSupplierModal"
-          class="btn bg-primary text-white hover:bg-primary/90 inline-flex items-center"
+          class="btn bg-primary text-white hover:bg-primary/90 w-full md:w-auto"
         >
-          <LucidePlus class="h-4 w-4 mr-1" />
-          Nuevo Proveedor
+          <span class="flex items-center justify-center gap-1">
+            <LucidePlus class="h-4 w-4" />
+            Nuevo Proveedor
+          </span>
         </button>
       </div>
     </div>
