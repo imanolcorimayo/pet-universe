@@ -1063,5 +1063,17 @@ defineExpose({
     await loadInventoryData();
     mainModal.value?.showModal();
   },
+  showAddInventoryModal: async () => {
+    selectMovementType("addition");
+    mainModal.value?.showModal();
+  },
+  showReduceInventoryModal: async () => {
+    selectMovementType("loss");
+    mainModal.value?.showModal();
+  },
+  showAdjustInventoryModal: async () => {
+    selectMovementType("adjustment");
+    mainModal.value?.showModal();
+  }
 });
 </script>

@@ -1,80 +1,420 @@
 <template>
-  <div class="min-h-[80vh] w-full flex items-center justify-center px-4">
-    <div class="text-center max-w-3xl mx-auto">
-      <div class="mb-8 relative">
-        <IcTwotonePets class="w-36 h-36 text-primary mx-auto" />
-        <div class="absolute top-0 right-0">
-          <div class="animate-ping absolute inline-flex h-12 w-12 rounded-full bg-primary opacity-20"></div>
-          <div class="relative inline-flex rounded-full h-12 w-12 bg-primary items-center justify-center">
-            <span class="text-white font-bold text-xs">Soon</span>
-          </div>
-        </div>
-      </div>
-      
-      <h1 class="text-4xl md:text-5xl font-bold mb-6 text-gray-900">
-        ¡Próximamente!
-      </h1>
-
-      <p class="text-xl text-gray-600 mb-8">
-        Estamos trabajando en un sistema completo para gestionar tu negocio de mascotas.
-      </p>
-      
-      <div class="space-y-6 mb-8">
-        <div class="flex items-center justify-center gap-2">
-          <div class="h-1.5 w-1.5 rounded-full bg-primary"></div>
-          <div class="h-1.5 w-1.5 rounded-full bg-primary"></div>
-          <div class="h-1.5 w-1.5 rounded-full bg-primary"></div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-          <div class="p-6 rounded-lg bg-gray-50 shadow-sm hover:shadow-md transition-shadow">
-            <MaterialSymbolsInventory2Outline class="h-10 w-10 text-primary mb-4" />
-            <h3 class="font-semibold text-lg mb-2">Control de Stock</h3>
-            <p class="text-gray-600">Gestiona fácilmente tu inventario de alimentos y accesorios para mascotas.</p>
-          </div>
-          
-          <div class="p-6 rounded-lg bg-gray-50 shadow-sm hover:shadow-md transition-shadow">
-            <MaterialSymbolsReceiptLongOutline class="h-10 w-10 text-primary mb-4" />
-            <h3 class="font-semibold text-lg mb-2">Seguimiento de Compras y Ventas</h3>
-            <p class="text-gray-600">Realiza un seguimiento de tus compras y proveedores como asi tambien de tus  ventas y mantén tu inventario actualizado.</p>
-          </div>
-          
-          <div class="p-6 rounded-lg bg-gray-50 shadow-sm hover:shadow-md transition-shadow">
-            <IcRoundInsights class="h-10 w-10 text-primary mb-4" />
-            <h3 class="font-semibold text-lg mb-2">Estadísticas y Reportes</h3>
-            <p class="text-gray-600">Analiza tus datos con gráficos intuitivos y reportes detallados.</p>
-          </div>
-        </div>
-      </div>
-      
-      <div class="mt-10">
-        <NuxtLink 
-          to="/dashboard" 
-          class="inline-flex items-center gap-2 text-primary hover:underline"
-        >
-          <PhArrowLeft class="h-4 w-4" />
-          Volver al Dashboard
-        </NuxtLink>
+  <div class="w-full flex flex-col gap-4 p-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold">Inventario</h1>
+        <p class="text-gray-600 mt-1">Administra el inventario de productos de tu tienda</p>
       </div>
     </div>
+    
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Total Products Card -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-500">Total Productos</p>
+            <p class="mt-1 text-2xl font-bold text-gray-900">{{ stats.totalProducts }}</p>
+          </div>
+          <div class="p-2 bg-primary/10 rounded-lg">
+            <TablerPackages class="h-6 w-6 text-primary" />
+          </div>
+        </div>
+      </div>
+      
+      <!-- Low Stock Card -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-500">Stock Bajo</p>
+            <p class="mt-1 text-2xl font-bold text-amber-600">{{ stats.lowStockCount }}</p>
+          </div>
+          <div class="p-2 bg-amber-100 rounded-lg">
+            <TablerAlertTriangle class="h-6 w-6 text-amber-600" />
+          </div>
+        </div>
+        <a 
+          href="#" 
+          @click.prevent="setStockFilter('low')" 
+          class="mt-2 inline-block text-xs text-amber-600 hover:text-amber-800"
+        >
+          Ver productos con stock bajo
+        </a>
+      </div>
+      
+      <!-- Inventory Value Card -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-500">Valor de Inventario</p>
+            <p class="mt-1 text-2xl font-bold text-green-600">{{ formatCurrency(stats.totalValue) }}</p>
+          </div>
+          <div class="p-2 bg-green-100 rounded-lg">
+            <LucideDollarSign class="h-6 w-6 text-green-600" />
+          </div>
+        </div>
+      </div>
+      
+      <!-- Last Movement Card -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-500">Último Movimiento</p>
+            <p class="mt-1 text-md font-medium text-gray-900">{{ stats.lastMovementDate }}</p>
+          </div>
+          <div class="p-2 bg-blue-100 rounded-lg">
+            <LucideHistory class="h-6 w-6 text-blue-600" />
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Search & Filters -->
+    <div class="bg-white rounded-lg shadow p-4 mb-4">
+      <div class="flex flex-col md:flex-row gap-4 justify-between">
+        <!-- Search -->
+        <div class="relative flex-grow md:max-w-md h-fit">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Buscar por nombre, marca o producto..."
+            class="w-full !pl-10 !pr-4 !py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          />
+          <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+            <LucideSearch class="w-5 h-5" />
+          </div>
+        </div>
+        
+        <div class="flex flex-wrap gap-2">
+          <!-- Stock Filter -->
+          <div class="flex gap-2">
+            <button 
+              @click="setStockFilter('all')"
+              :class="stockFilter === 'all' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+              class="px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              Todos
+            </button>
+            <button 
+              @click="setStockFilter('low')"
+              :class="stockFilter === 'low' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+              class="px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              Stock Bajo
+            </button>
+          </div>
+          
+          <!-- Category Filter -->
+          <select
+            v-model="selectedCategory"
+            class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 border-none hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="all">Todas las categorías</option>
+            <option v-for="category in productCategories" :key="category" :value="category">
+              {{ category }}
+            </option>
+          </select>
+          
+          <!-- Sort By -->
+          <select
+            v-model="sortBy"
+            class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 border-none hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="name">Nombre</option>
+            <option value="stock">Stock</option>
+            <option value="value">Valor</option>
+            <option value="movement">Último Movimiento</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Loading State -->
+    <div v-if="isLoading" class="flex justify-center items-center py-12">
+      <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+    </div>
+    
+    <!-- Inventory Table -->
+    <div v-else-if="filteredInventory.length > 0" class="bg-white rounded-lg shadow overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Producto
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Stock Actual
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Valor
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Último Movimiento
+              </th>
+              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Acciones
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-for="item in filteredInventory" :key="item.productId" class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div>
+                    <div class="text-sm font-medium text-gray-900">
+                      {{ item.productName }}
+                    </div>
+                    <div v-if="getProductById(item.productId)?.category" class="text-xs text-gray-500">
+                      {{ getProductById(item.productId)?.category }}
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex flex-col">
+                  <div :class="item.isLowStock ? 'text-red-600 font-medium' : 'text-gray-900'">
+                    {{ formatStock(item) }}
+                  </div>
+                  <div class="text-xs text-gray-500" v-if="item.minimumStock">
+                    Mínimo: {{ item.minimumStock }}
+                  </div>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">{{ formatCurrency(item.totalCostValue) }}</div>
+                <div class="text-xs text-gray-500">
+                  {{ formatCurrency(item.averageCost) }}/unidad
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ item.lastMovementAt || 'N/A' }}
+                </div>
+                <div class="text-xs text-gray-500">
+                  {{ getMovementTypeLabel(item.lastMovementType) }}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <button 
+                  @click="viewInventoryDetails(item.productId)"
+                  class="text-primary hover:text-primary/80 mr-3"
+                >
+                  Ver Inventario
+                </button>
+                <button 
+                  @click="openAdjustInventory(item.productId)"
+                  class="text-primary hover:text-primary/80"
+                >
+                  Ajustar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- Empty State -->
+    <div v-else class="bg-white rounded-lg shadow p-8 text-center">
+      <div class="flex justify-center mb-4">
+        <TablerPackages class="h-12 w-12 text-gray-400" />
+      </div>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">No se encontraron productos</h3>
+      <p class="text-gray-500 mb-4">
+        {{ searchQuery || selectedCategory !== 'all' || stockFilter !== 'all' ? 
+          'No hay resultados para tu búsqueda. Intenta con otros filtros.' : 
+          'Agrega productos a tu inventario para comenzar.' }}
+      </p>
+      <button
+        @click="$router.push('/productos')"
+        class="btn bg-primary text-white hover:bg-primary/90"
+      >
+        <span class="flex items-center gap-1">
+          <LucidePlus class="h-4 w-4" />
+          Administrar Productos
+        </span>
+      </button>
+    </div>
+    
+    <!-- Modals -->
+    <InventoryAdjustment ref="inventoryAdjustmentModal" :product-id="selectedProductId" @adjustment-saved="onInventoryAdjusted" />
+    <InventoryDetailsModal ref="inventoryDetailsModal" :product-id="selectedProductId" @updated="onInventoryAdjusted" />
   </div>
 </template>
 
 <script setup>
-import IcTwotonePets from '~icons/ic/twotone-pets';
-import PhArrowLeft from '~icons/ph/arrow-left';
-import MaterialSymbolsInventory2Outline from '~icons/material-symbols/inventory-2-outline';
-import MaterialSymbolsReceiptLongOutline from '~icons/material-symbols/receipt-long-outline';
-import IcRoundInsights from '~icons/ic/round-insights';
+import { ToastEvents } from '~/interfaces';
+import { formatCurrency } from '~/utils';
 
-useHead({
-  title: "Próximamente - Pet Universe",
-  meta: [
-    {
-      name: "description",
-      content: "Nuestra funciones estarán disponible pronto en Pet Universe"
+import TablerPackages from '~icons/tabler/packages';
+import TablerAlertTriangle from '~icons/tabler/alert-triangle';
+import LucideSearch from '~icons/lucide/search';
+import LucidePlus from '~icons/lucide/plus';
+import LucideDownload from '~icons/lucide/download';
+import LucideDollarSign from '~icons/lucide/dollar-sign';
+import LucideHistory from '~icons/lucide/history';
+
+// Store references
+const productStore = useProductStore();
+const inventoryStore = useInventoryStore();
+const { isLoading } = storeToRefs(inventoryStore);
+const { productCategories } = storeToRefs(productStore);
+
+// Component refs
+const inventoryAdjustmentModal = ref(null);
+const inventoryDetailsModal = ref(null);
+
+// Local state
+const selectedProductId = ref(null);
+const searchQuery = ref('');
+const selectedCategory = ref('all');
+const stockFilter = ref('all');
+const sortBy = ref('name');
+
+// Stats computed property
+const stats = computed(() => {
+  let totalProducts = inventoryStore.inventoryItems.length;
+  let lowStockCount = inventoryStore.getLowStockInventory.length;
+  let totalValue = inventoryStore.inventoryItems.reduce((acc, item) => acc + (item.totalCostValue || 0), 0);
+  
+  // Find last movement date
+  let lastMovementDate = 'N/A';
+  if (inventoryStore.inventoryItems.length > 0) {
+    const sortedByDate = [...inventoryStore.inventoryItems]
+      .filter(item => item.originalLastMovementAt)
+      .sort((a, b) => {
+        if (!a.originalLastMovementAt) return 1;
+        if (!b.originalLastMovementAt) return -1;
+        return b.originalLastMovementAt.toMillis() - a.originalLastMovementAt.toMillis();
+      });
+    
+    if (sortedByDate.length > 0) {
+      lastMovementDate = sortedByDate[0].lastMovementAt;
     }
-  ]
+  }
+  
+  return {
+    totalProducts,
+    lowStockCount,
+    totalValue,
+    lastMovementDate
+  };
 });
 
+// Filtered inventory computed property
+const filteredInventory = computed(() => {
+  let result = [...inventoryStore.inventoryItems];
+  
+  // Apply stock filter
+  if (stockFilter.value === 'low') {
+    result = result.filter(item => item.isLowStock);
+  }
+  
+  // Apply category filter
+  if (selectedCategory.value !== 'all') {
+    result = result.filter(item => {
+      const product = productStore.getProductById(item.productId);
+      return product?.category === selectedCategory.value;
+    });
+  }
+  
+  // Apply search filter
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase();
+    result = result.filter(item => 
+      item.productName.toLowerCase().includes(query) ||
+      (getProductById(item.productId)?.brand || '').toLowerCase().includes(query)
+    );
+  }
+  
+  // Apply sorting
+  result = sortInventory(result, sortBy.value);
+  
+  return result;
+});
+
+// Methods
+
+function viewInventoryDetails(productId) {
+  selectedProductId.value = productId;
+  inventoryDetailsModal.value.showModal();
+}
+
+function getProductById(productId) {
+  return productStore.getProductById(productId);
+}
+
+function formatStock(item) {
+  const product = getProductById(item.productId);
+  if (!product) return `${item.unitsInStock} unidades`;
+  
+  if (product.trackingType === 'weight') {
+    return `${item.openUnitsWeight} kg`;
+  } else if (product.trackingType === 'dual') {
+    return `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 's' : ''} + ${item.openUnitsWeight} kg`;
+  } else {
+    return `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 's' : ''}`;
+  }
+}
+
+function getMovementTypeLabel(type) {
+  const types = {
+    'sale': 'Venta',
+    'purchase': 'Compra',
+    'adjustment': 'Ajuste',
+    'opening': 'Apertura',
+    'loss': 'Pérdida',
+    'return': 'Devolución'
+  };
+  return types[type] || 'N/A';
+}
+
+function setStockFilter(filter) {
+  stockFilter.value = filter;
+}
+
+function openAdjustInventory(productId) {
+  selectedProductId.value = productId;
+  inventoryAdjustmentModal.value.showModal();
+}
+
+function onInventoryAdjusted() {
+  // Refresh inventory data
+  inventoryStore.fetchInventory();
+}
+
+function sortInventory(inventory, sortKey) {
+  return [...inventory].sort((a, b) => {
+    switch(sortKey) {
+      case 'name':
+        return a.productName.localeCompare(b.productName);
+      case 'stock':
+        return b.unitsInStock - a.unitsInStock;
+      case 'value':
+        return b.totalCostValue - a.totalCostValue;
+      case 'movement':
+        // Sort by last movement date
+        if (!a.originalLastMovementAt) return 1;
+        if (!b.originalLastMovementAt) return -1;
+        return b.originalLastMovementAt.toMillis() - a.originalLastMovementAt.toMillis();
+      default:
+        return 0;
+    }
+  });
+}
+
+// Lifecycle hooks
+onMounted(async () => {
+  // Make sure products are loaded first for product information
+  if (!productStore.productsLoaded) {
+    await productStore.fetchProducts();
+  }
+  
+  // Then load inventory data
+  if (!inventoryStore.inventoryLoaded) {
+    await inventoryStore.fetchInventory();
+  }
+});
 </script>

@@ -716,7 +716,9 @@ export const useInventoryStore = defineStore("inventory", {
         useToast(ToastEvents.error, "Hubo un error al registrar el movimiento de inventario");
         return false;
       }
-    },// New action for adding inventory (purchases)
+    },
+    
+    // New action for adding inventory (purchases)
     async addInventory(data: InventoryAdditionData): Promise<boolean> {
       const db = useFirestore();
       const user = useCurrentUser();
@@ -1040,5 +1042,36 @@ export const useInventoryStore = defineStore("inventory", {
         return false;
       }
     },
+    
+    // Fetch latest inventory
+    async fetchLatestMovement(): Promise<{ date: string, type: string } | null> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const { $dayjs } = useNuxtApp();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return null;
+    
+      try {
+        const movementQuery = query(
+          collection(db, 'inventoryMovement'),
+          where('businessId', '==', currentBusinessId.value),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+        );
+        
+        const movementSnapshot = await getDocs(movementQuery);
+        if (movementSnapshot.empty) return null;
+        
+        const latestMovement = movementSnapshot.docs[0].data();
+        return {
+          date: $dayjs(latestMovement.createdAt.toDate()).format('DD/MM/YYYY HH:mm'),
+          type: latestMovement.movementType
+        };
+      } catch (error) {
+        console.error("Error fetching latest movement:", error);
+        return null;
+      }
+    }
   }
 });
