@@ -666,6 +666,7 @@ product/
     // Inventory tracking configuration
     trackingType: string         // "unit" | "weight" | "dual" (for pet food)
     unitType: string             // "bag" | "kg" | "piece" | etc.
+    unitWeight: number;          // Weight of each full unit in kg (When "dual" trackingType)
     allowsLooseSales: boolean    // Whether this product can be sold by weight
     
     // Stock information

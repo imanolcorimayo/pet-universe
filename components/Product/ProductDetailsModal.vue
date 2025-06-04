@@ -85,6 +85,13 @@
               <p class="text-sm text-gray-600">Tipo de Unidad</p>
               <p class="font-semibold">{{ product.unitType }}</p>
             </div>
+            
+            <!-- Add unit weight display when tracking type is dual -->
+            <div v-if="product.trackingType === 'dual'">
+              <p class="text-sm text-gray-600">Peso por Unidad</p>
+              <p class="font-semibold">{{ product.unitWeight }} kg</p>
+            </div>
+            
             <div>
               <p class="text-sm text-gray-600">Stock Mínimo</p>
               <p class="font-semibold">{{ product.minimumStock }}</p>

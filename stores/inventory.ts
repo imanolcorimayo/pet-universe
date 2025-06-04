@@ -111,6 +111,12 @@ interface InventoryAdjustmentToValuesData {
   newCost: number;
   notes?: string;
 }
+interface UnitConversionData {
+  productId: string;
+  unitsToConvert: number;
+  weightPerUnit: number;
+  notes?: string;
+}
 
 export const useInventoryStore = defineStore("inventory", {
   state: (): InventoryState => ({
@@ -1071,6 +1077,145 @@ export const useInventoryStore = defineStore("inventory", {
       } catch (error) {
         console.error("Error fetching latest movement:", error);
         return null;
+      }
+    },
+
+    async convertUnitsToWeight(data: UnitConversionData): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+    
+      try {
+        this.isLoading = true;
+        
+        // Get existing inventory record
+        const inventoryQuery = query(
+          collection(db, 'inventory'),
+          where('businessId', '==', currentBusinessId.value),
+          where('productId', '==', data.productId)
+        );
+        
+        const inventorySnapshot = await getDocs(inventoryQuery);
+        if (inventorySnapshot.empty) {
+          useToast(ToastEvents.error, "No se encontró el registro de inventario");
+          this.isLoading = false;
+          return false;
+        }
+        
+        const inventoryData = inventorySnapshot.docs[0].data();
+        const inventoryRef = doc(db, 'inventory', inventorySnapshot.docs[0].id);
+        
+        // Get product to verify it's dual tracking type
+        const productStore = useProductStore();
+        const product = productStore.getProductById(data.productId);
+        
+        if (!product || product.trackingType !== 'dual') {
+          useToast(ToastEvents.error, "Este producto no permite conversión de unidades a peso");
+          this.isLoading = false;
+          return false;
+        }
+        
+        // Calculate values
+        const currentUnits = inventoryData.unitsInStock || 0;
+        const currentWeight = inventoryData.openUnitsWeight || 0;
+        
+        // Validate conversion
+        if (data.unitsToConvert <= 0) {
+          useToast(ToastEvents.error, "Debe convertir al menos una unidad");
+          this.isLoading = false;
+          return false;
+        }
+        
+        if (data.unitsToConvert > currentUnits) {
+          useToast(ToastEvents.error, "No hay suficientes unidades para convertir");
+          this.isLoading = false;
+          return false;
+        }
+        
+        if (data.weightPerUnit <= 0) {
+          useToast(ToastEvents.error, "El peso por unidad debe ser mayor a cero");
+          this.isLoading = false;
+          return false;
+        }
+        
+        // Calculate new values
+        const unitsToRemove = data.unitsToConvert;
+        const weightToAdd = data.unitsToConvert * data.weightPerUnit;
+        
+        const newUnitsInStock = currentUnits - unitsToRemove;
+        const newOpenUnitsWeight = currentWeight + weightToAdd;
+        
+        // Calculate if product is low in stock
+        const isLowStock = newUnitsInStock < (inventoryData.minimumStock || 0);
+        
+        // Update inventory document
+        await updateDoc(inventoryRef, {
+          unitsInStock: newUnitsInStock,
+          openUnitsWeight: newOpenUnitsWeight,
+          isLowStock: isLowStock,
+          lastMovementAt: serverTimestamp(),
+          lastMovementType: "conversion",
+          lastMovementBy: user.value.uid,
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Record inventory movement
+        const success = await this.recordInventoryMovement({
+          productId: data.productId,
+          movementType: "adjustment", // Use adjustment as the base type
+          referenceType: "manual_adjustment",
+          referenceId: null,
+          quantityChange: -unitsToRemove, // Negative for units being converted
+          weightChange: weightToAdd, // Positive for weight being added
+          unitCost: null, // No cost change in conversion
+          previousCost: null,
+          totalCost: null,
+          supplierId: null,
+          unitsBefore: currentUnits,
+          unitsAfter: newUnitsInStock,
+          weightBefore: currentWeight,
+          weightAfter: newOpenUnitsWeight,
+          notes: data.notes || `Conversión de ${unitsToRemove} unidad(es) a ${weightToAdd.toFixed(2)} kg`,
+          productName: inventoryData.productName,
+        });
+        
+        if (success) {
+          // Update local cache
+          const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
+          if (index >= 0) {
+            const { $dayjs } = useNuxtApp();
+            this.inventoryItems[index].unitsInStock = newUnitsInStock;
+            this.inventoryItems[index].openUnitsWeight = newOpenUnitsWeight;
+            this.inventoryItems[index].isLowStock = isLowStock;
+            this.inventoryItems[index].lastMovementAt = $dayjs().format('DD/MM/YYYY');
+            this.inventoryItems[index].lastMovementType = "conversion";
+            this.inventoryItems[index].lastMovementBy = user.value.uid;
+            
+            // Also update the Map
+            if (this.inventoryByProductId.has(data.productId)) {
+              const cachedItem = this.inventoryByProductId.get(data.productId) as Inventory;
+              cachedItem.unitsInStock = newUnitsInStock;
+              cachedItem.openUnitsWeight = newOpenUnitsWeight;
+              cachedItem.isLowStock = isLowStock;
+              cachedItem.lastMovementAt = $dayjs().format('DD/MM/YYYY');
+              cachedItem.lastMovementType = "conversion";
+              cachedItem.lastMovementBy = user.value.uid;
+              this.inventoryByProductId.set(data.productId, cachedItem);
+            }
+          }
+          
+          useToast(ToastEvents.success, "Conversión de unidades a peso completada exitosamente");
+        }
+        
+        this.isLoading = false;
+        return success;
+      } catch (error) {
+        console.error("Error converting units to weight:", error);
+        useToast(ToastEvents.error, "Hubo un error al convertir unidades a peso. Por favor intenta nuevamente.");
+        this.isLoading = false;
+        return false;
       }
     }
   }

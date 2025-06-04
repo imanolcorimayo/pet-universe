@@ -353,9 +353,9 @@ function formatStock(item) {
   if (product.trackingType === 'weight') {
     return `${item.openUnitsWeight} kg`;
   } else if (product.trackingType === 'dual') {
-    return `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 's' : ''} + ${item.openUnitsWeight} kg`;
+    return `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 'es' : ''} + ${item.openUnitsWeight} kg`;
   } else {
-    return `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 's' : ''}`;
+    return `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 'es' : ''}`;
   }
 }
 

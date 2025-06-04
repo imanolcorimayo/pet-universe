@@ -355,6 +355,55 @@
             </div>
           </div>
 
+          <div
+            v-else-if="formData.movementType === 'convert'"
+            class="flex flex-col gap-4"
+          >
+            <div class="flex flex-col gap-2" v-if="product.trackingType === 'dual'">
+              <label class="text-sm font-medium text-gray-700"
+                >Unidades a abrir</label
+              >
+              <input
+                type="number"
+                v-model.number="formData.unitsToConvert"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                placeholder="Cantidad"
+                @input="calculateConversion"
+                min="1"
+                max="inventoryData?.unitsInStock || 999999"
+                step="1"
+              />
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-medium text-gray-700">
+                Peso de cada unidad (kg)
+                <span class="text-xs text-gray-500">
+                  (Predeterminado: {{ product.unitWeight || 0 }} kg)
+                </span>
+              </label>
+              <input
+                type="number"
+                v-model.number="formData.weightPerUnit"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                placeholder="Peso por unidad en kg"
+                @input="calculateConversion"
+                min="0.01"
+                step="0.01"
+              />
+            </div>
+
+            <div class="bg-blue-50 p-3 rounded-lg">
+              <p class="text-sm text-blue-800 mb-1">
+                <strong>Resultado de la conversión:</strong>
+              </p>
+              <p class="text-sm">
+                {{ formData.unitsToConvert }} unidad(es) a 
+                <strong>{{ calculateTotalWeight }} kg</strong> de peso disponible.
+              </p>
+            </div>
+          </div>
+
           <!-- Notes field - shown for all types -->
           <div class="flex flex-col gap-2 mt-4">
             <label class="text-sm font-medium text-gray-700"
@@ -564,6 +613,7 @@ const movementTypes = [
   { value: "loss", label: "Pérdida" },
   { value: "adjustment", label: "Ajustar" },
   { value: "return", label: "Devolución" },
+  { value: "convert", label: "Abrir Bolsa" },
 ];
 
 const lossReasons = [
@@ -594,6 +644,10 @@ const formData = ref({
 
   // For losses
   lossReason: null,
+  
+  // For convert (new)
+  unitsToConvert: 1,
+  weightPerUnit: 0,
 
   // Common for all
   reason: "",
@@ -614,6 +668,13 @@ const product = computed(() => {
   return productStore.getProductById(props.productId);
 });
 
+// Calculating total weight
+const calculateTotalWeight = computed(() => {
+  const weightPerUnit = formData.value.weightPerUnit || product.value?.unitWeight || 0;
+  const unitsToConvert = formData.value.unitsToConvert || 0;
+  return (weightPerUnit * unitsToConvert).toFixed(2);
+});
+
 const isFormValid = computed(() => {
   // Basic validation based on movement type
   if (!inventoryData.value) return false;
@@ -622,11 +683,6 @@ const isFormValid = computed(() => {
     case "addition":
       // For additions, need positive values and cost
       if (formData.value.unitsChange <= 0) return false;
-      if (
-        product.value?.trackingType !== "unit" &&
-        formData.value.weightChange <= 0
-      )
-        return false;
       if (formData.value.unitCost <= 0) return false;
       return true;
 
@@ -661,6 +717,14 @@ const isFormValid = computed(() => {
       )
         return false;
       return true;
+      
+    case "convert":
+      // For conversions, need valid units and weight
+      if (product.value?.trackingType !== "dual") return false;
+      if (formData.value.unitsToConvert <= 0) return false;
+      if (formData.value.weightPerUnit <= 0) return false;
+      if (formData.value.unitsToConvert > (inventoryData.value?.unitsInStock || 0)) return false;
+      return true;
 
     default:
       return false;
@@ -691,6 +755,8 @@ const getMovementTypeLabel = computed(() => {
       return "Ajustar inventario";
     case "return":
       return "Registrar devolución";
+    case "convert":
+      return "Convertir unidades a peso";
     default:
       return "Movimiento de inventario";
   }
@@ -743,18 +809,25 @@ function selectMovementType(type) {
   // Initialize adjustment values with current values
   if (type === "adjustment") {
     formData.value.newStock = inventoryData.value?.unitsInStock || 0;
-    formData.value.newWeight = inventoryData.value?.openUnitsWeight || 0;
+    formData.value.newWeight = Number(inventoryData.value?.openUnitsWeight || 0);
     formData.value.newCost = inventoryData.value?.averageCost || 0;
   }
-
-  calculateNewValues();
+  
+  // Initialize conversion values
+  if (type === "convert" && product.value) {
+    formData.value.unitsToConvert = 1;
+    formData.value.weightPerUnit = product.value.unitWeight || 0;
+    calculateConversion();
+  } else {
+    calculateNewValues();
+  }
 }
 
 function calculateNewValues() {
   if (!inventoryData.value) return;
 
   const currentUnits = inventoryData.value.unitsInStock || 0;
-  const currentWeight = inventoryData.value.openUnitsWeight || 0;
+  const currentWeight = Number(inventoryData.value.openUnitsWeight || 0);
   const currentCost = inventoryData.value.averageCost || 0;
 
   let newUnits = currentUnits;
@@ -814,7 +887,7 @@ function calculateFromTotal() {
   if (!inventoryData.value) return;
 
   const currentUnits = inventoryData.value.unitsInStock || 0;
-  const currentWeight = inventoryData.value.openUnitsWeight || 0;
+  const currentWeight = Number(inventoryData.value.openUnitsWeight || 0);
 
   const newUnits = Number(formData.value.newStock) || 0;
   const newWeight = Number(formData.value.newWeight) || 0;
@@ -844,7 +917,7 @@ async function loadInventoryData() {
     if (inventoryData.value) {
       calculatedValues.value = {
         newUnits: inventoryData.value.unitsInStock,
-        newWeight: inventoryData.value.openUnitsWeight,
+        newWeight: Number(inventoryData.value.openUnitsWeight),
         newCost: inventoryData.value.averageCost,
         unitsChange: 0,
         weightChange: 0,
@@ -926,6 +999,31 @@ function getDefaultMovementDescription(movement) {
   }
 }
 
+function calculateConversion() {
+  if (!product.value || product.value.trackingType !== 'dual') return;
+  
+  // Default to product's unitWeight if not set
+  if (!formData.value.weightPerUnit) {
+    formData.value.weightPerUnit = product.value.unitWeight;
+  }
+
+  // Ensure units to convert is valid
+  const maxUnits = inventoryData.value?.unitsInStock || 0;
+  if (formData.value.unitsToConvert > maxUnits) {
+    formData.value.unitsToConvert = maxUnits;
+  }
+  
+  // Calculate changes for preview
+  calculatedValues.value = {
+    newUnits: (inventoryData.value?.unitsInStock || 0) - formData.value.unitsToConvert,
+    newWeight: Number((inventoryData.value?.openUnitsWeight || 0) + 
+               (formData.value.unitsToConvert * formData.value.weightPerUnit)),
+    newCost: inventoryData.value?.averageCost || 0,
+    unitsChange: -formData.value.unitsToConvert,
+    weightChange: formData.value.unitsToConvert * formData.value.weightPerUnit
+  };
+}
+
 // Supplier methods
 function onSupplierInput() {
   if (!formData.value.supplierName.trim()) {
@@ -969,6 +1067,9 @@ async function saveAdjustment() {
       break;
     case "return":
       confirmMessage = `¿Estás seguro de registrar una devolución de ${formData.value.unitsChange} unidades?`;
+      break;
+    case "convert":
+      confirmMessage = `¿Estás seguro de abrir ${formData.value.unitsToConvert} unidad(es) y añadir ${calculateTotalWeight.value} kg al inventario de peso?`;
       break;
   }
 
@@ -1031,6 +1132,14 @@ async function saveAdjustment() {
           isLoss: false,
         });
         break;
+
+      case "convert":
+        success = await inventoryStore.convertUnitsToWeight({
+          productId: props.productId,
+          unitsToConvert: formData.value.unitsToConvert,
+          weightPerUnit: formData.value.weightPerUnit,
+          notes: formData.value.notes || `Conversión de ${formData.value.unitsToConvert} unidad(es) a ${calculateTotalWeight.value} kg`,
+        });
     }
 
     if (success) {

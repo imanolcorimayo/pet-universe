@@ -34,6 +34,7 @@ interface Product {
   
   trackingType: "unit" | "weight" | "dual";
   unitType: string;
+  unitWeight: number;
   allowsLooseSales: boolean;
   
   minimumStock: number;
@@ -62,20 +63,12 @@ interface ProductFormData {
   };
   
   trackingType: "unit" | "weight" | "dual";
+  unitWeight: number;
   unitType: string;
   allowsLooseSales: boolean;
   
   minimumStock: number;
   supplierIds: string[];
-}
-
-// Inventory adjustment interface
-interface InventoryAdjustmentData {
-  productId: string;
-  unitsChange: number;
-  weightChange: number;
-  reason: string;
-  notes: string;
 }
 
 // Enums
@@ -219,6 +212,7 @@ export const useProductStore = defineStore("product", {
             },
             
             trackingType: data.trackingType || 'unit',
+            unitWeight: data.unitWeight || 0,
             unitType: data.unitType || 'unit',
             allowsLooseSales: data.allowsLooseSales || false,
             
@@ -274,6 +268,7 @@ export const useProductStore = defineStore("product", {
           
           trackingType: formData.trackingType,
           unitType: formData.unitType,
+          unitWeight: formData.unitWeight || 0,
           allowsLooseSales: formData.allowsLooseSales,
           
           minimumStock: formData.minimumStock || 0,
@@ -365,6 +360,7 @@ export const useProductStore = defineStore("product", {
           
           trackingType: formData.trackingType,
           unitType: formData.unitType,
+          unitWeight: formData.unitWeight || 0,
           allowsLooseSales: formData.allowsLooseSales,
           
           minimumStock: formData.minimumStock || 0,

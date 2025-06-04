@@ -160,7 +160,7 @@
         <!-- Inventory Configuration -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-md font-medium mb-3">Configuración de Inventario</h3>
-  
+
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label
@@ -179,7 +179,7 @@
                 <option value="dual">Unidades y Peso</option>
               </select>
             </div>
-  
+
             <div>
               <label
                 for="unitType"
@@ -196,7 +196,26 @@
               />
             </div>
           </div>
-  
+
+          <!-- Add the unitWeight field - only shows when tracking type is dual -->
+          <div v-if="formData.trackingType === 'dual'" class="mb-4">
+            <label
+              for="unitWeight"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Peso por Unidad (kg)*</label
+            >
+            <input
+              id="unitWeight"
+              v-model.number="formData.unitWeight"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="ej: 15.0"
+              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              required
+            />
+          </div>
+
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label
@@ -213,18 +232,6 @@
                 required
               />
             </div>
-          </div>
-  
-          <div class="flex items-center mt-2">
-            <input
-              id="allowsLooseSales"
-              v-model="formData.allowsLooseSales"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
-            />
-            <label for="allowsLooseSales" class="ml-2 block text-sm text-gray-700"
-              >Permite venta a granel</label
-            >
           </div>
         </div>
       </form>
@@ -317,6 +324,7 @@ const formData = ref({
 
   trackingType: "unit",
   unitType: "unidad",
+  unitWeight: 0,
   allowsLooseSales: false,
 
   minimumStock: 5,
@@ -325,14 +333,19 @@ const formData = ref({
 
 // ----- Computed Properties ---------
 const isFormValid = computed(() => {
-  return (
-    formData.value.name &&
+  const baseValidation = formData.value.name &&
     formData.value.category &&
     formData.value.prices.regular >= 0 &&
     formData.value.trackingType &&
     formData.value.unitType &&
-    formData.value.minimumStock >= 0
-  );
+    formData.value.minimumStock >= 0;
+    
+  // Add validation for unitWeight when trackingType is 'dual'
+  if (formData.value.trackingType === 'dual') {
+    return baseValidation && formData.value.unitWeight > 0;
+  }
+  
+  return baseValidation;
 });
 
 // ----- Define Methods ---------
@@ -357,6 +370,7 @@ function resetForm() {
 
     trackingType: "unit",
     unitType: "unidad",
+    unitWeight: 0,
     allowsLooseSales: false,
 
     minimumStock: 5,
@@ -415,6 +429,7 @@ watch(
 
         trackingType: newProductData.trackingType || "unit",
         unitType: newProductData.unitType || "unidad",
+        unitWeight: newProductData.unitWeight || 0,
         allowsLooseSales: newProductData.allowsLooseSales || false,
 
         minimumStock: newProductData.minimumStock || 5,
