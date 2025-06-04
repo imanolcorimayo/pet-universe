@@ -128,9 +128,14 @@
           <button 
             @click="viewProductDetails(product)" 
             class="text-sm text-primary flex items-center gap-1"
+            v-if="!loadingProduct"
           >
             <LucideEye class="h-4 w-4" /> Ver detalles
           </button>
+          <div class="flex items-center gap-3" v-else>
+            <span class="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary"></span>
+            Cargando...
+          </div>
           
           <div class="flex gap-2">
             <button 
@@ -216,6 +221,7 @@ const selectedProductData = ref(null);
 const selectedProductId = ref(null);
 const searchQuery = ref('');
 const selectedCategory = ref('all');
+const loadingProduct = ref(false);
 
 // Watched values
 watch(searchQuery, (newValue) => {
@@ -231,9 +237,11 @@ function setFilter(filter) {
   productStore.setProductFilter(filter);
 }
 
-function viewProductDetails(product) {
+async function viewProductDetails(product) {
   selectedProductId.value = product.id;
-  productDetailsModal.value.showModal();
+  loadingProduct.value = true;
+  await productDetailsModal.value.showModal();
+  loadingProduct.value = false;
 }
 
 function editProduct(product) {

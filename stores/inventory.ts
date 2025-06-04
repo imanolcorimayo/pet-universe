@@ -77,7 +77,8 @@ interface InventoryAdjustmentData {
 // Store state interface
 interface InventoryState {
   inventoryItems: Inventory[];
-  inventoryMovements: Record<string, InventoryMovement[]>; // Keyed by productId
+  inventoryMovementsByProductId: Map<string, InventoryMovement[]>; // NEW: Map for fast lookup
+  inventoryByProductId: Map<string, Inventory>; // Map for quick lookup
   inventoryLoaded: boolean;
   isLoading: boolean;
 }
@@ -114,7 +115,8 @@ interface InventoryAdjustmentToValuesData {
 export const useInventoryStore = defineStore("inventory", {
   state: (): InventoryState => ({
     inventoryItems: [],
-    inventoryMovements: {},
+    inventoryMovementsByProductId: new Map<string, InventoryMovement[]>(),
+    inventoryByProductId: new Map<string, Inventory>(),
     inventoryLoaded: false,
     isLoading: false,
   }),
@@ -122,12 +124,17 @@ export const useInventoryStore = defineStore("inventory", {
   getters: {
     // Get inventory by product ID
     getInventoryByProductId: (state) => (productId: string) => {
+      // First check Map for O(1) lookup
+      if (state.inventoryByProductId.has(productId)) {
+        return state.inventoryByProductId.get(productId);
+      }
+      // Fallback to array lookup (slower)
       return state.inventoryItems.find(item => item.productId === productId);
     },
     
-    // Get inventory movements by product ID
+    // Get inventory movements by product ID (Map first, fallback to object)
     getInventoryMovementsByProductId: (state) => (productId: string) => {
-      return state.inventoryMovements[productId] || [];
+      return state.inventoryMovementsByProductId.get(productId) || [];
     },
     
     // Get products with low stock
@@ -149,7 +156,10 @@ export const useInventoryStore = defineStore("inventory", {
       try {
         this.isLoading = true;
         
-        // Get all inventory for this business
+        // Clear the Map when fetching all inventory
+        this.inventoryByProductId.clear();
+        
+        // Rest of the function remains the same...
         const inventoryQuery = query(
           collection(db, 'inventory'),
           where('businessId', '==', currentBusinessId.value)
@@ -172,7 +182,7 @@ export const useInventoryStore = defineStore("inventory", {
             lastMovementAt = $dayjs(data.lastMovementAt.toDate()).format('DD/MM/YYYY');
           }
           
-          return {
+          const inventoryItem = {
             id: doc.id,
             businessId: data.businessId,
             productId: data.productId,
@@ -196,6 +206,11 @@ export const useInventoryStore = defineStore("inventory", {
             createdAt: $dayjs(data.createdAt.toDate()).format('DD/MM/YYYY'),
             updatedAt: $dayjs(data.updatedAt.toDate()).format('DD/MM/YYYY'),
           };
+          
+          // Add to Map for quick lookup
+          this.inventoryByProductId.set(data.productId, inventoryItem as Inventory);
+          
+          return inventoryItem;
         });
         
         this.inventoryItems = inventoryItems as Inventory[];
@@ -218,6 +233,12 @@ export const useInventoryStore = defineStore("inventory", {
       
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value || !productId) return null;
+
+      if (this.inventoryByProductId.has(productId)) {
+        console.log(`Inventory for product ${productId} is already cached.`);
+        // If already cached, return immediately
+        return this.inventoryByProductId.get(productId) as Inventory;
+      }
 
       try {
         this.isLoading = true;
@@ -273,13 +294,16 @@ export const useInventoryStore = defineStore("inventory", {
           updatedAt: $dayjs(data.updatedAt.toDate()).format('DD/MM/YYYY'),
         };
         
-        // Update the cache
+        // Update both array and Map
         const existingIndex = this.inventoryItems.findIndex(item => item.productId === productId);
         if (existingIndex >= 0) {
           this.inventoryItems[existingIndex] = inventoryItem as Inventory;
         } else {
           this.inventoryItems.push(inventoryItem as Inventory);
         }
+        
+        // Update Map with latest data
+        this.inventoryByProductId.set(productId, inventoryItem as Inventory);
         
         this.isLoading = false;
         return inventoryItem as Inventory;
@@ -293,6 +317,13 @@ export const useInventoryStore = defineStore("inventory", {
     
     // Fetch movements for a specific product
     async fetchMovementsForProduct(productId: string): Promise<InventoryMovement[]> {
+
+      // Check if movements are already cached
+      if (this.inventoryMovementsByProductId.has(productId)) {
+        console.log(`Movements for product ${productId} are already cached.`);
+        return this.inventoryMovementsByProductId.get(productId) || [];
+      }
+
       const db = useFirestore();
       const user = useCurrentUser();
       const { $dayjs } = useNuxtApp();
@@ -340,10 +371,7 @@ export const useInventoryStore = defineStore("inventory", {
         });
         
         // Update the cache
-        this.inventoryMovements = {
-          ...this.inventoryMovements,
-          [productId]: movements
-        };
+        this.inventoryMovementsByProductId.set(productId, movements);
         
         this.isLoading = false;
         return movements;
@@ -573,9 +601,19 @@ export const useInventoryStore = defineStore("inventory", {
             this.inventoryItems[index].lastMovementAt = $dayjs().format('DD/MM/YYYY');
             this.inventoryItems[index].lastMovementType = "adjustment";
             this.inventoryItems[index].lastMovementBy = user.value.uid;
+            
+            // Also update the Map
+            if (this.inventoryByProductId.has(adjustmentData.productId)) {
+              const cachedItem = this.inventoryByProductId.get(adjustmentData.productId) as Inventory;
+              cachedItem.unitsInStock = newUnitsInStock;
+              cachedItem.openUnitsWeight = newOpenUnitsWeight;
+              cachedItem.isLowStock = isLowStock;
+              cachedItem.lastMovementAt = $dayjs().format('DD/MM/YYYY');
+              cachedItem.lastMovementType = "adjustment";
+              cachedItem.lastMovementBy = user.value.uid;
+              this.inventoryByProductId.set(adjustmentData.productId, cachedItem);
+            }
           }
-          
-          useToast(ToastEvents.success, "Inventario ajustado exitosamente");
         }
         
         this.isLoading = false;
@@ -615,7 +653,7 @@ export const useInventoryStore = defineStore("inventory", {
 
       try {
         // Create movement record
-        await addDoc(collection(db, 'inventoryMovement'), {
+        const refDoc = await addDoc(collection(db, 'inventoryMovement'), {
           businessId: currentBusinessId.value,
           productId: data.productId,
           productName: data.productName,
@@ -639,7 +677,36 @@ export const useInventoryStore = defineStore("inventory", {
         });
         
         // Refresh movements for this product in cache if it exists
-        if (this.inventoryMovements[data.productId]) {
+        if (this.inventoryMovementsByProductId.has(data.productId)) {
+          const { $dayjs } = useNuxtApp();
+          // Add to existing movements
+          const newMovement: InventoryMovement = {
+            id: refDoc.id,
+            businessId: currentBusinessId.value,
+            productId: data.productId,
+            productName: data.productName,
+            movementType: data.movementType,
+            referenceType: data.referenceType,
+            referenceId: data.referenceId,
+            quantityChange: data.quantityChange,
+            weightChange: data.weightChange,
+            unitCost: data.unitCost,
+            previousCost: data.previousCost,
+            totalCost: data.totalCost,
+            supplierId: data.supplierId,
+            unitsBefore: data.unitsBefore,
+            unitsAfter: data.unitsAfter,
+            weightBefore: data.weightBefore,
+            weightAfter: data.weightAfter,
+            notes: data.notes || '',
+            createdBy: user.value.uid,
+            createdByName: (user.value.displayName || user.value.email) as string,
+            createdAt: $dayjs().format('DD/MM/YYYY HH:mm'), // Use current date for local cache
+          };
+
+          // Add to existing movements array
+          this.inventoryMovementsByProductId.get(data.productId)?.unshift(newMovement);
+        } else {
           await this.fetchMovementsForProduct(data.productId);
         }
         

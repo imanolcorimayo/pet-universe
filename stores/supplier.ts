@@ -108,7 +108,12 @@ export const useSupplierStore = defineStore("supplier", {
     },
 
     // Fetch all suppliers for the current business
-    async fetchSuppliers(): Promise<boolean> {
+    async fetchSuppliers(forceReload = false): Promise<boolean> {
+      // Use cache unless forceReload is true or not loaded yet
+      if (this.suppliersLoaded && !forceReload) {
+        return true;
+      }
+
       const db = useFirestore();
       const user = useCurrentUser();
       const { $dayjs } = useNuxtApp();
@@ -197,10 +202,28 @@ export const useSupplierStore = defineStore("supplier", {
           archivedAt: null,
         };
         
-        await addDoc(collection(db, 'supplier'), supplierData);
+        const docRef = await addDoc(collection(db, 'supplier'), supplierData);
         
-        // Refresh the supplier list
-        await this.fetchSuppliers();
+        // Add to cache immediately (optimistic update)
+        const { $dayjs } = useNuxtApp();
+        this.suppliers.push({
+          id: docRef.id,
+          businessId: currentBusinessId.value,
+          name: formData.name,
+          email: formData.email || null,
+          phone: formData.phone || null,
+          address: formData.address || null,
+          contactPerson: formData.contactPerson || null,
+          notes: formData.notes || null,
+          isActive: true,
+          createdBy: user.value.uid,
+          createdAt: $dayjs().format('DD/MM/YYYY'),
+          updatedAt: $dayjs().format('DD/MM/YYYY'),
+          archivedAt: null,
+        });
+
+        this.suppliersLoaded = true;
+        this.isLoading = false;
         
         useToast(ToastEvents.success, "Proveedor creado exitosamente");
         this.isLoading = false;
@@ -235,18 +258,27 @@ export const useSupplierStore = defineStore("supplier", {
           updatedAt: serverTimestamp(),
         });
         
-        // Refresh the supplier list
-        await this.fetchSuppliers();
-        
+        // Update cache
+        const { $dayjs } = useNuxtApp();
+        const idx = this.suppliers.findIndex(s => s.id === supplierId);
+        if (idx !== -1) {
+          this.suppliers[idx] = {
+            ...this.suppliers[idx],
+            name: formData.name,
+            email: formData.email || null,
+            phone: formData.phone || null,
+            address: formData.address || null,
+            contactPerson: formData.contactPerson || null,
+            notes: formData.notes || null,
+            updatedAt: $dayjs().format('DD/MM/YYYY'),
+          };
+        }
+
         // Update local state for selected supplier if applicable
         if (this.selectedSupplier && this.selectedSupplier.id === supplierId) {
-          const updatedSupplier = this.suppliers.find(s => s.id === supplierId);
-          if (updatedSupplier) {
-            this.selectedSupplier = updatedSupplier;
-          }
+          this.selectedSupplier = this.suppliers[idx];
         }
-        
-        useToast(ToastEvents.success, "Proveedor actualizado exitosamente");
+
         this.isLoading = false;
         return true;
       } catch (error) {
@@ -274,11 +306,19 @@ export const useSupplierStore = defineStore("supplier", {
           archivedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
-        
-        // Refresh the supplier list
-        await this.fetchSuppliers();
-        
-        useToast(ToastEvents.success, "Proveedor archivado exitosamente");
+
+        // Update cache
+        const { $dayjs } = useNuxtApp();
+        const idx = this.suppliers.findIndex(s => s.id === supplierId);
+        if (idx !== -1) {
+          this.suppliers[idx] = {
+            ...this.suppliers[idx],
+            isActive: false,
+            archivedAt: $dayjs().format('YYYY-MM-DD'),
+            updatedAt: $dayjs().format('DD/MM/YYYY'),
+          };
+        }
+
         this.isLoading = false;
         return true;
       } catch (error) {
@@ -307,10 +347,18 @@ export const useSupplierStore = defineStore("supplier", {
           updatedAt: serverTimestamp(),
         });
         
-        // Refresh the supplier list
-        await this.fetchSuppliers();
-        
-        useToast(ToastEvents.success, "Proveedor restaurado exitosamente");
+        // Update cache
+        const { $dayjs } = useNuxtApp();
+        const idx = this.suppliers.findIndex(s => s.id === supplierId);
+        if (idx !== -1) {
+          this.suppliers[idx] = {
+            ...this.suppliers[idx],
+            isActive: true,
+            archivedAt: null,
+            updatedAt: $dayjs().format('DD/MM/YYYY'),
+          };
+        }
+
         this.isLoading = false;
         return true;
       } catch (error) {

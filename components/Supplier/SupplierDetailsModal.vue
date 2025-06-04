@@ -1,5 +1,6 @@
 <template>
   <ModalStructure ref="mainModal" title="Detalles del Proveedor">
+    <template #default>
       <div v-if="loading" class="flex justify-center items-center py-8">
         <Loader />
       </div>
@@ -19,26 +20,32 @@
               Editar
             </button>
           </div>
-          
+
           <div class="grid md:grid-cols-2 gap-4">
             <div>
               <p class="text-sm text-gray-500">Nombre</p>
               <p class="font-medium">{{ supplier.name }}</p>
             </div>
-            
+
             <div>
               <p class="text-sm text-gray-500">Persona de contacto</p>
-              <p class="font-medium">{{ supplier.contactPerson || 'No especificado' }}</p>
+              <p class="font-medium">
+                {{ supplier.contactPerson || "No especificado" }}
+              </p>
             </div>
-            
+
             <div>
               <p class="text-sm text-gray-500">Email</p>
-              <p class="font-medium">{{ supplier.email || 'No especificado' }}</p>
+              <p class="font-medium">
+                {{ supplier.email || "No especificado" }}
+              </p>
             </div>
-            
+
             <div>
               <p class="text-sm text-gray-500">Teléfono</p>
-              <p class="font-medium">{{ supplier.phone || 'No especificado' }}</p>
+              <p class="font-medium">
+                {{ supplier.phone || "No especificado" }}
+              </p>
             </div>
           </div>
         </div>
@@ -46,16 +53,20 @@
         <!-- Additional Information -->
         <div class="bg-white px-4 py-5 rounded-lg shadow">
           <h3 class="text-lg font-medium mb-4">Información Adicional</h3>
-          
+
           <div class="space-y-4">
             <div>
               <p class="text-sm text-gray-500">Dirección</p>
-              <p class="font-medium">{{ supplier.address || 'No especificada' }}</p>
+              <p class="font-medium">
+                {{ supplier.address || "No especificada" }}
+              </p>
             </div>
-            
+
             <div>
               <p class="text-sm text-gray-500">Notas</p>
-              <p class="whitespace-pre-wrap">{{ supplier.notes || 'Sin notas adicionales' }}</p>
+              <p class="whitespace-pre-wrap">
+                {{ supplier.notes || "Sin notas adicionales" }}
+              </p>
             </div>
           </div>
         </div>
@@ -67,7 +78,7 @@
               <p class="text-gray-500">Creado</p>
               <p>{{ supplier.createdAt }}</p>
             </div>
-            
+
             <div>
               <p class="text-gray-500">Actualizado</p>
               <p>{{ supplier.updatedAt }}</p>
@@ -75,6 +86,8 @@
           </div>
         </div>
       </div>
+    </template>
+    <template #footer>
       <div class="flex justify-between w-full">
         <button
           v-if="supplier && supplier.isActive"
@@ -94,8 +107,9 @@
           <LucideRefreshCcw class="h-4 w-4 mr-1" />
           Restaurar
         </button>
-        <div></div> <!-- Spacer for flex justify-between -->
-        
+        <div></div>
+        <!-- Spacer for flex justify-between -->
+
         <button
           type="button"
           class="btn bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -104,10 +118,11 @@
           Cerrar
         </button>
       </div>
+    </template>
   </ModalStructure>
 
   <!-- Supplier Form Modal -->
-  <SupplierForm
+  <SupplierFormModal
     ref="supplierFormModal"
     :edit-mode="true"
     :supplier-data="supplier"
@@ -130,11 +145,7 @@ const props = defineProps({
 });
 
 // ----- Emit Events ---------
-const emit = defineEmits([
-  "archived",
-  "restored",
-  "updated",
-]);
+const emit = defineEmits(["archived", "restored", "updated"]);
 
 // ----- Define Refs ---------
 const mainModal = ref(null);
@@ -151,7 +162,7 @@ const supplier = computed(() => {
 // ----- Define Methods ---------
 const loadSupplierData = async () => {
   if (!props.supplierId) return;
-  
+
   loading.value = true;
   supplierStore.selectSupplier(props.supplierId);
   loading.value = false;
@@ -167,38 +178,42 @@ const onSupplierSaved = () => {
 
 const confirmArchiveSupplier = () => {
   if (!supplier.value) return;
-  
-  confirmDialogue.value.openDialog({
-    message: `¿Estás seguro de que deseas archivar el proveedor "${supplier.value.name}"?`,
-    textConfirmButton: 'Archivar',
-    textCancelButton: 'Cancelar',
-  }).then(async (confirmed) => {
-    if (confirmed) {
-      const success = await supplierStore.archiveSupplier(supplier.value.id);
-      if (success) {
-        emit("archived");
-        mainModal.value?.closeModal();
+
+  confirmDialogue.value
+    .openDialog({
+      message: `¿Estás seguro de que deseas archivar el proveedor "${supplier.value.name}"?`,
+      textConfirmButton: "Archivar",
+      textCancelButton: "Cancelar",
+    })
+    .then(async (confirmed) => {
+      if (confirmed) {
+        const success = await supplierStore.archiveSupplier(supplier.value.id);
+        if (success) {
+          emit("archived");
+          mainModal.value?.closeModal();
+        }
       }
-    }
-  });
+    });
 };
 
 const confirmRestoreSupplier = () => {
   if (!supplier.value) return;
-  
-  confirmDialogue.value.openDialog({
-    message: `¿Estás seguro de que deseas restaurar el proveedor "${supplier.value.name}"?`,
-    textConfirmButton: 'Restaurar',
-    textCancelButton: 'Cancelar',
-  }).then(async (confirmed) => {
-    if (confirmed) {
-      const success = await supplierStore.restoreSupplier(supplier.value.id);
-      if (success) {
-        emit("restored");
-        mainModal.value?.closeModal();
+
+  confirmDialogue.value
+    .openDialog({
+      message: `¿Estás seguro de que deseas restaurar el proveedor "${supplier.value.name}"?`,
+      textConfirmButton: "Restaurar",
+      textCancelButton: "Cancelar",
+    })
+    .then(async (confirmed) => {
+      if (confirmed) {
+        const success = await supplierStore.restoreSupplier(supplier.value.id);
+        if (success) {
+          emit("restored");
+          mainModal.value?.closeModal();
+        }
       }
-    }
-  });
+    });
 };
 
 // ----- Watch for changes ---------
