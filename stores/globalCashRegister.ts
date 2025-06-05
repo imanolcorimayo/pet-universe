@@ -156,6 +156,8 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     async openGlobalRegister(data: { date: Date; openingBalances: Record<string, number>; notes?: string }) {
       const db = useFirestore();
       const user = useCurrentUser();
+      const { $dayjs } = useNuxtApp();
+
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) throw new Error('Debes iniciar sesión y seleccionar un negocio');
 
@@ -167,7 +169,7 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         const ref = collection(db, 'globalCashRegister');
         const registerData = {
           businessId: currentBusinessId.value,
-          openingDate: Timestamp.fromDate(new Date(data.date)),
+          openingDate: Timestamp.fromDate($dayjs(data.date).startOf('day').toDate()),
           openingBalances: data.openingBalances,
           openedBy: user.value.uid,
           openedByName: user.value.displayName || user.value.email,
