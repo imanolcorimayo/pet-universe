@@ -151,7 +151,13 @@ export const useInventoryStore = defineStore("inventory", {
 
   actions: {
     // Fetch all inventory for the current business
-    async fetchInventory(): Promise<boolean> {
+    async fetchInventory(forceFetch = false): Promise<boolean> {
+
+      if (this.inventoryLoaded && !forceFetch) {
+        console.log("Inventory already loaded, skipping fetch.");
+        return true; // Already loaded
+      }
+
       const db = useFirestore();
       const user = useCurrentUser();
       const { $dayjs } = useNuxtApp();

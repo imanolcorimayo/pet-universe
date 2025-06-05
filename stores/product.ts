@@ -79,6 +79,7 @@ type TrackingType = "unit" | "weight" | "dual";
 // Store state interface
 interface ProductState {
   products: Product[];
+  productsByIdMap: Map<string, Product>;
   productsLoaded: boolean;
   isLoading: boolean;
   selectedProduct: Product | null;
@@ -90,6 +91,7 @@ interface ProductState {
 export const useProductStore = defineStore("product", {
   state: (): ProductState => ({
     products: [],
+    productsByIdMap: new Map<string, Product>(),
     productsLoaded: false,
     isLoading: false,
     selectedProduct: null,
@@ -139,6 +141,11 @@ export const useProductStore = defineStore("product", {
 
     // Get product by ID
     getProductById: (state) => (id: string) => {
+      // First check Map for O(1) lookup
+      if (state.productsByIdMap.has(id)) {
+        return state.productsByIdMap.get(id);
+      }
+      // Fallback to array lookup (slower)
       return state.products.find(product => product.id === id);
     },
   },
@@ -165,7 +172,13 @@ export const useProductStore = defineStore("product", {
     },
 
     // Fetch all products for the current business
-    async fetchProducts(): Promise<boolean> {
+    async fetchProducts(forceFetch = false): Promise<boolean> {
+
+      if (this.productsLoaded && !forceFetch) {
+        // If products are already loaded and not forcing fetch, return true
+        return true;
+      }
+
       const db = useFirestore();
       const user = useCurrentUser();
       const { $dayjs } = useNuxtApp();
@@ -175,6 +188,9 @@ export const useProductStore = defineStore("product", {
 
       try {
         this.isLoading = true;
+
+        // Clear the Map when fetching all products
+        this.productsByIdMap.clear();
         
         // Get all products for this business
         const productsQuery = query(
@@ -195,7 +211,7 @@ export const useProductStore = defineStore("product", {
             archivedAt = $dayjs(data.archivedAt.toDate()).format('YYYY-MM-DD');
           }
           
-          return {
+          const product: Product = {
             id: doc.id,
             businessId: data.businessId,
             name: data.name,
@@ -225,6 +241,10 @@ export const useProductStore = defineStore("product", {
             updatedAt: $dayjs(data.updatedAt.toDate()).format('DD/MM/YYYY'),
             archivedAt: archivedAt,
           };
+
+          this.productsByIdMap.set(doc.id, product);
+
+          return product;
         });
         
         this.products = products;
@@ -385,8 +405,43 @@ export const useProductStore = defineStore("product", {
           });
         }
         
-        // Refresh the product list
-        await this.fetchProducts();
+        // After updating in Firestore and the products array:
+        const productIndex = this.products.findIndex(p => p.id === productId);
+        if (productIndex >= 0) {
+          const { $dayjs } = useNuxtApp();
+          const productUpdated = {
+            ...this.products[productIndex],
+            name: formData.name,
+            description: formData.description || '',
+            category: formData.category,
+            subcategory: formData.subcategory || '',
+            brand: formData.brand || '',
+            prices: {
+              regular: formData.prices.regular || 0,
+              cash: formData.prices.cash || 0,
+              vip: formData.prices.vip || 0,
+              bulk: formData.prices.bulk || 0,
+            },
+
+            trackingType: formData.trackingType,
+            unitType: formData.unitType,
+            unitWeight: formData.unitWeight || 0,
+            allowsLooseSales: formData.allowsLooseSales,
+            minimumStock: formData.minimumStock || 0,
+            supplierIds: formData.supplierIds || [],
+            updatedAt: $dayjs().format('DD/MM/YYYY'),
+            // Keep other fields unchanged
+            isActive: this.products[productIndex].isActive, // Preserve active status
+            createdBy: this.products[productIndex].createdBy, // Preserve creator
+            createdAt: this.products[productIndex].createdAt, // Preserve creation date
+            archivedAt: this.products[productIndex].archivedAt, // Preserve archived date
+          };
+
+          this.products[productIndex] = productUpdated;
+          
+          // Also update the Map
+          this.productsByIdMap.set(productId, productUpdated);
+        }
         
         // Update local state for selected product if applicable
         if (this.selectedProduct && this.selectedProduct.id === productId) {
@@ -446,8 +501,15 @@ export const useProductStore = defineStore("product", {
         // Update local product state
         const productIndex = this.products.findIndex(p => p.id === productId);
         if (productIndex >= 0) {
-          this.products[productIndex].isActive = false;
-          this.products[productIndex].archivedAt = $dayjs().format('YYYY-MM-DD');
+          const archivedProduct = {
+            ...this.products[productIndex],
+            isActive: false,
+            archivedAt: $dayjs().format('YYYY-MM-DD'),
+            updatedAt: $dayjs().format('DD/MM/YYYY'),
+          };
+
+          this.products[productIndex] = archivedProduct;
+          this.productsByIdMap.set(productId, archivedProduct);
         }
         
         // Clear selected product if it was archived

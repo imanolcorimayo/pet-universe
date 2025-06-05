@@ -92,6 +92,7 @@ type ClientFilter = "all" | "active" | "archived" | "vip";
 // Store state interface
 interface ClientState {
   clients: Client[];
+  clientsByIdMap: Map<string, Client>;
   clientsLoaded: boolean;
   isLoading: boolean;
   selectedClient: Client | null;
@@ -103,6 +104,7 @@ interface ClientState {
 export const useClientStore = defineStore("client", {
   state: (): ClientState => ({
     clients: [],
+    clientsByIdMap: new Map<string, Client>(),
     clientsLoaded: false,
     isLoading: false,
     selectedClient: null,
@@ -143,6 +145,11 @@ export const useClientStore = defineStore("client", {
 
     // Get client by ID
     getClientById: (state) => (id: string): Client | undefined => {
+      // First check Map for O(1) lookup
+      if (state.clientsByIdMap.has(id)) {
+        return state.clientsByIdMap.get(id);
+      }
+      // Fallback to array lookup (slower)
       return state.clients.find(client => client.id === id);
     },
 
@@ -171,7 +178,10 @@ export const useClientStore = defineStore("client", {
     },
 
     // Fetch all clients for the current business
-    async fetchClients(): Promise<boolean> {
+    async fetchClients(forceFetch = false): Promise<boolean> {
+
+      if (this.clientsLoaded && !forceFetch) return true;
+
       const db = useFirestore();
       const user = useCurrentUser();
       const { $dayjs } = useNuxtApp();
@@ -182,6 +192,9 @@ export const useClientStore = defineStore("client", {
       try {
         this.isLoading = true;
         
+        // Clear the Map when fetching all clients
+        this.clientsByIdMap.clear();
+
         // Query clients for this business
         const clientsRef = collection(db, 'client');
         const q = query(
@@ -213,7 +226,7 @@ export const useClientStore = defineStore("client", {
           }
           
           // Return formatted client with ID
-          return {
+          const client =  {
             id: doc.id,
             businessId: data.businessId,
             name: data.name,
@@ -237,11 +250,19 @@ export const useClientStore = defineStore("client", {
             originalArchivedAt: data.archivedAt,
             pets: [],
           };
+      
+          // Add to Map for quick lookup
+          this.clientsByIdMap.set(doc.id, client);
+          
+          return client;
         });
 
         // Fetch pets for all clients
         for (const client of clients) {
           await this.fetchPetsForClient(client);
+
+          // Update the Map with the client including pets
+          this.clientsByIdMap.set(client.id, client);
         }
         
         this.clients = clients;
@@ -432,6 +453,9 @@ export const useClientStore = defineStore("client", {
           };
           
           this.clients.splice(clientIndex, 1, updatedClient);
+          // Also update the Map
+          this.clientsByIdMap.set(clientId, updatedClient);
+
         }
         
         useToast(ToastEvents.success, "Cliente actualizado exitosamente");
@@ -594,7 +618,9 @@ export const useClientStore = defineStore("client", {
         await deleteDoc(clientRef);
         
         // Update local state
-        this.clients = this.clients.filter(c => c.id !== clientId);
+        this.clients = this.clients.filter(c => c.id !== clientId);  
+        // Also remove from the Map
+        this.clientsByIdMap.delete(clientId);
         
         useToast(ToastEvents.success, "Cliente eliminado exitosamente");
         this.isLoading = false;
@@ -736,6 +762,9 @@ export const useClientStore = defineStore("client", {
             };
             
             client.pets.splice(petIndex, 1, updatedPet);
+
+            // Also update the Map
+            this.clientsByIdMap.set(client.id, client);
           }
         }
         
