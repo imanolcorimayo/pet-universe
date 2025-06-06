@@ -1,10 +1,17 @@
 <template>
-  <ModalStructure ref="mainModal" :title="'Detalle de Producto'" :click-propagation-filter="['inventory-adjustment-modal', 'confirm-dialogue-modal']">
+  <ModalStructure
+    ref="mainModal"
+    :title="'Detalle de Producto'"
+    :click-propagation-filter="[
+      'inventory-adjustment-modal',
+      'confirm-dialogue-modal',
+    ]"
+  >
     <template #default>
       <div v-if="loading" class="flex justify-center items-center py-12">
         <Loader />
       </div>
-  
+
       <div v-else-if="product" class="space-y-6">
         <!-- Basic Information -->
         <div class="bg-gray-50 p-4 rounded-lg">
@@ -31,7 +38,7 @@
               </p>
             </div>
           </div>
-  
+
           <div class="mt-4">
             <p class="text-sm text-gray-600">Descripción</p>
             <p class="font-semibold">
@@ -39,11 +46,103 @@
             </p>
           </div>
         </div>
-  
+
         <!-- Pricing Information -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-lg font-medium mb-3">Precios</h3>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+          <div v-if="product.trackingType === 'dual'">
+            <!-- Unit Prices for Dual Products -->
+            <div class="mb-5">
+              <h4 class="text-sm font-medium mb-2 border-b pb-1">
+                Precios por Unidad
+              </h4>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <p class="text-sm text-gray-600">Regular</p>
+                  <p class="font-semibold">
+                    {{
+                      formatCurrency(
+                        product.prices.unit?.regular || product.prices.regular
+                      )
+                    }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-sm text-gray-600">Efectivo</p>
+                  <p class="font-semibold">
+                    {{
+                      formatCurrency(
+                        product.prices.unit?.cash || product.prices.cash
+                      )
+                    }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-sm text-gray-600">VIP</p>
+                  <p class="font-semibold">
+                    {{
+                      formatCurrency(
+                        product.prices.unit?.vip || product.prices.vip
+                      )
+                    }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Kg Prices for Dual Products -->
+            <div>
+              <h4 class="text-sm font-medium mb-2 border-b pb-1">
+                Precios por Kilogramo
+              </h4>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p class="text-sm text-gray-600">Regular</p>
+                  <p class="font-semibold">
+                    {{
+                      formatCurrency(
+                        product.prices.kg?.regular || product.prices.regular
+                      )
+                    }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-sm text-gray-600">Efectivo</p>
+                  <p class="font-semibold">
+                    {{
+                      formatCurrency(
+                        product.prices.kg?.cash || product.prices.cash
+                      )
+                    }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-sm text-gray-600">VIP</p>
+                  <p class="font-semibold">
+                    {{
+                      formatCurrency(
+                        product.prices.kg?.vip || product.prices.vip
+                      )
+                    }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-sm text-gray-600">Mayorista</p>
+                  <p class="font-semibold">
+                    {{
+                      formatCurrency(
+                        product.prices.kg?.bulk || product.prices.bulk
+                      )
+                    }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Standard Pricing for non-dual products -->
+          <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p class="text-sm text-gray-600">Regular</p>
               <p class="font-semibold">
@@ -70,7 +169,7 @@
             </div>
           </div>
         </div>
-  
+
         <!-- Inventory Information -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-lg font-medium mb-3">Inventario</h3>
@@ -85,13 +184,13 @@
               <p class="text-sm text-gray-600">Tipo de Unidad</p>
               <p class="font-semibold">{{ product.unitType }}</p>
             </div>
-            
+
             <!-- Add unit weight display when tracking type is dual -->
             <div v-if="product.trackingType === 'dual'">
               <p class="text-sm text-gray-600">Peso por Unidad</p>
               <p class="font-semibold">{{ product.unitWeight }} kg</p>
             </div>
-            
+
             <div>
               <p class="text-sm text-gray-600">Stock Mínimo</p>
               <p class="font-semibold">{{ product.minimumStock }}</p>
@@ -104,7 +203,7 @@
             </div>
           </div>
         </div>
-  
+
         <!-- Stock Status -->
         <div v-if="inventoryData" class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-lg font-medium mb-3">Estado de Stock</h3>
@@ -117,7 +216,9 @@
             </div>
             <div v-if="product.trackingType !== 'unit'">
               <p class="text-sm text-gray-600">Peso de Unidades Abiertas</p>
-              <p class="font-semibold">{{ inventoryData.openUnitsWeight }} kg</p>
+              <p class="font-semibold">
+                {{ inventoryData.openUnitsWeight }} kg
+              </p>
             </div>
             <div>
               <p class="text-sm text-gray-600">Estado</p>
@@ -133,7 +234,7 @@
             </div>
           </div>
         </div>
-  
+
         <!-- Other Information -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-lg font-medium mb-3">Información Adicional</h3>
@@ -159,7 +260,7 @@
           </div>
         </div>
       </div>
-  
+
       <div v-else class="text-center py-8">
         <p class="text-gray-500">No se encontró información del producto.</p>
       </div>
@@ -185,7 +286,7 @@
             Archivar Producto
           </button>
         </div>
-  
+
         <div class="flex space-x-2">
           <button
             v-if="product && product.isActive"
@@ -195,7 +296,7 @@
           >
             Ajustar Inventario
           </button>
-  
+
           <button
             v-if="product && product.isActive"
             type="button"
@@ -204,7 +305,7 @@
           >
             Editar
           </button>
-  
+
           <button
             type="button"
             @click="closeModal"
@@ -215,7 +316,6 @@
         </div>
       </div>
     </template>
-
   </ModalStructure>
 
   <!-- Inventory Adjustment Modal -->

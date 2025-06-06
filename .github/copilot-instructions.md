@@ -658,9 +658,24 @@ product/
     // Pricing structure
     prices: {
       regular: number            // Regular/card price
-      cash: number              // Cash discount price (for applicable products)
-      vip: number               // VIP/special customer price (variable)
-      bulk: number              // Bulk purchase price (for weight-based sales)
+      cash: number               // Cash discount price (for applicable products)
+      vip: number                // VIP/special customer price (variable)
+      bulk: number               // Bulk purchase price (for weight-based sales)
+      
+      // Unit-specific prices for dual products
+      unit?: {                   // Only for dual tracking type products
+        regular: number          // Regular price per unit
+        cash: number             // Cash price per unit
+        vip: number              // VIP price per unit
+      },
+      
+      // Kg-specific prices for dual products
+      kg?: {                     // Only for dual tracking type products
+        regular: number          // Regular price per kg
+        cash: number             // Cash price per kg
+        vip: number              // VIP price per kg
+        bulk: number             // Bulk price per kg
+      }
     }
     
     // Inventory tracking configuration

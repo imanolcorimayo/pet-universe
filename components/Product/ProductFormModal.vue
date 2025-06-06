@@ -8,10 +8,12 @@
         <!-- Basic Information -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-md font-medium mb-3">Información Básica</h3>
-  
+
           <!-- Name Field -->
           <div class="mb-4">
-            <label for="name" class="block text-sm font-medium text-gray-700 mb-1"
+            <label
+              for="name"
+              class="block text-sm font-medium text-gray-700 mb-1"
               >Nombre*</label
             >
             <input
@@ -22,7 +24,7 @@
               required
             />
           </div>
-  
+
           <!-- Brand Field -->
           <div class="mb-4">
             <label
@@ -37,7 +39,7 @@
               class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
             />
           </div>
-  
+
           <!-- Category Fields -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
@@ -54,7 +56,7 @@
                 required
               />
             </div>
-  
+
             <div>
               <label
                 for="subcategory"
@@ -69,7 +71,7 @@
               />
             </div>
           </div>
-  
+
           <!-- Description Field -->
           <div>
             <label
@@ -85,11 +87,142 @@
             ></textarea>
           </div>
         </div>
-  
+
         <!-- Pricing Information -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-md font-medium mb-3">Precios</h3>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          
+          <!-- Different pricing sections for dual vs. non-dual -->
+          <div v-if="formData.trackingType === 'dual'">
+            <!-- Unit Prices -->
+            <div class="mb-4">
+              <h4 class="text-sm font-medium mb-2 border-b pb-1">Precios por Unidad</h4>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <label
+                    for="unitPriceRegular"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Precio Regular*</label
+                  >
+                  <input
+                    id="unitPriceRegular"
+                    v-model.number="formData.prices.unit.regular"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label
+                    for="unitPriceCash"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Precio Efectivo</label
+                  >
+                  <input
+                    id="unitPriceCash"
+                    v-model.number="formData.prices.unit.cash"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    for="unitPriceVip"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Precio VIP</label
+                  >
+                  <input
+                    id="unitPriceVip"
+                    v-model.number="formData.prices.unit.vip"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <!-- Weight Prices -->
+            <div>
+              <h4 class="text-sm font-medium mb-2 border-b pb-1">Precios por Kilogramo</h4>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label
+                    for="kgPriceRegular"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Precio Regular*</label
+                  >
+                  <input
+                    id="kgPriceRegular"
+                    v-model.number="formData.prices.kg.regular"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label
+                    for="kgPriceCash"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Precio Efectivo</label
+                  >
+                  <input
+                    id="kgPriceCash"
+                    v-model.number="formData.prices.kg.cash"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    for="kgPriceVip"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Precio VIP</label
+                  >
+                  <input
+                    id="kgPriceVip"
+                    v-model.number="formData.prices.kg.vip"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    for="kgPriceBulk"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Precio Mayorista</label
+                  >
+                  <input
+                    id="kgPriceBulk"
+                    v-model.number="formData.prices.kg.bulk"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Standard pricing for non-dual products -->
+          <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label
                 for="priceRegular"
@@ -106,7 +239,7 @@
                 required
               />
             </div>
-  
+
             <div>
               <label
                 for="priceCash"
@@ -122,7 +255,7 @@
                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
               />
             </div>
-  
+
             <div>
               <label
                 for="priceVip"
@@ -138,7 +271,7 @@
                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
               />
             </div>
-  
+
             <div>
               <label
                 for="priceBulk"
@@ -156,7 +289,7 @@
             </div>
           </div>
         </div>
-  
+
         <!-- Inventory Configuration -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-md font-medium mb-3">Configuración de Inventario</h3>
@@ -173,6 +306,7 @@
                 v-model="formData.trackingType"
                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                 required
+                @change="handleTrackingTypeChange"
               >
                 <option value="unit">Unidades</option>
                 <option value="weight">Peso</option>
@@ -232,6 +366,21 @@
                 required
               />
             </div>
+            
+            <!-- For dual tracking types, show loose sales option -->
+            <div v-if="formData.trackingType === 'dual'" class="flex items-center">
+              <input
+                type="checkbox"
+                id="allowsLooseSales"
+                v-model="formData.allowsLooseSales"
+                class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+              />
+              <label
+                for="allowsLooseSales"
+                class="ml-2 block text-sm text-gray-700"
+                >Permitir venta a granel</label
+              >
+            </div>
           </div>
         </div>
       </form>
@@ -246,7 +395,7 @@
         >
           Cancelar
         </button>
-  
+
         <button
           type="button"
           @click="saveProduct"
@@ -308,6 +457,7 @@ const mainModal = ref(null);
 const productStore = useProductStore();
 const isLoading = ref(false);
 
+// Initialize form data with proper structure for dual pricing
 const formData = ref({
   name: "",
   description: "",
@@ -315,11 +465,24 @@ const formData = ref({
   subcategory: "",
   brand: "",
 
+  // We'll have two price structures - one for regular products, one for dual products
   prices: {
     regular: 0,
     cash: 0,
     vip: 0,
     bulk: 0,
+    // For dual products
+    unit: {
+      regular: 0,
+      cash: 0,
+      vip: 0,
+    },
+    kg: {
+      regular: 0,
+      cash: 0,
+      vip: 0,
+      bulk: 0,
+    }
   },
 
   trackingType: "unit",
@@ -333,19 +496,31 @@ const formData = ref({
 
 // ----- Computed Properties ---------
 const isFormValid = computed(() => {
-  const baseValidation = formData.value.name &&
+  const baseValidation =
+    formData.value.name &&
     formData.value.category &&
-    formData.value.prices.regular >= 0 &&
     formData.value.trackingType &&
     formData.value.unitType &&
     formData.value.minimumStock >= 0;
     
-  // Add validation for unitWeight when trackingType is 'dual'
-  if (formData.value.trackingType === 'dual') {
-    return baseValidation && formData.value.unitWeight > 0;
-  }
+  // Add price validation based on tracking type
+  let priceValidation = true;
   
-  return baseValidation;
+  if (formData.value.trackingType === 'dual') {
+    // For dual products, validate both unit and kg prices
+    priceValidation = formData.value.prices.unit.regular > 0 && 
+                      formData.value.prices.kg.regular > 0;
+  } else {
+    // For regular products, validate standard prices
+    priceValidation = formData.value.prices.regular > 0;
+  }
+
+  // Add validation for unitWeight when trackingType is 'dual'
+  if (formData.value.trackingType === "dual") {
+    return baseValidation && formData.value.unitWeight > 0 && priceValidation;
+  }
+
+  return baseValidation && priceValidation;
 });
 
 // ----- Define Methods ---------
@@ -366,6 +541,18 @@ function resetForm() {
       cash: 0,
       vip: 0,
       bulk: 0,
+      // For dual products
+      unit: {
+        regular: 0,
+        cash: 0,
+        vip: 0,
+      },
+      kg: {
+        regular: 0,
+        cash: 0,
+        vip: 0,
+        bulk: 0,
+      }
     },
 
     trackingType: "unit",
@@ -378,6 +565,28 @@ function resetForm() {
   };
 }
 
+// Handle tracking type change to set default values
+function handleTrackingTypeChange() {
+  if (formData.value.trackingType === 'dual') {
+    // Default to allow loose sales for dual products
+    formData.value.allowsLooseSales = true;
+    
+    // Copy current prices to both unit and kg if they're not set
+    if (formData.value.prices.unit.regular === 0) {
+      formData.value.prices.unit.regular = formData.value.prices.regular;
+      formData.value.prices.unit.cash = formData.value.prices.cash;
+      formData.value.prices.unit.vip = formData.value.prices.vip;
+    }
+    
+    if (formData.value.prices.kg.regular === 0) {
+      formData.value.prices.kg.regular = formData.value.prices.regular;
+      formData.value.prices.kg.cash = formData.value.prices.cash;
+      formData.value.prices.kg.vip = formData.value.prices.vip;
+      formData.value.prices.kg.bulk = formData.value.prices.bulk;
+    }
+  }
+}
+
 async function saveProduct() {
   if (!isFormValid.value || isLoading.value) return;
 
@@ -385,16 +594,20 @@ async function saveProduct() {
 
   try {
     let success = false;
+    
+    // Prepare the data to save
+    const productToSave = {
+      ...formData.value,
+      // If type is dual, ensure it allows loose sales
+      allowsLooseSales: formData.value.trackingType === "dual" ? true : formData.value.allowsLooseSales,
+    };
 
     if (props.editMode && props.productData) {
       // Update existing product
-      success = await productStore.updateProduct(
-        props.productData.id,
-        formData.value
-      );
+      success = await productStore.updateProduct(props.productData.id, productToSave);
     } else {
       // Create new product
-      success = await productStore.createProduct(formData.value);
+      success = await productStore.createProduct(productToSave);
     }
 
     if (success) {
@@ -413,6 +626,7 @@ watch(
   () => props.productData,
   (newProductData) => {
     if (newProductData) {
+      // Initialize form with existing data
       formData.value = {
         name: newProductData.name,
         description: newProductData.description || "",
@@ -421,10 +635,33 @@ watch(
         brand: newProductData.brand || "",
 
         prices: {
+          // Standard pricing
           regular: newProductData.prices?.regular || 0,
           cash: newProductData.prices?.cash || 0,
           vip: newProductData.prices?.vip || 0,
           bulk: newProductData.prices?.bulk || 0,
+          
+          // Unit pricing for dual products
+          unit: {
+            regular: newProductData.prices?.unit?.regular || 
+                    newProductData.prices?.regular || 0,
+            cash: newProductData.prices?.unit?.cash || 
+                  newProductData.prices?.cash || 0,
+            vip: newProductData.prices?.unit?.vip || 
+                 newProductData.prices?.vip || 0,
+          },
+          
+          // Kg pricing for dual products
+          kg: {
+            regular: newProductData.prices?.kg?.regular || 
+                    newProductData.prices?.regular || 0,
+            cash: newProductData.prices?.kg?.cash || 
+                  newProductData.prices?.cash || 0,
+            vip: newProductData.prices?.kg?.vip || 
+                 newProductData.prices?.vip || 0,
+            bulk: newProductData.prices?.kg?.bulk || 
+                  newProductData.prices?.bulk || 0,
+          }
         },
 
         trackingType: newProductData.trackingType || "unit",

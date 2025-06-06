@@ -95,7 +95,7 @@
                     v-model="item.unitType"
                     class="w-full p-1.5 border rounded-md text-sm"
                     :disabled="isLoading || !item.productId || !canSellByWeight(item.productId)"
-                    @change="updateItemTotal(index)"
+                    @change="onUnitTypeChange(index)"
                   >
                     <option value="unit">Unidad</option>
                     <option value="kg" v-if="canSellByWeight(item.productId)">Kg</option>
@@ -274,14 +274,11 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue';
-import { storeToRefs } from 'pinia';
-import { ToastEvents } from '~/interfaces';
-import { formatCurrency } from '~/utils';
-
 import LucidePlus from '~icons/lucide/plus';
 import LucideTrash2 from '~icons/lucide/trash-2';
 import LucideX from '~icons/lucide/x';
+
+import { ToastEvents } from '~/interfaces';
 
 // Refs to control modal visibility and state
 const modalRef = ref(null);
@@ -394,13 +391,16 @@ function updateProductDetails(index) {
     item.productName = product.name;
     
     // Set default unit type based on product configuration
-    if (product.trackingType === 'weight' || product.trackingType === 'dual') {
+    if (product.trackingType === 'weight') {
       item.unitType = 'kg';
+    } else if (product.trackingType === 'dual') {
+      // For dual products, default to unit
+      item.unitType = 'unit';
     } else {
       item.unitType = 'unit';
     }
     
-    // Set price based on price type
+    // Set price based on price type and unit type
     updatePriceFromType(index);
   }
 }
@@ -409,18 +409,41 @@ function updatePriceFromType(index) {
   const item = saleItems.value[index];
   const product = products.value.find(p => p.id === item.productId);
   
-  if (product && product.prices) {
-    // Set price based on selected price type
-    item.unitPrice = product.prices[item.priceType] || 0;
-    
-    // If bulk price is selected and it's weight-based, apply the bulk pricing rule
-    if (item.priceType === 'bulk' && item.unitType === 'kg' && item.quantity > 3) {
-      // Apply 10% discount for bulk purchases (>3kg)
-      const regularPrice = product.prices.regular || 0;
-      item.unitPrice = regularPrice * 0.9;
-      item.appliedDiscount = regularPrice * 0.1 * item.quantity;
+  if (product) {
+    // Get the appropriate price based on unit type and price type
+    if (product.trackingType === 'dual') {
+      // For dual products, check the unit type
+      if (item.unitType === 'unit') {
+        // Use unit-specific prices if available, otherwise fall back to standard prices
+        const unitPrices = product.prices.unit || product.prices;
+
+        item.unitPrice = unitPrices[item.priceType] || 0;
+      } else { // kg
+        // Use kg-specific prices if available, otherwise fall back to standard prices
+        const kgPrices = product.prices.kg || product.prices;
+        item.unitPrice = kgPrices[item.priceType] || 0;
+        
+        // If bulk price is selected and it's weight-based, apply the bulk pricing rule
+        if (item.priceType === 'bulk' && item.quantity > 3) {
+          // Apply 10% discount for bulk purchases (>3kg)
+          const regularPrice = kgPrices.regular || 0;
+          item.unitPrice = regularPrice * 0.9;
+          item.appliedDiscount = regularPrice * 0.1 * item.quantity;
+        }
+      }
     } else {
-      item.appliedDiscount = 0;
+      // Standard product pricing
+      item.unitPrice = product.prices[item.priceType] || 0;
+      
+      // If bulk price is selected and it's weight-based, apply the bulk pricing rule
+      if (item.priceType === 'bulk' && item.unitType === 'kg' && item.quantity > 3) {
+        // Apply 10% discount for bulk purchases (>3kg)
+        const regularPrice = product.prices.regular || 0;
+        item.unitPrice = regularPrice * 0.9;
+        item.appliedDiscount = regularPrice * 0.1 * item.quantity;
+      } else {
+        item.appliedDiscount = 0;
+      }
     }
     
     // Update total
@@ -430,8 +453,11 @@ function updatePriceFromType(index) {
 
 function updateItemTotal(index) {
   const item = saleItems.value[index];
+  const product = products.value.find(p => p.id === item.productId);
   
-  // Apply bulk pricing rule if applicable
+  if (!product) return;
+  
+  // Apply bulk pricing rule if applicable for kg sales
   if (item.unitType === 'kg' && item.quantity > 3 && item.priceType === 'regular') {
     // Switch to bulk pricing
     item.priceType = 'bulk';
@@ -488,13 +514,16 @@ function formatProductStock(inventory) {
 
 function canSellByWeight(productId) {
   const product = products.value.find(p => p.id === productId);
-  return product && (product.trackingType === 'weight' || 
-                    (product.trackingType === 'dual' && product.allowsLooseSales));
+  
+  if (!product) return false;
+  
+  return product.trackingType === 'weight' || 
+         (product.trackingType === 'dual' && product.allowsLooseSales);
 }
 
-// Helper for formatting numbers
-function formatNumber(value) {
-  return Number(value || 0).toFixed(2);
+// When unit type changes, update the price
+function onUnitTypeChange(index) {
+  updatePriceFromType(index);
 }
 
 // Client management
@@ -546,7 +575,7 @@ async function submitForm() {
       isReported: isReported.value,
       notes: notes.value
     };
-    
+
     // Submit sale
     const result = await saleStore.addSale(saleData);
     
@@ -559,6 +588,11 @@ async function submitForm() {
   } finally {
     isLoading.value = false;
   }
+}
+
+// Helper for formatting numbers
+function formatNumber(value) {
+  return Number(value || 0).toFixed(2);
 }
 
 // Modal control

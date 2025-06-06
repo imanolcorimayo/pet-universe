@@ -30,6 +30,18 @@ interface Product {
     cash: number;
     vip: number;
     bulk: number;
+
+    unit?: {
+      regular: number;
+      cash: number;
+      vip: number;
+    };
+    kg?: {
+      regular: number;
+      cash: number;
+      vip: number;
+      bulk: number;
+    };
   };
   
   trackingType: "unit" | "weight" | "dual";
@@ -60,6 +72,18 @@ interface ProductFormData {
     cash: number;
     vip: number;
     bulk: number;
+
+    unit: {
+      regular: number;
+      cash: number;
+      vip: number;
+    };
+    kg: {
+      regular: number;
+      cash: number;
+      vip: number;
+      bulk: number;
+    };
   };
   
   trackingType: "unit" | "weight" | "dual";
@@ -225,6 +249,20 @@ export const useProductStore = defineStore("product", {
               cash: data.prices?.cash || 0,
               vip: data.prices?.vip || 0,
               bulk: data.prices?.bulk || 0,
+              
+              // Handle dual tracking type prices
+              unit: data.trackingType === 'dual' ? {
+                regular: data.prices?.unit?.regular || 0,
+                cash: data.prices?.unit?.cash || 0,
+                vip: data.prices?.unit?.vip || 0,
+              } : undefined,
+              
+              kg: data.trackingType === 'dual' ? {
+                regular: data.prices?.kg?.regular || 0,
+                cash: data.prices?.kg?.cash || 0,
+                vip: data.prices?.kg?.vip || 0,
+                bulk: data.prices?.kg?.bulk || 0,
+              } : undefined,
             },
             
             trackingType: data.trackingType || 'unit',
@@ -266,9 +304,46 @@ export const useProductStore = defineStore("product", {
       
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
-
+    
       try {
         this.isLoading = true;
+        
+        // Prepare the pricing structure based on tracking type
+        let pricesData = {};
+        
+        if (formData.trackingType === 'dual') {
+          // For dual products, include unit and kg specific prices
+          pricesData = {
+            // Standard prices (compatibility)
+            regular: formData.prices.unit.regular || 0,
+            cash: formData.prices.unit.cash || 0,
+            vip: formData.prices.unit.vip || 0,
+            bulk: formData.prices.kg.bulk || 0,
+            
+            // Unit-specific prices
+            unit: {
+              regular: formData.prices.unit.regular || 0,
+              cash: formData.prices.unit.cash || 0,
+              vip: formData.prices.unit.vip || 0,
+            },
+            
+            // Kg-specific prices
+            kg: {
+              regular: formData.prices.kg.regular || 0,
+              cash: formData.prices.kg.cash || 0,
+              vip: formData.prices.kg.vip || 0,
+              bulk: formData.prices.kg.bulk || 0,
+            }
+          };
+        } else {
+          // For regular products, use standard pricing
+          pricesData = {
+            regular: formData.prices.regular || 0,
+            cash: formData.prices.cash || 0,
+            vip: formData.prices.vip || 0,
+            bulk: formData.prices.bulk || 0,
+          };
+        }
         
         // Create product document
         const productData = {
@@ -279,17 +354,12 @@ export const useProductStore = defineStore("product", {
           subcategory: formData.subcategory || '',
           brand: formData.brand || '',
           
-          prices: {
-            regular: formData.prices.regular || 0,
-            cash: formData.prices.cash || 0,
-            vip: formData.prices.vip || 0,
-            bulk: formData.prices.bulk || 0,
-          },
+          prices: pricesData,
           
           trackingType: formData.trackingType,
           unitType: formData.unitType,
           unitWeight: formData.unitWeight || 0,
-          allowsLooseSales: formData.allowsLooseSales,
+          allowsLooseSales: formData.trackingType === 'dual' ? true : formData.allowsLooseSales,
           
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
@@ -342,7 +412,7 @@ export const useProductStore = defineStore("product", {
       
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
-
+    
       try {
         this.isLoading = true;
         
@@ -363,6 +433,43 @@ export const useProductStore = defineStore("product", {
           return false;
         }
         
+        // Prepare the pricing structure based on tracking type
+        let pricesData = {};
+        
+        if (formData.trackingType === 'dual') {
+          // For dual products, include unit and kg specific prices
+          pricesData = {
+            // Standard prices (compatibility)
+            regular: formData.prices.unit.regular || 0,
+            cash: formData.prices.unit.cash || 0,
+            vip: formData.prices.unit.vip || 0,
+            bulk: formData.prices.kg.bulk || 0,
+            
+            // Unit-specific prices
+            unit: {
+              regular: formData.prices.unit.regular || 0,
+              cash: formData.prices.unit.cash || 0,
+              vip: formData.prices.unit.vip || 0,
+            },
+            
+            // Kg-specific prices
+            kg: {
+              regular: formData.prices.kg.regular || 0,
+              cash: formData.prices.kg.cash || 0,
+              vip: formData.prices.kg.vip || 0,
+              bulk: formData.prices.kg.bulk || 0,
+            }
+          };
+        } else {
+          // For regular products, use standard pricing
+          pricesData = {
+            regular: formData.prices.regular || 0,
+            cash: formData.prices.cash || 0,
+            vip: formData.prices.vip || 0,
+            bulk: formData.prices.bulk || 0,
+          };
+        }
+        
         // Update product document
         await updateDoc(productRef, {
           name: formData.name,
@@ -371,17 +478,12 @@ export const useProductStore = defineStore("product", {
           subcategory: formData.subcategory || '',
           brand: formData.brand || '',
           
-          prices: {
-            regular: formData.prices.regular || 0,
-            cash: formData.prices.cash || 0,
-            vip: formData.prices.vip || 0,
-            bulk: formData.prices.bulk || 0,
-          },
+          prices: pricesData,
           
           trackingType: formData.trackingType,
           unitType: formData.unitType,
           unitWeight: formData.unitWeight || 0,
-          allowsLooseSales: formData.allowsLooseSales,
+          allowsLooseSales: formData.trackingType === 'dual' ? true : formData.allowsLooseSales,
           
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
@@ -409,24 +511,18 @@ export const useProductStore = defineStore("product", {
         const productIndex = this.products.findIndex(p => p.id === productId);
         if (productIndex >= 0) {
           const { $dayjs } = useNuxtApp();
-          const productUpdated = {
+          const productUpdated: Product = {
             ...this.products[productIndex],
             name: formData.name,
             description: formData.description || '',
             category: formData.category,
             subcategory: formData.subcategory || '',
             brand: formData.brand || '',
-            prices: {
-              regular: formData.prices.regular || 0,
-              cash: formData.prices.cash || 0,
-              vip: formData.prices.vip || 0,
-              bulk: formData.prices.bulk || 0,
-            },
-
+            prices: pricesData as Product['prices'],
             trackingType: formData.trackingType,
             unitType: formData.unitType,
             unitWeight: formData.unitWeight || 0,
-            allowsLooseSales: formData.allowsLooseSales,
+            allowsLooseSales: formData.trackingType === 'dual' ? true : formData.allowsLooseSales,
             minimumStock: formData.minimumStock || 0,
             supplierIds: formData.supplierIds || [],
             updatedAt: $dayjs().format('DD/MM/YYYY'),
@@ -436,7 +532,7 @@ export const useProductStore = defineStore("product", {
             createdAt: this.products[productIndex].createdAt, // Preserve creation date
             archivedAt: this.products[productIndex].archivedAt, // Preserve archived date
           };
-
+    
           this.products[productIndex] = productUpdated;
           
           // Also update the Map

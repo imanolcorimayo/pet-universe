@@ -406,42 +406,35 @@ export const useSaleStore = defineStore('sale', {
         const docRef = await addDoc(ref, saleData);
         
         // Update inventory for each item
+        let inventoryUpdatedSuccessfully = true;
         for (const item of data.items) {
-          // Get current inventory data for this product
-          const inventory = await inventoryStore.fetchInventoryForProduct(item.productId);
-          
-          if (inventory) {
-            // Calculate new inventory values
-            const unitsBefore = inventory.unitsInStock;
-            const weightBefore = inventory.openUnitsWeight;
-            const unitsAfter = item.unitType === 'unit' ? unitsBefore - item.quantity : unitsBefore;
-            const weightAfter = item.unitType === 'kg' ? weightBefore - item.quantity : weightBefore;
+          try {
+            // Determine the unit or weight changes
+            const unitsChange = item.unitType === 'unit' ? -item.quantity : 0; // Negative for sales
+            const weightChange = item.unitType === 'kg' ? -item.quantity : 0; // Negative for sales
             
-            // Record inventory movement with all required parameters
-            await inventoryStore.recordInventoryMovement({
+            // Use adjustInventory to update inventory values
+            const success = await inventoryStore.adjustInventory({
               productId: item.productId,
-              productName: item.productName,
-              movementType: "sale",
-              referenceType: "sale",
-              referenceId: docRef.id,
-              quantityChange: item.unitType === 'unit' ? -item.quantity : 0,
-              weightChange: item.unitType === 'kg' ? -item.quantity : 0,
-              unitCost: null,
-              previousCost: null,
-              totalCost: null,
-              supplierId: null,
-              unitsBefore: unitsBefore,
-              unitsAfter: unitsAfter,
-              weightBefore: weightBefore,
-              weightAfter: weightAfter,
-              notes: `Venta #${saleNumber}`
+              unitsChange: unitsChange,
+              weightChange: weightChange,
+              reason: "sale",  // Reason for adjustment
+              notes: `Venta #${saleNumber}`  // Notes for the inventory movement
             });
+            
+            if (!success) {
+              console.error(`Failed to update inventory for product ${item.productId}`);
+              inventoryUpdatedSuccessfully = false;
+            }
+          } catch (err) {
+            console.error(`Error updating inventory for product ${item.productId}:`, err);
+            inventoryUpdatedSuccessfully = false;
           }
         }
     
         // Update the sale document to mark inventory as updated
         await updateDoc(doc(db, 'sale', docRef.id), {
-          inventoryUpdated: true,
+          inventoryUpdated: inventoryUpdatedSuccessfully,
           inventoryUpdateAt: serverTimestamp()
         });
     
