@@ -33,9 +33,39 @@
         </div>
       </div>
 
+      <!-- Tab Navigation for Edit Mode -->
+      <div v-if="editMode" class="mb-6">
+        <div class="border-b border-gray-200">
+          <nav class="-mb-px flex space-x-8">
+            <button
+              @click="currentStep = 1"
+              :class="[
+                'py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap',
+                currentStep === 1
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ]"
+            >
+              Información del Cliente
+            </button>
+            <button
+              @click="currentStep = 2"
+              :class="[
+                'py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap',
+                currentStep === 2
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ]"
+            >
+              Mascotas ({{ temporaryPets.length }})
+            </button>
+          </nav>
+        </div>
+      </div>
+
       <!-- Step 1: Basic Information -->
       <div v-if="currentStep === 1">
-        <form @submit.prevent="nextStep" class="space-y-4">
+        <form @submit.prevent="editMode ? saveClient() : nextStep()" class="space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Name Field -->
             <div class="col-span-2">
@@ -137,7 +167,7 @@
       </div>
 
       <!-- Step 2: Pets (only for new clients) or Pet List (for edit mode) -->
-      <div v-else-if="currentStep === 2 || editMode">
+      <div v-else-if="currentStep === 2">
         <div class="space-y-4">
           <div class="flex justify-between items-center">
             <h3 class="text-lg font-medium">
@@ -352,6 +382,7 @@
   <ClientPetForm 
     ref="clientPetFormModal" 
     :edit-mode="isEditingPet" 
+    :client-id="editMode ? clientData?.id : null"
     :pet-data="selectedPetData"
     @saved="onPetSaved"
     @cancelled="onPetCancelled"
@@ -414,7 +445,9 @@ const selectedPetData = ref(null);
 
 // Computed
 const getModalTitle = computed(() => {
-  if (props.editMode) return 'Editar Cliente';
+  if (props.editMode) {
+    return currentStep.value === 1 ? 'Editar Cliente' : 'Mascotas del Cliente';
+  }
   return `Nuevo Cliente - Paso ${currentStep.value} de 3`;
 });
 
@@ -555,11 +588,17 @@ function onPetSaved(petData) {
     }
   } else {
     // Add new pet
-    const newPet = {
-      ...petData,
-      tempId: Date.now() // Temporary ID for new pets
-    };
-    temporaryPets.value.push(newPet);
+    if (props.editMode && props.clientData?.id) {
+      // In edit mode, add the newly created pet to the list
+      temporaryPets.value.push(petData);
+    } else {
+      // In create mode, add temporary pet
+      const newPet = {
+        ...petData,
+        tempId: Date.now() // Temporary ID for new pets
+      };
+      temporaryPets.value.push(newPet);
+    }
   }
   
   isEditingPet.value = false;
@@ -618,14 +657,6 @@ watch(() => props.clientData, (newValue) => {
     resetForm();
   }
 }, { immediate: true });
-
-watch(() => props.editMode, (newValue) => {
-  if (newValue) {
-    currentStep.value = 2; // Show pets tab in edit mode
-  } else {
-    currentStep.value = 1;
-  }
-});
 
 // Expose
 defineExpose({
