@@ -115,7 +115,7 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="supplier in filteredSuppliers" :key="supplier.id" class="hover:bg-gray-50">
+            <tr v-for="supplier in filteredSuppliers" :key="supplier.id" class="hover:bg-gray-50" @click="viewSupplierDetails(supplier.id)">
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">{{ supplier.name }}</div>
                 <div v-if="!supplier.isActive" class="text-xs text-red-600">Archivado</div>
@@ -129,13 +129,13 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <button 
-                  @click="viewSupplierDetails(supplier.id)"
+                  @click.stop="viewSupplierDetails(supplier.id)"
                   class="text-primary hover:text-primary-dark mr-3"
                 >
                   <LucideEye class="h-4 w-4" />
                 </button>
                 <button 
-                  @click="editSupplier(supplier)"
+                  @click.stop="editSupplier(supplier)"
                   class="text-primary hover:text-primary-dark"
                 >
                   <LucidePencil class="h-4 w-4" />

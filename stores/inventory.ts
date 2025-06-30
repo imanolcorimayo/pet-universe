@@ -1223,6 +1223,63 @@ export const useInventoryStore = defineStore("inventory", {
         this.isLoading = false;
         return false;
       }
-    }
+    },
+    async fetchMovementsBySupplier(supplierId: string): Promise<InventoryMovement[]> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const { $dayjs } = useNuxtApp();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value || !supplierId) return [];
+
+      try {
+        this.isLoading = true;
+        
+        const movementsQuery = query(
+          collection(db, 'inventoryMovement'),
+          where('businessId', '==', currentBusinessId.value),
+          where('supplierId', '==', supplierId),
+          where('movementType', '==', 'purchase'), // Only purchase movements for supplier history
+          orderBy('createdAt', 'desc')
+        );
+        
+        const movementsSnapshot = await getDocs(movementsQuery);
+        
+        const movements = movementsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            businessId: data.businessId,
+            productId: data.productId,
+            productName: data.productName,
+            movementType: data.movementType,
+            referenceType: data.referenceType,
+            referenceId: data.referenceId,
+            quantityChange: data.quantityChange,
+            weightChange: data.weightChange,
+            unitCost: data.unitCost,
+            previousCost: data.previousCost,
+            totalCost: data.totalCost,
+            supplierId: data.supplierId,
+            unitsBefore: data.unitsBefore,
+            unitsAfter: data.unitsAfter,
+            weightBefore: data.weightBefore,
+            weightAfter: data.weightAfter,
+            notes: data.notes || '',
+            createdBy: data.createdBy,
+            createdByName: data.createdByName || '',
+            createdAt: $dayjs(data.createdAt.toDate()).format('DD/MM/YYYY HH:mm'),
+          };
+        });
+        
+        this.isLoading = false;
+        return movements;
+      } catch (error) {
+        console.error("Error fetching movements by supplier:", error);
+        useToast(ToastEvents.error, "Hubo un error al cargar el historial de compras del proveedor.");
+        this.isLoading = false;
+        return [];
+      }
+    },
   }
 });

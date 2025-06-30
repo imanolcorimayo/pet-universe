@@ -1,5 +1,5 @@
 <template>
-  <ModalStructure ref="mainModal" title="Detalles del Cliente">
+  <ModalStructure ref="mainModal" title="Detalles del Cliente" :click-propagation-filter="['pet-form-modal']">
     <template #default>
       <div v-if="isLoading" class="flex justify-center items-center py-8">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -255,7 +255,7 @@
             <p class="text-gray-500">No hay compras registradas para este cliente.</p>
           </div>
           
-          <!-- Purchase history will be implemented in future phases -->
+          <!-- TODO: Purchase history will be implemented in future phases -->
         </div>
       </div>
       
@@ -282,6 +282,7 @@
     :client-id="clientId" 
     :pet-data="selectedPetData"
     @saved="onPetSaved"
+
   />
   
   <!-- Confirmation Dialog -->

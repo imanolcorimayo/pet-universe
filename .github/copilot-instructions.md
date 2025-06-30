@@ -769,6 +769,29 @@ inventoryMovement/
     createdAt: Timestamp         // When the movement occurred
 ```
 
+### supplier
+Supplier information and profiles for managing business relationships and purchases.
+
+```
+supplier/ 
+  {document-id}/ 
+    businessId: string // References the business this supplier belongs to
+    name: string // Supplier company name
+    email: string|null // Supplier email address
+    phone: string|null // Supplier phone number
+    address: string|null // Supplier physical address
+    contactPerson: string|null // Name of primary contact person
+    notes: string|null // Additional notes about the supplier
+
+    // Status
+    isActive: boolean            // Whether supplier is active (default: true)
+    createdBy: string            // User ID who created the supplier
+    createdAt: Timestamp         // When the supplier was created
+    updatedAt: Timestamp         // When the supplier was last updated
+    archivedAt: Timestamp|null   // When the supplier was archived (if applicable)
+```
+
+
 ## Customer Management
 
 ### client

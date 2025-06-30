@@ -1,5 +1,5 @@
 <template>
-  <ModalStructure ref="mainModal" :title="editMode ? 'Editar Mascota' : 'Nueva Mascota'">
+  <ModalStructure ref="mainModal" :title="editMode ? 'Editar Mascota' : 'Nueva Mascota'" modal-namespace="pet-form-modal">
     <template #default>
       <form @submit.prevent="savePet" class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

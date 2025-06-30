@@ -4,7 +4,7 @@
       <div
         v-if="showSideBar"
         ref="menu"
-        class="absolute z-50 max-h-screen min-h-screen min-w-[90vw] flex flex-col gap-8 w-[15rem] bg-white py-[1.429rem] px-2 border-r-2 border-r-gray-300 md:static md:min-w-[unset]"
+        class="absolute z-50 max-h-screen min-h-screen min-w-[90vw] flex flex-col gap-8 w-[15rem] bg-white py-[1.429rem] px-2 border-r-2 border-r-gray-300 md:static md:min-w-[unset] overflow-y-auto no-scrollbar"
       >
         <div class="flex flex-col gap-4">
           <div v-if="config.public.env !== 'prod'" class="w-full">

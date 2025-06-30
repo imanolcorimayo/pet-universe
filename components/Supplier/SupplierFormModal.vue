@@ -1,5 +1,5 @@
 <template>
-  <ModalStructure ref="mainModal" :title="modalTitle">
+  <ModalStructure ref="mainModal" :title="modalTitle" modal-namespace="supplier-form">
     <template #default>
       <div v-if="loading" class="flex justify-center items-center py-8">
         <Loader />
