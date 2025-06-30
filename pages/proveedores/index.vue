@@ -104,6 +104,9 @@
                 Nombre
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Categoría
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Contacto
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -119,6 +122,12 @@
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">{{ supplier.name }}</div>
                 <div v-if="!supplier.isActive" class="text-xs text-red-600">Archivado</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                      :class="getCategoryBadgeClass(supplier.category)">
+                  {{ getCategoryLabel(supplier.category) }}
+                </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm text-gray-900">{{ supplier.contactPerson || 'No especificado' }}</div>
@@ -185,6 +194,24 @@ watch(searchQuery, (newQuery) => {
 // Methods
 const setSupplierFilter = (filter) => {
   supplierStore.setSupplierFilter(filter);
+};
+
+const getCategoryLabel = (category) => {
+  const categoryMap = {
+    'servicios': 'Servicios',
+    'alimentos': 'Alimentos',
+    'accesorios': 'Accesorios'
+  };
+  return categoryMap[category] || category;
+};
+
+const getCategoryBadgeClass = (category) => {
+  const classMap = {
+    'servicios': 'bg-blue-100 text-blue-800',
+    'alimentos': 'bg-green-100 text-green-800',
+    'accesorios': 'bg-purple-100 text-purple-800'
+  };
+  return classMap[category] || 'bg-gray-100 text-gray-800';
 };
 
 const showCreateSupplierModal = () => {

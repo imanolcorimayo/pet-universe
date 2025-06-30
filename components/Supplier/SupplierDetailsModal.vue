@@ -54,6 +54,14 @@
               </div>
 
               <div>
+                <p class="text-sm text-gray-500">Categoría</p>
+                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                      :class="getCategoryBadgeClass(supplier.category)">
+                  {{ getCategoryLabel(supplier.category) }}
+                </span>
+              </div>
+
+              <div>
                 <p class="text-sm text-gray-500">Persona de contacto</p>
                 <p class="font-medium">
                   {{ supplier.contactPerson || "No especificado" }}
@@ -310,6 +318,24 @@ function formatQuantity(unitsChange, weightChange) {
   
   return parts.length > 0 ? parts.join(' + ') : '0';
 }
+
+const getCategoryLabel = (category) => {
+  const categoryMap = {
+    'servicios': 'Proveedor de servicios',
+    'alimentos': 'Proveedor de alimentos',
+    'accesorios': 'Proveedor de accesorios'
+  };
+  return categoryMap[category] || category;
+};
+
+const getCategoryBadgeClass = (category) => {
+  const classMap = {
+    'servicios': 'bg-blue-100 text-blue-800',
+    'alimentos': 'bg-green-100 text-green-800',
+    'accesorios': 'bg-purple-100 text-purple-800'
+  };
+  return classMap[category] || 'bg-gray-100 text-gray-800';
+};
 
 const loadSupplierData = async () => {
   if (!props.supplierId) return;

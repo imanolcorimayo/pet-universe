@@ -20,6 +20,24 @@
           />
         </div>
 
+        <!-- Category Field -->
+        <div>
+          <label for="category" class="block text-sm font-medium text-gray-700"
+            >Categoría*</label
+          >
+          <select
+            id="category"
+            v-model="formData.category"
+            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+            required
+          >
+            <option value="" disabled>Selecciona una categoría</option>
+            <option v-for="category in supplierCategories" :key="category.value" :value="category.value">
+              {{ category.label }}
+            </option>
+          </select>
+        </div>
+
         <!-- Contact Person Field -->
         <div>
           <label
@@ -111,7 +129,7 @@
           type="button"
           class="btn bg-primary text-white hover:bg-primary/90"
           @click="saveSupplier()"
-          :disabled="isSubmitting"
+          :disabled="isSubmitting || !isFormValid"
         >
           <span v-if="isSubmitting">Guardando...</span>
           <span v-else>{{ editMode ? "Actualizar" : "Crear" }}</span>
@@ -148,6 +166,7 @@ const supplierStore = useSupplierStore();
 // ----- Define Form Data ---------
 const formData = ref({
   name: "",
+  category: "",
   email: null,
   phone: null,
   address: null,
@@ -160,10 +179,19 @@ const modalTitle = computed(() => {
   return props.editMode ? "Editar Proveedor" : "Crear Nuevo Proveedor";
 });
 
+const supplierCategories = computed(() => {
+  return supplierStore.supplierCategories;
+});
+
+const isFormValid = computed(() => {
+  return formData.value.name.trim() !== "" && formData.value.category !== "";
+});
+
 // ----- Define Methods ---------
 const resetForm = () => {
   formData.value = {
     name: "",
+    category: "",
     email: null,
     phone: null,
     address: null,
@@ -176,6 +204,7 @@ const initFormData = () => {
   if (props.editMode && props.supplierData) {
     formData.value = {
       name: props.supplierData.name || "",
+      category: props.supplierData.category || "",
       email: props.supplierData.email || null,
       phone: props.supplierData.phone || null,
       address: props.supplierData.address || null,
@@ -189,8 +218,8 @@ const initFormData = () => {
 
 const saveSupplier = async () => {
   // Validate form
-  if (!formData.value.name) {
-    useToast(ToastEvents.error, "El nombre del proveedor es requerido");
+  if (!formData.value.name || !formData.value.category) {
+    useToast(ToastEvents.error, "El nombre y la categoría del proveedor son requeridos");
     return;
   }
 

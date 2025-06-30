@@ -18,6 +18,7 @@ interface Supplier {
   id: string;
   businessId: string;
   name: string;
+  category: string;
   email: string | null;
   phone: string | null;
   address: string | null;
@@ -34,6 +35,7 @@ interface Supplier {
 // Form data interface
 interface SupplierFormData {
   name: string;
+  category: string;
   email: string | null;
   phone: string | null;
   address: string | null;
@@ -75,7 +77,7 @@ export const useSupplierStore = defineStore("supplier", {
       } else if (state.supplierFilter === "archived") {
         filtered = filtered.filter((supplier) => !supplier.isActive);
       }
-      
+
       // Apply search filter
       if (state.searchQuery) {
         const query = state.searchQuery.toLowerCase();
@@ -88,6 +90,16 @@ export const useSupplierStore = defineStore("supplier", {
       }
       
       return filtered;
+    },
+
+    // Get unique categories
+    supplierCategories: (state) => {
+      const categories = [
+        { value: "servicios", label: "Proveedor de servicios" },
+        { value: "alimentos", label: "Proveedor de alimentos" },
+        { value: "accesorios", label: "Proveedor de accesorios" }
+      ];
+      return categories;
     },
   },
 
@@ -147,6 +159,7 @@ export const useSupplierStore = defineStore("supplier", {
             id: doc.id,
             businessId: data.businessId,
             name: data.name,
+            category: data.category || "servicios", // Default to servicios for existing records
             email: data.email || null,
             phone: data.phone || null,
             address: data.address || null,
@@ -189,6 +202,7 @@ export const useSupplierStore = defineStore("supplier", {
         const supplierData = {
           businessId: currentBusinessId.value,
           name: formData.name,
+          category: formData.category,
           email: formData.email || null,
           phone: formData.phone || null,
           address: formData.address || null,
@@ -210,6 +224,7 @@ export const useSupplierStore = defineStore("supplier", {
           id: docRef.id,
           businessId: currentBusinessId.value,
           name: formData.name,
+          category: formData.category,
           email: formData.email || null,
           phone: formData.phone || null,
           address: formData.address || null,
@@ -250,6 +265,7 @@ export const useSupplierStore = defineStore("supplier", {
         // Update supplier document
         await updateDoc(doc(db, 'supplier', supplierId), {
           name: formData.name,
+          category: formData.category,
           email: formData.email || null,
           phone: formData.phone || null,
           address: formData.address || null,
@@ -265,6 +281,7 @@ export const useSupplierStore = defineStore("supplier", {
           this.suppliers[idx] = {
             ...this.suppliers[idx],
             name: formData.name,
+            category: formData.category,
             email: formData.email || null,
             phone: formData.phone || null,
             address: formData.address || null,

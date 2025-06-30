@@ -774,9 +774,10 @@ Supplier information and profiles for managing business relationships and purcha
 
 ```
 supplier/ 
-  {document-id}/ 
+  {document-id}/
     businessId: string // References the business this supplier belongs to
     name: string // Supplier company name
+    category: string // Supplier category ("servicios", "alimentos", "accesorios")
     email: string|null // Supplier email address
     phone: string|null // Supplier phone number
     address: string|null // Supplier physical address
