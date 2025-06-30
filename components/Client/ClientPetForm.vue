@@ -1,13 +1,17 @@
 <template>
-  <ModalStructure ref="mainModal" :title="editMode ? 'Editar Mascota' : 'Nueva Mascota'" modal-namespace="pet-form-modal">
+  <ModalStructure 
+    ref="mainModal" 
+    :title="editMode ? 'Editar Mascota' : 'Nueva Mascota'"
+    modal-class="pet-form-modal"
+  >
     <template #default>
       <form @submit.prevent="savePet" class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <!-- Name Field -->
-          <div>
-            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Nombre*</label>
+          <div class="col-span-2">
+            <label for="petName" class="block text-sm font-medium text-gray-700 mb-1">Nombre*</label>
             <input
-              id="name"
+              id="petName"
               v-model="formData.name"
               type="text"
               class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
@@ -25,7 +29,7 @@
               class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
               required
             >
-              <option value="" disabled>Seleccionar especie</option>
+              <option value="">Seleccionar especie</option>
               <option value="dog">Perro</option>
               <option value="cat">Gato</option>
               <option value="bird">Ave</option>
@@ -45,15 +49,15 @@
               v-model="formData.breed"
               type="text"
               class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              placeholder="Raza o tipo"
+              placeholder="Raza de la mascota"
             >
           </div>
 
           <!-- Birthdate Field -->
           <div>
-            <label for="birthdate" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento</label>
+            <label for="petBirthdate" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento</label>
             <input
-              id="birthdate"
+              id="petBirthdate"
               v-model="formData.birthdate"
               type="date"
               class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
@@ -65,67 +69,62 @@
             <label for="weight" class="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
             <input
               id="weight"
-              v-model="formData.weight"
+              v-model.number="formData.weight"
               type="number"
               step="0.1"
               min="0"
               class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              placeholder="Peso en kilogramos"
+              placeholder="0.0"
             >
           </div>
         </div>
 
         <!-- Dietary Restrictions Field -->
         <div>
-          <label for="dietaryRestrictions" class="block text-sm font-medium text-gray-700 mb-1">Restricciones Alimenticias</label>
+          <label for="dietaryRestrictions" class="block text-sm font-medium text-gray-700 mb-1">Restricciones Dietéticas</label>
           <textarea
             id="dietaryRestrictions"
             v-model="formData.dietaryRestrictions"
             rows="2"
             class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            placeholder="Alergias o restricciones en la dieta"
+            placeholder="Alergias, intolerancias, etc."
           ></textarea>
         </div>
 
         <!-- Food Preferences Field -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Preferencias Alimenticias</label>
-          <div class="space-y-2">
-            <div v-for="(preference, index) in formData.foodPreferences" :key="index" class="flex items-center gap-2">
-              <input
-                :id="`preference-${index}`"
-                v-model="formData.foodPreferences[index]"
-                type="text"
-                class="flex-grow rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                placeholder="Marca o tipo de alimento"
-              >
-              <button 
-                type="button" 
-                @click="removePreference(index)"
-                class="p-2 text-gray-500 hover:text-red-600"
-              >
-                <LucideX class="h-4 w-4" />
-              </button>
-            </div>
-            <button 
-              type="button" 
-              @click="addPreference"
-              class="flex items-center gap-1 text-primary text-sm"
-            >
-              <LucidePlus class="h-4 w-4" /> Agregar preferencia
-            </button>
-          </div>
+          <label for="foodPreferences" class="block text-sm font-medium text-gray-700 mb-1">Preferencias de Comida</label>
+          <input
+            id="foodPreferences"
+            v-model="foodPreferencesInput"
+            type="text"
+            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+            placeholder="Marcas o tipos preferidos (separados por comas)"
+          >
+          <p class="text-xs text-gray-500 mt-1">Separa múltiples preferencias con comas</p>
         </div>
 
         <!-- Feeding Schedule Field -->
         <div>
-          <label for="feedingSchedule" class="block text-sm font-medium text-gray-700 mb-1">Régimen Alimenticio</label>
-          <textarea
+          <label for="feedingSchedule" class="block text-sm font-medium text-gray-700 mb-1">Horario de Alimentación</label>
+          <input
             id="feedingSchedule"
             v-model="formData.feedingSchedule"
-            rows="2"
+            type="text"
             class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            placeholder="Horarios y cantidades de alimentación"
+            placeholder="Ej: 8:00 AM y 6:00 PM"
+          >
+        </div>
+
+        <!-- Notes Field -->
+        <div>
+          <label for="petNotes" class="block text-sm font-medium text-gray-700 mb-1">Notas Adicionales</label>
+          <textarea
+            id="petNotes"
+            v-model="formData.notes"
+            rows="3"
+            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+            placeholder="Comportamiento, características especiales, etc."
           ></textarea>
         </div>
       </form>
@@ -146,7 +145,7 @@
           :disabled="isSaving || !isFormValid"
           class="px-4 py-2 bg-primary border border-transparent rounded-md text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {{ isSaving ? 'Guardando...' : editMode ? 'Actualizar' : 'Guardar' }}
+          {{ isSaving ? 'Guardando...' : editMode ? 'Actualizar' : 'Agregar' }}
         </button>
       </div>
     </template>
@@ -154,9 +153,6 @@
 </template>
 
 <script setup>
-import LucideX from '~icons/lucide/x';
-import LucidePlus from '~icons/lucide/plus';
-
 // Props
 const props = defineProps({
   editMode: {
@@ -165,7 +161,7 @@ const props = defineProps({
   },
   clientId: {
     type: String,
-    default: ''
+    default: null
   },
   petData: {
     type: Object,
@@ -174,7 +170,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(['saved']);
+const emit = defineEmits(['saved', 'cancelled']);
 
 // Store
 const clientStore = useClientStore();
@@ -187,20 +183,21 @@ const mainModal = ref(null);
 const formData = ref({
   name: '',
   species: '',
-  breed: null,
+  breed: '',
   birthdate: '',
   weight: null,
   dietaryRestrictions: '',
-  foodPreferences: [''],
-  feedingSchedule: ''
+  foodPreferences: [],
+  feedingSchedule: '',
+  notes: ''
 });
 
+const foodPreferencesInput = ref('');
 const isSaving = ref(false);
 
 // Computed
 const isFormValid = computed(() => {
-  return formData.value.name && formData.value.name.trim() !== '' && 
-         formData.value.species && formData.value.species.trim() !== '';
+  return formData.value.name && formData.value.name.trim() !== '' && formData.value.species;
 });
 
 // Methods
@@ -208,41 +205,47 @@ function resetForm() {
   formData.value = {
     name: '',
     species: '',
-    breed: null,
+    breed: '',
     birthdate: '',
     weight: null,
     dietaryRestrictions: '',
-    foodPreferences: [''],
-    feedingSchedule: ''
+    foodPreferences: [],
+    feedingSchedule: '',
+    notes: ''
   };
-}
-
-function addPreference() {
-  formData.value.foodPreferences.push('');
-}
-
-function removePreference(index) {
-  formData.value.foodPreferences.splice(index, 1);
-  
-  // Always keep at least one empty preference field
-  if (formData.value.foodPreferences.length === 0) {
-    formData.value.foodPreferences.push('');
-  }
+  foodPreferencesInput.value = '';
 }
 
 function populateForm() {
   if (!props.petData) return;
   
   formData.value = {
-    name: props.petData.name,
-    species: props.petData.species,
-    breed: props.petData.breed,
-    birthdate: props.petData.birthdate || '',
-    weight: props.petData.weight,
+    name: props.petData.name || '',
+    species: props.petData.species || '',
+    breed: props.petData.breed || '',
+    birthdate: props.petData.birthdate ? formatDateForInput(props.petData.birthdate) : '',
+    weight: props.petData.weight || null,
     dietaryRestrictions: props.petData.dietaryRestrictions || '',
-    foodPreferences: props.petData.foodPreferences.length > 0 ? [...props.petData.foodPreferences] : [''],
-    feedingSchedule: props.petData.feedingSchedule || ''
+    foodPreferences: props.petData.foodPreferences || [],
+    feedingSchedule: props.petData.feedingSchedule || '',
+    notes: props.petData.notes || ''
   };
+  
+  foodPreferencesInput.value = formData.value.foodPreferences.join(', ');
+}
+
+function formatDateForInput(date) {
+  if (!date) return '';
+  if (date instanceof Date) {
+    return $dayjs(date).format('YYYY-MM-DD');
+  }
+  if (typeof date === 'string') {
+    return $dayjs(date).format('YYYY-MM-DD');
+  }
+  if (date.seconds) {
+    return $dayjs(date.seconds * 1000).format('YYYY-MM-DD');
+  }
+  return '';
 }
 
 async function savePet() {
@@ -251,26 +254,37 @@ async function savePet() {
   isSaving.value = true;
   
   try {
-    // Filter out empty preferences
-    const filteredPreferences = formData.value.foodPreferences.filter(p => p.trim() !== '');
+    // Process food preferences
+    const foodPreferences = foodPreferencesInput.value
+      .split(',')
+      .map(pref => pref.trim())
+      .filter(pref => pref !== '');
     
     // Convert form data to the right format
     const petFormData = {
       ...formData.value,
-      foodPreferences: filteredPreferences,
       birthdate: formData.value.birthdate ? new Date(formData.value.birthdate) : null,
-      weight: formData.value.weight ? parseFloat(formData.value.weight) : null
+      foodPreferences,
+      weight: formData.value.weight || null
     };
     
-    let success;
-    if (props.editMode && props.petData) {
-      success = await clientStore.updatePet(props.petData.id, petFormData);
+    if (props.clientId && props.editMode && props.petData) {
+      // Update existing pet
+      const success = await clientStore.updatePet(props.petData.id, petFormData);
+      if (success) {
+        emit('saved', { ...petFormData, id: props.petData.id });
+        closeModal();
+      }
+    } else if (props.clientId && !props.editMode) {
+      // Create new pet for existing client
+      const success = await clientStore.createPet(props.clientId, petFormData);
+      if (success) {
+        emit('saved', petFormData);
+        closeModal();
+      }
     } else {
-      success = await clientStore.createPet(props.clientId, petFormData);
-    }
-    
-    if (success) {
-      emit('saved');
+      // Return pet data for wizard mode (no client ID yet)
+      emit('saved', petFormData);
       closeModal();
     }
   } finally {
@@ -280,6 +294,7 @@ async function savePet() {
 
 function closeModal() {
   mainModal.value?.closeModal();
+  emit('cancelled');
   resetForm();
 }
 

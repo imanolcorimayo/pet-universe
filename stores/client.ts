@@ -469,6 +469,92 @@ export const useClientStore = defineStore("client", {
       }
     },
 
+        // Create a new client with pets in a single operation
+    async createClientWithPets(formData: ClientFormData, petsData: PetFormData[] = []): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isLoading = true;
+        
+        // Create client document first
+        const clientData = {
+          businessId: currentBusinessId.value,
+          name: formData.name,
+          email: formData.email || null,
+          phone: formData.phone || null,
+          address: formData.address || null,
+          birthdate: formData.birthdate ? Timestamp.fromDate(formData.birthdate) : null,
+          isVip: formData.isVip || false,
+          loyaltyLevel: "regular" as LoyaltyLevel,
+          totalPurchases: 0,
+          lastPurchaseAt: null,
+          preferences: formData.preferences || '',
+          notes: formData.notes || '',
+          isActive: true,
+          createdBy: user.value.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          archivedAt: null,
+        };
+        
+        const clientDocRef = await addDoc(collection(db, 'client'), clientData);
+        const clientId = clientDocRef.id;
+        
+        // Create pets if any were provided
+        if (petsData.length > 0) {
+
+
+          const petPromises = petsData.map(petData => {
+
+            // Safe validator due to ts errors
+            if (!user.value?.uid) return false;
+
+            const petDocData = {
+              businessId: currentBusinessId.value,
+              clientId: clientId,
+              name: petData.name,
+              species: petData.species,
+              breed: petData.breed || null,
+              birthdate: petData.birthdate ? Timestamp.fromDate(petData.birthdate) : null,
+              weight: petData.weight || null,
+              dietaryRestrictions: petData.dietaryRestrictions || '',
+              foodPreferences: petData.foodPreferences || [],
+              feedingSchedule: petData.feedingSchedule || '',
+              isActive: true,
+              createdBy: user.value.uid,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              archivedAt: null,
+            };
+            
+            return addDoc(collection(db, 'pet'), petDocData);
+          });
+          
+          // Wait for all pets to be created
+          await Promise.all(petPromises);
+        }
+        
+        // Refresh the client list to include the new client with pets
+        await this.fetchClients(true);
+        
+        const clientCount = petsData.length;
+        const petText = clientCount === 0 ? '' : ` con ${clientCount} mascota${clientCount > 1 ? 's' : ''}`;
+        useToast(ToastEvents.success, `Cliente creado exitosamente${petText}`);
+        
+        this.isLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error creating client with pets:", error);
+        useToast(ToastEvents.error, "Hubo un error al crear el cliente. Por favor intenta nuevamente.");
+        this.isLoading = false;
+        return false;
+      }
+    },
+
     // Archive a client (soft delete)
     async archiveClient(clientId: string): Promise<boolean> {
       const db = useFirestore();
