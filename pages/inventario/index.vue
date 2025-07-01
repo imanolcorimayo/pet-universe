@@ -105,17 +105,6 @@
             </button>
           </div>
           
-          <!-- Category Filter -->
-          <select
-            v-model="selectedCategory"
-            class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 border-none hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="all">Todas las categorías</option>
-            <option v-for="category in productCategories" :key="category" :value="category">
-              {{ category }}
-            </option>
-          </select>
-          
           <!-- Sort By -->
           <select
             v-model="sortBy"
@@ -260,7 +249,6 @@ import LucideHistory from '~icons/lucide/history';
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 const { isLoading } = storeToRefs(inventoryStore);
-const { productCategories } = storeToRefs(productStore);
 
 // Component refs
 const inventoryAdjustmentModal = ref(null);

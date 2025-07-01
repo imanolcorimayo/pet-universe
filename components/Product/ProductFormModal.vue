@@ -48,13 +48,31 @@
                 class="block text-sm font-medium text-gray-700 mb-1"
                 >Categoría*</label
               >
-              <input
+              <select
                 id="category"
                 v-model="formData.category"
-                type="text"
                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                 required
-              />
+              >
+                <option value="">Seleccionar categoría</option>
+                <option 
+                  v-for="category in activeCategories" 
+                  :key="category.id" 
+                  :value="category.id"
+                >
+                  {{ category.name }}
+                </option>
+              </select>
+              <p v-if="activeCategories.length === 0" class="text-xs text-gray-500 mt-1">
+                No hay categorías disponibles. 
+                <button 
+                  type="button" 
+                  @click="goToCategories" 
+                  class="text-primary hover:underline"
+                >
+                  Crear categorías
+                </button>
+              </p>
             </div>
 
             <div>
@@ -457,6 +475,39 @@ const mainModal = ref(null);
 const productStore = useProductStore();
 const isLoading = ref(false);
 
+// ----- Computed Properties ---------
+const activeCategories = computed(() => {
+  return productStore.activeCategories;
+});
+
+const isFormValid = computed(() => {
+  const baseValidation =
+    formData.value.name &&
+    formData.value.category &&
+    formData.value.trackingType &&
+    formData.value.unitType &&
+    formData.value.minimumStock >= 0;
+    
+  // Add price validation based on tracking type
+  let priceValidation = true;
+  
+  if (formData.value.trackingType === 'dual') {
+    // For dual products, validate both unit and kg prices
+    priceValidation = formData.value.prices.unit.regular > 0 && 
+                      formData.value.prices.kg.regular > 0;
+  } else {
+    // For regular products, validate standard prices
+    priceValidation = formData.value.prices.regular > 0;
+  }
+
+  // Add validation for unitWeight when trackingType is 'dual'
+  if (formData.value.trackingType === "dual") {
+    return baseValidation && formData.value.unitWeight > 0 && priceValidation;
+  }
+
+  return baseValidation && priceValidation;
+});
+
 // Initialize form data with proper structure for dual pricing
 const formData = ref({
   name: "",
@@ -490,41 +541,16 @@ const formData = ref({
   unitWeight: 0,
   allowsLooseSales: false,
 
-  minimumStock: 5,
+  minimumStock: 2,
   supplierIds: [],
-});
-
-// ----- Computed Properties ---------
-const isFormValid = computed(() => {
-  const baseValidation =
-    formData.value.name &&
-    formData.value.category &&
-    formData.value.trackingType &&
-    formData.value.unitType &&
-    formData.value.minimumStock >= 0;
-    
-  // Add price validation based on tracking type
-  let priceValidation = true;
-  
-  if (formData.value.trackingType === 'dual') {
-    // For dual products, validate both unit and kg prices
-    priceValidation = formData.value.prices.unit.regular > 0 && 
-                      formData.value.prices.kg.regular > 0;
-  } else {
-    // For regular products, validate standard prices
-    priceValidation = formData.value.prices.regular > 0;
-  }
-
-  // Add validation for unitWeight when trackingType is 'dual'
-  if (formData.value.trackingType === "dual") {
-    return baseValidation && formData.value.unitWeight > 0 && priceValidation;
-  }
-
-  return baseValidation && priceValidation;
 });
 
 // ----- Define Methods ---------
 function closeModal() {
+
+  // Reset the form data to initial state
+  resetForm();
+
   mainModal.value?.closeModal();
 }
 
@@ -560,7 +586,7 @@ function resetForm() {
     unitWeight: 0,
     allowsLooseSales: false,
 
-    minimumStock: 5,
+    minimumStock: 2,
     supplierIds: [],
   };
 }
@@ -585,6 +611,11 @@ function handleTrackingTypeChange() {
       formData.value.prices.kg.bulk = formData.value.prices.bulk;
     }
   }
+}
+
+function goToCategories() {
+  // Navigate to configuration page with product categories tab
+  navigateTo('/configuracion?tab=product-categories');
 }
 
 async function saveProduct() {
@@ -669,7 +700,7 @@ watch(
         unitWeight: newProductData.unitWeight || 0,
         allowsLooseSales: newProductData.allowsLooseSales || false,
 
-        minimumStock: newProductData.minimumStock || 5,
+        minimumStock: newProductData.minimumStock || 2,
         supplierIds: newProductData.supplierIds || [],
       };
     } else {
@@ -678,6 +709,12 @@ watch(
   },
   { immediate: true }
 );
+
+// ----- Lifecycle Hooks ---------
+onMounted(async () => {
+  // Load categories when component mounts
+  await productStore.fetchCategories();
+});
 
 // ----- Define Expose ---------
 defineExpose({

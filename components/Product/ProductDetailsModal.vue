@@ -29,7 +29,7 @@
             </div>
             <div>
               <p class="text-sm text-gray-600">Categoría</p>
-              <p class="font-semibold">{{ product.category }}</p>
+              <p class="font-semibold">{{ getCategoryName(product.category) }}</p>
             </div>
             <div>
               <p class="text-sm text-gray-600">Subcategoría</p>
@@ -382,6 +382,13 @@ function getTrackingTypeLabel(type) {
   return types[type] || type;
 }
 
+function getCategoryName(categoryId) {
+  if (!categoryId) return "Sin categoría";
+  
+  const category = productStore.getCategoryById(categoryId);
+  return category ? category.name : categoryId;
+}
+
 function closeModal() {
   mainModal.value?.closeModal();
 }
@@ -468,6 +475,12 @@ watch(
     }
   }
 );
+
+// ----- Lifecycle Hooks ---------
+onMounted(async () => {
+  // Load categories when component mounts
+  await productStore.fetchCategories();
+});
 
 // ----- Define Expose ---------
 defineExpose({

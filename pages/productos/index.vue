@@ -9,7 +9,7 @@
       
       <div class="flex gap-2">
         <button
-          @click="productFormModal.showModal()"
+          @click="addNewProduct"
           class="btn bg-primary text-white hover:bg-primary/90"
         >
           <span class="flex items-center gap-1">
@@ -42,6 +42,23 @@
         </div>
         
         <div class="flex flex-wrap gap-2">
+          <!-- Category Filter -->
+          <div class="flex gap-2">
+            <select
+              v-model="selectedCategory"
+              class="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option value="all">Todas las categorías</option>
+              <option 
+                v-for="category in activeCategories" 
+                :key="category.id" 
+                :value="category.id"
+              >
+                {{ category.name }}
+              </option>
+            </select>
+          </div>
+          
           <!-- Status Filter -->
           <div class="flex gap-2">
             <button 
@@ -66,17 +83,6 @@
               Archivados
             </button>
           </div>
-          
-          <!-- Category Filter -->
-          <select
-            v-model="selectedCategory"
-            class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 border-none hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="all">Todas las categorías</option>
-            <option v-for="category in productCategories" :key="category" :value="category">
-              {{ category }}
-            </option>
-          </select>
         </div>
       </div>
     </div>
@@ -90,9 +96,8 @@
               <LucidePackage class="text-primary h-6 w-6" />
             </div>
             <div>
-              <h3 class="font-semibold text-lg">{{ product.name }}</h3>
-              <p class="text-sm text-gray-500">{{ product.category }} {{ product.subcategory ? `- ${product.subcategory}` : '' }}</p>
-              <p v-if="product.brand" class="text-sm text-gray-500">{{ product.brand }}</p>
+              <h3 class="font-semibold text-lg"><span v-if="product.brand">{{ product.brand }} - </span>{{ product.name }}</h3>
+              <p class="text-sm text-gray-500">{{ getCategoryName(product.category) }} {{ product.subcategory ? `- ${product.subcategory}` : '' }}</p>
             </div>
           </div>
           
@@ -208,7 +213,7 @@ import LucideBarChart2 from '~icons/lucide/bar-chart-2';
 
 // Store references
 const productStore = useProductStore();
-const { filteredProducts, isLoading, productCategories, productFilter } = storeToRefs(productStore);
+const { filteredProducts, isLoading, productFilter, activeCategories } = storeToRefs(productStore);
 
 // Component refs
 const productFormModal = ref(null);
@@ -235,6 +240,13 @@ watch(selectedCategory, (newValue) => {
 // Methods
 function setFilter(filter) {
   productStore.setProductFilter(filter);
+}
+
+function getCategoryName(categoryId) {
+  if (!categoryId) return "Sin categoría";
+  
+  const category = productStore.getCategoryById(categoryId);
+  return category ? category.name : categoryId;
 }
 
 async function viewProductDetails(product) {
@@ -280,6 +292,12 @@ function confirmRestoreProduct(product) {
   });
 }
 
+function addNewProduct() {
+  isEditing.value = false;
+  selectedProductData.value = null;
+  productFormModal.value.showModal();
+}
+
 function onProductSaved() {
   isEditing.value = false;
   selectedProductData.value = null;
@@ -305,6 +323,9 @@ function onInventoryAdjusted() {
 onMounted(async () => {
   if (!productStore.productsLoaded) {
     await productStore.fetchProducts();
+  }
+  if (!productStore.categoriesLoaded) {
+    await productStore.fetchCategories();
   }
 });
 </script>

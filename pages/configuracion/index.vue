@@ -535,6 +535,145 @@
             </div>
           </div>
         </div>
+
+        <!-- Product Categories Tab -->
+        <div v-if="activeTab === 'product-categories'" class="p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-medium">Categorías de Productos</h2>
+            <button
+              @click="showNewProductCategoryModal = true"
+              class="btn bg-primary text-white hover:bg-primary/90 text-sm"
+            >
+              <span class="flex items-center gap-1">
+                <IconParkOutlinePlus class="h-4 w-4" />
+                Nueva Categoría
+              </span>
+            </button>
+          </div>
+
+          <!-- Filter tabs for product categories -->
+          <div class="mb-4">
+            <div class="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+              <button
+                @click="productCategoryFilter = 'active'"
+                :class="[
+                  'px-3 py-1 text-sm font-medium rounded-md transition-colors',
+                  productCategoryFilter === 'active'
+                    ? 'bg-white text-primary shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                ]"
+              >
+                Activas ({{ activeProductCategories.length }})
+              </button>
+              <button
+                @click="productCategoryFilter = 'archived'"
+                :class="[
+                  'px-3 py-1 text-sm font-medium rounded-md transition-colors',
+                  productCategoryFilter === 'archived'
+                    ? 'bg-white text-primary shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                ]"
+              >
+                Archivadas ({{ archivedProductCategories.length }})
+              </button>
+            </div>
+          </div>
+
+          <!-- Product Categories Table -->
+          <div class="bg-gray-50 rounded-lg p-4">
+            <table class="min-w-full">
+              <thead>
+                <tr>
+                  <th
+                    class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Nombre
+                  </th>
+                  <th
+                    class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Descripción
+                  </th>
+                  <th
+                    class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Estado
+                  </th>
+                  <th
+                    class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Fecha Creación
+                  </th>
+                  <th
+                    class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                <tr
+                  v-for="category in filteredProductCategories"
+                  :key="category.id"
+                  class="text-sm"
+                >
+                  <td class="py-3 pr-3 font-medium">{{ category.name }}</td>
+                  <td class="py-3 pr-3 text-gray-600">
+                    {{ category.description || 'Sin descripción' }}
+                  </td>
+                  <td class="py-3 pr-3">
+                    <span
+                      class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                      :class="
+                        category.isActive
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                      "
+                    >
+                      {{ category.isActive ? "Activa" : "Archivada" }}
+                    </span>
+                  </td>
+                  <td class="py-3 pr-3 text-gray-600">{{ category.createdAt }}</td>
+                  <td class="py-3 text-right">
+                    <div class="flex justify-end gap-2">
+                      <button
+                        @click="editProductCategory(category)"
+                        class="text-indigo-600 hover:text-indigo-900 text-sm"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        v-if="category.isActive"
+                        @click="confirmArchiveProductCategory(category)"
+                        class="text-orange-600 hover:text-orange-900 text-sm"
+                      >
+                        Archivar
+                      </button>
+                      <button
+                        v-else
+                        @click="confirmRestoreProductCategory(category)"
+                        class="text-green-600 hover:text-green-900 text-sm"
+                      >
+                        Restaurar
+                      </button>
+                      <button
+                        @click="confirmDeleteProductCategory(category)"
+                        class="text-red-600 hover:text-red-900 text-sm"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="filteredProductCategories.length === 0">
+                  <td colspan="5" class="py-4 text-center text-gray-500">
+                    No hay categorías de productos configuradas
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -931,6 +1070,151 @@
       </template>
     </ModalStructure>
 
+    <!-- New Product Category Modal -->
+    <ModalStructure
+      ref="newProductCategoryModal"
+      title="Nueva Categoría de Producto"
+    >
+      <form @submit.prevent="addProductCategory">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700"
+              >Nombre</label
+            >
+            <input
+              v-model="newProductCategory.name"
+              type="text"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              placeholder="Ej: Alimentos, Accesorios, Medicamentos"
+              maxlength="50"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700"
+              >Descripción</label
+            >
+            <textarea
+              v-model="newProductCategory.description"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              placeholder="Descripción opcional de la categoría"
+              rows="3"
+              maxlength="200"
+            ></textarea>
+          </div>
+        </div>
+      </form>
+
+      <template #footer>
+        <button
+          type="button"
+          @click="closeNewProductCategoryModal"
+          class="btn btn-outline"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="addProductCategory"
+          class="btn bg-primary text-white hover:bg-primary/90"
+          :disabled="!canAddProductCategory"
+        >
+          Guardar
+        </button>
+      </template>
+    </ModalStructure>
+
+    <!-- Edit Product Category Modal -->
+    <ModalStructure
+      ref="editProductCategoryModal"
+      title="Editar Categoría de Producto"
+    >
+      <form @submit.prevent="updateProductCategory">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700"
+              >Nombre</label
+            >
+            <input
+              v-model="editingProductCategory.name"
+              type="text"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              placeholder="Ej: Alimentos, Accesorios, Medicamentos"
+              maxlength="50"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700"
+              >Descripción</label
+            >
+            <textarea
+              v-model="editingProductCategory.description"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              placeholder="Descripción opcional de la categoría"
+              rows="3"
+              maxlength="200"
+            ></textarea>
+          </div>
+        </div>
+      </form>
+
+      <template #footer>
+        <button
+          type="button"
+          @click="closeEditProductCategoryModal"
+          class="btn btn-outline"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="updateProductCategory"
+          class="btn bg-primary text-white hover:bg-primary/90"
+          :disabled="!canUpdateProductCategory"
+        >
+          Actualizar
+        </button>
+      </template>
+    </ModalStructure>
+
+    <!-- Product Category Action Confirmation Modal -->
+    <ModalStructure ref="productCategoryActionModal" :title="productCategoryActionTitle">
+      <div class="space-y-4">
+        <p class="text-gray-700">
+          {{ productCategoryActionMessage }}
+        </p>
+        <p v-if="productCategoryActionType === 'delete'" class="text-sm text-gray-500">
+          Esta acción no se puede deshacer. Si esta categoría está siendo
+          utilizada por productos, no se podrá eliminar.
+        </p>
+      </div>
+
+      <template #footer>
+        <button
+          type="button"
+          @click="closeProductCategoryActionModal"
+          class="btn btn-outline"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="executeProductCategoryAction"
+          :class="[
+            'btn text-white',
+            productCategoryActionType === 'delete'
+              ? 'bg-red-600 hover:bg-red-700'
+              : productCategoryActionType === 'archive'
+              ? 'bg-orange-600 hover:bg-orange-700'
+              : 'bg-green-600 hover:bg-green-700'
+          ]"
+        >
+          {{ productCategoryActionButtonText }}
+        </button>
+      </template>
+    </ModalStructure>
+
     <!-- Delete Confirmation Modal -->
     <ModalStructure ref="deleteConfirmationModal" :title="deleteModalTitle">
       <div class="space-y-4">
@@ -973,16 +1257,18 @@ import LucideBanknote from "~icons/lucide/banknote";
 import IconParkOutlineGlobe from "~icons/icon-park-outline/globe";
 import QuillCreditcard from "~icons/quill/creditcard";
 
-// Store
+// Stores
 const indexStore = useIndexStore();
+const productStore = useProductStore();
 
 // Loading state
 const loading = ref(true);
 
-// Tabs
+// Tabs - updated to include product categories
 const tabs = [
   { id: "payment-methods", name: "Métodos de Pago" },
   { id: "categories", name: "Categorías" },
+  { id: "product-categories", name: "Categorías de Productos" },
 ];
 const activeTab = ref("payment-methods");
 
@@ -993,11 +1279,15 @@ const newIncomeCategoryModal = ref(null);
 const newExpenseCategoryModal = ref(null);
 const editCategoryModal = ref(null);
 const deleteConfirmationModal = ref(null);
+const newProductCategoryModal = ref(null);
+const editProductCategoryModal = ref(null);
+const productCategoryActionModal = ref(null);
 
 // Modal visibility states
 const showNewPaymentMethodModal = ref(false);
 const showNewIncomeCategoryModal = ref(false);
 const showNewExpenseCategoryModal = ref(false);
+const showNewProductCategoryModal = ref(false);
 const deleteModalTitle = ref("");
 const deleteItemName = ref("");
 const deleteType = ref(""); // 'payment-method', 'income-category', 'expense-category'
@@ -1020,6 +1310,18 @@ const newCategory = ref({
   isDefault: false,
 });
 
+// Product Category specific states
+const productCategoryFilter = ref("active");
+const newProductCategory = ref({
+  name: "",
+  description: "",
+});
+const editingProductCategory = ref({
+  id: "",
+  name: "",
+  description: "",
+});
+
 // Editing states
 const editingPaymentMethodCode = ref("");
 const editingPaymentMethod = ref({
@@ -1031,6 +1333,13 @@ const editingPaymentMethod = ref({
 const editingCategoryType = ref("income");
 const editingCategoryCode = ref("");
 const editingCategory = ref({ name: "", active: true, isDefault: false });
+
+// Product Category action confirmation
+const productCategoryActionType = ref(""); // 'archive', 'restore', 'delete'
+const productCategoryActionTitle = ref("");
+const productCategoryActionMessage = ref("");
+const productCategoryActionButtonText = ref("");
+const selectedProductCategoryForAction = ref(null);
 
 // Form validation
 const canAddPaymentMethod = computed(() => {
@@ -1064,6 +1373,14 @@ const canUpdateCategory = computed(() => {
   return editingCategory.value.name && editingCategory.value.name.trim() !== "";
 });
 
+const canAddProductCategory = computed(() => {
+  return newProductCategory.value.name && newProductCategory.value.name.trim() !== "";
+});
+
+const canUpdateProductCategory = computed(() => {
+  return editingProductCategory.value.name && editingProductCategory.value.name.trim() !== "";
+});
+
 // Data computed properties
 const cashMethods = computed(() => {
   if (!indexStore.businessConfig) return {};
@@ -1090,6 +1407,22 @@ const expenseCategories = computed(() => {
   return indexStore.businessConfig.expenseCategories || {};
 });
 
+const activeProductCategories = computed(() => {
+  return productStore.categories.filter(category => category.isActive);
+});
+
+const archivedProductCategories = computed(() => {
+  return productStore.categories.filter(category => !category.isActive);
+});
+
+const filteredProductCategories = computed(() => {
+  if (productCategoryFilter.value === 'active') {
+    return activeProductCategories.value;
+  } else {
+    return archivedProductCategories.value;
+  }
+});
+
 // Modal watchers - updated for ModalStructure
 watch(showNewPaymentMethodModal, (value) => {
   if (value) {
@@ -1106,6 +1439,12 @@ watch(showNewIncomeCategoryModal, (value) => {
 watch(showNewExpenseCategoryModal, (value) => {
   if (value) {
     newExpenseCategoryModal.value.showModal();
+  }
+});
+
+watch(showNewProductCategoryModal, (value) => {
+  if (value) {
+    newProductCategoryModal.value.showModal();
   }
 });
 
@@ -1132,8 +1471,19 @@ function closeNewExpenseCategoryModal() {
   resetNewCategory();
 }
 
+function closeNewProductCategoryModal() {
+  newProductCategoryModal.value.closeModal();
+  showNewProductCategoryModal.value = false;
+  resetNewProductCategory();
+}
+
 function closeEditCategoryModal() {
   editCategoryModal.value.closeModal();
+}
+
+function closeProductCategoryActionModal() {
+  productCategoryActionModal.value.closeModal();
+  selectedProductCategoryForAction.value = null;
 }
 
 function resetNewPaymentMethod() {
@@ -1155,6 +1505,13 @@ function resetNewCategory() {
   };
 }
 
+function resetNewProductCategory() {
+  newProductCategory.value = {
+    name: "",
+    description: "",
+  };
+}
+
 // Edit methods
 function editPaymentMethod(code, method) {
   editingPaymentMethodCode.value = code;
@@ -1167,6 +1524,15 @@ function editCategory(type, code, category) {
   editingCategoryCode.value = code;
   editingCategory.value = { ...category };
   editCategoryModal.value.showModal();
+}
+
+function editProductCategory(category) {
+  editingProductCategory.value = {
+    id: category.id,
+    name: category.name,
+    description: category.description || "",
+  };
+  editProductCategoryModal.value.showModal();
 }
 
 // Delete confirmation handlers
@@ -1188,6 +1554,33 @@ function confirmDeleteCategory(type, code, name) {
   deleteConfirmationModal.value.showModal();
 }
 
+function confirmArchiveProductCategory(category) {
+  selectedProductCategoryForAction.value = category;
+  productCategoryActionType.value = "archive";
+  productCategoryActionTitle.value = "Archivar Categoría de Producto";
+  productCategoryActionMessage.value = `¿Estás seguro que deseas archivar la categoría "${category.name}"? Las categorías archivadas no aparecerán en la lista de selección al crear productos.`;
+  productCategoryActionButtonText.value = "Archivar";
+  productCategoryActionModal.value.showModal();
+}
+
+function confirmRestoreProductCategory(category) {
+  selectedProductCategoryForAction.value = category;
+  productCategoryActionType.value = "restore";
+  productCategoryActionTitle.value = "Restaurar Categoría de Producto";
+  productCategoryActionMessage.value = `¿Estás seguro que deseas restaurar la categoría "${category.name}"?`;
+  productCategoryActionButtonText.value = "Restaurar";
+  productCategoryActionModal.value.showModal();
+}
+
+function confirmDeleteProductCategory(category) {
+  selectedProductCategoryForAction.value = category;
+  productCategoryActionType.value = "delete";
+  productCategoryActionTitle.value = "Eliminar Categoría de Producto";
+  productCategoryActionMessage.value = `¿Estás seguro que deseas eliminar permanentemente la categoría "${category.name}"?`;
+  productCategoryActionButtonText.value = "Eliminar";
+  productCategoryActionModal.value.showModal();
+}
+
 function closeDeleteConfirmationModal() {
   deleteConfirmationModal.value.closeModal();
 }
@@ -1206,22 +1599,6 @@ async function addPaymentMethod() {
 
   if (success) {
     closeNewPaymentMethodModal();
-  }
-}
-
-async function updatePaymentMethod() {
-  const success = await indexStore.updatePaymentMethod(
-    editingPaymentMethodCode.value,
-    {
-      name: editingPaymentMethod.value.name,
-      type: editingPaymentMethod.value.type,
-      active: editingPaymentMethod.value.active,
-      isDefault: editingPaymentMethod.value.isDefault || false,
-    }
-  );
-
-  if (success) {
-    closeEditPaymentMethodModal();
   }
 }
 
@@ -1257,6 +1634,29 @@ async function addExpenseCategory() {
   }
 }
 
+async function addProductCategory() {
+  const success = await productStore.createCategory(newProductCategory.value);
+  if (success) {
+    closeNewProductCategoryModal();
+  }
+}
+
+async function updatePaymentMethod() {
+  const success = await indexStore.updatePaymentMethod(
+    editingPaymentMethodCode.value,
+    {
+      name: editingPaymentMethod.value.name,
+      type: editingPaymentMethod.value.type,
+      active: editingPaymentMethod.value.active,
+      isDefault: editingPaymentMethod.value.isDefault || false,
+    }
+  );
+
+  if (success) {
+    closeEditPaymentMethodModal();
+  }
+}
+
 async function updateCategory() {
   const success = await indexStore.updateCategory(
     editingCategoryType.value,
@@ -1270,6 +1670,19 @@ async function updateCategory() {
 
   if (success) {
     closeEditCategoryModal();
+  }
+}
+
+async function updateProductCategory() {
+  const success = await productStore.updateCategory(
+    editingProductCategory.value.id,
+    {
+      name: editingProductCategory.value.name,
+      description: editingProductCategory.value.description,
+    }
+  );
+  if (success) {
+    closeEditProductCategoryModal();
   }
 }
 
@@ -1297,15 +1710,42 @@ async function executeDelete() {
   }
 }
 
-// Lifecycle hooks
+async function executeProductCategoryAction() {
+  if (!selectedProductCategoryForAction.value) return;
+
+  let success = false;
+  const category = selectedProductCategoryForAction.value;
+
+  try {
+    if (productCategoryActionType.value === "archive") {
+      success = await productStore.archiveCategory(category.id);
+    } else if (productCategoryActionType.value === "restore") {
+      success = await productStore.restoreCategory(category.id);
+    } else if (productCategoryActionType.value === "delete") {
+      success = await productStore.deleteCategory(category.id);
+    }
+
+    if (success) {
+      closeProductCategoryActionModal();
+    }
+  } catch (error) {
+    console.error("Error executing product category action:", error);
+    useToast(ToastEvents.error, `Error: ${error.message}`);
+  }
+}
+
+// Lifecycle hooks - updated to load product categories
 onMounted(async () => {
   try {
-    // Make sure we have the business configuration
+    loading.value = true;
+    // Load business configuration
     await indexStore.loadBusinessConfig();
+    // Load product categories
+    await productStore.fetchCategories();
     loading.value = false;
   } catch (error) {
-    console.error("Error loading business configuration:", error);
-    useToast(ToastEvents.error, "Error al cargar la configuración del negocio");
+    console.error("Error loading configuration:", error);
+    useToast(ToastEvents.error, "Error al cargar la configuración");
     loading.value = false;
   }
 });

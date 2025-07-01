@@ -11,6 +11,7 @@ import {
   orderBy,
   Timestamp,
   limit,
+  deleteDoc,
 } from "firebase/firestore";
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
@@ -59,6 +60,24 @@ interface Product {
   archivedAt: string | null;
 }
 
+// Category interfaces
+interface ProductCategory {
+  id: string;
+  businessId: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+interface ProductCategoryFormData {
+  name: string;
+  description: string;
+}
+
 // Form interfaces
 interface ProductFormData {
   name: string;
@@ -97,7 +116,7 @@ interface ProductFormData {
 
 // Enums
 type ProductFilter = "all" | "active" | "archived";
-type ProductCategory = "all" | string;
+type ProductCategoryFilter = "all" | string;
 type TrackingType = "unit" | "weight" | "dual";
 
 // Store state interface
@@ -108,8 +127,14 @@ interface ProductState {
   isLoading: boolean;
   selectedProduct: Product | null;
   productFilter: ProductFilter;
-  categoryFilter: ProductCategory;
+  categoryFilter: ProductCategoryFilter;
   searchQuery: string;
+  
+  // Categories state
+  categories: ProductCategory[];
+  categoriesByIdMap: Map<string, ProductCategory>;
+  categoriesLoaded: boolean;
+  isCategoriesLoading: boolean;
 }
 
 export const useProductStore = defineStore("product", {
@@ -122,6 +147,12 @@ export const useProductStore = defineStore("product", {
     productFilter: "active",
     categoryFilter: "all",
     searchQuery: "",
+    
+    // Categories state
+    categories: [],
+    categoriesByIdMap: new Map<string, ProductCategory>(),
+    categoriesLoaded: false,
+    isCategoriesLoading: false,
   }),
 
   getters: {
@@ -154,13 +185,22 @@ export const useProductStore = defineStore("product", {
       return filtered;
     },
 
-    // Get distinct categories
-    productCategories: (state) => {
-      const categories = new Set<string>();
-      state.products.forEach((product) => {
-        categories.add(product.category);
-      });
-      return Array.from(categories);
+    // Get active categories
+    activeCategories: (state) => {
+      return state.categories.filter(category => category.isActive);
+    },
+
+    // Get all categories (active and archived)
+    allCategories: (state) => {
+      return state.categories;
+    },
+
+    // Get category by ID
+    getCategoryById: (state) => (id: string) => {
+      if (state.categoriesByIdMap.has(id)) {
+        return state.categoriesByIdMap.get(id);
+      }
+      return state.categories.find(category => category.id === id);
     },
 
     // Get product by ID
@@ -181,7 +221,7 @@ export const useProductStore = defineStore("product", {
     },
 
     // Set category filter
-    setCategoryFilter(category: ProductCategory) {
+    setCategoryFilter(category: ProductCategoryFilter) {
       this.categoryFilter = category;
     },
 
@@ -194,6 +234,345 @@ export const useProductStore = defineStore("product", {
     clearSelectedProduct() {
       this.selectedProduct = null;
     },
+
+    // === CATEGORY MANAGEMENT ACTIONS ===
+
+    // Fetch all categories for the current business
+    async fetchCategories(forceFetch = false): Promise<boolean> {
+      if (this.categoriesLoaded && !forceFetch) {
+        return true;
+      }
+
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const { $dayjs } = useNuxtApp();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isCategoriesLoading = true;
+        this.categoriesByIdMap.clear();
+        
+        const categoriesQuery = query(
+          collection(db, 'productCategory'),
+          where('businessId', '==', currentBusinessId.value),
+          orderBy('name', 'asc')
+        );
+        
+        const categoriesSnapshot = await getDocs(categoriesQuery);
+        
+        const categories = categoriesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          
+          let archivedAt = null;
+          if (data.archivedAt) {
+            archivedAt = $dayjs(data.archivedAt.toDate()).format('YYYY-MM-DD');
+          }
+          
+          const category: ProductCategory = {
+            id: doc.id,
+            businessId: data.businessId,
+            name: data.name,
+            description: data.description || '',
+            isActive: data.isActive !== false,
+            createdBy: data.createdBy,
+            createdAt: $dayjs(data.createdAt.toDate()).format('DD/MM/YYYY'),
+            updatedAt: $dayjs(data.updatedAt.toDate()).format('DD/MM/YYYY'),
+            archivedAt: archivedAt,
+          };
+
+          this.categoriesByIdMap.set(doc.id, category);
+          return category;
+        });
+        
+        this.categories = categories;
+        this.categoriesLoaded = true;
+        this.isCategoriesLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+        useToast(ToastEvents.error, "Hubo un error al cargar las categorías. Por favor intenta nuevamente.");
+        this.isCategoriesLoading = false;
+        return false;
+      }
+    },
+
+    // Create a new category
+    async createCategory(formData: ProductCategoryFormData): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const { $dayjs } = useNuxtApp();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isCategoriesLoading = true;
+        
+        const categoryData = {
+          businessId: currentBusinessId.value,
+          name: formData.name,
+          description: formData.description || '',
+          isActive: true,
+          createdBy: user.value.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          archivedAt: null,
+        };
+        
+        const docRef = await addDoc(collection(db, 'productCategory'), categoryData);
+        
+        const newCategory: ProductCategory = {
+          id: docRef.id,
+          businessId: currentBusinessId.value,
+          name: formData.name,
+          description: formData.description || '',
+          isActive: true,
+          createdBy: user.value.uid,
+          createdAt: $dayjs().format('DD/MM/YYYY'),
+          updatedAt: $dayjs().format('DD/MM/YYYY'),
+          archivedAt: null,
+        };
+
+        this.categories.push(newCategory);
+        this.categoriesByIdMap.set(docRef.id, newCategory);
+
+        useToast(ToastEvents.success, "Categoría creada exitosamente");
+        this.isCategoriesLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error creating category:", error);
+        useToast(ToastEvents.error, "Hubo un error al crear la categoría. Por favor intenta nuevamente.");
+        this.isCategoriesLoading = false;
+        return false;
+      }
+    },
+
+    // Update an existing category
+    async updateCategory(categoryId: string, formData: ProductCategoryFormData): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isCategoriesLoading = true;
+        
+        const categoryRef = doc(db, 'productCategory', categoryId);
+        const categoryDoc = await getDoc(categoryRef);
+        
+        if (!categoryDoc.exists()) {
+          useToast(ToastEvents.error, "Categoría no encontrada");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+        
+        const categoryData = categoryDoc.data();
+        if (categoryData.businessId !== currentBusinessId.value) {
+          useToast(ToastEvents.error, "No tienes permiso para editar esta categoría");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+        
+        await updateDoc(categoryRef, {
+          name: formData.name,
+          description: formData.description || '',
+          updatedAt: serverTimestamp(),
+        });
+        
+        const categoryIndex = this.categories.findIndex(c => c.id === categoryId);
+        if (categoryIndex >= 0) {
+          const { $dayjs } = useNuxtApp();
+          const updatedCategory: ProductCategory = {
+            ...this.categories[categoryIndex],
+            name: formData.name,
+            description: formData.description || '',
+            updatedAt: $dayjs().format('DD/MM/YYYY'),
+          };
+
+          this.categories[categoryIndex] = updatedCategory;
+          this.categoriesByIdMap.set(categoryId, updatedCategory);
+        }
+        
+        useToast(ToastEvents.success, "Categoría actualizada exitosamente");
+        this.isCategoriesLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error updating category:", error);
+        useToast(ToastEvents.error, "Hubo un error al actualizar la categoría. Por favor intenta nuevamente.");
+        this.isCategoriesLoading = false;
+        return false;
+      }
+    },
+
+    // Archive a category (soft delete)
+    async archiveCategory(categoryId: string): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const { $dayjs } = useNuxtApp();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isCategoriesLoading = true;
+        
+        const categoryRef = doc(db, 'productCategory', categoryId);
+        const categoryDoc = await getDoc(categoryRef);
+        
+        if (!categoryDoc.exists()) {
+          useToast(ToastEvents.error, "Categoría no encontrada");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+        
+        const categoryData = categoryDoc.data();
+        if (categoryData.businessId !== currentBusinessId.value) {
+          useToast(ToastEvents.error, "No tienes permiso para archivar esta categoría");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+        
+        await updateDoc(categoryRef, {
+          isActive: false,
+          archivedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        
+        const categoryIndex = this.categories.findIndex(c => c.id === categoryId);
+        if (categoryIndex >= 0) {
+          const archivedCategory = {
+            ...this.categories[categoryIndex],
+            isActive: false,
+            archivedAt: $dayjs().format('YYYY-MM-DD'),
+            updatedAt: $dayjs().format('DD/MM/YYYY'),
+          };
+
+          this.categories[categoryIndex] = archivedCategory;
+          this.categoriesByIdMap.set(categoryId, archivedCategory);
+        }
+        
+        this.isCategoriesLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error archiving category:", error);
+        useToast(ToastEvents.error, "Hubo un error al archivar la categoría. Por favor intenta nuevamente.");
+        this.isCategoriesLoading = false;
+        return false;
+      }
+    },
+
+    // Restore an archived category
+    async restoreCategory(categoryId: string): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isCategoriesLoading = true;
+        
+        const categoryRef = doc(db, 'productCategory', categoryId);
+        const categoryDoc = await getDoc(categoryRef);
+        
+        if (!categoryDoc.exists()) {
+          useToast(ToastEvents.error, "Categoría no encontrada");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+        
+        const categoryData = categoryDoc.data();
+        if (categoryData.businessId !== currentBusinessId.value) {
+          useToast(ToastEvents.error, "No tienes permiso para restaurar esta categoría");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+        
+        await updateDoc(categoryRef, {
+          isActive: true,
+          archivedAt: null,
+          updatedAt: serverTimestamp(),
+        });
+        
+        const categoryIndex = this.categories.findIndex(c => c.id === categoryId);
+        if (categoryIndex >= 0) {
+          this.categories[categoryIndex].isActive = true;
+          this.categories[categoryIndex].archivedAt = null;
+        }
+        
+        useToast(ToastEvents.success, "Categoría restaurada exitosamente");
+        this.isCategoriesLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error restoring category:", error);
+        useToast(ToastEvents.error, "Hubo un error al restaurar la categoría. Por favor intenta nuevamente.");
+        this.isCategoriesLoading = false;
+        return false;
+      }
+    },
+
+    // Delete a category (hard delete)
+    async deleteCategory(categoryId: string): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isCategoriesLoading = true;
+        
+        // Check if category is being used by any products
+        const productsQuery = query(
+          collection(db, 'product'),
+          where('businessId', '==', currentBusinessId.value),
+          where('category', '==', categoryId)
+        );
+        
+        const productsSnapshot = await getDocs(productsQuery);
+        if (!productsSnapshot.empty) {
+          useToast(ToastEvents.error, "No se puede eliminar la categoría porque está siendo utilizada por productos.");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+        
+        const categoryRef = doc(db, 'productCategory', categoryId);
+        const categoryDoc = await getDoc(categoryRef);
+        
+        if (!categoryDoc.exists()) {
+          useToast(ToastEvents.error, "Categoría no encontrada");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+        
+        const categoryData = categoryDoc.data();
+        if (categoryData.businessId !== currentBusinessId.value) {
+          useToast(ToastEvents.error, "No tienes permiso para eliminar esta categoría");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+        
+        await deleteDoc(categoryRef);
+        
+        // Remove from local state
+        this.categories = this.categories.filter(c => c.id !== categoryId);
+        this.categoriesByIdMap.delete(categoryId);
+        
+        useToast(ToastEvents.success, "Categoría eliminada exitosamente");
+        this.isCategoriesLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error deleting category:", error);
+        useToast(ToastEvents.error, "Hubo un error al eliminar la categoría. Por favor intenta nuevamente.");
+        this.isCategoriesLoading = false;
+        return false;
+      }
+    },
+
+    // === EXISTING PRODUCT ACTIONS (keeping all existing code) ===
 
     // Fetch all products for the current business
     async fetchProducts(forceFetch = false): Promise<boolean> {
@@ -301,6 +680,7 @@ export const useProductStore = defineStore("product", {
     async createProduct(formData: ProductFormData): Promise<boolean> {
       const db = useFirestore();
       const user = useCurrentUser();
+      const { $dayjs } = useNuxtApp();
       
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
@@ -391,9 +771,34 @@ export const useProductStore = defineStore("product", {
           updatedAt: serverTimestamp(),
         });
         
-        // Refresh the product list
-        await this.fetchProducts();
-        
+        // Add product to the local state
+        const newProduct: Product = {
+          id: docRef.id,
+          businessId: currentBusinessId.value,
+          name: formData.name,
+          description: formData.description || '',
+          category: formData.category,
+          subcategory: formData.subcategory || '',
+          brand: formData.brand || '',
+          prices: pricesData as Product['prices'],
+          trackingType: formData.trackingType,
+          unitType: formData.unitType,
+          unitWeight: formData.unitWeight || 0,
+          allowsLooseSales: formData.trackingType === 'dual' ? true : formData.allowsLooseSales,
+          minimumStock: formData.minimumStock || 0,
+          supplierIds: formData.supplierIds || [],
+          isActive: true,
+          createdBy: user.value.uid,
+          createdAt: $dayjs().format('DD/MM/YYYY'),
+          updatedAt: $dayjs().format('DD/MM/YYYY'),
+          archivedAt: null,
+        };
+
+        // Add to products array
+        this.products.push(newProduct);
+        // Add to Map for O(1) access
+        this.productsByIdMap.set(docRef.id, newProduct);
+
         useToast(ToastEvents.success, "Producto creado exitosamente");
         this.isLoading = false;
         return true;
@@ -613,7 +1018,6 @@ export const useProductStore = defineStore("product", {
           this.selectedProduct = null;
         }
         
-        useToast(ToastEvents.success, "Producto archivado exitosamente");
         this.isLoading = false;
         return true;
       } catch (error) {
