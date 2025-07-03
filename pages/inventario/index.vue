@@ -87,6 +87,17 @@
         </div>
         
         <div class="flex flex-wrap gap-2">
+          <!-- Add Purchase Button -->
+          <button
+            @click="openSupplierPurchase"
+            class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <span class="flex items-center gap-1">
+              <LucideTruck class="h-4 w-4" />
+              Agregar Compra
+            </span>
+          </button>
+          
           <!-- Stock Filter -->
           <div class="flex gap-2">
             <button 
@@ -230,12 +241,16 @@
     <!-- Modals -->
     <InventoryAdjustment ref="inventoryAdjustmentModal" :product-id="selectedProductId" @adjustment-saved="onInventoryAdjusted" />
     <InventoryDetailsModal ref="inventoryDetailsModal" :product-id="selectedProductId" @updated="onInventoryAdjusted" />
+    <SupplierPurchaseModal ref="supplierPurchaseModal" @purchase-saved="onInventoryAdjusted" />
   </div>
 </template>
 
 <script setup>
 import { ToastEvents } from '~/interfaces';
 import { formatCurrency } from '~/utils';
+
+// Import components
+import SupplierPurchaseModal from '~/components/Inventory/SupplierPurchaseModal.vue';
 
 import TablerPackages from '~icons/tabler/packages';
 import TablerAlertTriangle from '~icons/tabler/alert-triangle';
@@ -244,6 +259,7 @@ import LucidePlus from '~icons/lucide/plus';
 import LucideDownload from '~icons/lucide/download';
 import LucideDollarSign from '~icons/lucide/dollar-sign';
 import LucideHistory from '~icons/lucide/history';
+import LucideTruck from '~icons/lucide/truck';
 
 // Store references
 const productStore = useProductStore();
@@ -253,6 +269,7 @@ const { isLoading } = storeToRefs(inventoryStore);
 // Component refs
 const inventoryAdjustmentModal = ref(null);
 const inventoryDetailsModal = ref(null);
+const supplierPurchaseModal = ref(null);
 
 // Local state
 const selectedProductId = ref(null);
@@ -366,6 +383,10 @@ function setStockFilter(filter) {
 function openAdjustInventory(productId) {
   selectedProductId.value = productId;
   inventoryAdjustmentModal.value.showModal();
+}
+
+function openSupplierPurchase() {
+  supplierPurchaseModal.value.showModal();
 }
 
 function onInventoryAdjusted() {
