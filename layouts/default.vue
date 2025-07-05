@@ -119,18 +119,18 @@
           </li>
           <li>
             <NuxtLink
-              to="/caja-global/historico"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
-            >
-              <PhClockCounterClockwiseFill class="text-gray-500" /> Historial Caja Global
-            </NuxtLink>
-          </li>
-          <li>
-            <NuxtLink
               to="/ventas"
               class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
               <PhMoneyFill class="text-gray-500" /> Ventas (Caja Diaria)
+            </NuxtLink>
+          </li>
+          <li>
+            <NuxtLink
+              to="/ventas/historico"
+              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+            >
+              <PhClockCounterClockwiseFill class="text-gray-500" /> Historial Cajas Diarias
             </NuxtLink>
           </li>
           <li>

@@ -375,7 +375,12 @@ function getCategoryName(category) {
 
 function viewSaleDetails(sale) {
   selectedSale.value = sale;
-  saleDetailsModal.value.showModal();
+  if (saleDetailsModal.value && typeof saleDetailsModal.value.showModal === 'function') {
+    saleDetailsModal.value.showModal();
+  } else {
+    console.error('SaleDetails modal is not available or showModal is not a function');
+    useToast(ToastEvents.error, 'Error al abrir los detalles de la venta');
+  }
 }
 
 function reloadData() {
