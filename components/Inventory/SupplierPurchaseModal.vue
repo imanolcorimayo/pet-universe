@@ -2,8 +2,9 @@
   <ConfirmDialogue ref="confirmDialog" />
   <ModalStructure
     ref="mainModal"
-    title="Agregar Compra de Proveedor"
+    title="Registrar Compra de Proveedor"
     modal-namespace="supplier-purchase-modal"
+    modal-class="max-w-6xl"
     :click-propagation-filter="['confirm-dialogue-modal']"
   >
     <template #default>
@@ -16,7 +17,11 @@
       <div v-else class="space-y-6">
         <!-- Supplier Selection Card -->
         <div class="bg-gray-50 p-4 rounded-lg">
-          <h3 class="text-md font-medium mb-3">Proveedor</h3>
+          <h3 class="text-md font-medium mb-3 flex items-center gap-2">
+            <TablerTruck class="h-5 w-5 text-gray-600" />
+            Proveedor
+          </h3>
+          <p class="text-sm text-gray-600 mb-3">Selecciona el proveedor que aparece en la factura</p>
           <div class="relative">
             <input
               type="text"
@@ -58,7 +63,13 @@
         <!-- Products List -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <div class="flex justify-between items-center mb-3">
-            <h3 class="text-md font-medium">Productos</h3>
+            <div>
+              <h3 class="text-md font-medium flex items-center gap-2">
+                <TablerPackages class="h-5 w-5 text-gray-600" />
+                Productos de la Factura
+              </h3>
+              <p class="text-sm text-gray-600 mt-1">Agrega cada producto que aparece en la factura con su cantidad y precio</p>
+            </div>
             <button
               v-if="productItems.length === 0"
               @click="addProductToList"
@@ -75,17 +86,28 @@
           <!-- Product Items -->
           <div v-if="productItems.length === 0" class="text-center py-8 text-gray-500">
             <TablerPackages class="h-12 w-12 mx-auto mb-2 text-gray-400" />
-            <p>No hay productos agregados</p>
-            <p class="text-sm">Selecciona un proveedor y agrega productos para comenzar</p>
+            <p class="font-medium">No hay productos agregados</p>
+            <p class="text-sm">Selecciona un proveedor y comenzá a agregar los productos de la factura</p>
           </div>
 
-          <div v-else class="space-y-3">
+          <div v-else class="space-y-4">
             <template v-for="(item, index) in productItems" :key="index">
-              <div class="bg-white p-4 rounded-lg border border-gray-200">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                <div class="flex justify-between items-start mb-4">
+                  <h4 class="font-medium text-gray-800">Producto #{{ index + 1 }}</h4>
+                  <button
+                    @click="removeProductFromList(index)"
+                    class="text-red-600 hover:text-red-800 text-sm flex items-center gap-1"
+                    :disabled="isSubmitting"
+                  >
+                    <LucideTrash2 class="h-4 w-4" />
+                    Quitar
+                  </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <!-- Product Selection -->
-                <div class="flex flex-col gap-2">
-                  <label class="text-sm font-medium text-gray-700">Producto</label>
+                <div class="flex flex-col gap-2 lg:col-span-2">
+                  <label class="text-sm font-medium text-gray-700">Nombre del Producto</label>
                   <div class="relative">
                     <input
                       type="text"
@@ -93,8 +115,8 @@
                       @input="onProductInput(index)"
                       @focus="item.showProductDropdown = true"
                       @blur="onProductBlur(index)"
-                      class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                      placeholder="Buscar producto"
+                      class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-base"
+                      placeholder="Escribe el nombre del producto..."
                       :disabled="isSubmitting"
                     />
 
@@ -118,12 +140,12 @@
 
                 <!-- Units to Add -->
                 <div class="flex flex-col gap-2">
-                  <label class="text-sm font-medium text-gray-700">Unidades</label>
+                  <label class="text-sm font-medium text-gray-700">Cantidad</label>
                   <input
                     type="number"
                     v-model.number="item.unitsChange"
-                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                    placeholder="Cantidad"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-base"
+                    placeholder="Ej: 10"
                     min="0"
                     step="1"
                     :disabled="isSubmitting"
@@ -139,8 +161,8 @@
                   <input
                     type="number"
                     v-model.number="item.weightChange"
-                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                    placeholder="Peso en kg"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-base"
+                    placeholder="Ej: 2.5"
                     min="0"
                     step="0.01"
                     :disabled="isSubmitting"
@@ -149,14 +171,14 @@
 
                 <!-- Unit Cost -->
                 <div class="flex flex-col gap-2">
-                  <label class="text-sm font-medium text-gray-700">Costo Unitario</label>
+                  <label class="text-sm font-medium text-gray-700">Precio Unitario</label>
                   <div class="relative">
                     <span class="absolute left-3 top-3 text-gray-500">$</span>
                     <input
                       type="number"
                       v-model.number="item.unitCost"
-                      class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 !pl-8"
-                      placeholder="Costo por unidad"
+                      class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 !pl-8 text-base"
+                      placeholder="Ej: 1500.00"
                       min="0"
                       step="0.01"
                       :disabled="isSubmitting"
@@ -165,75 +187,57 @@
                 </div>
               </div>
 
-              <!-- Results Preview -->
+              <!-- Compact Results Preview -->
               <div 
                 v-if="item.selectedProduct && (item.unitsChange > 0 || item.unitCost > 0)"
                 class="bg-blue-50 rounded-lg p-3 border border-blue-200 mt-3"
               >
-                <h4 class="font-medium text-blue-800 mb-2 text-sm">Resultado Final</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                  <!-- Current Stock -->
-                  <div class="flex flex-col">
-                    <span class="text-blue-600">Stock actual</span>
-                    <span class="font-semibold">
-                      {{ formatCurrentStock(item) }}
-                    </span>
+                <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <!-- Stock and Cost Info -->
+                  <div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
+                    <!-- Stock Info with Tooltip -->
+                    <div class="flex items-center gap-2">
+                      <TablerInfoCircle 
+                        class="h-4 w-4 text-blue-600 cursor-help flex-shrink-0" 
+                        :title="`Stock actual: ${formatCurrentStock(item)} → Nuevo stock: ${formatNewStock(item)} (+${formatStockChange(item)})`"
+                      />
+                      <span class="text-sm text-blue-600">Stock:</span>
+                      <span class="font-semibold text-green-600 text-sm">
+                        +{{ formatStockChange(item) }}
+                      </span>
+                    </div>
+                    
+                    <!-- Cost Info -->
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm text-blue-600">Costo promedio:</span>
+                      <span class="font-semibold text-sm">
+                        {{ formatCurrency(calculateNewAverageCost(item)) }}/ud
+                      </span>
+                    </div>
                   </div>
                   
-                  <!-- New Stock -->
-                  <div class="flex flex-col">
-                    <span class="text-blue-600">Nuevo stock</span>
-                    <span class="font-semibold text-green-600">
-                      {{ formatNewStock(item) }}
-                    </span>
-                    <span class="text-green-600 text-xs">
-                      +{{ formatStockChange(item) }}
-                    </span>
-                  </div>
-                  
-                  <!-- Cost Info -->
-                  <div class="flex flex-col">
-                    <span class="text-blue-600">Costo</span>
-                    <span class="font-semibold">
-                      {{ formatCurrency(calculateNewAverageCost(item)) }}/unidad
-                    </span>
-                    <span v-if="item.unitCost > 0" class="text-xs text-gray-600">
-                      Actual: {{ formatCurrency(getCurrentInventory(item.selectedProduct.id)?.averageCost || 0) }}
+                  <!-- Purchase Total -->
+                  <div 
+                    v-if="item.unitsChange > 0 && item.unitCost > 0"
+                    class="flex items-center gap-2 md:flex-shrink-0"
+                  >
+                    <span class="text-sm text-blue-600">Total:</span>
+                    <span class="font-medium text-blue-800 text-lg">
+                      {{ formatCurrency(item.unitsChange * item.unitCost) }}
                     </span>
                   </div>
-                </div>
-                
-                <!-- Purchase Total -->
-                <div 
-                  v-if="item.unitsChange > 0 && item.unitCost > 0"
-                  class="mt-2 pt-2 border-t border-blue-200 flex justify-between items-center"
-                >
-                  <span class="text-sm text-blue-600">Total del producto:</span>
-                  <span class="font-medium text-blue-800">
-                    {{ formatCurrency(item.unitsChange * item.unitCost) }}
-                  </span>
                 </div>
               </div>
 
-              <!-- Product Summary and Remove Button -->
-              <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
-                <div class="text-sm text-gray-600">
-                  <span v-if="!item.selectedProduct || !(item.unitsChange > 0 && item.unitCost > 0)">
-                    <span v-if="item.selectedProduct && item.unitsChange > 0 && item.unitCost > 0">
-                      Total: {{ formatCurrency(item.unitsChange * item.unitCost) }}
-                    </span>
-                    <span v-else class="text-gray-400">
-                      Complete los datos para ver el resumen
-                    </span>
-                  </span>
-                </div>
-                <button
-                  @click="removeProductFromList(index)"
-                  class="text-red-600 hover:text-red-800 text-sm"
-                  :disabled="isSubmitting"
-                >
-                  Quitar
-                </button>
+              <!-- Product Summary Status -->
+              <div 
+                v-if="!item.selectedProduct || !(item.unitsChange > 0 && item.unitCost > 0)"
+                class="mt-3 pt-3 border-t border-gray-200 text-center"
+              >
+                <span class="text-sm text-gray-400 flex items-center justify-center gap-2">
+                  <TablerAlertCircle class="h-4 w-4" />
+                  Complete todos los campos para ver el resumen
+                </span>
               </div>
               </div>
               
@@ -256,23 +260,31 @@
         </div>
 
         <!-- Purchase Summary -->
-        <div v-if="productItems.length > 0" class="bg-blue-50 rounded-lg p-4 border border-blue-200">
-          <h3 class="font-medium text-blue-800 mb-2">Resumen de Compra</h3>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <span class="text-sm text-blue-600">Total de productos:</span>
-              <span class="font-semibold ml-2">{{ validProductItems.length }}</span>
+        <div v-if="productItems.length > 0" class="bg-green-50 rounded-lg p-4 border border-green-200">
+          <h3 class="font-medium text-green-800 mb-3 flex items-center gap-2">
+            <TablerReceipt class="h-5 w-5" />
+            Resumen de la Factura
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="text-center">
+              <span class="text-sm text-green-600">Productos:</span>
+              <div class="font-semibold text-lg">{{ validProductItems.length }}</div>
             </div>
-            <div>
-              <span class="text-sm text-blue-600">Total a pagar:</span>
-              <span class="font-semibold ml-2">{{ formatCurrency(totalPurchaseAmount) }}</span>
+            <div class="text-center">
+              <span class="text-sm text-green-600">Unidades totales:</span>
+              <div class="font-semibold text-lg">{{ totalUnits }}</div>
+            </div>
+            <div class="text-center">
+              <span class="text-sm text-green-600">Total a pagar:</span>
+              <div class="font-semibold text-xl text-green-800">{{ formatCurrency(totalPurchaseAmount) }}</div>
             </div>
           </div>
         </div>
 
         <!-- Payment Method -->
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-gray-700">Método de pago</label>
+          <label class="text-sm font-medium text-gray-700">Método de pago utilizado</label>
+          <p class="text-sm text-gray-600">¿Cómo pagaste esta compra?</p>
           <select
             v-model="paymentMethod"
             class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
@@ -295,6 +307,7 @@
         <!-- White/Black classification -->
         <div class="flex flex-col gap-2">
           <label class="text-sm font-medium text-gray-700">Tipo de transacción</label>
+          <p class="text-sm text-gray-600">¿Esta compra tiene factura oficial?</p>
           <div class="flex gap-4">
             <label class="flex items-center">
               <input
@@ -321,11 +334,11 @@
 
         <!-- Notes -->
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-gray-700">Notas de la compra</label>
+          <label class="text-sm font-medium text-gray-700">Notas adicionales</label>
           <textarea
             v-model="purchaseNotes"
             class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            placeholder="Información adicional sobre esta compra (remito, factura, etc.)"
+            placeholder="Número de factura, remito, observaciones, etc."
             rows="3"
             :disabled="isSubmitting"
           ></textarea>
@@ -384,7 +397,12 @@
 import { ToastEvents } from "~/interfaces";
 
 import LucidePlus from '~icons/lucide/plus';
+import LucideTrash2 from '~icons/lucide/trash-2';
 import TablerPackages from '~icons/tabler/packages';
+import TablerTruck from '~icons/tabler/truck';
+import TablerInfoCircle from '~icons/tabler/info-circle';
+import TablerAlertCircle from '~icons/tabler/alert-circle';
+import TablerReceipt from '~icons/tabler/receipt';
 
 // ----- Define Emits ---------
 const emit = defineEmits(["purchase-saved"]);
@@ -426,6 +444,12 @@ const validProductItems = computed(() => {
 const totalPurchaseAmount = computed(() => {
   return validProductItems.value.reduce((sum, item) => {
     return sum + (item.unitsChange * item.unitCost);
+  }, 0);
+});
+
+const totalUnits = computed(() => {
+  return validProductItems.value.reduce((sum, item) => {
+    return sum + item.unitsChange;
   }, 0);
 });
 

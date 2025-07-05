@@ -1,15 +1,21 @@
 <template>
   <ModalStructure
     ref="modalRef"
-    title="Registrar Venta"
-    modalClass="!max-w-4xl"
+    title="Registrar Nueva Venta"
+    modalClass="!max-w-5xl"
+    :click-propagation-filter="['tooltip-namespace']"
+    modal-namespace="sale-transaction-modal"
     @on-close="resetForm"
   >
     <div class="space-y-4">
       <!-- Client Selection -->
-      <div class="flex items-center justify-between">
+      <div class="bg-gray-50 p-4 rounded-lg">
         <div class="flex-1">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+            <LucideUser class="h-4 w-4 text-gray-600" />
+            Cliente
+          </label>
+          <p class="text-sm text-gray-600 mb-2">Selecciona un cliente o deja en "Cliente Casual" para venta sin registro</p>
           <div class="flex items-center gap-2">
             <select
               v-model="selectedClientId"
@@ -35,143 +41,408 @@
       </div>
       
       <!-- Product Selection -->
-      <div>
-        <div class="flex justify-between mb-1">
-          <label class="block text-sm font-medium text-gray-700">Productos</label>
+      <div class="bg-gray-50 p-4 rounded-lg">
+        <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-3 gap-2">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 flex items-center gap-2">
+              <LucideShoppingCart class="h-4 w-4 text-gray-600" />
+              Productos de la Venta
+            </label>
+            <p class="text-sm text-gray-600 mt-1">Agrega los productos que el cliente está comprando</p>
+          </div>
           <button
             type="button"
             @click="addProductRow"
-            class="text-sm text-primary flex items-center"
+            class="text-sm bg-primary text-white px-3 py-2 rounded-md flex items-center hover:bg-primary/90"
             :disabled="isLoading"
           >
             <LucidePlus class="w-4 h-4 mr-1" /> Agregar Producto
           </button>
         </div>
         
-        <!-- Products Table -->
-        <div class="border rounded-md overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Producto</th>
-                <th class="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-center w-20">Cant.</th>
-                <th class="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-center w-20">Unidad</th>
-                <th class="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-center w-30">Precio</th>
-                <th class="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-center w-24">Subtotal</th>
-                <th class="px-3 py-2 w-10"></th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="(item, index) in saleItems" :key="index" class="hover:bg-gray-50">
-                <td class="px-3 py-2">
-                  <select
-                    v-model="item.productId"
-                    class="w-full p-1.5 border rounded-md text-sm"
-                    :disabled="isLoading"
-                    @change="updateProductDetails(index)"
-                  >
-                    <option value="" disabled>Seleccionar producto</option>
-                    <option v-for="product in products" :key="product.id" :value="product.id">
-                      {{ product.name }}
-                    </option>
-                  </select>
-                  <div v-if="item.productId && getProductStock(item.productId)" class="text-xs mt-1 text-gray-500">
-                    Stock: {{ formatProductStock(getProductStock(item.productId)) }}
-                  </div>
-                </td>
-                <td class="px-3 py-2">
-                  <input
-                    type="number"
-                    v-model.number="item.quantity"
-                    class="w-full !p-1.5 border rounded-md text-sm text-center"
-                    min="0.01"
-                    step="0.01"
-                    :disabled="isLoading || !item.productId"
-                    @input="updateItemTotal(index)"
-                  />
-                </td>
-                <td class="px-3 py-2 text-center">
-                  <select
-                    v-model="item.unitType"
-                    class="w-full p-1.5 border rounded-md text-sm"
-                    :disabled="isLoading || !item.productId || !canSellByWeight(item.productId)"
-                    @change="onUnitTypeChange(index)"
-                  >
-                    <option value="unit">Unidad</option>
-                    <option value="kg" v-if="canSellByWeight(item.productId)">Kg</option>
-                  </select>
-                </td>
-                <td class="px-3 py-2">
-                  <div class="relative">
-                    <span class="absolute left-2 top-2 text-gray-500 text-sm">$</span>
+        <!-- Products List - Responsive Design -->
+        <div class="space-y-3">
+          <!-- Desktop Table (hidden on mobile) -->
+          <div class="hidden md:block border rounded-md overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Producto</th>
+                  <th class="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-center w-20">Cant.</th>
+                  <th class="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-center w-16">Unidad</th>
+                  <th class="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-center w-24">Precio</th>
+                  <th class="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-center w-20">Desc.</th>
+                  <th class="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-center w-24">Subtotal</th>
+                  <th class="px-3 py-2 w-10"></th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="(item, index) in saleItems" :key="index" class="hover:bg-gray-50">
+                  <td class="px-3 py-2">
                     <select
-                      v-model="item.priceType"
-                      class="w-full !p-1.5 !pl-6 border rounded-md text-sm"
-                      :disabled="isLoading || !item.productId"
-                      @change="updatePriceFromType(index)"
+                      v-model="item.productId"
+                      class="w-full p-1.5 border rounded-md text-sm"
+                      :disabled="isLoading"
+                      @change="updateProductDetails(index)"
                     >
-                      <option value="regular">Normal</option>
-                      <option value="cash">Efectivo</option>
-                      <option value="vip">VIP</option>
-                      <option value="bulk" v-if="item.unitType === 'kg'">Mayorista</option>
+                      <option value="" disabled>Seleccionar producto</option>
+                      <option v-for="product in products" :key="product.id" :value="product.id">
+                        {{ product.name }}
+                      </option>
                     </select>
+                    <div v-if="item.productId && getProductStock(item.productId)" class="text-xs mt-1 text-gray-500">
+                      Stock: {{ formatProductStock(getProductStock(item.productId)) }}
+                    </div>
+                  </td>
+                  <td class="px-3 py-2">
                     <input
                       type="number"
-                      v-model.number="item.unitPrice"
-                      class="w-full mt-1 !p-1.5 !pl-6 border rounded-md text-sm"
-                      min="0"
+                      v-model.number="item.quantity"
+                      class="w-full !p-1.5 border rounded-md text-sm text-center"
+                      min="0.01"
                       step="0.01"
                       :disabled="isLoading || !item.productId"
                       @input="updateItemTotal(index)"
                     />
+                  </td>
+                  <td class="px-3 py-2 text-center">
+                    <div class="flex items-center justify-center gap-1">
+                      <span class="text-xs font-medium">{{ item.unitType === 'kg' ? 'Kg' : 'Unid' }}</span>
+                      <SaleUnitTooltip
+                        :current-unit-type="item.unitType"
+                        :product-tracking-type="getProduct(item.productId)?.trackingType || 'unit'"
+                        :allows-loose-sales="getProduct(item.productId)?.allowsLooseSales || false"
+                        :inventory-info="getProductStock(item.productId)"
+                        position="bottom-left"
+                        @apply-unit-type="(unitType) => onUnitTypeChange(index, unitType)"
+                      >
+                        <template #trigger="{ openTooltip }">
+                          <button
+                            @click="openTooltip"
+                            class="p-1 text-xs border rounded hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                            :class="canSellByWeight(item.productId) ? 'text-blue-600 border-blue-300 bg-blue-50' : 'text-gray-400 border-gray-200 bg-gray-50'"
+                            title="Cambiar tipo de unidad"
+                            :disabled="!canSellByWeight(item.productId)"
+                          >
+                            <LucidePackage class="w-3 h-3" />
+                          </button>
+                        </template>
+                      </SaleUnitTooltip>
+                    </div>
+                  </td>
+                  <td class="px-3 py-2">
+                    <div class="flex items-center justify-between">
+                      <div class="text-center flex-1">
+                        <div class="text-xs font-medium">${{ formatNumber(item.unitPrice) }}</div>
+                        <div class="text-xs text-gray-500">{{ getPriceTypeLabel(item.priceType) }}</div>
+                        <div v-if="getPriceDiscount(item) > 0" class="text-xs text-green-600">
+                          -${{ formatNumber(getPriceDiscount(item)) }}
+                        </div>
+                      </div>
+                      <SalePriceTooltip
+                        :product-prices="getProduct(item.productId)?.prices || {}"
+                        :current-price-type="item.priceType"
+                        :current-price="item.unitPrice"
+                        :unit-type="item.unitType"
+                        :tracking-type="getProduct(item.productId)?.trackingType || 'unit'"
+                        position="bottom-right"
+                        @apply-price="(priceData) => onPriceChange(index, priceData)"
+                      >
+                        <template #trigger="{ openTooltip }">
+                          <button
+                            @click="openTooltip"
+                            class="p-1 text-xs border rounded hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                            :class="getPriceDiscount(item) > 0 ? 'text-blue-600 border-blue-300 bg-blue-50' : 'text-blue-600 border-blue-200'"
+                            title="Configurar precio"
+                            :disabled="!item.productId"
+                          >
+                            <LucideDollarSign class="w-3 h-3" />
+                          </button>
+                        </template>
+                      </SalePriceTooltip>
+                    </div>
+                  </td>
+                  <td class="px-3 py-2">
+                    <div class="flex items-center justify-center gap-1">
+                      <div v-if="item.customDiscount > 0" class="text-center flex-1">
+                        <div class="text-xs text-green-600 font-medium">
+                          -${{ formatNumber(getCustomDiscountAmount(item)) }}
+                        </div>
+                        <div class="text-xs text-gray-500">
+                          {{ item.customDiscountType === 'percentage' ? item.customDiscount + '%' : '$' + item.customDiscount }}
+                        </div>
+                      </div>
+                      <SaleDiscountTooltip
+                        :current-discount="item.customDiscount"
+                        :current-discount-type="item.customDiscountType"
+                        :regular-price="item.regularPrice"
+                        :current-price="item.unitPrice"
+                        :quantity="item.quantity"
+                        position="bottom-right"
+                        @apply-discount="(discountData) => onDiscountChange(index, discountData)"
+                        @clear-discount="() => onDiscountClear(index)"
+                      >
+                        <template #trigger="{ openTooltip }">
+                          <button
+                            @click="openTooltip"
+                            class="p-1 text-xs border rounded hover:bg-green-50 hover:border-green-300 transition-colors"
+                            :class="item.customDiscount > 0 ? 'text-green-600 border-green-300 bg-green-50' : 'text-green-600 border-green-200'"
+                            title="Configurar descuento"
+                            :disabled="!item.productId"
+                          >
+                            <LucidePercent class="w-3 h-3" />
+                          </button>
+                        </template>
+                      </SaleDiscountTooltip>
+                    </div>
+                  </td>
+                  <td class="px-3 py-2 font-medium text-right">
+                    <div class="text-right">
+                      <div class="font-bold">${{ formatNumber(item.totalPrice) }}</div>
+                      <div v-if="getTotalItemDiscount(item) > 0" class="text-xs text-gray-500 line-through">
+                        ${{ formatNumber(item.quantity * item.regularPrice) }}
+                      </div>
+                      <div v-if="getTotalItemDiscount(item) > 0" class="text-xs text-green-600">
+                        Ahorro: ${{ formatNumber(getTotalItemDiscount(item)) }}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-3 py-2">
+                    <button
+                      @click="removeProductRow(index)"
+                      class="text-red-600 hover:text-red-900 p-1"
+                      title="Eliminar item"
+                      :disabled="isLoading"
+                    >
+                      <LucideTrash2 class="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="saleItems.length === 0">
+                  <td colspan="7" class="px-3 py-4 text-center text-gray-500">
+                    Agregue productos a la venta
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Mobile Cards (visible on mobile only) -->
+          <div class="md:hidden space-y-3">
+            <div v-if="saleItems.length === 0" class="text-center py-8 text-gray-500 border rounded-md">
+              <p>Agregue productos a la venta</p>
+            </div>
+            
+            <div v-for="(item, index) in saleItems" :key="index" class="bg-white border rounded-lg p-4 shadow-sm">
+              <div class="flex justify-between items-start mb-3">
+                <h4 class="font-medium text-gray-800">Producto #{{ index + 1 }}</h4>
+                <button
+                  @click="removeProductRow(index)"
+                  class="text-red-600 hover:text-red-900 p-1"
+                  title="Eliminar item"
+                  :disabled="isLoading"
+                >
+                  <LucideTrash2 class="w-4 h-4" />
+                </button>
+              </div>
+              
+              <!-- Product Selection -->
+              <div class="mb-3">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Producto</label>
+                <select
+                  v-model="item.productId"
+                  class="w-full p-2 border rounded-md text-sm"
+                  :disabled="isLoading"
+                  @change="updateProductDetails(index)"
+                >
+                  <option value="" disabled>Seleccionar producto</option>
+                  <option v-for="product in products" :key="product.id" :value="product.id">
+                    {{ product.name }}
+                  </option>
+                </select>
+                <div v-if="item.productId && getProductStock(item.productId)" class="text-xs mt-1 text-gray-500">
+                  Stock: {{ formatProductStock(getProductStock(item.productId)) }}
+                </div>
+              </div>
+              
+              <!-- Quantity and Unit Type -->
+              <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Cantidad</label>
+                  <input
+                    type="number"
+                    v-model.number="item.quantity"
+                    class="w-full p-2 border rounded-md text-sm"
+                    min="0.01"
+                    step="0.01"
+                    :disabled="isLoading || !item.productId"
+                    @input="updateItemTotal(index)"
+                    placeholder="Ej: 2"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Unidad</label>
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 p-2 border rounded-md text-sm bg-gray-50">
+                      {{ item.unitType === 'kg' ? 'Kilogramos' : 'Unidades' }}
+                    </div>
+                    <SaleUnitTooltip
+                      :current-unit-type="item.unitType"
+                      :product-tracking-type="getProduct(item.productId)?.trackingType || 'unit'"
+                      :allows-loose-sales="getProduct(item.productId)?.allowsLooseSales || false"
+                      :inventory-info="getProductStock(item.productId)"
+                      position="bottom-right"
+                      @apply-unit-type="(unitType) => onUnitTypeChange(index, unitType)"
+                    >
+                      <template #trigger="{ openTooltip }">
+                        <button
+                          @click="openTooltip"
+                          class="p-2 border rounded-md hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                          :class="canSellByWeight(item.productId) ? 'text-blue-600 border-blue-300 bg-blue-50' : 'text-gray-400 border-gray-200 bg-gray-50'"
+                          title="Cambiar tipo de unidad"
+                          :disabled="!canSellByWeight(item.productId)"
+                        >
+                          <LucideSettings class="w-4 h-4" />
+                        </button>
+                      </template>
+                    </SaleUnitTooltip>
                   </div>
-                </td>
-                <td class="px-3 py-2 font-medium text-right">
-                  ${{ formatNumber(item.totalPrice) }}
-                </td>
-                <td class="px-3 py-2">
-                  <button
-                    @click="removeProductRow(index)"
-                    class="text-red-600 hover:text-red-900 p-1"
-                    title="Eliminar item"
-                    :disabled="isLoading"
+                </div>
+              </div>
+              
+              <!-- Price Selection -->
+              <div class="mb-3">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Precio</label>
+                <div class="flex items-center gap-2">
+                  <div class="flex-1">
+                    <div class="p-2 border rounded-md text-sm bg-gray-50">
+                      <div class="font-medium">${{ formatNumber(item.unitPrice) }}</div>
+                      <div class="text-xs text-gray-600">{{ getPriceTypeLabel(item.priceType) }}</div>
+                      <div v-if="getPriceDiscount(item) > 0" class="text-xs text-green-600">
+                        Descuento: ${{ formatNumber(getPriceDiscount(item)) }}
+                      </div>
+                    </div>
+                  </div>
+                  <SalePriceTooltip
+                    :product-prices="getProduct(item.productId)?.prices || {}"
+                    :current-price-type="item.priceType"
+                    :current-price="item.unitPrice"
+                    :unit-type="item.unitType"
+                    :tracking-type="getProduct(item.productId)?.trackingType || 'unit'"
+                    position="bottom-right"
+                    @apply-price="(priceData) => onPriceChange(index, priceData)"
                   >
-                    <LucideTrash2 class="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="saleItems.length === 0">
-                <td colspan="6" class="px-3 py-4 text-center text-gray-500">
-                  Agregue productos a la venta
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                    <template #trigger="{ openTooltip }">
+                      <button
+                        @click="openTooltip"
+                        class="p-2 border rounded-md hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                        :class="getPriceDiscount(item) > 0 ? 'text-blue-600 border-blue-300 bg-blue-50' : 'text-blue-600 border-blue-200 bg-blue-25'"
+                        title="Configurar precio"
+                        :disabled="!item.productId"
+                      >
+                        <LucideDollarSign class="w-4 h-4" />
+                      </button>
+                    </template>
+                  </SalePriceTooltip>
+                </div>
+              </div>
+              
+              <!-- Custom Discount -->
+              <div class="mb-3">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Descuento Adicional</label>
+                <div class="flex items-center gap-2">
+                  <div class="flex-1">
+                    <div class="p-2 border rounded-md text-sm bg-gray-50">
+                      <div v-if="item.customDiscount > 0" class="text-green-600 font-medium">
+                        -${{ formatNumber(getCustomDiscountAmount(item)) }}
+                        <span class="text-xs text-gray-600 ml-1">
+                          ({{ item.customDiscountType === 'percentage' ? item.customDiscount + '%' : '$' + item.customDiscount }})
+                        </span>
+                      </div>
+                      <div v-else class="text-gray-500">Sin descuento</div>
+                    </div>
+                  </div>
+                  <SaleDiscountTooltip
+                    :current-discount="item.customDiscount"
+                    :current-discount-type="item.customDiscountType"
+                    :regular-price="item.regularPrice"
+                    :current-price="item.unitPrice"
+                    :quantity="item.quantity"
+                    position="bottom-right"
+                    @apply-discount="(discountData) => onDiscountChange(index, discountData)"
+                    @clear-discount="() => onDiscountClear(index)"
+                  >
+                    <template #trigger="{ openTooltip }">
+                      <button
+                        @click="openTooltip"
+                        class="p-2 border rounded-md hover:bg-green-50 hover:border-green-300 transition-colors"
+                        :class="item.customDiscount > 0 ? 'text-green-600 border-green-300 bg-green-50' : 'text-green-600 border-green-200 bg-green-25'"
+                        title="Configurar descuento"
+                        :disabled="!item.productId"
+                      >
+                        <LucidePercent class="w-4 h-4" />
+                      </button>
+                    </template>
+                  </SaleDiscountTooltip>
+                </div>
+              </div>
+              
+              <!-- Total for this item -->
+              <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <div class="flex justify-between items-center">
+                  <span class="text-sm text-blue-600">Subtotal:</span>
+                  <span class="font-medium text-blue-800 text-lg">
+                    ${{ formatNumber(item.totalPrice) }}
+                  </span>
+                </div>
+                <div v-if="getTotalItemDiscount(item) > 0" class="space-y-1 mt-2">
+                  <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500 line-through">
+                      Precio original: ${{ formatNumber(item.quantity * item.regularPrice) }}
+                    </span>
+                  </div>
+                  <div class="flex justify-between items-center text-xs">
+                    <span class="text-green-600">Ahorro total:</span>
+                    <span class="text-green-600 font-medium">
+                      ${{ formatNumber(getTotalItemDiscount(item)) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
       <!-- Totals -->
-      <div class="flex justify-end">
-        <div class="w-64 space-y-2">
-          <div class="flex justify-between">
-            <span class="text-sm font-medium">Subtotal:</span>
-            <span>${{ formatNumber(subtotal) }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-sm font-medium">Descuento:</span>
-            <span class="text-red-600">${{ formatNumber(totalDiscount) }}</span>
-          </div>
-          <div class="flex justify-between py-2 border-t border-gray-200">
-            <span class="text-black font-bold">Total:</span>
-            <span class="text-black font-bold">${{ formatNumber(total) }}</span>
+      <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+        <h3 class="font-medium text-green-800 mb-3">Resumen de la Venta</h3>
+        <div class="flex flex-col md:flex-row md:justify-end">
+          <div class="w-full md:w-64 space-y-2">
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Subtotal:</span>
+              <span>${{ formatNumber(subtotal) }}</span>
+            </div>
+            <div class="flex justify-between" v-if="totalDiscount > 0">
+              <span class="text-sm font-medium">Descuento:</span>
+              <span class="text-red-600">-${{ formatNumber(totalDiscount) }}</span>
+            </div>
+            <div class="flex justify-between py-2 border-t border-gray-200">
+              <span class="text-black font-bold">Total a Pagar:</span>
+              <span class="text-black font-bold text-lg">${{ formatNumber(total) }}</span>
+            </div>
           </div>
         </div>
       </div>
       
       <!-- Payment Methods -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
-        <div class="border rounded-md p-3 space-y-3">
+      <div class="bg-gray-50 p-4 rounded-lg">
+        <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+          <LucideCreditCard class="h-4 w-4 text-gray-600" />
+          Métodos de Pago
+        </label>
+        <p class="text-sm text-gray-600 mb-3">¿Cómo va a pagar el cliente? Puedes combinar varios métodos</p>
+        <div class="border rounded-md p-3 space-y-3 bg-white">
           <div v-for="(payment, index) in paymentDetails" :key="index" class="flex items-center gap-3">
             <div class="flex-1">
               <select
@@ -229,22 +500,25 @@
       </div>
       
       <!-- Additional Options -->
-      <div class="border-t pt-4">
-        <div class="flex flex-col w-full items-start gap-3 justify-between">
-          <label class="block text-sm font-medium text-gray-700">
-            <div class="flex items-center">
+      <div class="bg-gray-50 p-4 rounded-lg">
+        <div class="flex flex-col w-full items-start gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Venta</label>
+            <label class="flex items-center cursor-pointer">
               <input type="checkbox" v-model="isReported" class="mr-2 h-4 w-4" />
-              Venta declarada (en blanco)
-            </div>
-          </label>
+              <span class="text-sm">Venta declarada (en blanco)</span>
+            </label>
+            <p class="text-xs text-gray-500 mt-1">¿Esta venta será reportada en la contabilidad oficial?</p>
+          </div>
           
           <div class="w-full">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Notas Adicionales</label>
             <textarea
               v-model="notes"
-              class="!p-2 border rounded-md text-sm"
+              class="w-full !p-2 border rounded-md text-sm"
               :disabled="isLoading"
-              placeholder="Observaciones (opcional)"
+              placeholder="Información adicional sobre la venta (opcional)"
+              rows="3"
             ></textarea>
           </div>
         </div>
@@ -277,6 +551,13 @@
 import LucidePlus from '~icons/lucide/plus';
 import LucideTrash2 from '~icons/lucide/trash-2';
 import LucideX from '~icons/lucide/x';
+import LucideUser from '~icons/lucide/user';
+import LucideShoppingCart from '~icons/lucide/shopping-cart';
+import LucideCreditCard from '~icons/lucide/credit-card';
+import LucideSettings from '~icons/lucide/settings';
+import LucidePercent from '~icons/lucide/percent';
+import LucideDollarSign from '~icons/lucide/dollar-sign';
+import LucidePackage from '~icons/lucide/package';
 
 import { ToastEvents } from '~/interfaces';
 
@@ -370,7 +651,10 @@ function addProductRow() {
     unitPrice: 0,
     totalPrice: 0,
     appliedDiscount: 0,
-    priceType: 'regular'
+    priceType: 'regular',
+    regularPrice: 0,
+    customDiscount: 0,
+    customDiscountType: 'amount' // 'amount' or 'percentage'
   });
 }
 
@@ -400,6 +684,10 @@ function updateProductDetails(index) {
       item.unitType = 'unit';
     }
     
+    // Reset discount values when product changes
+    item.customDiscount = 0;
+    item.customDiscountType = 'amount';
+    
     // Set price based on price type and unit type
     updatePriceFromType(index);
   }
@@ -410,40 +698,39 @@ function updatePriceFromType(index) {
   const product = products.value.find(p => p.id === item.productId);
   
   if (product) {
-    // Get the appropriate price based on unit type and price type
+    // Get the regular price first for discount calculation
+    let regularPrice = 0;
+    let selectedPrice = 0;
+    
     if (product.trackingType === 'dual') {
       // For dual products, check the unit type
       if (item.unitType === 'unit') {
         // Use unit-specific prices if available, otherwise fall back to standard prices
         const unitPrices = product.prices.unit || product.prices;
-
-        item.unitPrice = unitPrices[item.priceType] || 0;
+        regularPrice = unitPrices.regular || 0;
+        selectedPrice = unitPrices[item.priceType] || 0;
       } else { // kg
         // Use kg-specific prices if available, otherwise fall back to standard prices
         const kgPrices = product.prices.kg || product.prices;
-        item.unitPrice = kgPrices[item.priceType] || 0;
-        
-        // If bulk price is selected and it's weight-based, apply the bulk pricing rule
-        if (item.priceType === 'bulk' && item.quantity > 3) {
-          // Apply 10% discount for bulk purchases (>3kg)
-          const regularPrice = kgPrices.regular || 0;
-          item.unitPrice = regularPrice * 0.9;
-          item.appliedDiscount = regularPrice * 0.1 * item.quantity;
-        }
+        regularPrice = kgPrices.regular || 0;
+        selectedPrice = kgPrices[item.priceType] || 0;
       }
     } else {
       // Standard product pricing
-      item.unitPrice = product.prices[item.priceType] || 0;
-      
-      // If bulk price is selected and it's weight-based, apply the bulk pricing rule
-      if (item.priceType === 'bulk' && item.unitType === 'kg' && item.quantity > 3) {
-        // Apply 10% discount for bulk purchases (>3kg)
-        const regularPrice = product.prices.regular || 0;
-        item.unitPrice = regularPrice * 0.9;
-        item.appliedDiscount = regularPrice * 0.1 * item.quantity;
-      } else {
-        item.appliedDiscount = 0;
-      }
+      regularPrice = product.prices.regular || 0;
+      selectedPrice = product.prices[item.priceType] || 0;
+    }
+    
+    // Store the regular price for discount calculation
+    item.regularPrice = regularPrice;
+    item.unitPrice = selectedPrice;
+    
+    // Calculate discount based on price type selection
+    if (item.priceType !== 'regular') {
+      const priceTypeDiscount = regularPrice - selectedPrice;
+      item.appliedDiscount = priceTypeDiscount > 0 ? priceTypeDiscount : 0;
+    } else {
+      item.appliedDiscount = 0;
     }
     
     // Update total
@@ -465,13 +752,58 @@ function updateItemTotal(index) {
     return;
   }
   
-  // Calculate total price
-  item.totalPrice = item.quantity * item.unitPrice;
+  // Calculate base total price
+  let baseTotal = item.quantity * item.unitPrice;
   
-  // Update payment field with current total
-  if (paymentDetails.value.length > 0) {
+  // Apply custom discount if set
+  let customDiscountAmount = 0;
+  if (item.customDiscount > 0) {
+    if (item.customDiscountType === 'percentage') {
+      customDiscountAmount = baseTotal * (item.customDiscount / 100);
+    } else {
+      customDiscountAmount = item.customDiscount;
+    }
+  }
+  
+  // Check if manually edited price is lower than regular price
+  let manualDiscountAmount = 0;
+  if (item.regularPrice > 0 && item.unitPrice < item.regularPrice) {
+    manualDiscountAmount = (item.regularPrice - item.unitPrice) * item.quantity;
+  }
+  
+  // Calculate total discount (price type discount + custom discount + manual discount)
+  const priceTypeDiscount = item.appliedDiscount * item.quantity;
+  const totalDiscount = priceTypeDiscount + customDiscountAmount + manualDiscountAmount;
+  
+  // Update applied discount for display
+  item.appliedDiscount = totalDiscount / item.quantity;
+  
+  // Calculate final total price
+  item.totalPrice = baseTotal - customDiscountAmount;
+  
+  // Only auto-update payment if it's the first time or if payment is currently zero
+  if (paymentDetails.value.length > 0 && paymentDetails.value[0].amount === 0) {
     paymentDetails.value[0].amount = total.value;
   }
+}
+
+// Helper function to apply custom discount
+function applyCustomDiscount(index, discount, discountType) {
+  const item = saleItems.value[index];
+  item.customDiscount = discount;
+  item.customDiscountType = discountType;
+  updateItemTotal(index);
+}
+
+// Helper function to get discount display for an item (DEPRECATED - keeping for compatibility)
+function getDiscountDisplay(item) {
+  return getTotalItemDiscount(item) > 0 ? `Desc: $${formatNumber(getTotalItemDiscount(item))}` : '';
+}
+
+// Helper function to get price type discount display (DEPRECATED - keeping for compatibility)
+function getPriceTypeDiscountDisplay(item) {
+  const discount = getPriceDiscount(item);
+  return discount > 0 ? `Desc: $${formatNumber(discount * item.quantity)}` : '';
 }
 
 // Methods for payment management
@@ -522,8 +854,81 @@ function canSellByWeight(productId) {
 }
 
 // When unit type changes, update the price
-function onUnitTypeChange(index) {
+function onUnitTypeChange(index, unitType = null) {
+  if (unitType) {
+    saleItems.value[index].unitType = unitType;
+  }
   updatePriceFromType(index);
+}
+
+// Handle price changes from tooltip
+function onPriceChange(index, priceData) {
+  const item = saleItems.value[index];
+  item.priceType = priceData.priceType;
+  item.unitPrice = priceData.price;
+  updateItemTotal(index);
+}
+
+// Handle discount changes from tooltip
+function onDiscountChange(index, discountData) {
+  const item = saleItems.value[index];
+  item.customDiscount = discountData.discount;
+  item.customDiscountType = discountData.discountType;
+  updateItemTotal(index);
+}
+
+// Handle discount clear from tooltip
+function onDiscountClear(index) {
+  const item = saleItems.value[index];
+  item.customDiscount = 0;
+  item.customDiscountType = 'amount';
+  updateItemTotal(index);
+}
+
+// Get product by ID
+function getProduct(productId) {
+  if (!productId) return null;
+  return products.value.find(p => p.id === productId);
+}
+
+// Get price type label
+function getPriceTypeLabel(priceType) {
+  const labels = {
+    regular: 'Normal',
+    cash: 'Efectivo',
+    vip: 'VIP',
+    bulk: 'Mayorista'
+  };
+  return labels[priceType] || priceType;
+}
+
+// Get price discount amount
+function getPriceDiscount(item) {
+  if (!item.regularPrice || item.priceType === 'regular') return 0;
+  return Math.max(0, item.regularPrice - item.unitPrice);
+}
+
+// Get custom discount amount
+function getCustomDiscountAmount(item) {
+  if (!item.customDiscount || item.customDiscount <= 0) return 0;
+  
+  const baseTotal = item.quantity * item.unitPrice;
+  
+  if (item.customDiscountType === 'percentage') {
+    return Math.min(baseTotal * (item.customDiscount / 100), baseTotal);
+  } else {
+    return Math.min(item.customDiscount, baseTotal);
+  }
+}
+
+// Get total item discount
+function getTotalItemDiscount(item) {
+  if (!item.regularPrice) return 0;
+  
+  const originalTotal = item.quantity * item.regularPrice;
+  const currentTotal = item.totalPrice;
+  
+  return Math.max(0, originalTotal - currentTotal);
 }
 
 // Client management
@@ -535,12 +940,32 @@ function createNewClient() {
 
 // Form submission
 async function submitForm() {
-  if (!isFormValid.value) {
-    return useToast(ToastEvents.error, 'Complete todos los campos requeridos');
+  // Detailed validation with specific error messages
+  const emptyItems = saleItems.value.filter(item => !item.productId);
+  if (emptyItems.length > 0) {
+    return useToast(ToastEvents.error, 'Selecciona un producto para todos los items');
+  }
+  
+  const invalidQuantities = saleItems.value.filter(item => !item.quantity || item.quantity <= 0);
+  if (invalidQuantities.length > 0) {
+    return useToast(ToastEvents.error, 'Todas las cantidades deben ser mayores a 0');
+  }
+  
+  const invalidPrices = saleItems.value.filter(item => !item.unitPrice || item.unitPrice <= 0);
+  if (invalidPrices.length > 0) {
+    return useToast(ToastEvents.error, 'Todos los precios deben ser mayores a 0');
+  }
+  
+  const invalidPayments = paymentDetails.value.filter(payment => !payment.paymentMethod || !payment.amount || payment.amount <= 0);
+  if (invalidPayments.length > 0) {
+    return useToast(ToastEvents.error, 'Todos los métodos de pago deben tener un monto válido');
   }
   
   if (paymentDifference.value !== 0) {
-    return useToast(ToastEvents.error, 'El monto pagado debe coincidir con el total');
+    const message = paymentDifference.value > 0 
+      ? `Falta pagar $${formatNumber(Math.abs(paymentDifference.value))}`
+      : `Hay un exceso de $${formatNumber(Math.abs(paymentDifference.value))}`;
+    return useToast(ToastEvents.error, message);
   }
   
   isLoading.value = true;
@@ -566,7 +991,9 @@ async function submitForm() {
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
         appliedDiscount: item.appliedDiscount || 0,
-        priceType: item.priceType
+        priceType: item.priceType,
+        customDiscount: item.customDiscount || 0,
+        customDiscountType: item.customDiscountType || 'amount'
       })),
       paymentDetails: paymentDetails.value,
       subtotal: subtotal.value,

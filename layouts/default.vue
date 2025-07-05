@@ -30,36 +30,47 @@
 
           <!-- Select your business -->
           <div class="bg-base rounded-xl shadow">
-            <button class="flex items-center w-full gap-2 p-4 cursor-pointer" @click="tooltip.toggleTooltip">
-              <div class="flex justify-center items-center w-[2.7rem] h-[2.7rem] rounded-full bg-white shrink-0">
-                <MaterialSymbolsLightPetSupplies
-                  v-if="!indexStore.currentBusiness.imageUrlThumbnail"
-                  class="text-gray-600 text-[1.4rem]"
-                />
-                <img
-                  v-else
-                  class="rounded-full w-full h-full object-cover"
-                  :src="indexStore.currentBusiness.imageUrlThumbnail"
-                  alt="Business thumbnail"
-                />
-              </div>
-              <div class="flex flex-col items-start flex-1 min-w-0">
-                <span class="text-md font-medium truncate w-full text-start">{{
-                  indexStore.currentBusiness.name
-                }}</span>
-                <span class="text-xs text-gray-500">{{ indexStore.currentBusiness.type }}</span>
-              </div>
-              <MaterialSymbolsKeyboardArrowDown class="text-gray-600" />
-            </button>
-            <Tooltip ref="tooltip">
-              <template #content>
-                <ul
-                  class="flex flex-col items-start w-fit max-w-[25rem] max-h-[15rem] overflow-y-scroll no-scrollbar rounded-lg"
+            <TooltipStructure
+              title="Seleccionar Negocio"
+              position="bottom-left"
+              tooltip-class="min-w-[25rem]"
+            >
+              <template #trigger="{ openTooltip }">
+                <button 
+                  class="flex items-center w-full gap-2 p-4 cursor-pointer" 
+                  @click="openTooltip"
                 >
-                  <li v-for="business in indexStore.businesses" class="w-full">
+                  <div class="flex justify-center items-center w-[2.7rem] h-[2.7rem] rounded-full bg-white shrink-0">
+                    <MaterialSymbolsLightPetSupplies
+                      v-if="!indexStore.currentBusiness.imageUrlThumbnail"
+                      class="text-gray-600 text-[1.4rem]"
+                    />
+                    <img
+                      v-else
+                      class="rounded-full w-full h-full object-cover"
+                      :src="indexStore.currentBusiness.imageUrlThumbnail"
+                      alt="Business thumbnail"
+                    />
+                  </div>
+                  <div class="flex flex-col items-start flex-1 min-w-0">
+                    <span class="text-md font-medium truncate w-full text-start">{{
+                      indexStore.currentBusiness.name
+                    }}</span>
+                    <span class="text-xs text-gray-500">{{ indexStore.currentBusiness.type }}</span>
+                  </div>
+                  <MaterialSymbolsKeyboardArrowDown class="text-gray-600" />
+                </button>
+              </template>
+              
+              <template #content="{ closeTooltip }">
+                <ul class="flex flex-col items-start w-full max-h-[15rem] overflow-y-auto">
+                  <li v-for="business in indexStore.businesses" :key="business.id" class="w-full">
                     <button
-                      @click="indexStore.changeCurrentBusiness(business.isEmployee ? business.businessId : business.id)"
-                      class="flex justify-between items-center gap-2 p-4 hover:bg-primary/60 w-full text-start"
+                      @click="() => { 
+                        indexStore.changeCurrentBusiness(business.isEmployee ? business.businessId : business.id);
+                        closeTooltip();
+                      }"
+                      class="flex justify-between items-center gap-2 p-3 hover:bg-gray-50 w-full text-start transition-colors"
                     >
                       <div
                         class="shrink-0 flex justify-center items-center w-[2.7rem] h-[2.7rem] rounded-full bg-white"
@@ -78,26 +89,27 @@
                       </div>
                       <IconParkOutlineCheckOne
                         v-if="indexStore.currentBusiness.id == business.id"
-                        class="shrink-0 text-success-600 ms-2 text-success"
+                        class="shrink-0 text-green-600 ms-2"
                       />
                     </button>
                   </li>
                   <li class="w-full">
                     <NuxtLink
-                      class="border-t flex justify-between items-center gap-2 p-4 hover:bg-primary/60 w-full text-start"
+                      class="border-t flex justify-between items-center gap-2 p-3 hover:bg-gray-50 w-full text-start transition-colors"
                       to="/negocios"
+                      @click="closeTooltip"
                     >
                       <div
                         class="shrink-0 flex justify-center items-center w-[2.7rem] h-[2.7rem] rounded-full bg-white"
                       >
                         <GravityUiGear class="text-gray-600 text-[1.4rem]" />
                       </div>
-                      <span class="w-full text-start text-nowrap text-md font-medium">Ver negocios</span></NuxtLink
-                    >
+                      <span class="w-full text-start text-nowrap text-md font-medium">Ver negocios</span>
+                    </NuxtLink>
                   </li>
                 </ul>
               </template>
-            </Tooltip>
+            </TooltipStructure>
           </div>
         </div>
         <ul class="flex flex-col gap-2">
@@ -259,8 +271,7 @@ onClickOutside(menu, () => {
   }
 });
 
-// Refs
-const tooltip = ref(null);
+// Refs removed - no longer needed
 
 // ------ Define Hooks --------
 onMounted(() => {

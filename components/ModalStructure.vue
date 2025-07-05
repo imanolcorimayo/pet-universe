@@ -7,8 +7,8 @@
     >
       <div
         ref="innerContainer"
-        class="bg-white rounded-lg shadow-lg w-full max-w-xl max-h-full flex flex-col relative animate-fadeIn"
-        :class="modalClass"
+        class="bg-white rounded-lg shadow-lg w-full max-h-full flex flex-col relative animate-fadeIn"
+        :class="[modalClass, props.modalClass || 'max-w-xl']"
       >
         <div class="p-4 border-b">
           <slot name="header">

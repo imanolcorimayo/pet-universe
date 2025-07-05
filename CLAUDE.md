@@ -59,9 +59,46 @@ Pet shop management system with dual cash register approach: global business reg
 - **Stores**: Pinia stores for state management (`index.ts`, `cashRegister.ts`, `salesRegister.ts`, `products.ts`, `clients.ts`)
 - **Data Flow**: Standard CRUD with `addDoc`, `updateDoc`, `deleteDoc`, filtered by `businessId`
 - **Components**: Modal-based entity management, naming convention `/entity/EntityDetails.vue`
+- **Tooltips**: Interactive tooltip system using `TooltipStructure.vue` for space-efficient UI controls
 - **Layout**: Sidebar navigation (`default.vue`) with role-based menu visibility
 - **Design**: Tailwind CSS, icons via `~icons/pack-name/icon-name`, toast notifications
 - **Utils**: Common functions in `@/utils/index.ts`, dates with $dayjs
+
+#### Component Naming Conventions
+
+**Subfolder Component Naming Rule:**
+- Components in subfolders must be prefixed with the folder name when used
+- Format: `[FolderName][ComponentName].vue`
+- Usage: `<Sale[ComponentName]>` for components in `/Sale/` folder
+- Exception: If component name already starts with folder name (e.g., `SaleTransaction.vue`), use full name without duplication
+
+**Examples:**
+```vue
+<!-- ✅ Correct Usage -->
+<SaleDiscountTooltip />     <!-- from /Sale/SaleDiscountTooltip.vue -->
+<SalePriceTooltip />        <!-- from /Sale/SalePriceTooltip.vue -->
+<SaleUnitTooltip />         <!-- from /Sale/SaleUnitTooltip.vue -->
+<SaleTransaction />         <!-- from /Sale/SaleTransaction.vue (no SaleSale) -->
+
+<!-- ❌ Incorrect Usage -->
+<DiscountTooltip />         <!-- Wrong - missing Sale prefix -->
+<SaleSaleTransaction />     <!-- Wrong - folder name duplicated -->
+```
+
+#### UI Components Structure
+
+**TooltipStructure.vue** - Base tooltip component for interactive controls:
+- Reusable dropdown-style tooltip positioned relative to trigger button
+- Consistent styling and behavior across the application
+- Used for space-efficient form controls (price selection, discounts, units)
+- Props: `title`, `tooltipClass`, `position` (bottom-left, bottom-right, top-left, top-right)
+- Slots: `trigger`, `content`, `footer`
+- Features: 
+  - Smart positioning with viewport edge detection
+  - Focus trapping, keyboard navigation (ESC to close)
+  - Click-outside-to-close with backdrop
+  - Modal namespace class `tooltip-namespace` for click propagation filtering
+  - Automatic position adjustment when tooltip exceeds viewport boundaries
 
 ## Core System Modules
 
