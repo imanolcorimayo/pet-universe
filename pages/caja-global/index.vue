@@ -21,6 +21,54 @@
       </div>
     </div>
     
+    <!-- Week Navigation -->
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <button
+            @click="goToPreviousWeek"
+            :disabled="isLoading"
+            class="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <LucideChevronLeft class="h-4 w-4" />
+            Semana Anterior
+          </button>
+          
+          <div class="text-center">
+            <div class="text-sm text-gray-500">Semana actual</div>
+            <div class="text-lg font-semibold">{{ getWeekDisplayText() }}</div>
+          </div>
+          
+          <button
+            @click="goToNextWeek"
+            :disabled="isLoading"
+            class="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Semana Siguiente
+            <LucideChevronRight class="h-4 w-4" />
+          </button>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <button
+            @click="goToCurrentWeek"
+            :disabled="isLoading"
+            class="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Semana Actual
+          </button>
+          
+          <input
+            type="date"
+            :value="currentWeekStart"
+            @change="onDateChange"
+            :disabled="isLoading"
+            class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+        </div>
+      </div>
+    </div>
+    
     <!-- Loading State -->
     <div v-if="isLoading" class="flex justify-center items-center py-12">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -223,6 +271,8 @@ import LucidePlus from '~icons/lucide/plus';
 import LucideLock from '~icons/lucide/lock';
 import LucideEdit from '~icons/lucide/edit';
 import LucideFileText from '~icons/lucide/file-text';
+import LucideChevronLeft from '~icons/lucide/chevron-left';
+import LucideChevronRight from '~icons/lucide/chevron-right';
 import PhArrowSquareOut from '~icons/ph/arrow-square-out';
 
 // ----- Define Component Refs ---------
@@ -248,7 +298,9 @@ const {
   transactions,
   isLoading,
   currentBalances,
-  totalBalance
+  totalBalance,
+  currentWeekStart,
+  currentWeekEnd
 } = storeToRefs(globalCashRegisterStore);
 
 // ----- Define Computed Values ---------
@@ -372,6 +424,32 @@ function getPaymentMethodName(code) {
 function editTransaction(transaction) {
   transactionToEdit.value = { ...transaction };
   transactionModal.value.showModal();
+}
+
+// ----- Week Navigation Methods ---------
+function goToPreviousWeek() {
+  globalCashRegisterStore.goToPreviousWeek();
+  globalCashRegisterStore.loadTransactions();
+}
+
+function goToNextWeek() {
+  globalCashRegisterStore.goToNextWeek();
+  globalCashRegisterStore.loadTransactions();
+}
+
+function goToCurrentWeek() {
+  globalCashRegisterStore.initializeCurrentWeek();
+  globalCashRegisterStore.loadTransactions();
+}
+
+function onDateChange(event) {
+  const selectedDate = event.target.value;
+  globalCashRegisterStore.setWeekByDate(selectedDate);
+  globalCashRegisterStore.loadTransactions();
+}
+
+function getWeekDisplayText() {
+  return globalCashRegisterStore.getWeekDisplayText();
 }
 
 // ----- Define Lifecycle Hooks ---------

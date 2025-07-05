@@ -51,6 +51,8 @@ interface GlobalRegisterState {
   isLoading: boolean;
   currentBalances: Record<string, number>; // Real-time balances by payment method
   totalBalance: number; // Overall balance
+  currentWeekStart: string; // ISO date string for current week start (Monday)
+  currentWeekEnd: string; // ISO date string for current week end (Sunday)
 }
 
 // --- Store ---
@@ -59,7 +61,9 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     transactions: [],
     isLoading: false,
     currentBalances: {},
-    totalBalance: 0
+    totalBalance: 0,
+    currentWeekStart: '',
+    currentWeekEnd: ''
   }),
 
   getters: {
@@ -83,11 +87,65 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
   },
 
   actions: {
+    // Initialize current week to this week
+    initializeCurrentWeek() {
+      const { $dayjs } = useNuxtApp();
+      const today = $dayjs();
+      const startOfWeek = today.startOf('week').add(1, 'day'); // Monday
+      const endOfWeek = startOfWeek.add(6, 'day'); // Sunday
+      
+      this.currentWeekStart = startOfWeek.format('YYYY-MM-DD');
+      this.currentWeekEnd = endOfWeek.format('YYYY-MM-DD');
+    },
+
+    // Navigate to previous week
+    goToPreviousWeek() {
+      const { $dayjs } = useNuxtApp();
+      const currentStart = $dayjs(this.currentWeekStart);
+      const newStart = currentStart.subtract(1, 'week');
+      const newEnd = newStart.add(6, 'day');
+      
+      this.currentWeekStart = newStart.format('YYYY-MM-DD');
+      this.currentWeekEnd = newEnd.format('YYYY-MM-DD');
+    },
+
+    // Navigate to next week
+    goToNextWeek() {
+      const { $dayjs } = useNuxtApp();
+      const currentStart = $dayjs(this.currentWeekStart);
+      const newStart = currentStart.add(1, 'week');
+      const newEnd = newStart.add(6, 'day');
+      
+      this.currentWeekStart = newStart.format('YYYY-MM-DD');
+      this.currentWeekEnd = newEnd.format('YYYY-MM-DD');
+    },
+
+    // Set specific week by date
+    setWeekByDate(date: string) {
+      const { $dayjs } = useNuxtApp();
+      const targetDate = $dayjs(date);
+      const startOfWeek = targetDate.startOf('week').add(1, 'day'); // Monday
+      const endOfWeek = startOfWeek.add(6, 'day'); // Sunday
+      
+      this.currentWeekStart = startOfWeek.format('YYYY-MM-DD');
+      this.currentWeekEnd = endOfWeek.format('YYYY-MM-DD');
+    },
+
+    // Get formatted week display
+    getWeekDisplayText() {
+      const { $dayjs } = useNuxtApp();
+      const startDate = $dayjs(this.currentWeekStart);
+      const endDate = $dayjs(this.currentWeekEnd);
+      
+      return `${startDate.format('DD/MM/YYYY')} - ${endDate.format('DD/MM/YYYY')}`;
+    },
+
     async loadTransactions() {
       const db = useFirestore();
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
       const indexStore = useIndexStore();
+      const { $dayjs } = useNuxtApp();
       
       if (!user.value?.uid || !currentBusinessId.value) return;
       
@@ -96,12 +154,23 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         throw new Error('No tienes permisos para acceder a la caja global');
       }
 
+      // Initialize current week if not set
+      if (!this.currentWeekStart || !this.currentWeekEnd) {
+        this.initializeCurrentWeek();
+      }
+
       this.isLoading = true;
       try {
-        // Load all transactions for this business
+        // Convert week dates to Timestamps for Firestore query
+        const weekStartTimestamp = Timestamp.fromDate($dayjs(this.currentWeekStart).toDate());
+        const weekEndTimestamp = Timestamp.fromDate($dayjs(this.currentWeekEnd).add(1, 'day').toDate());
+        
+        // Load transactions for this business within the current week
         const q = query(
           collection(db, 'globalRegisterTransaction'),
           where('businessId', '==', currentBusinessId.value),
+          where('createdAt', '>=', weekStartTimestamp),
+          where('createdAt', '<', weekEndTimestamp),
           orderBy('createdAt', 'desc')
         );
         const snapshot = await getDocs(q);
