@@ -91,6 +91,9 @@ interface InventoryAdditionData {
   supplierId?: string | null;
   supplierName?: string | null;
   notes?: string;
+  paymentMethod?: string;
+  isReported?: boolean;
+  createGlobalTransaction?: boolean;
 }
 
 interface InventoryReductionData {
@@ -102,6 +105,9 @@ interface InventoryReductionData {
   reason?: string | null;
   notes?: string;
   isLoss: boolean; // true for losses, false for returns
+  paymentMethod?: string;
+  isReported?: boolean;
+  createGlobalTransaction?: boolean;
 }
 
 interface InventoryAdjustmentToValuesData {
@@ -816,6 +822,29 @@ export const useInventoryStore = defineStore("inventory", {
         });
         
         if (success) {
+          // Create global cash register transaction if requested
+          if (data.createGlobalTransaction && data.paymentMethod) {
+            try {
+              const globalCashRegisterStore = useGlobalCashRegisterStore();
+              const productStore = useProductStore();
+              const product = productStore.getProductById(data.productId);
+              const totalAmount = data.unitsChange * data.unitCost;
+              
+              await globalCashRegisterStore.addTransaction({
+                type: 'expense',
+                category: 'COMPRAS',
+                description: `Compra de inventario: ${product?.name || 'Producto'} (${data.unitsChange} unidades)${data.supplierName ? ` - ${data.supplierName}` : ''}`,
+                amount: totalAmount,
+                paymentMethod: data.paymentMethod,
+                isReported: data.isReported ?? true,
+                notes: data.notes || '',
+              });
+            } catch (globalTransactionError) {
+              console.error('Error creating global transaction:', globalTransactionError);
+              useToast(ToastEvents.warning, "Inventario actualizado pero no se pudo registrar la transacción global");
+            }
+          }
+          
           // Update local cache
           const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
           if (index >= 0) {
@@ -923,6 +952,29 @@ export const useInventoryStore = defineStore("inventory", {
         });
         
         if (success) {
+          // Create global cash register transaction for returns if requested
+          if (data.createGlobalTransaction && !data.isLoss && data.paymentMethod) {
+            try {
+              const globalCashRegisterStore = useGlobalCashRegisterStore();
+              const productStore = useProductStore();
+              const product = productStore.getProductById(data.productId);
+              const totalAmount = actualUnitsChange * (inventoryData.averageCost || 0);
+              
+              await globalCashRegisterStore.addTransaction({
+                type: 'income',
+                category: 'DEVOLUCIONES',
+                description: `Devolución de inventario: ${product?.name || 'Producto'} (${actualUnitsChange} unidades)${data.supplierName ? ` - ${data.supplierName}` : ''}`,
+                amount: totalAmount,
+                paymentMethod: data.paymentMethod,
+                isReported: data.isReported ?? true,
+                notes: data.notes || '',
+              });
+            } catch (globalTransactionError) {
+              console.error('Error creating global transaction:', globalTransactionError);
+              useToast(ToastEvents.warning, "Inventario actualizado pero no se pudo registrar la transacción global");
+            }
+          }
+          
           // Update local cache
           const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
           if (index >= 0) {

@@ -270,6 +270,55 @@
           </div>
         </div>
 
+        <!-- Payment Method -->
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-medium text-gray-700">Método de pago</label>
+          <select
+            v-model="paymentMethod"
+            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+            :class="{ 'text-gray-400': !paymentMethod }"
+            :disabled="isSubmitting"
+          >
+            <option :value="null" disabled>
+              -- Seleccione un método de pago --
+            </option>
+            <option 
+              v-for="(method, code) in indexStore.getActivePaymentMethods" 
+              :key="code" 
+              :value="code"
+            >
+              {{ method.name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- White/Black classification -->
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-medium text-gray-700">Tipo de transacción</label>
+          <div class="flex gap-4">
+            <label class="flex items-center">
+              <input
+                type="radio"
+                v-model="isReported"
+                :value="true"
+                class="mr-2 radio-custom"
+                :disabled="isSubmitting"
+              />
+              <span class="text-sm">Reportada (Blanca)</span>
+            </label>
+            <label class="flex items-center">
+              <input
+                type="radio"
+                v-model="isReported"
+                :value="false"
+                class="mr-2 radio-custom"
+                :disabled="isSubmitting"
+              />
+              <span class="text-sm">No reportada (Negra)</span>
+            </label>
+          </div>
+        </div>
+
         <!-- Notes -->
         <div class="flex flex-col gap-2">
           <label class="text-sm font-medium text-gray-700">Notas de la compra</label>
@@ -346,6 +395,8 @@ const confirmDialog = ref(null);
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 const suppliersStore = useSupplierStore();
+const globalCashRegisterStore = useGlobalCashRegisterStore();
+const indexStore = useIndexStore();
 const loading = ref(false);
 const isSubmitting = ref(false);
 
@@ -358,6 +409,10 @@ const filteredSuppliers = ref([]);
 // Product items
 const productItems = ref([]);
 const purchaseNotes = ref('');
+
+// Payment information
+const paymentMethod = ref(null);
+const isReported = ref(true);
 
 // ----- Computed Properties ---------
 const validProductItems = computed(() => {
@@ -375,7 +430,7 @@ const totalPurchaseAmount = computed(() => {
 });
 
 const isFormValid = computed(() => {
-  return selectedSupplier.value && validProductItems.value.length > 0;
+  return selectedSupplier.value && validProductItems.value.length > 0 && paymentMethod.value;
 });
 
 // ----- Define Methods ---------
@@ -399,6 +454,8 @@ function resetForm() {
   filteredSuppliers.value = [];
   productItems.value = [];
   purchaseNotes.value = '';
+  paymentMethod.value = null;
+  isReported.value = true;
 }
 
 // Supplier methods
@@ -563,6 +620,11 @@ function calculateNewAverageCost(item) {
 async function loadData() {
   loading.value = true;
   try {
+    // Load business config for payment methods
+    if (!indexStore.businessConfigFetched) {
+      await indexStore.loadBusinessConfig();
+    }
+    
     // Load suppliers
     await suppliersStore.fetchSuppliers();
     
@@ -610,6 +672,9 @@ async function savePurchase() {
         supplierId: selectedSupplier.value.id,
         supplierName: selectedSupplier.value.name,
         notes: purchaseNotes.value || `Compra de proveedor: ${selectedSupplier.value.name}`,
+        paymentMethod: paymentMethod.value,
+        isReported: isReported.value,
+        createGlobalTransaction: true,
       });
 
       if (success) {

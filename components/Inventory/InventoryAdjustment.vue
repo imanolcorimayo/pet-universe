@@ -404,6 +404,58 @@
             </div>
           </div>
 
+          <!-- Payment Method for addition/return types -->
+          <div 
+            v-if="formData.movementType === 'addition' || formData.movementType === 'return'"
+            class="flex flex-col gap-2 mt-4"
+          >
+            <label class="text-sm font-medium text-gray-700">Método de pago</label>
+            <select
+              v-model="formData.paymentMethod"
+              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              :class="{ 'text-gray-400': !formData.paymentMethod }"
+            >
+              <option :value="null" disabled>
+                -- Seleccione un método de pago --
+              </option>
+              <option 
+                v-for="(method, code) in indexStore.getActivePaymentMethods" 
+                :key="code" 
+                :value="code"
+              >
+                {{ method.name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- White/Black classification for addition/return types -->
+          <div 
+            v-if="formData.movementType === 'addition' || formData.movementType === 'return'"
+            class="flex flex-col gap-2 mt-4"
+          >
+            <label class="text-sm font-medium text-gray-700">Tipo de transacción</label>
+            <div class="flex gap-4">
+              <label class="flex items-center">
+                <input
+                  type="radio"
+                  v-model="formData.isReported"
+                  :value="true"
+                  class="mr-2 radio-custom"
+                />
+                <span class="text-sm">Reportada (Blanca)</span>
+              </label>
+              <label class="flex items-center">
+                <input
+                  type="radio"
+                  v-model="formData.isReported"
+                  :value="false"
+                  class="mr-2 radio-custom"
+                />
+                <span class="text-sm">No reportada (Negra)</span>
+              </label>
+            </div>
+          </div>
+
           <!-- Notes field - shown for all types -->
           <div class="flex flex-col gap-2 mt-4">
             <label class="text-sm font-medium text-gray-700"
@@ -599,6 +651,8 @@ const mainModal = ref(null);
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 const suppliersStore = useSupplierStore();
+const globalCashRegisterStore = useGlobalCashRegisterStore();
+const indexStore = useIndexStore();
 const loading = ref(false);
 const isSubmitting = ref(false);
 const inventoryData = ref(null);
@@ -649,6 +703,10 @@ const formData = ref({
   unitsToConvert: 1,
   weightPerUnit: 0,
 
+  // For global cash register
+  paymentMethod: null,
+  isReported: true,
+
   // Common for all
   reason: "",
   notes: "",
@@ -681,9 +739,10 @@ const isFormValid = computed(() => {
 
   switch (formData.value.movementType) {
     case "addition":
-      // For additions, need positive values and cost
+      // For additions, need positive values, cost, and payment method
       if (formData.value.unitsChange <= 0) return false;
       if (formData.value.unitCost <= 0) return false;
+      if (!formData.value.paymentMethod) return false;
       return true;
 
     case "loss":
@@ -709,13 +768,14 @@ const isFormValid = computed(() => {
       return true;
 
     case "return":
-      // For returns, need positive values
+      // For returns, need positive values and payment method
       if (
         formData.value.unitsChange <= 0 &&
         (product.value?.trackingType === "unit" ||
           formData.value.weightChange <= 0)
       )
         return false;
+      if (!formData.value.paymentMethod) return false;
       return true;
       
     case "convert":
@@ -788,6 +848,8 @@ function resetForm() {
     newWeight: 0,
     newCost: 0,
     lossReason: null,
+    paymentMethod: null,
+    isReported: true,
     reason: "",
     notes: "",
   };
@@ -908,6 +970,11 @@ function calculateFromTotal() {
 async function loadInventoryData() {
   loading.value = true;
   try {
+    // Load business config for payment methods
+    if (!indexStore.businessConfigFetched) {
+      await indexStore.loadBusinessConfig();
+    }
+    
     // Load inventory data for product
     inventoryData.value = await inventoryStore.fetchInventoryForProduct(
       props.productId
@@ -1097,6 +1164,9 @@ async function saveAdjustment() {
           supplierId: formData.value.supplierId,
           supplierName: formData.value.supplierName,
           notes: formData.value.notes,
+          paymentMethod: formData.value.paymentMethod,
+          isReported: formData.value.isReported,
+          createGlobalTransaction: true,
         });
         break;
 
@@ -1130,6 +1200,9 @@ async function saveAdjustment() {
           supplierName: formData.value.supplierName,
           notes: formData.value.notes,
           isLoss: false,
+          paymentMethod: formData.value.paymentMethod,
+          isReported: formData.value.isReported,
+          createGlobalTransaction: true,
         });
         break;
 

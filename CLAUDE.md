@@ -91,10 +91,6 @@ Pet shop management system with dual cash register approach: global business reg
 - **Data**: Supplier profiles, purchase history, payment schedules, outstanding balances
 - **Store**: `suppliers.ts` | **Collections**: `supplier`
 
-#### 6. Payment Methods
-- **Methods**: EFECTIVO (EFT), SANTANDER, MACRO, UALÁ, Mercado Pago (MPG), Naranja X/Viumi (VAT), TDB, TCR, TRA
-- **Store**: `payments.ts` | **Collections**: `businessConfig`
-
 ## Page Structure
 
 All pages use modal-based entity management:
