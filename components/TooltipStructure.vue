@@ -74,6 +74,8 @@ const props = defineProps({
   }
 });
 
+const emit = defineEmits(['close-tooltip']);
+
 // State
 const isOpen = ref(false);
 const triggerContainer = ref(null);
@@ -187,6 +189,7 @@ function calculatePosition() {
 
 function closeTooltip() {
   isOpen.value = false;
+  emit('close-tooltip');
 }
 
 // Animation event handlers

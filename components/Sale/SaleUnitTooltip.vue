@@ -1,5 +1,5 @@
 <template>
-  <TooltipStructure title="Tipo de Unidad" :position="position">
+  <TooltipStructure title="Tipo de Unidad" :position="position" @close-tooltip="$emit('close-tooltip')">
     <template #trigger="{ openTooltip }">
       <slot name="trigger" :open-tooltip="openTooltip">
         <button
@@ -35,8 +35,8 @@
           
           <div class="space-y-2">
             <!-- Unit option -->
-            <div
-              class="border rounded-lg p-3 cursor-pointer transition-colors hover:bg-gray-50"
+            <button
+              class="border rounded-lg p-3 cursor-pointer transition-colors hover:bg-gray-50 w-full text-start"
               :class="selectedUnitType === 'unit' ? 'border-primary bg-primary/5' : 'border-gray-200'"
               @click="selectAndApplyUnitType('unit', closeTooltip)"
             >
@@ -52,12 +52,12 @@
                   </p>
                 </div>
               </div>
-            </div>
+            </button>
             
             <!-- Kg option -->
-            <div
+            <button
               v-if="canSellByWeight"
-              class="border rounded-lg p-3 cursor-pointer transition-colors hover:bg-gray-50"
+              class="border rounded-lg p-3 cursor-pointer transition-colors hover:bg-gray-50 w-full text-start"
               :class="selectedUnitType === 'kg' ? 'border-primary bg-primary/5' : 'border-gray-200'"
               @click="selectAndApplyUnitType('kg', closeTooltip)"
             >
@@ -76,7 +76,7 @@
                   </p>
                 </div>
               </div>
-            </div>
+            </button>
           </div>
         </div>
         
@@ -129,7 +129,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(['apply-unit-type']);
+const emit = defineEmits(['apply-unit-type', 'close-tooltip']);
 
 // Local state
 const selectedUnitType = ref(props.currentUnitType);
@@ -144,19 +144,9 @@ const canChangeUnit = computed(() => {
   return canSellByWeight.value;
 });
 
-// Methods
-function selectUnitType(unitType) {
-  selectedUnitType.value = unitType;
-}
-
 function selectAndApplyUnitType(unitType, closeTooltip) {
   selectedUnitType.value = unitType;
   emit('apply-unit-type', unitType);
-  closeTooltip();
-}
-
-function applyUnitType(closeTooltip) {
-  emit('apply-unit-type', selectedUnitType.value);
   closeTooltip();
 }
 

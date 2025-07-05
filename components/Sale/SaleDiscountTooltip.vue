@@ -1,5 +1,5 @@
 <template>
-  <TooltipStructure title="Descuento del Producto" :position="position" ref="tooltipRef">
+  <TooltipStructure title="Descuento del Producto" :position="position" ref="tooltipRef" @close-tooltip="$emit('close-tooltip')">
     <template #trigger="{ openTooltip }">
       <slot name="trigger" :open-tooltip="openTooltip">
         <button
@@ -157,7 +157,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(['apply-discount', 'clear-discount']);
+const emit = defineEmits(['apply-discount', 'clear-discount', 'close-tooltip']);
 
 // Local state
 const localDiscount = ref(props.currentDiscount);

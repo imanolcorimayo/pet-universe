@@ -1,5 +1,5 @@
 <template>
-  <TooltipStructure title="Precio del Producto" :position="position">
+  <TooltipStructure title="Precio del Producto" :position="position" @close-tooltip="$emit('close-tooltip')">
     <template #trigger="{ openTooltip }">
       <slot name="trigger" :open-tooltip="openTooltip">
         <button
@@ -36,10 +36,10 @@
           <h4 class="text-sm font-medium text-gray-700">Seleccionar tipo de precio</h4>
           
           <div class="space-y-2">
-            <div
+            <button
               v-for="(priceInfo, priceType) in availablePrices"
               :key="priceType"
-              class="border rounded-lg p-3 cursor-pointer transition-colors hover:bg-gray-50"
+              class="border rounded-lg p-3 cursor-pointer transition-colors hover:bg-gray-50 w-full text-start"
               :class="selectedPriceType === priceType ? 'border-primary bg-primary/5' : 'border-gray-200'"
               @click="selectAndApplyPrice(priceType, closeTooltip)"
             >
@@ -59,7 +59,7 @@
                   Descuento: ${{ formatNumber(priceInfo.discount) }} ({{ formatNumber((priceInfo.discount / regularPrice) * 100) }}%)
                 </span>
               </div>
-            </div>
+            </button>
           </div>
         </div>
         
@@ -154,7 +154,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(['apply-price']);
+const emit = defineEmits(['apply-price', 'close-tooltip']);
 
 // Local state
 const selectedPriceType = ref(props.currentPriceType);

@@ -21,6 +21,7 @@
               v-model="selectedClientId"
               class="w-full !p-2 border rounded-md"
               :disabled="isLoading"
+              ref="clientSelect"
             >
               <option value="">Cliente Casual</option>
               <option v-for="client in clients" :key="client.id" :value="client.id">
@@ -50,14 +51,6 @@
             </label>
             <p class="text-sm text-gray-600 mt-1">Agrega los productos que el cliente está comprando</p>
           </div>
-          <button
-            type="button"
-            @click="addProductRow"
-            class="text-sm bg-primary text-white px-3 py-2 rounded-md flex items-center hover:bg-primary/90"
-            :disabled="isLoading"
-          >
-            <LucidePlus class="w-4 h-4 mr-1" /> Agregar Producto
-          </button>
         </div>
         
         <!-- Products List - Responsive Design -->
@@ -80,10 +73,12 @@
                 <tr v-for="(item, index) in saleItems" :key="index" class="hover:bg-gray-50">
                   <td class="px-3 py-2">
                     <select
+                      :ref="el => setProductSelectRef(el, index)"
                       v-model="item.productId"
                       class="w-full p-1.5 border rounded-md text-sm"
                       :disabled="isLoading"
                       @change="updateProductDetails(index)"
+                      :id="`product-select-${index}`"
                     >
                       <option value="" disabled>Seleccionar producto</option>
                       <option v-for="product in products" :key="product.id" :value="product.id">
@@ -114,6 +109,7 @@
                         :allows-loose-sales="getProduct(item.productId)?.allowsLooseSales || false"
                         :inventory-info="getProductStock(item.productId)"
                         position="bottom-left"
+                        @close-tooltip="focusElementById(`unit-type-button-${index}`)"
                         @apply-unit-type="(unitType) => onUnitTypeChange(index, unitType)"
                       >
                         <template #trigger="{ openTooltip }">
@@ -123,6 +119,7 @@
                             :class="canSellByWeight(item.productId) ? 'text-blue-600 border-blue-300 bg-blue-50' : 'text-gray-400 border-gray-200 bg-gray-50'"
                             title="Cambiar tipo de unidad"
                             :disabled="!canSellByWeight(item.productId)"
+                            :id="`unit-type-button-${index}`"
                           >
                             <LucidePackage class="w-3 h-3" />
                           </button>
@@ -147,9 +144,11 @@
                         :tracking-type="getProduct(item.productId)?.trackingType || 'unit'"
                         position="bottom-right"
                         @apply-price="(priceData) => onPriceChange(index, priceData)"
+                        @close-tooltip="focusElementById(`price-button-${index}`)"
                       >
                         <template #trigger="{ openTooltip }">
                           <button
+                            :id="`price-button-${index}`"
                             @click="openTooltip"
                             class="p-1 text-xs border rounded hover:bg-blue-50 hover:border-blue-300 transition-colors"
                             :class="getPriceDiscount(item) > 0 ? 'text-blue-600 border-blue-300 bg-blue-50' : 'text-blue-600 border-blue-200'"
@@ -181,9 +180,11 @@
                         position="bottom-right"
                         @apply-discount="(discountData) => onDiscountChange(index, discountData)"
                         @clear-discount="() => onDiscountClear(index)"
+                        @close-tooltip="focusElementById(`discount-button-${index}`)"
                       >
                         <template #trigger="{ openTooltip }">
                           <button
+                            :id="`discount-button-${index}`"
                             @click="openTooltip"
                             class="p-1 text-xs border rounded hover:bg-green-50 hover:border-green-300 transition-colors"
                             :class="item.customDiscount > 0 ? 'text-green-600 border-green-300 bg-green-50' : 'text-green-600 border-green-200'"
@@ -227,6 +228,18 @@
             </table>
           </div>
           
+          <!-- Add Product Button - moved to bottom -->
+          <div class="flex justify-end mt-3">
+            <button
+              type="button"
+              @click="addProductRow"
+              class="text-sm bg-primary text-white px-3 py-2 rounded-md flex items-center hover:bg-primary/90"
+              :disabled="isLoading"
+            >
+              <LucidePlus class="w-4 h-4 mr-1" /> Agregar Producto
+            </button>
+          </div>
+          
           <!-- Mobile Cards (visible on mobile only) -->
           <div class="md:hidden space-y-3">
             <div v-if="saleItems.length === 0" class="text-center py-8 text-gray-500 border rounded-md">
@@ -250,6 +263,7 @@
               <div class="mb-3">
                 <label class="block text-xs font-medium text-gray-600 mb-1">Producto</label>
                 <select
+                  :ref="el => setProductSelectRef(el, index)"
                   v-model="item.productId"
                   class="w-full p-2 border rounded-md text-sm"
                   :disabled="isLoading"
@@ -292,6 +306,7 @@
                       :allows-loose-sales="getProduct(item.productId)?.allowsLooseSales || false"
                       :inventory-info="getProductStock(item.productId)"
                       position="bottom-right"
+                      @close-tooltip="focusElementById(`unit-type-button-mobile-${index}`)"
                       @apply-unit-type="(unitType) => onUnitTypeChange(index, unitType)"
                     >
                       <template #trigger="{ openTooltip }">
@@ -301,6 +316,7 @@
                           :class="canSellByWeight(item.productId) ? 'text-blue-600 border-blue-300 bg-blue-50' : 'text-gray-400 border-gray-200 bg-gray-50'"
                           title="Cambiar tipo de unidad"
                           :disabled="!canSellByWeight(item.productId)"
+                          :id="`unit-type-button-mobile-${index}`"
                         >
                           <LucideSettings class="w-4 h-4" />
                         </button>
@@ -331,9 +347,11 @@
                     :tracking-type="getProduct(item.productId)?.trackingType || 'unit'"
                     position="bottom-right"
                     @apply-price="(priceData) => onPriceChange(index, priceData)"
+                    @close-tooltip="focusElementById(`price-button-mobile-${index}`)"
                   >
                     <template #trigger="{ openTooltip }">
                       <button
+                        :id="`price-button-mobile-${index}`"
                         @click="openTooltip"
                         class="p-2 border rounded-md hover:bg-blue-50 hover:border-blue-300 transition-colors"
                         :class="getPriceDiscount(item) > 0 ? 'text-blue-600 border-blue-300 bg-blue-50' : 'text-blue-600 border-blue-200 bg-blue-25'"
@@ -371,9 +389,11 @@
                     position="bottom-right"
                     @apply-discount="(discountData) => onDiscountChange(index, discountData)"
                     @clear-discount="() => onDiscountClear(index)"
+                    @close-tooltip="focusElementById(`discount-button-mobile-${index}`)"
                   >
                     <template #trigger="{ openTooltip }">
                       <button
+                        :id="`discount-button-mobile-${index}`"
                         @click="openTooltip"
                         class="p-2 border rounded-md hover:bg-green-50 hover:border-green-300 transition-colors"
                         :class="item.customDiscount > 0 ? 'text-green-600 border-green-300 bg-green-50' : 'text-green-600 border-green-200 bg-green-25'"
@@ -409,6 +429,18 @@
                   </div>
                 </div>
               </div>
+            </div>
+            
+            <!-- Add Product Button - moved to bottom for mobile -->
+            <div class="flex justify-center mt-4">
+              <button
+                type="button"
+                @click="addProductRow"
+                class="text-sm bg-primary text-white px-4 py-2 rounded-md flex items-center hover:bg-primary/90"
+                :disabled="isLoading"
+              >
+                <LucidePlus class="w-4 h-4 mr-1" /> Agregar Producto
+              </button>
             </div>
           </div>
         </div>
@@ -572,6 +604,10 @@ const paymentDetails = ref([]);
 const isReported = ref(true);
 const notes = ref('');
 
+// Refs for focus management
+const productSelectRefs = ref([]);
+const clientSelect = ref(null);
+
 // Store access
 const indexStore = useIndexStore();
 const saleStore = useSaleStore();
@@ -580,8 +616,8 @@ const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 
 // Load product and client data
-const { clients, isLoadingClients } = storeToRefs(clientStore);
-const { products, isLoadingProducts } = storeToRefs(productStore);
+const { clients } = storeToRefs(clientStore);
+const { products } = storeToRefs(productStore);
 const { inventoryItems } = storeToRefs(inventoryStore);
 
 // Computed properties
@@ -636,13 +672,22 @@ function initializeForm() {
   paymentDetails.value = [{ paymentMethod: 'EFECTIVO', amount: 0 }];
   isReported.value = true;
   notes.value = '';
+  productSelectRefs.value = [];
   
   // Add first empty product row
   addProductRow();
 }
 
+// Focus management
+function setProductSelectRef(el, index) {
+  if (el) {
+    productSelectRefs.value[index] = el;
+  }
+}
+
 // Methods for product management
 function addProductRow() {
+  const newIndex = saleItems.value.length;
   saleItems.value.push({
     productId: '',
     productName: '',
@@ -656,6 +701,9 @@ function addProductRow() {
     customDiscount: 0,
     customDiscountType: 'amount' // 'amount' or 'percentage'
   });
+  
+  // Focus the new product select after DOM update
+  focusElementById(`product-select-${newIndex}`);
 }
 
 function removeProductRow(index) {
@@ -736,6 +784,15 @@ function updatePriceFromType(index) {
     // Update total
     updateItemTotal(index);
   }
+}
+
+function focusElementById(elementId) {
+  nextTick(() => {
+    const button = document.querySelector(`#${elementId}`);
+    if (button) {
+      button.focus();
+    }
+  });
 }
 
 function updateItemTotal(index) {
@@ -1043,6 +1100,13 @@ async function showModal() {
     
     // Show the modal after data is loaded
     modalRef.value?.showModal();
+    // Focus the client select input
+    nextTick(() => {
+
+      if (clientSelect.value) {
+        clientSelect.value.focus();
+      }
+    });
   } catch (error) {
     console.error("Error loading sale data:", error);
     useToast(ToastEvents.error, "Hubo un error al preparar la venta. Por favor intenta nuevamente.");
