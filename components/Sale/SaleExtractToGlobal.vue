@@ -3,7 +3,6 @@
     ref="modal"
     title="Extraer a Caja Global"
     modal-class="max-w-2xl"
-    @on-close="closeModal"
   >
     <form @submit.prevent="extractToGlobal">
       <div class="space-y-4">
@@ -117,9 +116,6 @@ const props = defineProps({
     default: null
   }
 })
-
-// ----- Emits -----
-const emit = defineEmits(['extraction-completed'])
 
 // ----- Store References -----
 const saleStore = useSaleStore()
@@ -236,7 +232,6 @@ async function extractToGlobal() {
     })
     
     useToast(ToastEvents.success, 'Extracción realizada exitosamente')
-    emit('extraction-completed')
     closeModal()
   } catch (error) {
     console.error('Error extracting to global:', error.message)
