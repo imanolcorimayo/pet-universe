@@ -37,12 +37,12 @@
         
         <button
           v-if="isRegisterOpen"
-          @click="expenseModal.showModal()"
+          @click="extractToGlobalModal.showModal()"
           class="btn bg-secondary text-white hover:bg-secondary/90"
         >
           <span class="flex items-center gap-1">
-            <LucideMinus class="h-4 w-4" />
-            Nuevo Gasto
+            <LucideArrowUpFromLine class="h-4 w-4" />
+            Extraer a Caja Global
           </span>
         </button>
         
@@ -89,11 +89,8 @@
         </div>
         
         <div class="p-3 bg-blue-50 rounded-md">
-          <div class="text-sm text-blue-700">Balance</div>
-          <div 
-            class="text-xl font-bold"
-            :class="todayNetAmount >= 0 ? 'text-green-700' : 'text-red-700'"
-          >
+          <div class="text-sm text-blue-700">Balance Actual</div>
+          <div class="text-xl font-bold text-blue-700">
             {{ formatCurrency(todayNetAmount) }}
           </div>
         </div>
@@ -219,82 +216,80 @@
       </div>
       
       <!-- Expenses Tab -->
-      <div class="mt-6 bg-white rounded-lg shadow">
-        <div class="px-4 py-3 border-b border-gray-200">
-          <h2 class="font-semibold">Gastos del día</h2>
-        </div>
-        
-        <!-- Expenses Table -->
-        <div v-if="expenses.length > 0" class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Categoría
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Descripción
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Monto
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Método
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="expense in expenses" :key="expense.id">
-                <td class="px-6 py-4 whitespace-nowrap">
-                  {{ getCategoryName(expense.category) }}
-                </td>
-                <td class="px-6 py-4">
-                  <div class="text-sm text-gray-900">{{ expense.description }}</div>
-                  <div v-if="expense.notes" class="text-xs text-gray-500">{{ expense.notes }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap font-medium text-red-600">
-                  {{ formatCurrency(expense.amount) }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  {{ getPaymentMethodName(expense.paymentMethod) }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span 
-                    class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                    :class="expense.isReported ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'"
-                  >
-                    {{ expense.isReported ? 'Declarado' : 'No declarado' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        
-        <!-- Empty Expenses List -->
-        <div v-else class="p-6 text-center">
-          <div class="mb-4 flex justify-center">
-            <LucideFileText class="w-12 h-12 text-gray-400" />
+      <div class="mt-6">
+        <div class="bg-white rounded-lg shadow">
+          <div class="px-4 py-3 border-b border-gray-200">
+            <h2 class="font-semibold">Gastos del día</h2>
           </div>
-          <h2 class="text-xl font-semibold mb-2">No hay gastos</h2>
-          <p class="text-gray-600 mb-4">No se han registrado gastos en esta caja todavía</p>
-          <button 
-            @click="expenseModal.showModal()"
-            class="btn bg-secondary text-white hover:bg-secondary/90"
-          >
-            Registrar Gasto
-          </button>
+          
+          <!-- Expenses Table -->
+          <div v-if="expenses.length > 0" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Categoría
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Descripción
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Importe
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Pago
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="expense in expenses" :key="expense.id">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">{{ expense.category }}</div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="text-sm text-gray-900">{{ expense.description }}</div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                    {{ formatCurrency(expense.amount) }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ getPaymentMethodName(expense.paymentMethod) }}
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span 
+                      class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                      :class="expense.isReported ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'"
+                    >
+                      {{ expense.isReported ? 'Declarado' : 'No declarado' }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Empty Expenses List -->
+          <div v-else class="p-6 text-center">
+            <div class="mb-4 flex justify-center">
+              <LucideFileText class="w-12 h-12 text-gray-400" />
+            </div>
+            <h2 class="text-xl font-semibold mb-2">No hay gastos</h2>
+            <p class="text-gray-600 mb-4">No se han registrado gastos en esta caja todavía</p>
+          </div>
         </div>
       </div>
+      
     </div>
     
     <!-- Modals -->
     <SaleRegisterOpening ref="openRegisterModal" @register-opened="reloadData" />
     <SaleTransaction ref="createSaleModal" @sale-completed="reloadData" />
-    <SaleExpenseEntry ref="expenseModal" @expense-added="reloadData" />
+    <SaleExtractToGlobal ref="extractToGlobalModal" :current-register="currentRegister" />
     <SaleRegisterClosing ref="closeRegisterModal" @register-closed="reloadData" />
     <SaleDetails ref="saleDetailsModal" :sale="selectedSale" />
   </div>
@@ -306,14 +301,14 @@ import { formatCurrency } from '~/utils';
 
 import LucideUnlock from '~icons/lucide/unlock';
 import LucidePlus from '~icons/lucide/plus';
-import LucideMinus from '~icons/lucide/minus';
+import LucideArrowUpFromLine from '~icons/lucide/arrow-up-from-line';
 import LucideLock from '~icons/lucide/lock';
 import LucideFileText from '~icons/lucide/file-text';
 
 // ----- Component Refs ---------
 const openRegisterModal = ref(null);
 const createSaleModal = ref(null);
-const expenseModal = ref(null);
+const extractToGlobalModal = ref(null);
 const closeRegisterModal = ref(null);
 const saleDetailsModal = ref(null);
 const selectedSale = ref(null);
@@ -369,9 +364,6 @@ function getPaymentMethodName(code) {
   return indexStore.businessConfig?.paymentMethods?.[code]?.name || code;
 }
 
-function getCategoryName(category) {
-  return indexStore.businessConfig?.expenseCategories?.[category]?.name || category;
-}
 
 function viewSaleDetails(sale) {
   selectedSale.value = sale;

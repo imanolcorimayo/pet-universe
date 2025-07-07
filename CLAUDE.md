@@ -64,6 +64,27 @@ Pet shop management system with dual cash register approach: global business reg
 - **Design**: Tailwind CSS, icons via `~icons/pack-name/icon-name`, toast notifications
 - **Utils**: Common functions in `@/utils/index.ts`, dates with $dayjs
 
+#### Firebase Optimization Guidelines
+- **MANDATORY**: Use local variable caching to minimize Firebase API calls
+- **Initial Load**: Fetch data once per session/register/week, store in local state
+- **After Operations**: Update local arrays directly, avoid re-fetching from Firebase
+- **Cache Pattern**: `loadInitialData()` → `addToCache()` → `updateInCache()` → `refreshFromFirebase()`
+- **Cache Invalidation**: Clear cache on context changes (register switch, week navigation)
+- **Implementation**: 
+  - Sales Store: `loadInitialRegisterData()`, `addSaleToCache()`, `addExpenseToCache()`
+  - Global Store: `loadInitialTransactions()`, `addTransactionToCache()`, `updateTransactionInCache()`
+- **Benefits**: Reduced API costs, faster UI updates, better user experience
+- **Trade-off**: Manual refresh needed after page reload (acceptable)
+
+#### Business Configuration Rules
+- **MANDATORY**: All payment methods and categories MUST be dynamic from `businessConfig`
+- **Payment Methods**: Use `indexStore.getActivePaymentMethods` or `indexStore.businessConfig.paymentMethods`
+- **Income Categories**: Use `indexStore.getActiveIncomeCategories` or `indexStore.businessConfig.incomeCategories`
+- **Expense Categories**: Use `indexStore.getActiveExpenseCategories` or `indexStore.businessConfig.expenseCategories`
+- **Never hardcode**: Payment methods, categories, or any business configuration values
+- **Access Pattern**: Always filter by `active: true` when displaying options to users
+- **Management**: Configuration managed through `index.ts` store methods (`addPaymentMethod`, `updateCategory`, etc.)
+
 #### Component Naming Conventions
 
 **Subfolder Component Naming Rule:**
@@ -99,6 +120,21 @@ Pet shop management system with dual cash register approach: global business reg
   - Click-outside-to-close with backdrop
   - Modal namespace class `tooltip-namespace` for click propagation filtering
   - Automatic position adjustment when tooltip exceeds viewport boundaries
+
+**ModalStructure.vue** - Base modal component for all modal dialogs:
+- **MANDATORY**: All modal dialogs MUST use ModalStructure.vue as the base component
+- Consistent modal behavior, styling, and functionality across the application
+- Props: `title`, `modalClass`, `closeOnBackdropClick`, `clickPropagationFilter`, `modalNamespace`
+- Slots: `header`, default slot (content), `footer`
+- Features:
+  - Teleport to body for proper z-index handling
+  - ESC key to close functionality
+  - Click outside to close (configurable)
+  - Focus trapping and scroll prevention
+  - Fade-in animation
+  - Proper cleanup on unmount
+- Usage: `<ModalStructure ref="modal" title="Modal Title" @on-close="closeModal">`
+- Methods: `showModal()`, `closeModal()`
 
 ## Core System Modules
 

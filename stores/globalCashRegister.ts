@@ -99,7 +99,7 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     },
 
     // Navigate to previous week
-    goToPreviousWeek() {
+    async goToPreviousWeek() {
       const { $dayjs } = useNuxtApp();
       const currentStart = $dayjs(this.currentWeekStart);
       const newStart = currentStart.subtract(1, 'week');
@@ -107,10 +107,13 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       
       this.currentWeekStart = newStart.format('YYYY-MM-DD');
       this.currentWeekEnd = newEnd.format('YYYY-MM-DD');
+      
+      // Clear cache and reload for new week
+      await this.loadTransactionsForWeek();
     },
 
     // Navigate to next week
-    goToNextWeek() {
+    async goToNextWeek() {
       const { $dayjs } = useNuxtApp();
       const currentStart = $dayjs(this.currentWeekStart);
       const newStart = currentStart.add(1, 'week');
@@ -118,10 +121,13 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       
       this.currentWeekStart = newStart.format('YYYY-MM-DD');
       this.currentWeekEnd = newEnd.format('YYYY-MM-DD');
+      
+      // Clear cache and reload for new week
+      await this.loadTransactionsForWeek();
     },
 
     // Set specific week by date
-    setWeekByDate(date: string) {
+    async setWeekByDate(date: string) {
       const { $dayjs } = useNuxtApp();
       const targetDate = $dayjs(date);
       const startOfWeek = targetDate.startOf('week').add(1, 'day'); // Monday
@@ -129,6 +135,9 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       
       this.currentWeekStart = startOfWeek.format('YYYY-MM-DD');
       this.currentWeekEnd = endOfWeek.format('YYYY-MM-DD');
+      
+      // Clear cache and reload for new week
+      await this.loadTransactionsForWeek();
     },
 
     // Get formatted week display
@@ -140,7 +149,7 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       return `${startDate.format('DD/MM/YYYY')} - ${endDate.format('DD/MM/YYYY')}`;
     },
 
-    async loadTransactions() {
+    async loadInitialTransactions() {
       const db = useFirestore();
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
@@ -187,6 +196,32 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       } finally {
         this.isLoading = false;
       }
+    },
+
+    addTransactionToCache(transaction: GlobalRegisterTransaction) {
+      // Add to beginning of array (most recent first)
+      this.transactions.unshift(transaction);
+      // Recalculate balances
+      this.calculateBalances();
+    },
+
+    updateTransactionInCache(updatedTransaction: GlobalRegisterTransaction) {
+      const index = this.transactions.findIndex(t => t.id === updatedTransaction.id);
+      if (index !== -1) {
+        this.transactions[index] = updatedTransaction;
+        // Recalculate balances
+        this.calculateBalances();
+      }
+    },
+
+    async refreshFromFirebase() {
+      await this.loadInitialTransactions();
+    },
+
+    async loadTransactionsForWeek() {
+      // Clear cache and reload when week changes
+      this.transactions = [];
+      await this.loadInitialTransactions();
     },
 
     calculateBalances() {
@@ -251,8 +286,12 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         };
         const docRef = await addDoc(ref, transactionData);
         
-        // Reload transactions to update balances
-        await this.loadTransactions();
+        // Add transaction to local cache instead of reloading from Firebase
+        const newTransaction = {
+          id: docRef.id,
+          ...transactionData
+        } as GlobalRegisterTransaction;
+        this.addTransactionToCache(newTransaction);
         return { id: docRef.id, ...transactionData };
       } catch (error) {
         console.error('Error adding global register transaction:', error);
@@ -298,8 +337,22 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
           updatedByName: user.value.displayName || user.value.email,
         });
         
-        // Reload transactions to update balances
-        await this.loadTransactions();
+        // Update transaction in local cache instead of reloading from Firebase
+        const updatedTransaction = this.transactions.find(t => t.id === id);
+
+        if (updatedTransaction) {
+          updatedTransaction.type = data.type;
+          updatedTransaction.category = data.category;
+          updatedTransaction.description = data.description;
+          updatedTransaction.amount = data.amount;
+          updatedTransaction.paymentMethod = data.paymentMethod;
+          updatedTransaction.isReported = data.isReported;
+          updatedTransaction.notes = data.notes || '';
+          updatedTransaction.updatedAt = new Date();
+          updatedTransaction.updatedBy = user.value.uid;
+          updatedTransaction.updatedByName = user.value.displayName || user.value.email || 'N/A';
+          this.calculateBalances();
+        }
         return true;
       } catch (error) {
         console.error('Error updating global register transaction:', error);
@@ -309,7 +362,10 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
 
     // Get dashboard summary for continuous operation
     async getDashboardSummary() {
-      await this.loadTransactions();
+      // Load transactions if not already loaded
+      if (this.transactions.length === 0) {
+        await this.loadInitialTransactions();
+      }
       
       // Get sales summaries from VENTAS_DIARIAS transactions
       const salesSummaries: any = {};

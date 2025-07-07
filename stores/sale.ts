@@ -202,8 +202,7 @@ export const useSaleStore = defineStore('sale', {
           } as SalesRegister;
           
           // Load sales and expenses for this register
-          await this.loadRegisterSales(this.currentRegister.id);
-          await this.loadRegisterExpenses(this.currentRegister.id);
+          await this.loadInitialRegisterData(this.currentRegister.id);
         } else {
           this.currentRegister = null;
           this.sales = [];
@@ -220,20 +219,21 @@ export const useSaleStore = defineStore('sale', {
       }
     },
 
-    async loadRegisterSales(registerId: string) {
+    async loadInitialRegisterData(registerId: string) {
       const db = useFirestore();
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!currentBusinessId.value) return;
 
       try {
-        const q = query(
+        // Load sales
+        const salesQuery = query(
           collection(db, 'sale'),
           where('salesRegisterId', '==', registerId),
           orderBy('createdAt', 'desc')
         );
         
-        const snapshot = await getDocs(q);
-        this.sales = snapshot.docs.map(doc => ({
+        const salesSnapshot = await getDocs(salesQuery);
+        this.sales = salesSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as Sale[];
@@ -247,33 +247,38 @@ export const useSaleStore = defineStore('sale', {
           }
         });
         this.saleCounter = maxSaleNumber;
-      } catch (error) {
-        console.error('Error loading sales:', error);
-        throw new Error('Error al cargar las ventas');
-      }
-    },
 
-    async loadRegisterExpenses(registerId: string) {
-      const db = useFirestore();
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!currentBusinessId.value) return;
-
-      try {
-        const q = query(
+        // Load expenses
+        const expensesQuery = query(
           collection(db, 'salesRegisterExpense'),
           where('salesRegisterId', '==', registerId),
           orderBy('createdAt', 'desc')
         );
         
-        const snapshot = await getDocs(q);
-        this.expenses = snapshot.docs.map(doc => ({
+        const expensesSnapshot = await getDocs(expensesQuery);
+        this.expenses = expensesSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as SalesRegisterExpense[];
       } catch (error) {
-        console.error('Error loading expenses:', error);
-        throw new Error('Error al cargar los gastos');
+        console.error('Error loading register data:', error);
+        throw new Error('Error al cargar los datos del registro');
       }
+    },
+
+    addSaleToCache(sale: Sale) {
+      // Add to beginning of array (most recent first)
+      this.sales.unshift(sale);
+    },
+
+    addExpenseToCache(expense: SalesRegisterExpense) {
+      // Add to beginning of array (most recent first)
+      this.expenses.unshift(expense);
+    },
+
+    async refreshFromFirebase() {
+      if (!this.currentRegister) return;
+      await this.loadInitialRegisterData(this.currentRegister.id);
     },
 
     async openSalesRegister(data: { 
@@ -362,6 +367,7 @@ export const useSaleStore = defineStore('sale', {
       const db = useFirestore();
       const user = useCurrentUser();
       const inventoryStore = useInventoryStore();
+      const { $dayjs } = useNuxtApp();
       const currentBusinessId = useLocalStorage('cBId', null);
       
       if (!user.value?.uid || !currentBusinessId.value) {
@@ -438,8 +444,14 @@ export const useSaleStore = defineStore('sale', {
           inventoryUpdateAt: serverTimestamp()
         });
     
-        // Reload sales to update the list
-        await this.loadRegisterSales(this.currentRegister.id);
+        // Add sale to local cache instead of reloading from Firebase
+        const newSale = {
+          id: docRef.id,
+          ...saleData,
+          inventoryUpdated: inventoryUpdatedSuccessfully,
+          inventoryUpdateAt: $dayjs().toDate()
+        } as Sale;
+        this.addSaleToCache(newSale);
         
         useToast(ToastEvents.success, "Venta registrada exitosamente");
         this.isLoading = false;
@@ -497,8 +509,12 @@ export const useSaleStore = defineStore('sale', {
         // Add the expense to Firestore
         const docRef = await addDoc(ref, expenseData);
         
-        // Reload expenses to update the list
-        await this.loadRegisterExpenses(this.currentRegister.id);
+        // Add expense to local cache instead of reloading from Firebase
+        const newExpense = {
+          id: docRef.id,
+          ...expenseData
+        } as SalesRegisterExpense;
+        this.addExpenseToCache(newExpense);
         
         useToast(ToastEvents.success, 'Gasto registrado exitosamente');
         this.isLoading = false;
@@ -635,6 +651,67 @@ export const useSaleStore = defineStore('sale', {
         throw new Error('Error al cargar el historial de cajas de ventas');
       } finally {
         this.loadingHistory = false;
+      }
+    },
+
+    async addExtraction(data: {
+      category: string;
+      description: string;
+      amount: number;
+      paymentMethod: string;
+      isReported: boolean;
+      notes?: string;
+    }) {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const currentBusinessId = useLocalStorage('cBId', null);
+      
+      if (!user.value?.uid || !currentBusinessId.value) {
+        useToast(ToastEvents.error, 'Debes iniciar sesión y seleccionar un negocio');
+        return false;
+      }
+      
+      if (!this.isRegisterOpen || !this.currentRegister) {
+        useToast(ToastEvents.error, 'No hay una caja de ventas abierta');
+        return false;
+      }
+    
+      this.isLoading = true;
+      try {
+        // Create the extraction as an expense in the sales register
+        const ref = collection(db, 'salesRegisterExpense');
+        const extractionData = {
+          salesRegisterId: this.currentRegister.id,
+          businessId: currentBusinessId.value,
+          category: data.category,
+          description: data.description,
+          amount: data.amount,
+          paymentMethod: data.paymentMethod,
+          isReported: data.isReported,
+          notes: data.notes || '',
+          createdBy: user.value.uid,
+          createdByName: user.value.displayName || user.value.email,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        
+        // Add the extraction to Firestore
+        const docRef = await addDoc(ref, extractionData);
+        
+        // Add extraction to local cache instead of reloading from Firebase
+        const newExtraction = {
+          id: docRef.id,
+          ...extractionData
+        } as SalesRegisterExpense;
+        this.addExpenseToCache(newExtraction);
+        
+        this.isLoading = false;
+        return { id: docRef.id, ...extractionData };
+      } catch (error) {
+        console.error('Error adding extraction:', error);
+        useToast(ToastEvents.error, `Error al agregar la extracción: ${(error as any).message}`);
+        this.isLoading = false;
+        return false;
       }
     },
 
