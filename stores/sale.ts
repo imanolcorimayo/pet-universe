@@ -125,6 +125,11 @@ export const useSaleStore = defineStore('sale', {
     getCurrentRegister: (state) => state.currentRegister,
     
     todaySalesTotal: (state) => {
+      return state.expenses.reduce((sum, expense) => sum + expense.amount, 0);
+    },
+    
+    // This total only takes into account what was actually paid
+    todaySalesNet: (state) => {
       return state.sales.reduce((sum, sale) => sum + sale.paymentDetails.reduce((total, payment) => total + payment.amount, 0), 0);
     },
     
@@ -134,7 +139,7 @@ export const useSaleStore = defineStore('sale', {
     
     todayNetAmount: (state) => {
       // @ts-ignore
-      return state.todaySalesTotal - state.todayExpensesTotal;
+      return state.todaySalesNet - state.todayExpensesTotal;
     },
 
     // Calculate balances by payment method

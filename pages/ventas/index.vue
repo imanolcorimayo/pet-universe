@@ -73,11 +73,18 @@
         </span>
       </div>
       
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div class="p-3 bg-green-50 rounded-md">
           <div class="text-sm text-green-700">Total Ventas</div>
           <div class="text-xl font-bold text-green-700">
             {{ formatCurrency(todaySalesTotal) }}
+          </div>
+        </div>
+
+        <div class="p-3 bg-yellow-50 rounded-md">
+          <div class="text-sm text-yellow-700">Total Pagado</div>
+          <div class="text-xl font-bold text-yellow-700">
+            {{ formatCurrency(todaySalesNet) }}
           </div>
         </div>
         
@@ -327,6 +334,7 @@ const {
   expenses,
   isLoading,
   todaySalesTotal,
+  todaySalesNet, // This is the total of sales that were actually paid
   todayExpensesTotal,
   todayNetAmount
 } = storeToRefs(saleStore);

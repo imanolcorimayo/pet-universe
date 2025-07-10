@@ -404,9 +404,36 @@
             </div>
           </div>
 
-          <!-- Payment Method for addition/return types -->
+          <!-- Return type selection for returns -->
           <div 
-            v-if="formData.movementType === 'addition' || formData.movementType === 'return'"
+            v-if="formData.movementType === 'return'"
+            class="flex flex-col gap-2 mt-4"
+          >
+            <label class="text-sm font-medium text-gray-700">¿Cómo manejar la devolución?</label>
+            <div class="flex gap-4">
+              <label class="flex items-center">
+                <input
+                  type="radio"
+                  v-model="formData.returnType"
+                  value="refund"
+                  class="mr-2 radio-custom"
+                />
+                <span class="text-sm">Reembolso inmediato</span>
+              </label>
+              <label class="flex items-center">
+                <input
+                  type="radio"
+                  v-model="formData.returnType"
+                  value="credit"
+                  class="mr-2 radio-custom"
+                />
+                <span class="text-sm">Crédito a favor del negocio</span>
+              </label>
+            </div>
+          </div>
+
+          <div 
+            v-if="formData.movementType === 'addition' || (formData.movementType === 'return' && formData.returnType === 'refund')"
             class="flex flex-col gap-2 mt-4"
           >
             <label class="text-sm font-medium text-gray-700">Método de pago</label>
@@ -428,9 +455,9 @@
             </select>
           </div>
 
-          <!-- White/Black classification for addition/return types -->
+          <!-- White/Black classification for addition types and refund returns -->
           <div 
-            v-if="formData.movementType === 'addition' || formData.movementType === 'return'"
+            v-if="formData.movementType === 'addition' || (formData.movementType === 'return' && formData.returnType === 'refund')"
             class="flex flex-col gap-2 mt-4"
           >
             <label class="text-sm font-medium text-gray-700">Tipo de transacción</label>
@@ -703,6 +730,9 @@ const formData = ref({
   unitsToConvert: 1,
   weightPerUnit: 0,
 
+  // For returns
+  returnType: "refund", // "refund" | "credit"
+
   // For global cash register
   paymentMethod: null,
   isReported: true,
@@ -768,14 +798,15 @@ const isFormValid = computed(() => {
       return true;
 
     case "return":
-      // For returns, need positive values and payment method
+      // For returns, need positive values
       if (
         formData.value.unitsChange <= 0 &&
         (product.value?.trackingType === "unit" ||
           formData.value.weightChange <= 0)
       )
         return false;
-      if (!formData.value.paymentMethod) return false;
+      // Payment method only required for refund returns
+      if (formData.value.returnType === "refund" && !formData.value.paymentMethod) return false;
       return true;
       
     case "convert":
@@ -848,6 +879,9 @@ function resetForm() {
     newWeight: 0,
     newCost: 0,
     lossReason: null,
+    unitsToConvert: 1,
+    weightPerUnit: 0,
+    returnType: "refund",
     paymentMethod: null,
     isReported: true,
     reason: "",
@@ -1192,18 +1226,50 @@ async function saveAdjustment() {
         break;
 
       case "return":
-        success = await inventoryStore.reduceInventory({
-          productId: props.productId,
-          unitsChange: formData.value.unitsChange,
-          weightChange: formData.value.weightChange,
-          supplierId: formData.value.supplierId,
-          supplierName: formData.value.supplierName,
-          notes: formData.value.notes,
-          isLoss: false,
-          paymentMethod: formData.value.paymentMethod,
-          isReported: formData.value.isReported,
-          createGlobalTransaction: true,
-        });
+        // Handle credit returns differently - create debt instead of immediate transaction
+        if (formData.value.returnType === 'credit') {
+          // First reduce inventory
+          success = await inventoryStore.reduceInventory({
+            productId: props.productId,
+            unitsChange: formData.value.unitsChange,
+            weightChange: formData.value.weightChange,
+            supplierId: formData.value.supplierId,
+            supplierName: formData.value.supplierName,
+            notes: formData.value.notes,
+            isLoss: false,
+            createGlobalTransaction: false, // Don't create transaction for credit
+          });
+
+          // Then create debt for the supplier
+          if (success && formData.value.supplierId) {
+            const debtStore = useDebtStore();
+            const returnValue = formData.value.unitsChange * (inventoryData.value?.averageCost || 0);
+            
+            await debtStore.createDebt({
+              type: 'supplier',
+              entityId: formData.value.supplierId,
+              entityName: formData.value.supplierName,
+              originalAmount: returnValue,
+              originType: 'purchase',
+              originDescription: `Devolución de producto - ${product.value?.name}`,
+              notes: formData.value.notes || 'Crédito por devolución de mercancía'
+            });
+          }
+        } else {
+          // Regular refund return
+          success = await inventoryStore.reduceInventory({
+            productId: props.productId,
+            unitsChange: formData.value.unitsChange,
+            weightChange: formData.value.weightChange,
+            supplierId: formData.value.supplierId,
+            supplierName: formData.value.supplierName,
+            notes: formData.value.notes,
+            isLoss: false,
+            paymentMethod: formData.value.paymentMethod,
+            isReported: formData.value.isReported,
+            createGlobalTransaction: true,
+          });
+        }
         break;
 
       case "convert":

@@ -281,14 +281,10 @@ export const useDebtStore = defineStore('debt', {
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
       const saleStore = useSaleStore();
+      const globalCashRegisterStore = useGlobalCashRegisterStore();
       
       if (!user.value?.uid || !currentBusinessId.value) {
         useToast(ToastEvents.error, 'Debes iniciar sesión y seleccionar un negocio');
-        return false;
-      }
-
-      if (!saleStore.isRegisterOpen || !saleStore.getCurrentRegister) {
-        useToast(ToastEvents.error, 'No hay una caja de ventas abierta');
         return false;
       }
 
@@ -304,18 +300,41 @@ export const useDebtStore = defineStore('debt', {
       }
 
       try {
-        // First, record the payment in the sales register
-        const salesRegisterResult = await saleStore.addDebtPayment({
-          debtId: data.debtId,
-          entityName: debt.entityName,
-          amount: data.amount,
-          paymentMethod: data.paymentMethod,
-          isReported: data.isReported,
-          notes: data.notes
-        });
+        let salesRegisterId = null;
+        
+        // Customer debts go to sales register, supplier debts go to global register
+        if (debt.type === 'customer') {
+          // Customer debt payment - record in sales register
+          if (!saleStore.isRegisterOpen || !saleStore.getCurrentRegister) {
+            useToast(ToastEvents.error, 'No hay una caja de ventas abierta para registrar pagos de clientes');
+            return false;
+          }
 
-        if (!salesRegisterResult) {
-          throw new Error('Failed to record payment in sales register');
+          const salesRegisterResult = await saleStore.addDebtPayment({
+            debtId: data.debtId,
+            entityName: debt.entityName,
+            amount: data.amount,
+            paymentMethod: data.paymentMethod,
+            isReported: data.isReported,
+            notes: data.notes
+          });
+
+          if (!salesRegisterResult) {
+            throw new Error('Failed to record payment in sales register');
+          }
+          
+          salesRegisterId = saleStore.getCurrentRegister.id;
+        } else {
+          // Supplier debt payment - record in global register
+          await globalCashRegisterStore.addTransaction({
+            type: 'expense',
+            category: 'PAGO_DEUDA_PROVEEDOR',
+            description: `Pago de deuda - ${debt.entityName}`,
+            amount: data.amount,
+            paymentMethod: data.paymentMethod,
+            isReported: data.isReported,
+            notes: data.notes || `Pago de deuda ID: ${data.debtId}`,
+          });
         }
 
         // Create payment record
@@ -323,7 +342,7 @@ export const useDebtStore = defineStore('debt', {
         const paymentData = {
           businessId: currentBusinessId.value,
           debtId: data.debtId,
-          salesRegisterId: saleStore.getCurrentRegister.id,
+          salesRegisterId: salesRegisterId, // null for supplier debts
           amount: data.amount,
           paymentMethod: data.paymentMethod,
           isReported: data.isReported,
@@ -369,8 +388,9 @@ export const useDebtStore = defineStore('debt', {
         } as DebtPayment;
         this.payments.unshift(newPayment);
         
+        const paymentLocation = debt.type === 'customer' ? 'caja de ventas' : 'caja global';
         useToast(ToastEvents.success, 
-          isFullyPaid ? 'Deuda pagada completamente' : 'Pago registrado exitosamente'
+          isFullyPaid ? 'Deuda pagada completamente' : `Pago registrado exitosamente en ${paymentLocation}`
         );
         
         return { id: paymentDocRef.id, ...paymentData };

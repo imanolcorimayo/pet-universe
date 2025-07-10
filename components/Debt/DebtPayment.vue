@@ -14,7 +14,7 @@
         </h3>
         <div v-if="selectedDebt" class="space-y-2">
           <div class="flex justify-between text-sm">
-            <span class="text-gray-600">Cliente:</span>
+            <span class="text-gray-600">{{ selectedDebt.type === 'customer' ? 'Cliente' : 'Proveedor' }}:</span>
             <span class="font-medium">{{ selectedDebt.entityName }}</span>
           </div>
           <div class="flex justify-between text-sm">
@@ -45,7 +45,7 @@
           <LucideDollarSign class="h-4 w-4 text-gray-600" />
           Monto del Pago
         </label>
-        <p class="text-sm text-gray-600 mb-3">¿Cuánto está pagando el cliente?</p>
+        <p class="text-sm text-gray-600 mb-3">¿Cuánto está pagando {{ selectedDebt?.type === 'supplier' ? 'al proveedor' : 'el cliente' }}?</p>
         <div class="relative">
           <span class="absolute left-3 top-2 text-gray-500">$</span>
           <input
@@ -73,7 +73,7 @@
           <LucideCreditCard class="h-4 w-4 text-gray-600" />
           Método de Pago
         </label>
-        <p class="text-sm text-gray-600 mb-3">¿Cómo está pagando el cliente?</p>
+        <p class="text-sm text-gray-600 mb-3">¿Cómo está pagando {{ selectedDebt?.type === 'supplier' ? 'al proveedor' : 'el cliente' }}?</p>
         <select
           v-model="paymentMethod"
           class="w-full !p-2 border rounded-md"
@@ -109,6 +109,13 @@
             ></textarea>
           </div>
         </div>
+      </div>
+      
+      <!-- Payment Location Info -->
+      <div v-if="selectedDebt" class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+        <p class="text-sm text-blue-800">
+          <span class="font-medium">ℹ️ Información:</span> {{ paymentLocationInfo }}
+        </p>
       </div>
     </div>
     
@@ -175,6 +182,16 @@ const isFormValid = computed(() => {
          paymentMethod.value;
 });
 
+const paymentLocationInfo = computed(() => {
+  if (!selectedDebt.value) return '';
+  
+  if (selectedDebt.value.type === 'customer') {
+    return 'Este pago se registrará en la caja de ventas diaria.';
+  } else {
+    return 'Este pago se registrará en la caja global del negocio.';
+  }
+});
+
 // Event emitter
 const emit = defineEmits(['payment-completed']);
 
@@ -190,8 +207,10 @@ onMounted(async () => {
   try {
     if (!indexStore.businessConfigFetched) {
       await indexStore.loadBusinessConfig();
-
-      // Load current register in order to be able to add a payment if needed
+    }
+    
+    // Only load sales register if we need it (for customer debts)
+    if (selectedDebt.value?.type === 'customer') {
       await saleStore.loadCurrentRegister();
     }
   } catch (error) {
@@ -259,9 +278,18 @@ function formatNumber(value) {
 }
 
 // Modal control
-function showModal(debt = null) {
+async function showModal(debt = null) {
   if (debt) {
     selectedDebt.value = debt;
+    
+    // Load sales register if this is a customer debt
+    if (debt.type === 'customer') {
+      try {
+        await saleStore.loadCurrentRegister();
+      } catch (error) {
+        console.error('Error loading sales register:', error);
+      }
+    }
   }
   initializeForm();
   modalRef.value?.showModal();

@@ -281,27 +281,92 @@
           </div>
         </div>
 
-        <!-- Payment Method -->
-        <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-gray-700">Método de pago utilizado</label>
-          <p class="text-sm text-gray-600">¿Cómo pagaste esta compra?</p>
-          <select
-            v-model="paymentMethod"
-            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            :class="{ 'text-gray-400': !paymentMethod }"
-            :disabled="isSubmitting"
-          >
-            <option :value="null" disabled>
-              -- Seleccione un método de pago --
-            </option>
-            <option 
-              v-for="(method, code) in indexStore.getActivePaymentMethods" 
-              :key="code" 
-              :value="code"
+        <!-- Payment Method and Amount -->
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-medium text-gray-700">¿Cómo vas a pagar esta compra?</label>
+            <div class="flex gap-4">
+              <label class="flex items-center">
+                <input
+                  type="radio"
+                  v-model="paymentType"
+                  value="full"
+                  class="mr-2 radio-custom"
+                  :disabled="isSubmitting"
+                />
+                <span class="text-sm">Pago completo</span>
+              </label>
+              <label class="flex items-center">
+                <input
+                  type="radio"
+                  v-model="paymentType"
+                  value="partial"
+                  class="mr-2 radio-custom"
+                  :disabled="isSubmitting"
+                />
+                <span class="text-sm">Pago parcial</span>
+              </label>
+              <label class="flex items-center">
+                <input
+                  type="radio"
+                  v-model="paymentType"
+                  value="deferred"
+                  class="mr-2 radio-custom"
+                  :disabled="isSubmitting"
+                />
+                <span class="text-sm">Pago a crédito</span>
+              </label>
+            </div>
+          </div>
+
+          <div v-if="paymentType !== 'deferred'" class="flex flex-col gap-2">
+            <label class="text-sm font-medium text-gray-700">Método de pago</label>
+            <select
+              v-model="paymentMethod"
+              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              :class="{ 'text-gray-400': !paymentMethod }"
+              :disabled="isSubmitting"
             >
-              {{ method.name }}
-            </option>
-          </select>
+              <option :value="null" disabled>
+                -- Seleccione un método de pago --
+              </option>
+              <option 
+                v-for="(method, code) in indexStore.getActivePaymentMethods" 
+                :key="code" 
+                :value="code"
+              >
+                {{ method.name }}
+              </option>
+            </select>
+          </div>
+
+          <div v-if="paymentType === 'partial'" class="flex flex-col gap-2">
+            <label class="text-sm font-medium text-gray-700">Monto pagado ahora</label>
+            <div class="relative">
+              <span class="absolute left-3 top-3 text-gray-500">$</span>
+              <input
+                type="number"
+                v-model.number="paidAmount"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 !pl-8"
+                placeholder="0.00"
+                min="0"
+                :max="totalPurchaseAmount"
+                step="0.01"
+                :disabled="isSubmitting"
+              />
+            </div>
+            <p class="text-xs text-gray-500">Total de la compra: {{ formatCurrency(totalPurchaseAmount) }}</p>
+          </div>
+
+          <div v-if="paymentType === 'deferred' || paymentType === 'partial'" class="flex flex-col gap-2">
+            <label class="text-sm font-medium text-gray-700">Fecha de vencimiento (opcional)</label>
+            <input
+              type="date"
+              v-model="dueDate"
+              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              :disabled="isSubmitting"
+            />
+          </div>
         </div>
 
         <!-- White/Black classification -->
@@ -429,7 +494,10 @@ const productItems = ref([]);
 const purchaseNotes = ref('');
 
 // Payment information
+const paymentType = ref('full'); // 'full', 'partial', 'deferred'
 const paymentMethod = ref(null);
+const paidAmount = ref(0);
+const dueDate = ref('');
 const isReported = ref(true);
 
 // ----- Computed Properties ---------
@@ -454,7 +522,26 @@ const totalUnits = computed(() => {
 });
 
 const isFormValid = computed(() => {
-  return selectedSupplier.value && validProductItems.value.length > 0 && paymentMethod.value;
+  if (!selectedSupplier.value || validProductItems.value.length === 0) {
+    return false;
+  }
+  
+  // For deferred payment, payment method is not required
+  if (paymentType.value === 'deferred') {
+    return true;
+  }
+  
+  // For full and partial payment, payment method is required
+  if (!paymentMethod.value) {
+    return false;
+  }
+  
+  // For partial payment, paid amount must be valid
+  if (paymentType.value === 'partial') {
+    return paidAmount.value > 0 && paidAmount.value <= totalPurchaseAmount.value;
+  }
+  
+  return true;
 });
 
 // ----- Define Methods ---------
@@ -478,7 +565,10 @@ function resetForm() {
   filteredSuppliers.value = [];
   productItems.value = [];
   purchaseNotes.value = '';
+  paymentType.value = 'full';
   paymentMethod.value = null;
+  paidAmount.value = 0;
+  dueDate.value = '';
   isReported.value = true;
 }
 
@@ -672,10 +762,24 @@ async function loadData() {
 async function savePurchase() {
   if (!isFormValid.value || isSubmitting.value) return;
 
+  // Calculate payment details
+  const totalAmount = totalPurchaseAmount.value;
+  const paymentAmount = paymentType.value === 'full' ? totalAmount : 
+                       paymentType.value === 'partial' ? paidAmount.value : 0;
+  const debtAmount = totalAmount - paymentAmount;
+
   // Show confirmation dialog
+  let confirmMessage = `¿Estás seguro de registrar esta compra de ${validProductItems.value.length} producto(s) por ${formatCurrency(totalAmount)}?`;
+  
+  if (paymentType.value === 'partial') {
+    confirmMessage += `\n\nPago inmediato: ${formatCurrency(paymentAmount)}\nSaldo pendiente: ${formatCurrency(debtAmount)}`;
+  } else if (paymentType.value === 'deferred') {
+    confirmMessage += `\n\nTodo el monto quedará como deuda pendiente.`;
+  }
+
   const confirmed = await confirmDialog.value.openDialog({
     title: "Confirmar compra",
-    message: `¿Estás seguro de registrar esta compra de ${validProductItems.value.length} producto(s) por ${formatCurrency(totalPurchaseAmount.value)}?`,
+    message: confirmMessage,
     textConfirmButton: "Confirmar",
     textCancelButton: "Cancelar",
   });
@@ -684,10 +788,14 @@ async function savePurchase() {
 
   isSubmitting.value = true;
   let successCount = 0;
+  const debtStore = useDebtStore();
   
   try {
-    // Process each product item
+    // Process each product item for inventory
     for (const item of validProductItems.value) {
+      // Only create global transaction if there's immediate payment
+      const createGlobalTransaction = paymentAmount > 0;
+      
       const success = await inventoryStore.addInventory({
         productId: item.selectedProduct.id,
         unitsChange: item.unitsChange,
@@ -698,7 +806,9 @@ async function savePurchase() {
         notes: purchaseNotes.value || `Compra de proveedor: ${selectedSupplier.value.name}`,
         paymentMethod: paymentMethod.value,
         isReported: isReported.value,
-        createGlobalTransaction: true,
+        createGlobalTransaction: createGlobalTransaction,
+        paidAmount: paymentAmount, // Pass the partial payment amount
+        totalAmount: totalAmount,  // Pass the total amount
       });
 
       if (success) {
@@ -706,8 +816,33 @@ async function savePurchase() {
       }
     }
 
+    // Create debt if there's remaining amount
+    if (debtAmount > 0) {
+      const purchaseDescription = `Compra de productos - ${selectedSupplier.value.name}`;
+      const debtResult = await debtStore.createDebt({
+        type: 'supplier',
+        entityId: selectedSupplier.value.id,
+        entityName: selectedSupplier.value.name,
+        originalAmount: debtAmount,
+        originType: 'purchase',
+        originDescription: purchaseDescription,
+        dueDate: dueDate.value ? new Date(dueDate.value) : undefined,
+        notes: purchaseNotes.value || ''
+      });
+
+      if (!debtResult) {
+        useToast(ToastEvents.warning, 'Compra registrada pero no se pudo crear la deuda pendiente');
+      }
+    }
+
     if (successCount === validProductItems.value.length) {
-      useToast(ToastEvents.success, `Compra registrada exitosamente: ${successCount} producto(s) actualizados`);
+      if (paymentType.value === 'deferred') {
+        useToast(ToastEvents.success, `Compra registrada exitosamente: ${successCount} producto(s) actualizados. Deuda creada por ${formatCurrency(debtAmount)}`);
+      } else if (paymentType.value === 'partial') {
+        useToast(ToastEvents.success, `Compra registrada exitosamente: ${successCount} producto(s) actualizados. Pago registrado: ${formatCurrency(paymentAmount)}, Deuda pendiente: ${formatCurrency(debtAmount)}`);
+      } else {
+        useToast(ToastEvents.success, `Compra registrada exitosamente: ${successCount} producto(s) actualizados`);
+      }
       emit("purchase-saved");
       closeModal();
     } else if (successCount > 0) {
