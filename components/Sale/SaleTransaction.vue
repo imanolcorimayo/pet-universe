@@ -531,6 +531,48 @@
         </div>
       </div>
       
+      <!-- Debt Configuration (only if client is selected and payment is insufficient) -->
+      <div v-if="selectedClientId && paymentDifference > 0" class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+        <div class="flex items-start gap-3">
+          <LucideAlertTriangle class="h-5 w-5 text-yellow-600 mt-0.5" />
+          <div class="flex-1">
+            <h3 class="font-medium text-yellow-800 mb-2">Pago Insuficiente - Crear Deuda</h3>
+            <p class="text-sm text-yellow-700 mb-3">
+              El cliente debe ${{ formatNumber(paymentDifference) }}. ¿Quieres registrar esta cantidad como deuda?
+            </p>
+            
+            <div class="space-y-3">
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" v-model="createDebtForDifference" class="mr-2 h-4 w-4" />
+                <span class="text-sm font-medium text-yellow-800">Crear deuda por el saldo pendiente</span>
+              </label>
+              
+              <div v-if="createDebtForDifference" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-yellow-700 mb-1">Fecha de vencimiento (opcional)</label>
+                  <input
+                    type="date"
+                    v-model="debtDueDate"
+                    class="w-full p-2 border rounded-md text-sm"
+                    :disabled="isLoading"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-yellow-700 mb-1">Notas de la deuda</label>
+                  <input
+                    type="text"
+                    v-model="debtNotes"
+                    class="w-full p-2 border rounded-md text-sm"
+                    :disabled="isLoading"
+                    placeholder="Motivo del crédito, condiciones, etc."
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Additional Options -->
       <div class="bg-gray-50 p-4 rounded-lg">
         <div class="flex flex-col w-full items-start gap-4">
@@ -568,7 +610,7 @@
       <button
         class="btn bg-primary text-white hover:bg-primary/90"
         @click="submitForm"
-        :disabled="isLoading || saleItems.length === 0 || !isFormValid || paymentDifference !== 0"
+        :disabled="isLoading || saleItems.length === 0 || !isFormValid || (!canProcessSale)"
       >
         <span v-if="isLoading" class="inline-block animate-spin mr-2">⌛</span>
         Registrar Venta
@@ -590,6 +632,7 @@ import LucideSettings from '~icons/lucide/settings';
 import LucidePercent from '~icons/lucide/percent';
 import LucideDollarSign from '~icons/lucide/dollar-sign';
 import LucidePackage from '~icons/lucide/package';
+import LucideAlertTriangle from '~icons/lucide/alert-triangle';
 
 import { ToastEvents } from '~/interfaces';
 
@@ -604,6 +647,11 @@ const paymentDetails = ref([]);
 const isReported = ref(true);
 const notes = ref('');
 
+// Debt-related data
+const createDebtForDifference = ref(false);
+const debtDueDate = ref('');
+const debtNotes = ref('');
+
 // Refs for focus management
 const productSelectRefs = ref([]);
 const clientSelect = ref(null);
@@ -614,6 +662,7 @@ const saleStore = useSaleStore();
 const clientStore = useClientStore();
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
+const debtStore = useDebtStore();
 
 // Load product and client data
 const { clients } = storeToRefs(clientStore);
@@ -662,6 +711,12 @@ const isFormValid = computed(() => {
   );
 });
 
+const canProcessSale = computed(() => {
+  // Can process if payment is exact OR if there's a client selected and we're creating a debt
+  return paymentDifference.value === 0 || 
+         (selectedClientId.value && paymentDifference.value > 0 && createDebtForDifference.value);
+});
+
 // Event emitter
 const emit = defineEmits(['sale-completed']);
 
@@ -673,6 +728,11 @@ function initializeForm() {
   isReported.value = true;
   notes.value = '';
   productSelectRefs.value = [];
+  
+  // Reset debt-related fields
+  createDebtForDifference.value = false;
+  debtDueDate.value = '';
+  debtNotes.value = '';
   
   // Add first empty product row
   addProductRow();
@@ -1018,11 +1078,16 @@ async function submitForm() {
     return useToast(ToastEvents.error, 'Todos los métodos de pago deben tener un monto válido');
   }
   
-  if (paymentDifference.value !== 0) {
-    const message = paymentDifference.value > 0 
-      ? `Falta pagar $${formatNumber(Math.abs(paymentDifference.value))}`
-      : `Hay un exceso de $${formatNumber(Math.abs(paymentDifference.value))}`;
-    return useToast(ToastEvents.error, message);
+  // Check payment difference - allow debt creation for customers
+  if (paymentDifference.value > 0) {
+    if (!selectedClientId.value) {
+      return useToast(ToastEvents.error, 'Para crear una deuda, debes seleccionar un cliente');
+    }
+    if (!createDebtForDifference.value) {
+      return useToast(ToastEvents.error, `Falta pagar $${formatNumber(paymentDifference.value)} o marca la opción de crear deuda`);
+    }
+  } else if (paymentDifference.value < 0) {
+    return useToast(ToastEvents.error, `Hay un exceso de $${formatNumber(Math.abs(paymentDifference.value))}`);
   }
   
   isLoading.value = true;
@@ -1064,6 +1129,31 @@ async function submitForm() {
     const result = await saleStore.addSale(saleData);
     
     if (result) {
+      // Create debt if there's an unpaid balance
+      if (paymentDifference.value > 0 && createDebtForDifference.value && selectedClientId.value) {
+        try {
+          const debtData = {
+            type: 'customer',
+            entityId: selectedClientId.value,
+            entityName: clientName || 'Cliente',
+            originalAmount: paymentDifference.value,
+            originType: 'sale',
+            originId: result.id,
+            originDescription: `Venta #${saleStore.nextSaleNumber} - Saldo pendiente`,
+            dueDate: debtDueDate.value ? new Date(debtDueDate.value) : undefined,
+            notes: debtNotes.value || `Deuda generada por pago parcial en venta #${saleStore.nextSaleNumber}`
+          };
+          
+          const debtResult = await debtStore.createDebt(debtData);
+          if (debtResult) {
+            useToast(ToastEvents.success, `Venta registrada y deuda creada por $${formatNumber(paymentDifference.value)}`);
+          }
+        } catch (debtError) {
+          console.error('Error creating debt:', debtError);
+          useToast(ToastEvents.warning, 'Venta registrada, pero hubo un error al crear la deuda');
+        }
+      }
+      
       emit('sale-completed');
       closeModal();
     }

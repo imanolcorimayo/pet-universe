@@ -121,9 +121,11 @@ export const useSaleStore = defineStore('sale', {
 
   getters: {
     isRegisterOpen: (state) => state.currentRegister && !state.currentRegister.closedAt,
+
+    getCurrentRegister: (state) => state.currentRegister,
     
     todaySalesTotal: (state) => {
-      return state.sales.reduce((sum, sale) => sum + sale.total, 0);
+      return state.sales.reduce((sum, sale) => sum + sale.paymentDetails.reduce((total, payment) => total + payment.amount, 0), 0);
     },
     
     todayExpensesTotal: (state) => {
@@ -710,6 +712,67 @@ export const useSaleStore = defineStore('sale', {
       } catch (error) {
         console.error('Error adding extraction:', error);
         useToast(ToastEvents.error, `Error al agregar la extracción: ${(error as any).message}`);
+        this.isLoading = false;
+        return false;
+      }
+    },
+
+    async addDebtPayment(data: {
+      debtId: string;
+      entityName: string;
+      amount: number;
+      paymentMethod: string;
+      isReported: boolean;
+      notes?: string;
+    }) {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const currentBusinessId = useLocalStorage('cBId', null);
+      
+      if (!user.value?.uid || !currentBusinessId.value) {
+        useToast(ToastEvents.error, 'Debes iniciar sesión y seleccionar un negocio');
+        return false;
+      }
+      
+      if (!this.isRegisterOpen || !this.currentRegister) {
+        useToast(ToastEvents.error, 'No hay una caja de ventas abierta');
+        return false;
+      }
+    
+      this.isLoading = true;
+      try {
+        // Create the debt payment as a special type of expense in the sales register
+        const ref = collection(db, 'salesRegisterExpense');
+        const debtPaymentData = {
+          salesRegisterId: this.currentRegister.id,
+          businessId: currentBusinessId.value,
+          category: 'PAGO_DEUDA',
+          description: `Pago de deuda - ${data.entityName}`,
+          amount: -data.amount, // Negative because it's money coming IN (reducing debt)
+          paymentMethod: data.paymentMethod,
+          isReported: data.isReported,
+          notes: data.notes || `Pago de deuda ID: ${data.debtId}`,
+          createdBy: user.value.uid,
+          createdByName: user.value.displayName || user.value.email,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        
+        // Add the debt payment to Firestore
+        const docRef = await addDoc(ref, debtPaymentData);
+        
+        // Add debt payment to local cache as an expense (with negative amount)
+        const newDebtPayment = {
+          id: docRef.id,
+          ...debtPaymentData
+        } as SalesRegisterExpense;
+        this.addExpenseToCache(newDebtPayment);
+        
+        this.isLoading = false;
+        return { id: docRef.id, ...debtPaymentData };
+      } catch (error) {
+        console.error('Error adding debt payment to sales register:', error);
+        useToast(ToastEvents.error, `Error al registrar el pago de deuda: ${(error as any).message}`);
         this.isLoading = false;
         return false;
       }

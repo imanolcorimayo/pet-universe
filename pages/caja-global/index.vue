@@ -266,7 +266,6 @@
 
 <script setup>
 import { ToastEvents } from '~/interfaces';
-import LucideUnlock from '~icons/lucide/unlock';
 import LucidePlus from '~icons/lucide/plus';
 import LucideLock from '~icons/lucide/lock';
 import LucideEdit from '~icons/lucide/edit';
@@ -291,7 +290,7 @@ if (!indexStore.isOwner && indexStore.getUserRole !== 'administrador') {
   });
 }
 
-globalCashRegisterStore.loadTransactions();
+globalCashRegisterStore.loadTransactionsForWeek();
 
 // ----- Import Store State ---------
 const { 
@@ -429,23 +428,23 @@ function editTransaction(transaction) {
 // ----- Week Navigation Methods ---------
 function goToPreviousWeek() {
   globalCashRegisterStore.goToPreviousWeek();
-  globalCashRegisterStore.loadTransactions();
+  globalCashRegisterStore.loadTransactionsForWeek();
 }
 
 function goToNextWeek() {
   globalCashRegisterStore.goToNextWeek();
-  globalCashRegisterStore.loadTransactions();
+  globalCashRegisterStore.loadTransactionsForWeek();
 }
 
 function goToCurrentWeek() {
   globalCashRegisterStore.initializeCurrentWeek();
-  globalCashRegisterStore.loadTransactions();
+  globalCashRegisterStore.loadTransactionsForWeek();
 }
 
 function onDateChange(event) {
   const selectedDate = event.target.value;
   globalCashRegisterStore.setWeekByDate(selectedDate);
-  globalCashRegisterStore.loadTransactions();
+  globalCashRegisterStore.loadTransactionsForWeek();
 }
 
 function getWeekDisplayText() {
@@ -462,7 +461,7 @@ onMounted(async () => {
       return;
     }
     
-    await globalCashRegisterStore.loadTransactions();
+    await globalCashRegisterStore.loadTransactionsForWeek();
   } catch (error) {
     useToast(ToastEvents.error,'Error al cargar la caja: ' + error.message);
   }

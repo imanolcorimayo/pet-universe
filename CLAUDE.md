@@ -164,6 +164,12 @@ Pet shop management system with dual cash register approach: global business reg
 - **Data**: Supplier profiles, purchase history, payment schedules, outstanding balances
 - **Store**: `suppliers.ts` | **Collections**: `supplier`
 
+#### 6. Debt Management
+- **Features**: Customer and supplier debt tracking, partial payment support, debt payment recording
+- **Integration**: Sales register integration for debt payments, automatic debt creation from partial sales
+- **Data**: Debt records, payment history, status tracking (active/paid/cancelled)
+- **Store**: `debt.ts` | **Collections**: `debt`, `debtPayment`
+
 ## Page Structure
 
 All pages use modal-based entity management:
@@ -174,6 +180,7 @@ All pages use modal-based entity management:
 - **Inventario**: `/inventario/index.vue` + `/categorias.vue` - Product inventory
 - **Clientes**: `/clientes/index.vue` - Client directory with pet management
 - **Proveedores**: `/proveedores/index.vue` - Supplier directory
+- **Deudas**: `/deudas/index.vue` - Debt management and payment recording
 - **Configuración**: `/configuracion/index.vue` + `/empleados.vue` - Settings
 
 ## Feature Development System (FDS)

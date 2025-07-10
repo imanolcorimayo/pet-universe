@@ -179,6 +179,14 @@
           </li>
           <li>
             <NuxtLink
+              to="/deudas"
+              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+            >
+              <PhCreditCardFill class="text-gray-500" /> Deudas
+            </NuxtLink>
+          </li>
+          <li>
+            <NuxtLink
               to="/reportes"
               class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
@@ -244,6 +252,7 @@ import PhChartBarFill from "~icons/ph/chart-bar-fill";
 import PhFileTextFill from "~icons/ph/file-text-fill";
 import PhMoneyFill from "~icons/ph/money-fill";
 import PhClockCounterClockwiseFill from "~icons/ph/clock-counter-clockwise-fill";
+import PhCreditCardFill from "~icons/ph/credit-card-fill";
 import GravityUiGear from "~icons/gravity-ui/gear";
 import IconParkOutlineCheckOne from "~icons/icon-park-outline/check-one";
 import SiSignOutFill from "~icons/si/sign-out-fill";
