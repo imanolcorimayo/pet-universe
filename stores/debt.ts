@@ -434,6 +434,61 @@ export const useDebtStore = defineStore('debt', {
       }
     },
 
+    // Close a debt manually (mark as paid without payment - useful for debt forgiveness or manual adjustments)
+    async closeDebt(debtId: string, reason: string) {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      if (!user.value?.uid) {
+        useToast(ToastEvents.error, 'Debes iniciar sesión');
+        return false;
+      }
+
+      const debt = this.getDebtById(debtId);
+      if (!debt) {
+        useToast(ToastEvents.error, 'Deuda no encontrada');
+        return false;
+      }
+
+      if (debt.status !== 'active') {
+        useToast(ToastEvents.error, 'Solo se pueden cerrar deudas activas');
+        return false;
+      }
+
+      try {
+        const debtRef = doc(db, 'debt', debtId);
+        await updateDoc(debtRef, {
+          status: 'paid',
+          paidAmount: debt.originalAmount,
+          remainingAmount: 0,
+          paidAt: serverTimestamp(),
+          notes: debt.notes ? `${debt.notes}\n\nCerrada manualmente: ${reason}` : `Cerrada manualmente: ${reason}`,
+          updatedAt: serverTimestamp()
+        });
+        
+        // Update local cache
+        const debtIndex = this.debts.findIndex(d => d.id === debtId);
+        if (debtIndex !== -1) {
+          this.debts[debtIndex] = {
+            ...this.debts[debtIndex],
+            status: 'paid',
+            paidAmount: debt.originalAmount,
+            remainingAmount: 0,
+            paidAt: new Date(),
+            notes: debt.notes ? `${debt.notes}\n\nCerrada manualmente: ${reason}` : `Cerrada manualmente: ${reason}`,
+            updatedAt: new Date()
+          };
+        }
+        
+        useToast(ToastEvents.success, 'Deuda cerrada exitosamente');
+        return true;
+      } catch (error) {
+        console.error('Error closing debt:', error);
+        useToast(ToastEvents.error, 'Error al cerrar la deuda');
+        return false;
+      }
+    },
+
     // Get debt summary statistics
     getDebtSummary() {
       const activeDebts = this.activeDebts;

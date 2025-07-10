@@ -209,6 +209,14 @@
                   </button>
                   <button
                     v-if="debt.status === 'active'"
+                    @click="closeDebt(debt)"
+                    class="p-1 text-blue-600 hover:text-blue-900 rounded"
+                    title="Cerrar deuda"
+                  >
+                    <LucideCheck class="w-4 h-4" />
+                  </button>
+                  <button
+                    v-if="debt.status === 'active'"
                     @click="cancelDebt(debt)"
                     class="p-1 text-red-600 hover:text-red-900 rounded"
                     title="Cancelar deuda"
@@ -228,6 +236,12 @@
       ref="paymentModalRef"
       @payment-completed="onPaymentCompleted"
     />
+
+    <!-- Details Modal -->
+    <DebtDetails
+      ref="detailsModalRef"
+      @debt-updated="onDebtUpdated"
+    />
   </div>
 </template>
 
@@ -241,6 +255,7 @@ import LucideFileX from '~icons/lucide/file-x';
 import LucideUser from '~icons/lucide/user';
 import LucideDollarSign from '~icons/lucide/dollar-sign';
 import LucideEye from '~icons/lucide/eye';
+import LucideCheck from '~icons/lucide/check';
 import LucideX from '~icons/lucide/x';
 
 import { ToastEvents } from '~/interfaces';
@@ -249,6 +264,7 @@ import { ToastEvents } from '~/interfaces';
 // Refs
 const isLoading = ref(false);
 const paymentModalRef = ref(null);
+const detailsModalRef = ref(null);
 
 // Filters
 const filters = reactive({
@@ -312,8 +328,7 @@ function recordPayment(debt) {
 }
 
 function viewDebtDetails(debt) {
-  // TODO: Implement debt details modal
-  useToast(ToastEvents.info, 'Vista de detalles pendiente de implementación');
+  detailsModalRef.value?.showModal(debt);
 }
 
 async function cancelDebt(debt) {
@@ -330,7 +345,25 @@ async function cancelDebt(debt) {
   }
 }
 
+async function closeDebt(debt) {
+  const reason = prompt('¿Por qué motivo se cierra esta deuda? (ej: condonación, acuerdo, etc.)');
+  if (!reason || reason.trim() === '') return;
+  
+  try {
+    const success = await debtStore.closeDebt(debt.id, reason.trim());
+    if (success) {
+      await refreshData();
+    }
+  } catch (error) {
+    console.error('Error closing debt:', error);
+  }
+}
+
 async function onPaymentCompleted() {
+  await refreshData();
+}
+
+async function onDebtUpdated() {
   await refreshData();
 }
 

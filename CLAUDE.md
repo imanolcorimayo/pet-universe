@@ -582,6 +582,59 @@ supplier/
     archivedAt: Timestamp|null   // When the supplier was archived (if applicable)
 ```
 
+## Debt Management
+
+### debt
+Customer and supplier debt tracking with status management.
+
+```
+debt/
+  {document-id}/
+    businessId: string           // References the business this debt belongs to
+    type: "customer" | "supplier" // Type of entity that owes the debt
+    entityId: string             // Reference to client or supplier ID
+    entityName: string           // Name of the client or supplier for quick reference
+    originalAmount: number       // Original debt amount
+    paidAmount: number           // Total amount paid so far
+    remainingAmount: number      // Remaining amount to be paid
+    originType: "sale" | "purchase" | "manual" // How the debt was created
+    originId: string|null        // Reference to originating transaction (sale ID, etc.)
+    originDescription: string    // Description of the debt origin
+    status: "active" | "paid" | "cancelled" // Current status of the debt
+    dueDate: Timestamp|null      // When the debt is due (optional)
+    notes: string                // Additional notes about the debt
+    createdBy: string            // User ID who created the debt
+    createdByName: string        // Name of user who created the debt
+    createdAt: Timestamp         // When the debt was created
+    updatedAt: Timestamp         // When the debt was last updated
+    
+    // Payment completion fields
+    paidAt: Timestamp|null       // When the debt was fully paid (if applicable)
+    
+    // Cancellation fields
+    cancelledAt: Timestamp|null  // When the debt was cancelled (if applicable)
+    cancelledBy: string|null     // User ID who cancelled the debt
+    cancelReason: string|null    // Reason for cancellation
+```
+
+### debtPayment
+Individual payment records for debt transactions.
+
+```
+debtPayment/
+  {document-id}/
+    businessId: string           // References the business this payment belongs to
+    debtId: string               // References the debt this payment is for
+    salesRegisterId: string      // References the sales register where payment was recorded
+    amount: number               // Amount of this payment
+    paymentMethod: string        // Payment method used (e.g., "EFECTIVO", "SANTANDER")
+    isReported: boolean          // Whether this payment is reported for accounting (white/black)
+    notes: string                // Additional notes about the payment
+    createdBy: string            // User ID who recorded the payment
+    createdByName: string        // Name of user who recorded the payment
+    createdAt: Timestamp         // When the payment was recorded
+```
+
 
 ## Customer Management
 
