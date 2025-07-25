@@ -5,7 +5,6 @@
     modalClass="!max-w-5xl"
     :click-propagation-filter="['tooltip-namespace']"
     modal-namespace="sale-transaction-modal"
-    @on-close="resetForm"
   >
     <div class="space-y-4">
       <!-- Client Selection -->
@@ -643,7 +642,7 @@ const isLoading = ref(false);
 // Form data
 const selectedClientId = ref('');
 const saleItems = ref([]);
-const paymentDetails = ref([]);
+const paymentDetails = ref([{ paymentMethod: 'EFECTIVO', amount: 0 }]);
 const isReported = ref(false);
 const notes = ref('');
 
@@ -1162,6 +1161,7 @@ async function submitForm() {
       
       emit('sale-completed');
       closeModal();
+      initializeForm(); // Reset form
     }
   } catch (error) {
     useToast(ToastEvents.error, 'Error al registrar la venta: ' + error.message);
@@ -1179,7 +1179,6 @@ function formatNumber(value) {
 async function showModal() {
   try {
     isLoading.value = true;
-    initializeForm();
     
     // Load all necessary data in parallel
     const [clientsResult, productsResult, inventoryResult] = await Promise.all([
@@ -1213,10 +1212,6 @@ async function showModal() {
 
 function closeModal() {
   modalRef.value?.closeModal();
-}
-
-function resetForm() {
-  initializeForm();
 }
 
 // Expose methods to parent component

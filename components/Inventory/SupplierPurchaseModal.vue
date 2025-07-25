@@ -500,6 +500,17 @@ const paidAmount = ref(0);
 const dueDate = ref('');
 const isReported = ref(true);
 
+// Watch for payment method changes to automatically set isReported
+watch(paymentMethod, (newPaymentMethod) => {
+  if (newPaymentMethod) {
+    const paymentMethodData = indexStore.getActivePaymentMethods[newPaymentMethod];
+    if (paymentMethodData) {
+      // Set isReported to false if payment method is cash (EFECTIVO), true otherwise
+      isReported.value = paymentMethodData.type !== 'cash';
+    }
+  }
+});
+
 // ----- Computed Properties ---------
 const validProductItems = computed(() => {
   return productItems.value.filter(item => 
@@ -862,7 +873,6 @@ async function savePurchase() {
 // ----- Define Expose ---------
 defineExpose({
   showModal: async () => {
-    resetForm();
     await loadData();
     mainModal.value?.showModal();
   },
