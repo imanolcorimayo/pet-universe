@@ -644,7 +644,7 @@ const isLoading = ref(false);
 const selectedClientId = ref('');
 const saleItems = ref([]);
 const paymentDetails = ref([]);
-const isReported = ref(true);
+const isReported = ref(false);
 const notes = ref('');
 
 // Debt-related data
@@ -717,6 +717,11 @@ const canProcessSale = computed(() => {
          (selectedClientId.value && paymentDifference.value > 0 && createDebtForDifference.value);
 });
 
+// Watch for changes in payment methods to update isReported automatically
+watch(paymentDetails, () => {
+  updateIsReportedBasedOnPayment();
+}, { deep: true });
+
 // Event emitter
 const emit = defineEmits(['sale-completed']);
 
@@ -725,7 +730,7 @@ function initializeForm() {
   selectedClientId.value = '';
   saleItems.value = [];
   paymentDetails.value = [{ paymentMethod: 'EFECTIVO', amount: 0 }];
-  isReported.value = true;
+  isReported.value = false;
   notes.value = '';
   productSelectRefs.value = [];
   
@@ -736,6 +741,9 @@ function initializeForm() {
   
   // Add first empty product row
   addProductRow();
+  
+  // Update isReported based on initial payment method
+  updateIsReportedBasedOnPayment();
 }
 
 // Focus management
@@ -904,23 +912,16 @@ function updateItemTotal(index) {
   }
 }
 
-// Helper function to apply custom discount
-function applyCustomDiscount(index, discount, discountType) {
-  const item = saleItems.value[index];
-  item.customDiscount = discount;
-  item.customDiscountType = discountType;
-  updateItemTotal(index);
-}
-
-// Helper function to get discount display for an item (DEPRECATED - keeping for compatibility)
-function getDiscountDisplay(item) {
-  return getTotalItemDiscount(item) > 0 ? `Desc: $${formatNumber(getTotalItemDiscount(item))}` : '';
-}
-
-// Helper function to get price type discount display (DEPRECATED - keeping for compatibility)
-function getPriceTypeDiscountDisplay(item) {
-  const discount = getPriceDiscount(item);
-  return discount > 0 ? `Desc: $${formatNumber(discount * item.quantity)}` : '';
+// Function to update isReported based on payment methods
+function updateIsReportedBasedOnPayment() {
+  // Check if any payment method is of type "cash"
+  const hasCashPayment = paymentDetails.value.some(payment => {
+    const method = availablePaymentMethods.value[payment.paymentMethod];
+    return method && method.type === 'cash';
+  });
+  
+  // If any payment method is cash, set isReported to false, otherwise true
+  isReported.value = !hasCashPayment;
 }
 
 // Methods for payment management
@@ -937,11 +938,16 @@ function addPaymentMethod() {
     paymentMethod: unusedMethod,
     amount: remainingAmount
   });
+  
+  // Update isReported when payment method is added
+  updateIsReportedBasedOnPayment();
 }
 
 function removePaymentMethod(index) {
   if (paymentDetails.value.length > 1) {
     paymentDetails.value.splice(index, 1);
+    // Update isReported when payment method is removed
+    updateIsReportedBasedOnPayment();
   }
 }
 
