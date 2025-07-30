@@ -408,7 +408,7 @@
       <div class="flex justify-end space-x-2">
         <button
           type="button"
-          @click="closeModal"
+          @click="resetForm(); closeModal()"
           class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           Cancelar
@@ -547,10 +547,6 @@ const formData = ref({
 
 // ----- Define Methods ---------
 function closeModal() {
-
-  // Reset the form data to initial state
-  resetForm();
-
   mainModal.value?.closeModal();
 }
 
@@ -643,6 +639,7 @@ async function saveProduct() {
 
     if (success) {
       emit("product-saved");
+      resetForm();
       closeModal();
     }
   } catch (error) {
