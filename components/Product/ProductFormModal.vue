@@ -90,6 +90,94 @@
             </div>
           </div>
 
+          <!-- Tracking Type Field - moved from Inventory Configuration -->
+          <div class="mb-4">
+            <label
+              for="trackingType"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Tipo de Seguimiento*</label
+            >
+            <select
+              id="trackingType"
+              v-model="formData.trackingType"
+              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              required
+              @change="handleTrackingTypeChange"
+            >
+              <option value="unit">Unidades</option>
+              <option value="weight">Peso</option>
+              <option value="dual">Unidades y Peso</option>
+            </select>
+          </div>
+
+          <!-- Unit Weight Field - shown by default for dual, hidden for others -->
+          <div v-if="formData.trackingType === 'dual'" class="mb-4">
+            <label
+              for="unitWeight"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Peso por Unidad (kg)*</label
+            >
+            <input
+              id="unitWeight"
+              v-model.number="formData.unitWeight"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="ej: 15.0"
+              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              required
+            />
+          </div>
+
+          <!-- Unit Type Field - moved from Inventory Configuration -->
+          <div class="mb-4">
+            <label
+              for="unitType"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Tipo de Unidad*</label
+            >
+            <input
+              id="unitType"
+              v-model="formData.unitType"
+              type="text"
+              placeholder="ej: bolsa, pieza, kg"
+              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              required
+            />
+          </div>
+
+          <!-- Minimum Stock Field - moved from Inventory Configuration -->
+          <div class="mb-4">
+            <label
+              for="minimumStock"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Stock Mínimo*</label
+            >
+            <input
+              id="minimumStock"
+              v-model.number="formData.minimumStock"
+              type="number"
+              min="0"
+              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              required
+            />
+          </div>
+
+          <!-- Loose Sales Checkbox - only for dual tracking -->
+          <div v-if="formData.trackingType === 'dual'" class="mb-4 flex items-center">
+            <input
+              type="checkbox"
+              id="allowsLooseSales"
+              v-model="formData.allowsLooseSales"
+              class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+            />
+            <label
+              for="allowsLooseSales"
+              class="ml-2 block text-sm text-gray-700"
+              >Permitir venta a granel</label
+            >
+          </div>
+
           <!-- Description Field -->
           <div>
             <label
@@ -308,99 +396,6 @@
           </div>
         </div>
 
-        <!-- Inventory Configuration -->
-        <div class="bg-gray-50 p-4 rounded-lg">
-          <h3 class="text-md font-medium mb-3">Configuración de Inventario</h3>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label
-                for="trackingType"
-                class="block text-sm font-medium text-gray-700 mb-1"
-                >Tipo de Seguimiento*</label
-              >
-              <select
-                id="trackingType"
-                v-model="formData.trackingType"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                required
-                @change="handleTrackingTypeChange"
-              >
-                <option value="unit">Unidades</option>
-                <option value="weight">Peso</option>
-                <option value="dual">Unidades y Peso</option>
-              </select>
-            </div>
-
-            <div>
-              <label
-                for="unitType"
-                class="block text-sm font-medium text-gray-700 mb-1"
-                >Tipo de Unidad*</label
-              >
-              <input
-                id="unitType"
-                v-model="formData.unitType"
-                type="text"
-                placeholder="ej: bolsa, pieza, kg"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                required
-              />
-            </div>
-          </div>
-
-          <!-- Add the unitWeight field - only shows when tracking type is dual -->
-          <div v-if="formData.trackingType === 'dual'" class="mb-4">
-            <label
-              for="unitWeight"
-              class="block text-sm font-medium text-gray-700 mb-1"
-              >Peso por Unidad (kg)*</label
-            >
-            <input
-              id="unitWeight"
-              v-model.number="formData.unitWeight"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="ej: 15.0"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              required
-            />
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label
-                for="minimumStock"
-                class="block text-sm font-medium text-gray-700 mb-1"
-                >Stock Mínimo*</label
-              >
-              <input
-                id="minimumStock"
-                v-model.number="formData.minimumStock"
-                type="number"
-                min="0"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                required
-              />
-            </div>
-            
-            <!-- For dual tracking types, show loose sales option -->
-            <div v-if="formData.trackingType === 'dual'" class="flex items-center">
-              <input
-                type="checkbox"
-                id="allowsLooseSales"
-                v-model="formData.allowsLooseSales"
-                class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-              />
-              <label
-                for="allowsLooseSales"
-                class="ml-2 block text-sm text-gray-700"
-                >Permitir venta a granel</label
-              >
-            </div>
-          </div>
-        </div>
       </form>
     </template>
 
@@ -536,7 +531,7 @@ const formData = ref({
     }
   },
 
-  trackingType: "unit",
+  trackingType: "dual",
   unitType: "unidad",
   unitWeight: 0,
   allowsLooseSales: false,
@@ -577,7 +572,7 @@ function resetForm() {
       }
     },
 
-    trackingType: "unit",
+    trackingType: "dual",
     unitType: "unidad",
     unitWeight: 0,
     allowsLooseSales: false,

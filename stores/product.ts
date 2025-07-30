@@ -178,7 +178,10 @@ export const useProductStore = defineStore("product", {
         filtered = filtered.filter((product) => 
           product.name.toLowerCase().includes(query) ||
           product.brand.toLowerCase().includes(query) ||
-          product.description.toLowerCase().includes(query)
+          product.description.toLowerCase().includes(query) ||
+          // Include weight search for dual tracking products
+          (product.trackingType === 'dual' && product.unitWeight && 
+           `${product.unitWeight}kg`.includes(query))
         );
       }
       

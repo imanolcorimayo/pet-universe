@@ -96,8 +96,15 @@
               <LucidePackage class="text-primary h-6 w-6" />
             </div>
             <div>
-              <h3 class="font-semibold text-lg"><span v-if="product.brand">{{ product.brand }} - </span>{{ product.name }}</h3>
+              <h3 class="font-semibold text-lg">
+                <span v-if="product.brand">{{ product.brand }} - </span>{{ product.name }}<span v-if="product.trackingType === 'dual' && product.unitWeight"> - {{ product.unitWeight }}kg</span>
+              </h3>
               <p class="text-sm text-gray-500">{{ getCategoryName(product.category) }} {{ product.subcategory ? `- ${product.subcategory}` : '' }}</p>
+              <p class="text-xs text-gray-400 mt-1">
+                <span v-if="product.trackingType === 'dual'">Unidades y Peso</span>
+                <span v-else-if="product.trackingType === 'weight'">Peso</span>
+                <span v-else>Unidades</span>
+              </p>
             </div>
           </div>
           
