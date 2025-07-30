@@ -203,7 +203,7 @@
             <!-- Unit Prices -->
             <div class="mb-4">
               <h4 class="text-sm font-medium mb-2 border-b pb-1">Precios por Unidad</h4>
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <label
                     for="unitPriceRegular"
@@ -252,13 +252,29 @@
                     class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                   />
                 </div>
+
+                <div>
+                  <label
+                    for="unitPriceBulk"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Precio Mayorista</label
+                  >
+                  <input
+                    id="unitPriceBulk"
+                    v-model.number="formData.prices.unit.bulk"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                  />
+                </div>
               </div>
             </div>
             
             <!-- Weight Prices -->
             <div>
               <h4 class="text-sm font-medium mb-2 border-b pb-1">Precios por Kilogramo</h4>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <label
                     for="kgPriceRegular"
@@ -301,22 +317,6 @@
                   <input
                     id="kgPriceVip"
                     v-model.number="formData.prices.kg.vip"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    for="kgPriceBulk"
-                    class="block text-sm font-medium text-gray-700 mb-1"
-                    >Precio Mayorista</label
-                  >
-                  <input
-                    id="kgPriceBulk"
-                    v-model.number="formData.prices.kg.bulk"
                     type="number"
                     step="0.01"
                     min="0"
@@ -522,12 +522,12 @@ const formData = ref({
       regular: 0,
       cash: 0,
       vip: 0,
+      bulk: 0,
     },
     kg: {
       regular: 0,
       cash: 0,
       vip: 0,
-      bulk: 0,
     }
   },
 
@@ -563,12 +563,12 @@ function resetForm() {
         regular: 0,
         cash: 0,
         vip: 0,
+        bulk: 0,
       },
       kg: {
         regular: 0,
         cash: 0,
         vip: 0,
-        bulk: 0,
       }
     },
 
@@ -593,13 +593,13 @@ function handleTrackingTypeChange() {
       formData.value.prices.unit.regular = formData.value.prices.regular;
       formData.value.prices.unit.cash = formData.value.prices.cash;
       formData.value.prices.unit.vip = formData.value.prices.vip;
+      formData.value.prices.unit.bulk = formData.value.prices.bulk;
     }
     
     if (formData.value.prices.kg.regular === 0) {
       formData.value.prices.kg.regular = formData.value.prices.regular;
       formData.value.prices.kg.cash = formData.value.prices.cash;
       formData.value.prices.kg.vip = formData.value.prices.vip;
-      formData.value.prices.kg.bulk = formData.value.prices.bulk;
     }
   }
 }
@@ -672,6 +672,9 @@ watch(
                   newProductData.prices?.cash || 0,
             vip: newProductData.prices?.unit?.vip || 
                  newProductData.prices?.vip || 0,
+            bulk: newProductData.prices?.unit?.bulk || 
+                  newProductData.prices?.kg?.bulk || 
+                  newProductData.prices?.bulk || 0,
           },
           
           // Kg pricing for dual products
@@ -682,8 +685,6 @@ watch(
                   newProductData.prices?.cash || 0,
             vip: newProductData.prices?.kg?.vip || 
                  newProductData.prices?.vip || 0,
-            bulk: newProductData.prices?.kg?.bulk || 
-                  newProductData.prices?.bulk || 0,
           }
         },
 

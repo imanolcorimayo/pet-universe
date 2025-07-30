@@ -25,7 +25,7 @@
                 <li>• <strong>Normal:</strong> Precio regular del producto</li>
                 <li>• <strong>Efectivo:</strong> Descuento por pago en efectivo</li>
                 <li>• <strong>VIP:</strong> Precio especial para clientes VIP</li>
-                <li v-if="unitType === 'kg'">• <strong>Mayorista:</strong> Precio por volumen (>3kg)</li>
+                <li v-if="unitType === 'unit'">• <strong>Mayorista:</strong> Precio para compras mayoristas</li>
               </ul>
             </div>
           </div>
@@ -201,8 +201,8 @@ const availablePrices = computed(() => {
     };
   }
   
-  // Bulk price (only for kg)
-  if (props.unitType === 'kg' && basePrices.bulk && basePrices.bulk < basePrices.regular) {
+  // Bulk price (only for units)
+  if (props.unitType === 'unit' && basePrices.bulk && basePrices.bulk < basePrices.regular) {
     prices.bulk = {
       price: basePrices.bulk,
       discount: basePrices.regular - basePrices.bulk

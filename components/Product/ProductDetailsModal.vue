@@ -57,7 +57,7 @@
               <h4 class="text-sm font-medium mb-2 border-b pb-1">
                 Precios por Unidad
               </h4>
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p class="text-sm text-gray-600">Regular</p>
                   <p class="font-semibold">
@@ -88,6 +88,16 @@
                     }}
                   </p>
                 </div>
+                <div>
+                  <p class="text-sm text-gray-600">Mayorista</p>
+                  <p class="font-semibold">
+                    {{
+                      formatCurrency(
+                        product.prices.unit?.bulk || product.prices.kg?.bulk || product.prices.bulk
+                      )
+                    }}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -96,7 +106,7 @@
               <h4 class="text-sm font-medium mb-2 border-b pb-1">
                 Precios por Kilogramo
               </h4>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <p class="text-sm text-gray-600">Regular</p>
                   <p class="font-semibold">
@@ -123,16 +133,6 @@
                     {{
                       formatCurrency(
                         product.prices.kg?.vip || product.prices.vip
-                      )
-                    }}
-                  </p>
-                </div>
-                <div>
-                  <p class="text-sm text-gray-600">Mayorista</p>
-                  <p class="font-semibold">
-                    {{
-                      formatCurrency(
-                        product.prices.kg?.bulk || product.prices.bulk
                       )
                     }}
                   </p>

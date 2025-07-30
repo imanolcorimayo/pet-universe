@@ -36,12 +36,12 @@ interface Product {
       regular: number;
       cash: number;
       vip: number;
+      bulk: number;
     };
     kg?: {
       regular: number;
       cash: number;
       vip: number;
-      bulk: number;
     };
   };
   
@@ -96,12 +96,12 @@ interface ProductFormData {
       regular: number;
       cash: number;
       vip: number;
+      bulk: number;
     };
     kg: {
       regular: number;
       cash: number;
       vip: number;
-      bulk: number;
     };
   };
   
@@ -637,13 +637,13 @@ export const useProductStore = defineStore("product", {
                 regular: data.prices?.unit?.regular || 0,
                 cash: data.prices?.unit?.cash || 0,
                 vip: data.prices?.unit?.vip || 0,
+                bulk: data.prices?.unit?.bulk || data.prices?.kg?.bulk || 0,
               } : undefined,
               
               kg: data.trackingType === 'dual' ? {
                 regular: data.prices?.kg?.regular || 0,
                 cash: data.prices?.kg?.cash || 0,
                 vip: data.prices?.kg?.vip || 0,
-                bulk: data.prices?.kg?.bulk || 0,
               } : undefined,
             },
             
@@ -701,13 +701,14 @@ export const useProductStore = defineStore("product", {
             regular: formData.prices.unit.regular || 0,
             cash: formData.prices.unit.cash || 0,
             vip: formData.prices.unit.vip || 0,
-            bulk: formData.prices.kg.bulk || 0,
+            bulk: formData.prices.unit.bulk || 0,
             
             // Unit-specific prices
             unit: {
               regular: formData.prices.unit.regular || 0,
               cash: formData.prices.unit.cash || 0,
               vip: formData.prices.unit.vip || 0,
+              bulk: formData.prices.unit.bulk || 0,
             },
             
             // Kg-specific prices
@@ -715,7 +716,6 @@ export const useProductStore = defineStore("product", {
               regular: formData.prices.kg.regular || 0,
               cash: formData.prices.kg.cash || 0,
               vip: formData.prices.kg.vip || 0,
-              bulk: formData.prices.kg.bulk || 0,
             }
           };
         } else {
@@ -851,13 +851,14 @@ export const useProductStore = defineStore("product", {
             regular: formData.prices.unit.regular || 0,
             cash: formData.prices.unit.cash || 0,
             vip: formData.prices.unit.vip || 0,
-            bulk: formData.prices.kg.bulk || 0,
+            bulk: formData.prices.unit.bulk || 0,
             
             // Unit-specific prices
             unit: {
               regular: formData.prices.unit.regular || 0,
               cash: formData.prices.unit.cash || 0,
               vip: formData.prices.unit.vip || 0,
+              bulk: formData.prices.unit.bulk || 0,
             },
             
             // Kg-specific prices
@@ -865,7 +866,6 @@ export const useProductStore = defineStore("product", {
               regular: formData.prices.kg.regular || 0,
               cash: formData.prices.kg.cash || 0,
               vip: formData.prices.kg.vip || 0,
-              bulk: formData.prices.kg.bulk || 0,
             }
           };
         } else {
