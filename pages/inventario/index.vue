@@ -78,7 +78,7 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Buscar por nombre, marca o producto..."
+            placeholder="Buscar por nombre, marca, descripción o kg..."
             class="w-full !pl-10 !pr-4 !py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
           <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
@@ -164,7 +164,7 @@
                 <div class="flex items-center">
                   <div>
                     <div class="text-sm font-medium text-gray-900">
-                      {{ item.productName }}
+                      <span v-if="getProductById(item.productId)?.brand">{{ getProductById(item.productId).brand }} - </span>{{ item.productName }}<span v-if="getProductById(item.productId)?.trackingType === 'dual' && getProductById(item.productId)?.unitWeight"> - {{ getProductById(item.productId).unitWeight }}kg</span>
                     </div>
                     <div v-if="getProductById(item.productId)?.category" class="text-xs text-gray-500">
                       {{ getProductById(item.productId)?.category }}
@@ -328,10 +328,15 @@ const filteredInventory = computed(() => {
   // Apply search filter
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
-    result = result.filter(item => 
-      item.productName.toLowerCase().includes(query) ||
-      (getProductById(item.productId)?.brand || '').toLowerCase().includes(query)
-    );
+    result = result.filter(item => {
+      const product = getProductById(item.productId);
+      return (
+        item.productName.toLowerCase().includes(query) ||
+        (product?.brand || '').toLowerCase().includes(query) ||
+        (product?.description || '').toLowerCase().includes(query) ||
+        (product?.unitWeight && product.unitWeight.toString().includes(query))
+      );
+    });
   }
   
   // Apply sorting
