@@ -432,6 +432,22 @@ salesRegisterExpense/
 
 ## Product & Inventory Management
 
+### productCategory
+Product categories for organizing the product catalog.
+
+```
+productCategory/
+  {document-id}/
+    businessId: string           // References the business this category belongs to
+    name: string                 // Category name
+    description: string          // Category description
+    isActive: boolean            // Whether category is active
+    createdBy: string            // User ID who created the category
+    createdAt: Timestamp         // When the category was created
+    updatedAt: Timestamp         // When the category was last updated
+    archivedAt: Timestamp|null   // When the category was archived (if applicable)
+```
+
 ### product
 Product catalog for the business.
 
@@ -722,12 +738,7 @@ businessConfig/
       notes: string|null         // Additional notes
     }]
     
-    // Categories configuration
-    productCategories: [{        // Array of product categories
-      name: string               // Category name
-      subcategories: string[]    // Array of subcategory names
-      isActive: boolean          // Whether category is active
-    }]
+    // Categories configuration (deprecated - categories are now managed via productCategory collection)
     
     supplierCategories: string[] // Array of supplier category names
     

@@ -167,7 +167,7 @@
                       <span v-if="getProductById(item.productId)?.brand">{{ getProductById(item.productId).brand }} - </span>{{ item.productName }}<span v-if="getProductById(item.productId)?.trackingType === 'dual' && getProductById(item.productId)?.unitWeight"> - {{ getProductById(item.productId).unitWeight }}kg</span>
                     </div>
                     <div v-if="getProductById(item.productId)?.category" class="text-xs text-gray-500">
-                      {{ getProductById(item.productId)?.category }}
+                      {{ getCategoryName(getProductById(item.productId)?.category) }}
                     </div>
                   </div>
                 </div>
@@ -356,6 +356,12 @@ function getProductById(productId) {
   return productStore.getProductById(productId);
 }
 
+function getCategoryName(categoryId) {
+  if (!categoryId) return '';
+  const category = productStore.getCategoryById(categoryId);
+  return category?.name || categoryId;
+}
+
 function formatStock(item) {
   const product = getProductById(item.productId);
   if (!product) return `${item.unitsInStock} unidades`;
@@ -421,9 +427,13 @@ function sortInventory(inventory, sortKey) {
 
 // Lifecycle hooks
 onMounted(async () => {
-  // Make sure products are loaded first for product information
+  // Make sure products and categories are loaded first for product information
   if (!productStore.productsLoaded) {
     await productStore.fetchProducts();
+  }
+  
+  if (!productStore.categoriesLoaded) {
+    await productStore.fetchCategories();
   }
   
   // Then load inventory data
