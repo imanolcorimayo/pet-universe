@@ -163,20 +163,6 @@
             />
           </div>
 
-          <!-- Loose Sales Checkbox - only for dual tracking -->
-          <div v-if="formData.trackingType === 'dual'" class="mb-4 flex items-center">
-            <input
-              type="checkbox"
-              id="allowsLooseSales"
-              v-model="formData.allowsLooseSales"
-              class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-            />
-            <label
-              for="allowsLooseSales"
-              class="ml-2 block text-sm text-gray-700"
-              >Permitir venta a granel</label
-            >
-          </div>
 
           <!-- Description Field -->
           <div>
@@ -534,7 +520,6 @@ const formData = ref({
   trackingType: "dual",
   unitType: "unidad",
   unitWeight: 0,
-  allowsLooseSales: false,
 
   minimumStock: 2,
   supplierIds: [],
@@ -575,7 +560,6 @@ function resetForm() {
     trackingType: "dual",
     unitType: "unidad",
     unitWeight: 0,
-    allowsLooseSales: false,
 
     minimumStock: 2,
     supplierIds: [],
@@ -585,9 +569,6 @@ function resetForm() {
 // Handle tracking type change to set default values
 function handleTrackingTypeChange() {
   if (formData.value.trackingType === 'dual') {
-    // Default to allow loose sales for dual products
-    formData.value.allowsLooseSales = true;
-    
     // Copy current prices to both unit and kg if they're not set
     if (formData.value.prices.unit.regular === 0) {
       formData.value.prices.unit.regular = formData.value.prices.regular;
@@ -620,8 +601,6 @@ async function saveProduct() {
     // Prepare the data to save
     const productToSave = {
       ...formData.value,
-      // If type is dual, ensure it allows loose sales
-      allowsLooseSales: formData.value.trackingType === "dual" ? true : formData.value.allowsLooseSales,
     };
 
     if (props.editMode && props.productData) {
@@ -691,7 +670,6 @@ watch(
         trackingType: newProductData.trackingType || "unit",
         unitType: newProductData.unitType || "unidad",
         unitWeight: newProductData.unitWeight || 0,
-        allowsLooseSales: newProductData.allowsLooseSales || false,
 
         minimumStock: newProductData.minimumStock || 2,
         supplierIds: newProductData.supplierIds || [],

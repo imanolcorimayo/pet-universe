@@ -108,7 +108,6 @@ interface ProductFormData {
   trackingType: "unit" | "weight" | "dual";
   unitWeight: number;
   unitType: string;
-  allowsLooseSales: boolean;
   
   minimumStock: number;
   supplierIds: string[];
@@ -742,7 +741,7 @@ export const useProductStore = defineStore("product", {
           trackingType: formData.trackingType,
           unitType: formData.unitType,
           unitWeight: formData.unitWeight || 0,
-          allowsLooseSales: formData.trackingType === 'dual' ? true : formData.allowsLooseSales,
+          allowsLooseSales: formData.trackingType === 'dual',
           
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
@@ -787,7 +786,7 @@ export const useProductStore = defineStore("product", {
           trackingType: formData.trackingType,
           unitType: formData.unitType,
           unitWeight: formData.unitWeight || 0,
-          allowsLooseSales: formData.trackingType === 'dual' ? true : formData.allowsLooseSales,
+          allowsLooseSales: formData.trackingType === 'dual',
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
           isActive: true,
@@ -891,7 +890,7 @@ export const useProductStore = defineStore("product", {
           trackingType: formData.trackingType,
           unitType: formData.unitType,
           unitWeight: formData.unitWeight || 0,
-          allowsLooseSales: formData.trackingType === 'dual' ? true : formData.allowsLooseSales,
+          allowsLooseSales: formData.trackingType === 'dual',
           
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
@@ -930,7 +929,7 @@ export const useProductStore = defineStore("product", {
             trackingType: formData.trackingType,
             unitType: formData.unitType,
             unitWeight: formData.unitWeight || 0,
-            allowsLooseSales: formData.trackingType === 'dual' ? true : formData.allowsLooseSales,
+            allowsLooseSales: formData.trackingType === 'dual',
             minimumStock: formData.minimumStock || 0,
             supplierIds: formData.supplierIds || [],
             updatedAt: $dayjs().format('DD/MM/YYYY'),
