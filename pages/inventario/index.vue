@@ -123,7 +123,7 @@
           >
             <option value="name">Nombre</option>
             <option value="stock">Stock</option>
-            <option value="value">Valor</option>
+            <option value="value">Costo</option>
             <option value="movement">Último Movimiento</option>
           </select>
         </div>

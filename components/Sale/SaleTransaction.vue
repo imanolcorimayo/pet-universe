@@ -40,6 +40,28 @@
         </div>
       </div>
       
+      <!-- Stock Alerts -->
+      <div v-if="stockAlerts.length > 0" class="space-y-2">
+        <div 
+          v-for="alert in stockAlerts" 
+          :key="alert.productId"
+          :class="[
+            'p-3 rounded-lg border flex items-start gap-3',
+            alert.type === 'negative' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'
+          ]"
+        >
+          <LucideAlertTriangle :class="alert.type === 'negative' ? 'h-5 w-5 text-red-600 mt-0.5' : 'h-5 w-5 text-yellow-600 mt-0.5'" />
+          <div class="flex-1">
+            <h4 :class="alert.type === 'negative' ? 'font-medium text-red-800' : 'font-medium text-yellow-800'">
+              {{ alert.type === 'negative' ? 'Stock Insuficiente' : 'Stock Bajo' }}
+            </h4>
+            <p :class="alert.type === 'negative' ? 'text-sm text-red-700' : 'text-sm text-yellow-700'">
+              {{ alert.message }}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Product Selection -->
       <div class="bg-gray-50 p-4 rounded-lg">
         <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-3 gap-2">
@@ -714,6 +736,52 @@ const canProcessSale = computed(() => {
   // Can process if payment is exact OR if there's a client selected and we're creating a debt
   return paymentDifference.value === 0 || 
          (selectedClientId.value && paymentDifference.value > 0 && createDebtForDifference.value);
+});
+
+const stockAlerts = computed(() => {
+  const alerts = [];
+  
+  saleItems.value.forEach(item => {
+    if (!item.productId || !item.quantity) return;
+
+    const inventory = getProductStock(item.productId);
+    const product = getProduct(item.productId);
+    
+    if (!inventory || !product) return;
+    
+    let availableStock = 0;
+    let stockAfterSale = 0;
+    
+    // Calculate available stock based on unit type
+    if (item.unitType === 'kg') {
+      // For kg sales, calculate total available kg
+      availableStock = inventory.openUnitsWeight;
+      stockAfterSale = availableStock - item.quantity;
+    } else {
+      // For unit sales, only consider full units
+      availableStock = inventory.unitsInStock;
+      stockAfterSale = availableStock - item.quantity;
+    }
+
+    // Check for negative stock (insufficient stock)
+    if (stockAfterSale < 0) {
+      alerts.push({
+        productId: item.productId,
+        type: 'negative',
+        message: `${product.name}: Intentas vender ${item.quantity} ${item.unitType === 'kg' ? 'kg' : 'unidades'} pero solo tienes ${availableStock.toFixed(2)} ${item.unitType === 'kg' ? 'kg' : 'unidades'} disponibles.`
+      });
+    }
+    // Check for stock falling to exactly 0 (warning)
+    else if (Math.round(stockAfterSale) === 0) {
+      alerts.push({
+        productId: item.productId,
+        type: 'warning',
+        message: `${product.name}: Esta venta agotará completamente el stock del producto.`
+      });
+    }
+  });
+  
+  return alerts;
 });
 
 // Watch for changes in payment methods to update isReported automatically
