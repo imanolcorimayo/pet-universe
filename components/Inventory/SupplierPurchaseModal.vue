@@ -152,23 +152,6 @@
                   />
                 </div>
 
-                <!-- Weight to Add (if product supports it) -->
-                <div
-                  v-if="item.selectedProduct && item.selectedProduct.trackingType !== 'unit'"
-                  class="flex flex-col gap-2"
-                >
-                  <label class="text-sm font-medium text-gray-700">Peso (kg)</label>
-                  <input
-                    type="number"
-                    v-model.number="item.weightChange"
-                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-base"
-                    placeholder="Ej: 2.5"
-                    min="0"
-                    step="0.01"
-                    :disabled="isSubmitting"
-                  />
-                </div>
-
                 <!-- Unit Cost -->
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-gray-700">Precio Unitario</label>
@@ -271,7 +254,7 @@
               <div class="font-semibold text-lg">{{ validProductItems.length }}</div>
             </div>
             <div class="text-center">
-              <span class="text-sm text-green-600">Unidades totales:</span>
+              <span class="text-sm text-green-600">Cantidad total:</span>
               <div class="font-semibold text-lg">{{ totalUnits }}</div>
             </div>
             <div class="text-center">
@@ -647,11 +630,6 @@ function selectProduct(index, product) {
   item.productName = product.name;
   item.selectedProduct = product;
   item.showProductDropdown = false;
-  
-  // Set default weight change to 0 if product doesn't support weight tracking
-  if (product.trackingType === 'unit') {
-    item.weightChange = 0;
-  }
 }
 
 function onProductBlur(index) {
@@ -689,13 +667,10 @@ function formatNewStock(item) {
   const currentWeight = inventory?.openUnitsWeight || 0;
   
   const newUnits = currentUnits + (item.unitsChange || 0);
-  const newWeight = currentWeight + (item.weightChange || 0);
   
   const product = item.selectedProduct;
-  if (product.trackingType === 'weight') {
-    return `${newWeight} kg`;
-  } else if (product.trackingType === 'dual') {
-    return `${newUnits} ${product.unitType || 'unidad'}${newUnits !== 1 ? 'es' : ''} + ${newWeight} kg`;
+  if (product.trackingType === 'dual') {
+    return `${newUnits} ${product.unitType || 'unidad'}${newUnits !== 1 ? 'es' : ''} + ${currentWeight} kg`;
   } else {
     return `${newUnits} ${product.unitType || 'unidad'}${newUnits !== 1 ? 'es' : ''}`;
   }
@@ -705,23 +680,9 @@ function formatStockChange(item) {
   if (!item.selectedProduct) return 'N/A';
   
   const unitsChange = item.unitsChange || 0;
-  const weightChange = item.weightChange || 0;
-  
   const product = item.selectedProduct;
-  if (product.trackingType === 'weight') {
-    return `${weightChange} kg`;
-  } else if (product.trackingType === 'dual') {
-    if (unitsChange > 0 && weightChange > 0) {
-      return `${unitsChange} ${product.unitType || 'unidad'}${unitsChange !== 1 ? 'es' : ''} + ${weightChange} kg`;
-    } else if (unitsChange > 0) {
-      return `${unitsChange} ${product.unitType || 'unidad'}${unitsChange !== 1 ? 'es' : ''}`;
-    } else if (weightChange > 0) {
-      return `${weightChange} kg`;
-    }
-    return '0';
-  } else {
-    return `${unitsChange} ${product.unitType || 'unidad'}${unitsChange !== 1 ? 'es' : ''}`;
-  }
+
+  return `${unitsChange} ${product.unitType || 'unidad'}${unitsChange !== 1 ? 'es' : ''}`;
 }
 
 function calculateNewAverageCost(item) {
@@ -810,7 +771,7 @@ async function savePurchase() {
       const success = await inventoryStore.addInventory({
         productId: item.selectedProduct.id,
         unitsChange: item.unitsChange,
-        weightChange: item.weightChange || 0,
+        weightChange: 0,
         unitCost: item.unitCost,
         supplierId: selectedSupplier.value.id,
         supplierName: selectedSupplier.value.name,

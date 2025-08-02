@@ -87,7 +87,7 @@
           >
             <div class="flex flex-col gap-2">
               <label class="text-sm font-medium text-gray-700"
-                >Unidades a agregar</label
+                >Cantidad a agregar</label
               >
               <input
                 type="number"
@@ -97,24 +97,6 @@
                 @input="calculateNewValues"
                 min="0"
                 step="1"
-              />
-            </div>
-
-            <div
-              class="flex flex-col gap-2"
-              v-if="product.trackingType !== 'unit'"
-            >
-              <label class="text-sm font-medium text-gray-700"
-                >Peso a agregar (kg)</label
-              >
-              <input
-                type="number"
-                v-model.number="formData.weightChange"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                placeholder="Peso en kg"
-                @input="calculateNewValues"
-                min="0"
-                step="0.01"
               />
             </div>
 
@@ -291,7 +273,7 @@
           >
             <div class="flex flex-col gap-2">
               <label class="text-sm font-medium text-gray-700"
-                >Unidades a devolver</label
+                >Cantidad a devolver</label
               >
               <input
                 type="number"
@@ -302,25 +284,6 @@
                 min="0"
                 max="inventoryData?.unitsInStock || 999999"
                 step="1"
-              />
-            </div>
-
-            <div
-              class="flex flex-col gap-2"
-              v-if="product.trackingType !== 'unit'"
-            >
-              <label class="text-sm font-medium text-gray-700"
-                >Peso a devolver (kg)</label
-              >
-              <input
-                type="number"
-                v-model.number="formData.weightChange"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                placeholder="Peso en kg"
-                @input="calculateNewValues"
-                min="0"
-                max="inventoryData?.openUnitsWeight || 999999"
-                step="0.01"
               />
             </div>
 
