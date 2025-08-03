@@ -1333,5 +1333,38 @@ export const useInventoryStore = defineStore("inventory", {
         return [];
       }
     },
+    
+    // Add new inventory item to local cache (for when products are created)
+    addInventoryToCache(inventoryData: {
+      id: string;
+      businessId: string;
+      productId: string;
+      productName: string;
+      minimumStock: number;
+    }): void {
+      const { $dayjs } = useNuxtApp();
+      
+      const newInventoryItem: Inventory = {
+        id: inventoryData.id,
+        businessId: inventoryData.businessId,
+        productId: inventoryData.productId,
+        productName: inventoryData.productName,
+        unitsInStock: 0,
+        openUnitsWeight: 0,
+        totalWeight: 0,
+        minimumStock: inventoryData.minimumStock,
+        isLowStock: true, // New products start with 0 stock, so low stock
+        averageCost: 0,
+        lastPurchaseCost: 0,
+        totalCostValue: 0,
+        createdBy: inventoryData.businessId, // Will be overwritten with actual user when fetched
+        createdAt: $dayjs().format('DD/MM/YYYY'),
+        updatedAt: $dayjs().format('DD/MM/YYYY'),
+      };
+      
+      // Add to both array and Map
+      this.inventoryItems.push(newInventoryItem);
+      this.inventoryByProductId.set(inventoryData.productId, newInventoryItem);
+    },
   }
 });

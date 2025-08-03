@@ -767,7 +767,7 @@ export const useProductStore = defineStore("product", {
         const docRef = await addDoc(collection(db, 'product'), productData);
         
         // Initialize inventory record
-        await addDoc(collection(db, 'inventory'), {
+        const inventoryDocRef = await addDoc(collection(db, 'inventory'), {
           businessId: currentBusinessId.value,
           productId: docRef.id,
           productName: formData.name,
@@ -783,6 +783,18 @@ export const useProductStore = defineStore("product", {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
+        
+        // Update inventory cache if inventory store is loaded
+        const inventoryStore = useInventoryStore();
+        if (inventoryStore.inventoryLoaded) {
+          inventoryStore.addInventoryToCache({
+            id: inventoryDocRef.id,
+            businessId: currentBusinessId.value,
+            productId: docRef.id,
+            productName: formData.name,
+            minimumStock: formData.minimumStock || 0,
+          });
+        }
         
         // Add product to the local state
         const newProduct: Product = {
