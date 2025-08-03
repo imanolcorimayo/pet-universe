@@ -99,6 +99,7 @@
                       :products="products"
                       :product-stock="inventoryItems"
                       :product-categories="productCategories"
+                      :exclude-product-ids="selectedProductIds.filter(id => id !== item.productId)"
                       :disabled="isLoading"
                       :show-stock="true"
                       input-class="p-1.5 text-sm"
@@ -292,6 +293,7 @@
                   :products="products"
                   :product-stock="inventoryItems"
                   :product-categories="productCategories"
+                  :exclude-product-ids="selectedProductIds.filter(id => id !== item.productId)"
                   :disabled="isLoading"
                   :show-stock="true"
                   input-class="p-2 text-sm"
@@ -699,6 +701,12 @@ const { inventoryItems } = storeToRefs(inventoryStore);
 // Computed properties
 const availablePaymentMethods = computed(() => {
   return indexStore.businessConfig?.paymentMethods || {};
+});
+
+const selectedProductIds = computed(() => {
+  return saleItems.value
+    .filter(item => item.productId)
+    .map(item => item.productId);
 });
 
 const subtotal = computed(() => {

@@ -139,6 +139,10 @@ const props = defineProps({
   productCategories: {
     type: Array,
     default: () => []
+  },
+  excludeProductIds: {
+    type: Array,
+    default: () => []
   }
 });
 
@@ -157,13 +161,18 @@ const justSelected = ref(false);
 
 // Computed
 const filteredProducts = computed(() => {
+  // First, filter out excluded products
+  const availableProducts = props.products.filter(product => 
+    !props.excludeProductIds.includes(product.id)
+  );
+  
   if (!searchQuery.value) {
-    return props.products.slice(0, 10); // Show first 10 products when no search
+    return availableProducts.slice(0, 10); // Show first 10 products when no search
   }
   
   const query = searchQuery.value.toLowerCase();
   
-  return props.products.filter(product => {
+  return availableProducts.filter(product => {
     // Create combined search string that matches the display format
     const brandPart = product.brand ? `${product.brand} - ` : '';
     const namePart = product.name;
