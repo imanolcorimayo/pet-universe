@@ -93,22 +93,19 @@
               <tbody class="bg-white divide-y divide-gray-200">
                 <tr v-for="(item, index) in saleItems" :key="index" class="hover:bg-gray-50">
                   <td class="px-3 py-2">
-                    <select
+                    <ProductSearchInput
                       :ref="el => setProductSelectRef(el, index)"
                       v-model="item.productId"
-                      class="w-full p-1.5 border rounded-md text-sm"
+                      :products="products"
+                      :product-stock="inventoryItems"
+                      :product-categories="productCategories"
                       :disabled="isLoading"
-                      @change="updateProductDetails(index)"
+                      :show-stock="true"
+                      input-class="p-1.5 text-sm"
+                      placeholder="Seleccionar producto"
                       :id="`product-select-${index}`"
-                    >
-                      <option value="" disabled>Seleccionar producto</option>
-                      <option v-for="product in products" :key="product.id" :value="product.id">
-                        {{ product.name }}
-                      </option>
-                    </select>
-                    <div v-if="item.productId && getProductStock(item.productId)" class="text-xs mt-1 text-gray-500">
-                      Stock: {{ formatProductStock(getProductStock(item.productId)) }}
-                    </div>
+                      @product-selected="updateProductDetails(index)"
+                    />
                   </td>
                   <td class="px-3 py-2">
                     <input
@@ -283,21 +280,18 @@
               <!-- Product Selection -->
               <div class="mb-3">
                 <label class="block text-xs font-medium text-gray-600 mb-1">Producto</label>
-                <select
+                <ProductSearchInput
                   :ref="el => setProductSelectRef(el, index)"
                   v-model="item.productId"
-                  class="w-full p-2 border rounded-md text-sm"
+                  :products="products"
+                  :product-stock="inventoryItems"
+                  :product-categories="productCategories"
                   :disabled="isLoading"
-                  @change="updateProductDetails(index)"
-                >
-                  <option value="" disabled>Seleccionar producto</option>
-                  <option v-for="product in products" :key="product.id" :value="product.id">
-                    {{ product.name }}
-                  </option>
-                </select>
-                <div v-if="item.productId && getProductStock(item.productId)" class="text-xs mt-1 text-gray-500">
-                  Stock: {{ formatProductStock(getProductStock(item.productId)) }}
-                </div>
+                  :show-stock="true"
+                  input-class="p-2 text-sm"
+                  placeholder="Seleccionar producto"
+                  @product-selected="updateProductDetails(index)"
+                />
               </div>
               
               <!-- Quantity and Unit Type -->
@@ -656,6 +650,7 @@ import LucidePackage from '~icons/lucide/package';
 import LucideAlertTriangle from '~icons/lucide/alert-triangle';
 
 import { ToastEvents } from '~/interfaces';
+import ProductSearchInput from '~/components/Product/ProductSearchInput.vue';
 
 // Refs to control modal visibility and state
 const modalRef = ref(null);
@@ -687,7 +682,7 @@ const debtStore = useDebtStore();
 
 // Load product and client data
 const { clients } = storeToRefs(clientStore);
-const { products } = storeToRefs(productStore);
+const { products, categories: productCategories } = storeToRefs(productStore);
 const { inventoryItems } = storeToRefs(inventoryStore);
 
 // Computed properties
@@ -838,7 +833,14 @@ function addProductRow() {
   });
   
   // Focus the new product select after DOM update
-  focusElementById(`product-select-${newIndex}`);
+  nextTick(() => {
+    const productInputRef = productSelectRefs.value[newIndex];
+    if (productInputRef && productInputRef.focus) {
+      productInputRef.focus();
+    } else {
+      focusElementById(`product-select-${newIndex}`);
+    }
+  });
 }
 
 function removeProductRow(index) {
@@ -923,9 +925,18 @@ function updatePriceFromType(index) {
 
 function focusElementById(elementId) {
   nextTick(() => {
-    const button = document.querySelector(`#${elementId}`);
-    if (button) {
-      button.focus();
+    const element = document.querySelector(`#${elementId}`);
+    if (element) {
+      // If it's our ProductSearchInput component, use its focus method
+      if (element.focus) {
+        element.focus();
+      } else {
+        // Try to find the input inside the element
+        const input = element.querySelector('input');
+        if (input) {
+          input.focus();
+        }
+      }
     }
   });
 }
@@ -1249,14 +1260,15 @@ async function showModal() {
     isLoading.value = true;
     
     // Load all necessary data in parallel
-    const [clientsResult, productsResult, inventoryResult] = await Promise.all([
+    const [clientsResult, productsResult, categoriesResult, inventoryResult] = await Promise.all([
       clientStore.fetchClients(),
       productStore.fetchProducts(),
+      productStore.fetchCategories(),
       inventoryStore.fetchInventory()
     ]);
     
     // Check if all data was loaded successfully
-    if (!clientsResult || !productsResult || !inventoryResult) {
+    if (!clientsResult || !productsResult || !categoriesResult || !inventoryResult) {
       useToast(ToastEvents.error, "No se pudieron cargar todos los datos necesarios");
       return;
     }
