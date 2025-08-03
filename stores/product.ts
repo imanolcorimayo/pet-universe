@@ -174,14 +174,25 @@ export const useProductStore = defineStore("product", {
       // Apply search filter
       if (state.searchQuery) {
         const query = state.searchQuery.toLowerCase();
-        filtered = filtered.filter((product) => 
-          product.name.toLowerCase().includes(query) ||
-          product.brand.toLowerCase().includes(query) ||
-          product.description.toLowerCase().includes(query) ||
-          // Include weight search for dual tracking products
-          (product.trackingType === 'dual' && product.unitWeight && 
-           `${product.unitWeight}kg`.includes(query))
-        );
+        filtered = filtered.filter((product) => {
+          // Create combined search string that matches the display format
+          const brandPart = product.brand ? `${product.brand} - ` : '';
+          const namePart = product.name;
+          const weightPart = (product.trackingType === 'dual' && product.unitWeight) ? ` - ${product.unitWeight}kg` : '';
+          const combinedString = `${brandPart}${namePart}${weightPart}`.toLowerCase();
+          
+          return (
+            // Search in individual fields
+            product.name.toLowerCase().includes(query) ||
+            product.brand.toLowerCase().includes(query) ||
+            product.description.toLowerCase().includes(query) ||
+            // Include weight search for dual tracking products
+            (product.trackingType === 'dual' && product.unitWeight && 
+             `${product.unitWeight}kg`.includes(query)) ||
+            // Search in combined display string
+            combinedString.includes(query)
+          );
+        });
       }
       
       return filtered;

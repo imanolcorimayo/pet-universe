@@ -330,11 +330,21 @@ const filteredInventory = computed(() => {
     const query = searchQuery.value.toLowerCase();
     result = result.filter(item => {
       const product = getProductById(item.productId);
+      
+      // Create combined search string that matches the display format
+      const brandPart = product?.brand ? `${product.brand} - ` : '';
+      const namePart = item.productName;
+      const weightPart = (product?.trackingType === 'dual' && product?.unitWeight) ? ` - ${product.unitWeight}kg` : '';
+      const combinedString = `${brandPart}${namePart}${weightPart}`.toLowerCase();
+      
       return (
+        // Search in individual fields
         item.productName.toLowerCase().includes(query) ||
         (product?.brand || '').toLowerCase().includes(query) ||
         (product?.description || '').toLowerCase().includes(query) ||
-        (product?.unitWeight && product.unitWeight.toString().includes(query))
+        (product?.unitWeight && product.unitWeight.toString().includes(query)) ||
+        // Search in combined display string
+        combinedString.includes(query)
       );
     });
   }
