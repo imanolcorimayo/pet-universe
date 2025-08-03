@@ -6,7 +6,7 @@
       ref="inputRef"
       v-model="searchQuery"
       @input="onInput"
-      @focus="showDropdown"
+      @focus="handleFocus"
       @keydown="handleKeyDown"
       class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
       :class="inputClass"
@@ -153,6 +153,7 @@ const searchQuery = ref('');
 const highlightedIndex = ref(-1);
 const isDropdownOpen = ref(false);
 const dropdownPosition = ref({ x: 0, y: 0 });
+const justSelected = ref(false);
 
 // Computed
 const filteredProducts = computed(() => {
@@ -194,6 +195,15 @@ const dropdownStyle = computed(() => ({
 // Methods
 function onInput() {
   highlightedIndex.value = -1;
+  showDropdown();
+}
+
+function handleFocus() {
+  // Don't open dropdown if we just selected a product
+  if (justSelected.value) {
+    justSelected.value = false;
+    return;
+  }
   showDropdown();
 }
 
@@ -280,6 +290,9 @@ function selectProduct(product) {
   
   // Close dropdown
   hideDropdown();
+  
+  // Set flag to prevent reopening when focus returns
+  justSelected.value = true;
   
   // Emit events
   emit('update:modelValue', product.id);
