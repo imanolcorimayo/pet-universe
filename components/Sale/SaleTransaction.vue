@@ -107,6 +107,11 @@
                       :id="`product-select-${index}`"
                       @product-selected="updateProductDetails(index)"
                     />
+                    
+                    <!-- Stock Information Display -->
+                    <div v-if="item.productId && getProductStock(item.productId)" class="text-xs text-gray-600 mt-0.5">
+                      Stock: {{ formatStockForDisplay(item.productId, item.unitType) }}<span v-if="item.quantity > 0" :class="getStockAfterSaleTextClass(item.productId, item.unitType, item.quantity)"> → {{ formatStockAfterSale(item.productId, item.unitType, item.quantity) }}</span>
+                    </div>
                   </td>
                   <td class="px-3 py-2">
                     <input
@@ -293,6 +298,11 @@
                   placeholder="Seleccionar producto"
                   @product-selected="updateProductDetails(index)"
                 />
+                
+                <!-- Stock Information Display -->
+                <div v-if="item.productId && getProductStock(item.productId)" class="text-xs text-gray-600 mt-1">
+                  Stock: {{ formatStockForDisplay(item.productId, item.unitType) }}<span v-if="item.quantity > 0" :class="getStockAfterSaleTextClass(item.productId, item.unitType, item.quantity)"> → {{ formatStockAfterSale(item.productId, item.unitType, item.quantity) }}</span>
+                </div>
               </div>
               
               <!-- Quantity and Unit Type -->
@@ -1253,6 +1263,59 @@ async function submitForm() {
 // Helper for formatting numbers
 function formatNumber(value) {
   return Number(value || 0).toFixed(2);
+}
+
+// Stock display helpers
+function formatStockForDisplay(productId, unitType) {
+  const inventory = getProductStock(productId);
+  
+  if (!inventory) return 'Sin stock';
+  
+  if (unitType === 'kg') {
+    return `${inventory.openUnitsWeight.toFixed(2)} kg disponibles`;
+  } else {
+    return `${inventory.unitsInStock} unidades`;
+  }
+}
+
+function formatStockAfterSale(productId, unitType, quantity) {
+  const inventory = getProductStock(productId);
+  
+  if (!inventory) return 'Sin stock';
+  
+  let remaining = 0;
+  
+  if (unitType === 'kg') {
+    remaining = Math.max(0, inventory.openUnitsWeight - quantity);
+    return `${remaining.toFixed(2)} kg`;
+  } else {
+    remaining = Math.max(0, inventory.unitsInStock - quantity);
+    return `${remaining} unidades`;
+  }
+}
+
+function getStockAfterSaleTextClass(productId, unitType, quantity) {
+  const inventory = getProductStock(productId);
+  
+  if (!inventory) return 'text-gray-500';
+  
+  let remaining = 0;
+  
+  if (unitType === 'kg') {
+    remaining = inventory.openUnitsWeight - quantity;
+  } else {
+    remaining = inventory.unitsInStock - quantity;
+  }
+  
+  if (remaining < 0) {
+    return 'text-red-600 font-medium';
+  } else if (remaining === 0) {
+    return 'text-yellow-600 font-medium';
+  } else if (remaining <= 5) {
+    return 'text-orange-600';
+  } else {
+    return 'text-green-600';
+  }
 }
 
 // Modal control
