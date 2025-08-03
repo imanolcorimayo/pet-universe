@@ -5,7 +5,7 @@
     title="Registrar Compra de Proveedor"
     modal-namespace="supplier-purchase-modal"
     modal-class="max-w-6xl"
-    :click-propagation-filter="['confirm-dialogue-modal']"
+    :click-propagation-filter="['confirm-dialogue-modal', 'product-search-input']"
   >
     <template #default>
       <div v-if="loading" class="flex justify-center items-center py-12">
@@ -108,34 +108,17 @@
                 <!-- Product Selection -->
                 <div class="flex flex-col gap-2 lg:col-span-2">
                   <label class="text-sm font-medium text-gray-700">Nombre del Producto</label>
-                  <div class="relative">
-                    <input
-                      type="text"
-                      v-model="item.productName"
-                      @input="onProductInput(index)"
-                      @focus="item.showProductDropdown = true"
-                      @blur="onProductBlur(index)"
-                      class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-base"
-                      placeholder="Escribe el nombre del producto..."
-                      :disabled="isSubmitting"
-                    />
-
-                    <!-- Product dropdown -->
-                    <div
-                      v-if="item.showProductDropdown && item.filteredProducts.length > 0"
-                      class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto"
-                    >
-                      <div
-                        v-for="product in item.filteredProducts"
-                        :key="product.id"
-                        @mousedown="selectProduct(index, product)"
-                        class="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                      >
-                        <div class="font-medium">{{ product.name }}</div>
-                        <div class="text-xs text-gray-500">{{ product.category }}</div>
-                      </div>
-                    </div>
-                  </div>
+                  <ProductSearchInput
+                    v-model="item.productId"
+                    :products="productStore.products"
+                    :product-stock="inventoryStore.inventoryItems"
+                    :product-categories="productStore.categories"
+                    :disabled="isSubmitting"
+                    :show-stock="true"
+                    input-class="text-base"
+                    placeholder="Seleccionar producto..."
+                    @product-selected="(product) => selectProduct(index, product)"
+                  />
                 </div>
 
                 <!-- Units to Add -->
@@ -451,6 +434,7 @@ import TablerTruck from '~icons/tabler/truck';
 import TablerInfoCircle from '~icons/tabler/info-circle';
 import TablerAlertCircle from '~icons/tabler/alert-circle';
 import TablerReceipt from '~icons/tabler/receipt';
+import ProductSearchInput from '~/components/Product/ProductSearchInput.vue';
 
 // ----- Define Emits ---------
 const emit = defineEmits(["purchase-saved"]);
@@ -494,9 +478,23 @@ watch(paymentMethod, (newPaymentMethod) => {
   }
 });
 
+// Watch for productId changes to update selectedProduct
+watch(productItems, (newItems) => {
+  newItems.forEach((item, index) => {
+    if (item.productId && !item.selectedProduct) {
+      const product = productStore.products.find(p => p.id === item.productId);
+      if (product) {
+        item.selectedProduct = product;
+        item.productName = product.name;
+      }
+    }
+  });
+}, { deep: true });
+
 // ----- Computed Properties ---------
 const validProductItems = computed(() => {
   return productItems.value.filter(item => 
+    item.productId && 
     item.selectedProduct && 
     item.unitsChange > 0 && 
     item.unitCost > 0
@@ -597,13 +595,12 @@ function addProductToList() {
   if (!selectedSupplier.value) return;
 
   productItems.value.push({
+    productId: '',
     productName: '',
     selectedProduct: null,
     unitsChange: 0,
     weightChange: 0,
     unitCost: 0,
-    showProductDropdown: false,
-    filteredProducts: [],
   });
 }
 
@@ -611,31 +608,11 @@ function removeProductFromList(index) {
   productItems.value.splice(index, 1);
 }
 
-function onProductInput(index) {
-  const item = productItems.value[index];
-  if (!item.productName.trim()) {
-    item.filteredProducts = [];
-    item.selectedProduct = null;
-    return;
-  }
-
-  const searchTerm = item.productName.toLowerCase();
-  item.filteredProducts = productStore.products
-    .filter((p) => p.name.toLowerCase().includes(searchTerm))
-    .slice(0, 5);
-}
-
 function selectProduct(index, product) {
   const item = productItems.value[index];
+  item.productId = product.id;
   item.productName = product.name;
   item.selectedProduct = product;
-  item.showProductDropdown = false;
-}
-
-function onProductBlur(index) {
-  setTimeout(() => {
-    productItems.value[index].showProductDropdown = false;
-  }, 200);
 }
 
 // Helper methods for inventory calculations
