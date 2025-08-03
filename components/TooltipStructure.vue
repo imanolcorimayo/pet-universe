@@ -46,9 +46,9 @@
       <!-- Backdrop for click-outside detection -->
       <div
         v-if="isOpen"
-        class="fixed inset-0"
+        class="fixed inset-0 tooltip-backdrop"
         :style="{ zIndex: zIndexBackdrop }"
-        @click="closeTooltip"
+        @click.stop="closeTooltip"
       ></div>
     </Teleport>
   </div>

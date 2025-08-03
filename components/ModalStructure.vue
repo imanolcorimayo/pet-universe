@@ -88,13 +88,13 @@ function handleEscapeKey(event) {
 onClickOutside(innerContainer, (ev) => {
   if (!props.closeOnBackdropClick) return;
 
-  // Ignore clicks on datepicker elements or confirm dialogue elements
-  if (
-    Array.from(ev.target.classList).some(
-      (cl) => cl.includes("vc-") || cl.includes("conf-d")
-    )
-  ) {
-    return;
+  // Ignore clicks on datepicker elements or confirm dialogue elements or tooltip backdrop
+  // Generic class list to avoid closing the modal
+  const CLASS_LIST_TO_AVOID = ["vc-", "conf-d", "tooltip-backdrop", "product-search-input"];
+  for (const className of CLASS_LIST_TO_AVOID) {
+    if (shouldAvoidClose(ev.target, className)) {
+      return; // If any class matches, don't close the modal
+    }
   }
 
   // Check if the clicked element or any of its ancestors has the blocking class

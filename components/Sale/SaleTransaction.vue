@@ -3,7 +3,7 @@
     ref="modalRef"
     title="Registrar Nueva Venta"
     modalClass="!max-w-5xl"
-    :click-propagation-filter="['tooltip-namespace']"
+    :click-propagation-filter="['tooltip-namespace', 'product-search-input']"
     modal-namespace="sale-transaction-modal"
   >
     <div class="space-y-4">
@@ -103,6 +103,7 @@
                       :show-stock="true"
                       input-class="p-1.5 text-sm"
                       placeholder="Seleccionar producto"
+                      class="product-search-input"
                       :id="`product-select-${index}`"
                       @product-selected="updateProductDetails(index)"
                     />

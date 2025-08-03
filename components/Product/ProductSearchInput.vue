@@ -1,79 +1,110 @@
 <template>
-  <TooltipStructure
-    ref="tooltipRef"
-    title="Seleccionar Producto"
-    position="bottom-left"
-    tooltip-class="!min-w-96 !max-w-lg"
-    @close-tooltip="onTooltipClose"
-  >
-    <template #trigger="{ openTooltip }">
-      <input
-        type="text"
-        ref="inputRef"
-        v-model="searchQuery"
-        @input="onInput"
-        @focus="openTooltip"
-        @keydown="handleKeyDown"
-        class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-        :class="inputClass"
-        :placeholder="placeholder"
-        :disabled="disabled"
-      />
-    </template>
-
-    <template #content>
-      <div class="space-y-1">
-        <!-- Search results -->
-        <div v-if="filteredProducts.length > 0" class="max-h-64 overflow-y-auto">
-          <div
-            v-for="(product, index) in filteredProducts"
-            :key="product.id"
-            @click="selectProduct(product)"
-            @mouseenter="highlightedIndex = index"
-            :class="[
-              'px-3 py-2 cursor-pointer rounded-md transition-colors',
-              highlightedIndex === index ? 'bg-primary/10 border border-primary/20' : 'hover:bg-gray-50'
-            ]"
-          >
-            <div class="flex flex-col">
-              <!-- Main product name with brand and weight -->
-              <div class="font-medium text-gray-900">
-                <span v-if="product.brand">{{ product.brand }} - </span>{{ product.name }}<span v-if="product.trackingType === 'dual' && product.unitWeight"> - {{ product.unitWeight }}kg</span>
+  <div class="relative inline-block w-full" ref="containerRef">
+    <!-- Input -->
+    <input
+      type="text"
+      ref="inputRef"
+      v-model="searchQuery"
+      @input="onInput"
+      @focus="showDropdown"
+      @keydown="handleKeyDown"
+      class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+      :class="inputClass"
+      :placeholder="placeholder"
+      :disabled="disabled"
+    />
+    
+    <!-- Custom Dropdown with Teleport -->
+    <Teleport to="body">
+      <Transition
+        name="dropdown"
+        appear
+        @enter="onEnter"
+        @leave="onLeave"
+      >
+        <div
+          v-if="isDropdownOpen"
+          ref="dropdownContainer"
+          class="fixed bg-white rounded-lg shadow-xl border min-w-96 max-w-lg z-[9999] product-search-input"
+          :style="dropdownStyle"
+          @click.stop
+        >
+          <!-- Header -->
+          <div class="flex items-center justify-between p-3 border-b bg-gray-50">
+            <h3 class="text-sm font-semibold text-gray-800">Seleccionar Producto</h3>
+            <button
+              @click="hideDropdown"
+              class="text-gray-400 hover:text-gray-600 transition-colors"
+              title="Cerrar"
+            >
+              <LucideX class="w-4 h-4" />
+            </button>
+          </div>
+          
+          <!-- Content -->
+          <div class="p-3 max-h-96 overflow-y-auto">
+            <div class="space-y-1">
+              <!-- Search results -->
+              <div v-if="filteredProducts.length > 0" class="max-h-64 overflow-y-auto">
+                <div
+                  v-for="(product, index) in filteredProducts"
+                  :key="product.id"
+                  @click="selectProduct(product)"
+                  @mouseenter="highlightedIndex = index"
+                  :class="[
+                    'px-3 py-2 cursor-pointer rounded-md transition-colors',
+                    highlightedIndex === index ? 'bg-primary/10 border border-primary/20' : 'hover:bg-gray-50'
+                  ]"
+                >
+                  <div class="flex flex-col">
+                    <!-- Main product name with brand and weight -->
+                    <div class="font-medium text-gray-900">
+                      <span v-if="product.brand">{{ product.brand }} - </span>{{ product.name }}<span v-if="product.trackingType === 'dual' && product.unitWeight"> - {{ product.unitWeight }}kg</span>
+                    </div>
+                    
+                    <!-- Category and stock info -->
+                    <div class="flex items-center gap-2 mt-1">
+                      <span v-if="product.categoryName" class="text-xs text-gray-500">
+                        {{ product.categoryName }}
+                      </span>
+                      <span v-if="showStock && getProductStock(product.id) && product.categoryName" class="text-xs text-gray-300">•</span>
+                      <span v-if="showStock && getProductStock(product.id)" class="text-xs text-gray-500">
+                        Stock: {{ formatProductStock(getProductStock(product.id)) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              <!-- Category and stock info -->
-              <div class="flex items-center gap-2 mt-1">
-                <span v-if="product.categoryName" class="text-xs text-gray-500">
-                  {{ product.categoryName }}
-                </span>
-                <span v-if="showStock && getProductStock(product.id) && product.categoryName" class="text-xs text-gray-300">•</span>
-                <span v-if="showStock && getProductStock(product.id)" class="text-xs text-gray-500">
-                  Stock: {{ formatProductStock(getProductStock(product.id)) }}
-                </span>
+
+              <!-- No results -->
+              <div v-else-if="searchQuery" class="text-center py-4 text-gray-500">
+                <div class="text-sm">No se encontraron productos</div>
+                <div class="text-xs mt-1">Intenta con otro término de búsqueda</div>
+              </div>
+
+              <!-- Initial state -->
+              <div v-else class="text-center py-4 text-gray-500">
+                <div class="text-sm">Escribe para buscar productos</div>
+                <div class="text-xs mt-1">Puedes buscar por nombre, marca o categoría</div>
               </div>
             </div>
           </div>
         </div>
-
-        <!-- No results -->
-        <div v-else-if="searchQuery" class="text-center py-4 text-gray-500">
-          <div class="text-sm">No se encontraron productos</div>
-          <div class="text-xs mt-1">Intenta con otro término de búsqueda</div>
-        </div>
-
-        <!-- Initial state -->
-        <div v-else class="text-center py-4 text-gray-500">
-          <div class="text-sm">Escribe para buscar productos</div>
-          <div class="text-xs mt-1">Puedes buscar por nombre, marca o categoría</div>
-        </div>
-      </div>
-    </template>
-  </TooltipStructure>
+      </Transition>
+      
+      <!-- Backdrop for click-outside detection -->
+      <div
+        v-if="isDropdownOpen"
+        class="fixed inset-0 tooltip-backdrop z-[9998]"
+        @click="hideDropdown"
+      ></div>
+    </Teleport>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
-import TooltipStructure from '~/components/TooltipStructure.vue';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import LucideX from '~icons/lucide/x';
 
 // Props
 const props = defineProps({
@@ -116,9 +147,12 @@ const emit = defineEmits(['update:modelValue', 'product-selected']);
 
 // Refs
 const inputRef = ref(null);
-const tooltipRef = ref(null);
+const containerRef = ref(null);
+const dropdownContainer = ref(null);
 const searchQuery = ref('');
 const highlightedIndex = ref(-1);
+const isDropdownOpen = ref(false);
+const dropdownPosition = ref({ x: 0, y: 0 });
 
 // Computed
 const filteredProducts = computed(() => {
@@ -151,17 +185,63 @@ const filteredProducts = computed(() => {
   }).slice(0, 20); // Limit results to 20 items
 });
 
+const dropdownStyle = computed(() => ({
+  left: `${dropdownPosition.value.x}px`,
+  top: `${dropdownPosition.value.y}px`,
+  transformOrigin: 'top left',
+}));
+
 // Methods
 function onInput() {
   highlightedIndex.value = -1;
-  // Open tooltip if there are results and it's not already open
-  if (filteredProducts.value.length > 0 && tooltipRef.value) {
-    tooltipRef.value.openTooltip();
-  }
+  showDropdown();
 }
 
-function onTooltipClose() {
+function showDropdown() {
+  if (props.disabled) return;
+  
+  isDropdownOpen.value = true;
+  nextTick(() => {
+    calculatePosition();
+  });
+}
+
+function hideDropdown() {
+  isDropdownOpen.value = false;
   highlightedIndex.value = -1;
+}
+
+function calculatePosition() {
+  if (!containerRef.value || !dropdownContainer.value) return;
+  
+  const triggerRect = containerRef.value.getBoundingClientRect();
+  const dropdownRect = dropdownContainer.value.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const margin = 12;
+  
+  let x = triggerRect.left;
+  let y = triggerRect.bottom + 8;
+  
+  // Horizontal bounds checking
+  if (x + dropdownRect.width > viewportWidth - margin) {
+    x = triggerRect.right - dropdownRect.width;
+  }
+  
+  if (x < margin) {
+    x = margin;
+  }
+  
+  // Vertical bounds checking
+  if (y + dropdownRect.height > viewportHeight - margin && triggerRect.top > dropdownRect.height + margin) {
+    y = triggerRect.top - dropdownRect.height - 8;
+  }
+  
+  // Final bounds clamping
+  x = Math.max(margin, Math.min(x, viewportWidth - dropdownRect.width - margin));
+  y = Math.max(margin, Math.min(y, viewportHeight - dropdownRect.height - margin));
+  
+  dropdownPosition.value = { x, y };
 }
 
 function handleKeyDown(event) {
@@ -174,10 +254,7 @@ function handleKeyDown(event) {
         highlightedIndex.value + 1,
         filteredProducts.value.length - 1
       );
-      // Open tooltip if not already open
-      if (tooltipRef.value) {
-        tooltipRef.value.openTooltip();
-      }
+      showDropdown();
       break;
     case 'ArrowUp':
       event.preventDefault();
@@ -190,9 +267,7 @@ function handleKeyDown(event) {
       }
       break;
     case 'Escape':
-      if (tooltipRef.value) {
-        tooltipRef.value.closeTooltip();
-      }
+      hideDropdown();
       inputRef.value?.blur();
       break;
   }
@@ -203,16 +278,14 @@ function selectProduct(product) {
   searchQuery.value = getProductDisplayName(product);
   highlightedIndex.value = -1;
   
-  // Close tooltip
-  if (tooltipRef.value) {
-    tooltipRef.value.closeTooltip();
-  }
+  // Close dropdown
+  hideDropdown();
   
   // Emit events
   emit('update:modelValue', product.id);
   emit('product-selected', product);
   
-  // Focus back to input for better UX
+  // Keep focus on input for better UX
   nextTick(() => {
     inputRef.value?.focus();
   });
@@ -247,6 +320,35 @@ function formatProductStock(inventory) {
   return `${unitsInStock} unidades`;
 }
 
+// Animation event handlers
+function onEnter(el) {
+  el.offsetHeight; // Force reflow
+}
+
+function onLeave(el) {
+  // Animation cleanup if needed
+}
+
+// Window resize handler
+function handleResize() {
+  if (isDropdownOpen.value) {
+    nextTick(() => {
+      calculatePosition();
+    });
+  }
+}
+
+// Lifecycle
+onMounted(() => {
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('scroll', handleResize, true);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+  window.removeEventListener('scroll', handleResize, true);
+});
+
 // Watch for modelValue changes to update search query
 watch(() => props.modelValue, (newValue) => {
   if (newValue) {
@@ -271,8 +373,8 @@ const productsWithCategory = computed(() => {
 defineExpose({
   focus: () => inputRef.value?.focus(),
   blur: () => inputRef.value?.blur(),
-  openTooltip: () => tooltipRef.value?.openTooltip(),
-  closeTooltip: () => tooltipRef.value?.closeTooltip()
+  openDropdown: showDropdown,
+  closeDropdown: hideDropdown
 });
 </script>
 
@@ -284,5 +386,29 @@ defineExpose({
 
 .border-primary\/20 {
   border-color: rgb(59 130 246 / 0.2);
+}
+
+/* Dropdown animations */
+.dropdown-enter-active {
+  transition: all 0.15s ease-out;
+}
+
+.dropdown-leave-active {
+  transition: all 0.1s ease-in;
+}
+
+.dropdown-enter-from {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+.dropdown-leave-to {
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+/* Enhanced shadow for better depth */
+.shadow-xl {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 </style>
