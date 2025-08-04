@@ -26,7 +26,8 @@ interface Product {
   subcategory: string;
   brand: string;
   
-  prices: {
+  // Pricing will be managed separately
+  prices?: {
     regular: number;
     cash: number;
     vip: number;
@@ -78,32 +79,13 @@ interface ProductCategoryFormData {
   description: string;
 }
 
-// Form interfaces
+// Form interfaces - prices removed from product creation form
 interface ProductFormData {
   name: string;
   description: string;
   category: string;
   subcategory: string;
   brand: string;
-  
-  prices: {
-    regular: number;
-    cash: number;
-    vip: number;
-    bulk: number;
-
-    unit: {
-      regular: number;
-      cash: number;
-      vip: number;
-      bulk: number;
-    };
-    kg: {
-      regular: number;
-      cash: number;
-      vip: number;
-    };
-  };
   
   trackingType: "unit" | "weight" | "dual";
   unitWeight: number;
@@ -701,40 +683,26 @@ export const useProductStore = defineStore("product", {
       try {
         this.isLoading = true;
         
-        // Prepare the pricing structure based on tracking type
-        let pricesData = {};
-        
+        // Default pricing structure - will be set later in pricing management
+        const defaultPrices = {
+          regular: 0,
+          cash: 0,
+          vip: 0,
+          bulk: 0,
+        };
+
+        // For dual products, add unit and kg price structures
         if (formData.trackingType === 'dual') {
-          // For dual products, include unit and kg specific prices
-          pricesData = {
-            // Standard prices (compatibility)
-            regular: formData.prices.unit.regular || 0,
-            cash: formData.prices.unit.cash || 0,
-            vip: formData.prices.unit.vip || 0,
-            bulk: formData.prices.unit.bulk || 0,
-            
-            // Unit-specific prices
-            unit: {
-              regular: formData.prices.unit.regular || 0,
-              cash: formData.prices.unit.cash || 0,
-              vip: formData.prices.unit.vip || 0,
-              bulk: formData.prices.unit.bulk || 0,
-            },
-            
-            // Kg-specific prices
-            kg: {
-              regular: formData.prices.kg.regular || 0,
-              cash: formData.prices.kg.cash || 0,
-              vip: formData.prices.kg.vip || 0,
-            }
+          defaultPrices.unit = {
+            regular: 0,
+            cash: 0,
+            vip: 0,
+            bulk: 0,
           };
-        } else {
-          // For regular products, use standard pricing
-          pricesData = {
-            regular: formData.prices.regular || 0,
-            cash: formData.prices.cash || 0,
-            vip: formData.prices.vip || 0,
-            bulk: formData.prices.bulk || 0,
+          defaultPrices.kg = {
+            regular: 0,
+            cash: 0,
+            vip: 0,
           };
         }
         
@@ -747,7 +715,7 @@ export const useProductStore = defineStore("product", {
           subcategory: formData.subcategory || '',
           brand: formData.brand || '',
           
-          prices: pricesData,
+          prices: defaultPrices,
           
           trackingType: formData.trackingType,
           unitType: formData.unitType,
@@ -779,6 +747,7 @@ export const useProductStore = defineStore("product", {
           averageCost: 0,
           lastPurchaseCost: 0,
           totalCostValue: 0,
+          profitMarginPercentage: 30, // Default 30%
           createdBy: user.value.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -805,7 +774,7 @@ export const useProductStore = defineStore("product", {
           category: formData.category,
           subcategory: formData.subcategory || '',
           brand: formData.brand || '',
-          prices: pricesData as Product['prices'],
+          prices: defaultPrices as Product['prices'],
           trackingType: formData.trackingType,
           unitType: formData.unitType,
           unitWeight: formData.unitWeight || 0,
@@ -863,40 +832,26 @@ export const useProductStore = defineStore("product", {
           return false;
         }
         
-        // Prepare the pricing structure based on tracking type
-        let pricesData = {};
-        
-        if (formData.trackingType === 'dual') {
-          // For dual products, include unit and kg specific prices
-          pricesData = {
-            // Standard prices (compatibility)
-            regular: formData.prices.unit.regular || 0,
-            cash: formData.prices.unit.cash || 0,
-            vip: formData.prices.unit.vip || 0,
-            bulk: formData.prices.unit.bulk || 0,
-            
-            // Unit-specific prices
-            unit: {
-              regular: formData.prices.unit.regular || 0,
-              cash: formData.prices.unit.cash || 0,
-              vip: formData.prices.unit.vip || 0,
-              bulk: formData.prices.unit.bulk || 0,
-            },
-            
-            // Kg-specific prices
-            kg: {
-              regular: formData.prices.kg.regular || 0,
-              cash: formData.prices.kg.cash || 0,
-              vip: formData.prices.kg.vip || 0,
-            }
+        // Keep existing pricing structure - only update product info, not prices
+        const existingPrices = productData.prices || {
+          regular: 0,
+          cash: 0,
+          vip: 0,
+          bulk: 0,
+        };
+
+        // Ensure proper price structure for dual products
+        if (formData.trackingType === 'dual' && !existingPrices.unit) {
+          existingPrices.unit = {
+            regular: 0,
+            cash: 0,
+            vip: 0,
+            bulk: 0,
           };
-        } else {
-          // For regular products, use standard pricing
-          pricesData = {
-            regular: formData.prices.regular || 0,
-            cash: formData.prices.cash || 0,
-            vip: formData.prices.vip || 0,
-            bulk: formData.prices.bulk || 0,
+          existingPrices.kg = {
+            regular: 0,
+            cash: 0,
+            vip: 0,
           };
         }
         
@@ -908,7 +863,7 @@ export const useProductStore = defineStore("product", {
           subcategory: formData.subcategory || '',
           brand: formData.brand || '',
           
-          prices: pricesData,
+          prices: existingPrices,
           
           trackingType: formData.trackingType,
           unitType: formData.unitType,
@@ -948,7 +903,7 @@ export const useProductStore = defineStore("product", {
             category: formData.category,
             subcategory: formData.subcategory || '',
             brand: formData.brand || '',
-            prices: pricesData as Product['prices'],
+            prices: existingPrices as Product['prices'],
             trackingType: formData.trackingType,
             unitType: formData.unitType,
             unitWeight: formData.unitWeight || 0,
@@ -1109,6 +1064,173 @@ export const useProductStore = defineStore("product", {
     // Select a product to view details
     selectProduct(productId: string) {
       this.selectedProduct = this.products.find(p => p.id === productId) || null;
+    },
+
+    // Update product pricing
+    async updateProductPricing(productId: string, pricingData: {
+      regular?: number;
+      cash?: number;
+      vip?: number;
+      bulk?: number;
+      unit?: {
+        regular?: number;
+        cash?: number;
+        vip?: number;
+        bulk?: number;
+      };
+      kg?: {
+        regular?: number;
+        cash?: number;
+        vip?: number;
+      };
+    }): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isLoading = true;
+        
+        // Get existing product to verify ownership
+        const productRef = doc(db, 'product', productId);
+        const productDoc = await getDoc(productRef);
+        
+        if (!productDoc.exists()) {
+          useToast(ToastEvents.error, "Producto no encontrado");
+          this.isLoading = false;
+          return false;
+        }
+        
+        const productData = productDoc.data();
+        if (productData.businessId !== currentBusinessId.value) {
+          useToast(ToastEvents.error, "No tienes permiso para editar este producto");
+          this.isLoading = false;
+          return false;
+        }
+        
+        // Merge with existing prices
+        const existingPrices = productData.prices || {};
+        const updatedPrices = {
+          ...existingPrices,
+          ...pricingData,
+        };
+
+        // If unit or kg pricing is provided, merge with existing nested structures
+        if (pricingData.unit) {
+          updatedPrices.unit = {
+            ...existingPrices.unit,
+            ...pricingData.unit,
+          };
+        }
+
+        if (pricingData.kg) {
+          updatedPrices.kg = {
+            ...existingPrices.kg,
+            ...pricingData.kg,
+          };
+        }
+        
+        // Update product document
+        await updateDoc(productRef, {
+          prices: updatedPrices,
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Update local state
+        const productIndex = this.products.findIndex(p => p.id === productId);
+        if (productIndex >= 0) {
+          const { $dayjs } = useNuxtApp();
+          this.products[productIndex].prices = updatedPrices as Product['prices'];
+          this.products[productIndex].updatedAt = $dayjs().format('DD/MM/YYYY');
+          
+          // Also update the Map
+          this.productsByIdMap.set(productId, this.products[productIndex]);
+        }
+        
+        // Update selected product if applicable
+        if (this.selectedProduct && this.selectedProduct.id === productId) {
+          const updatedProduct = this.products.find(p => p.id === productId);
+          if (updatedProduct) {
+            this.selectedProduct = updatedProduct;
+          }
+        }
+        
+        this.isLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error updating product pricing:", error);
+        useToast(ToastEvents.error, "Hubo un error al actualizar los precios del producto");
+        this.isLoading = false;
+        return false;
+      }
+    },
+
+    // Bulk update pricing for multiple products
+    async bulkUpdatePricing(productIds: string[], pricingData: {
+      regular?: number;
+      cash?: number;
+      vip?: number;
+      bulk?: number;
+    }): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isLoading = true;
+        
+        // Update each product
+        const updatePromises = productIds.map(async (productId) => {
+          const productRef = doc(db, 'product', productId);
+          const productDoc = await getDoc(productRef);
+          
+          if (!productDoc.exists()) return false;
+          
+          const productData = productDoc.data();
+          if (productData.businessId !== currentBusinessId.value) return false;
+          
+          // Merge with existing prices
+          const existingPrices = productData.prices || {};
+          const updatedPrices = {
+            ...existingPrices,
+            ...pricingData,
+          };
+          
+          await updateDoc(productRef, {
+            prices: updatedPrices,
+            updatedAt: serverTimestamp(),
+          });
+          
+          // Update local state
+          const productIndex = this.products.findIndex(p => p.id === productId);
+          if (productIndex >= 0) {
+            const { $dayjs } = useNuxtApp();
+            this.products[productIndex].prices = updatedPrices as Product['prices'];
+            this.products[productIndex].updatedAt = $dayjs().format('DD/MM/YYYY');
+            
+            // Also update the Map
+            this.productsByIdMap.set(productId, this.products[productIndex]);
+          }
+          
+          return true;
+        });
+        
+        const results = await Promise.all(updatePromises);
+        const successCount = results.filter(Boolean).length;
+        
+        useToast(ToastEvents.success, `${successCount} productos actualizados exitosamente`);
+        this.isLoading = false;
+        return successCount > 0;
+      } catch (error) {
+        console.error("Error bulk updating pricing:", error);
+        useToast(ToastEvents.error, "Hubo un error al actualizar los precios de los productos");
+        this.isLoading = false;
+        return false;
+      }
     }
   }
 });

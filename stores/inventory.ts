@@ -29,6 +29,7 @@ interface Inventory {
   averageCost: number;
   lastPurchaseCost: number;
   totalCostValue: number;
+  profitMarginPercentage: number; // Default 30% - for pricing calculations
   lastPurchaseAt?: string;
   originalLastPurchaseAt?: any;
   lastSupplierId?: string | null;
@@ -213,6 +214,7 @@ export const useInventoryStore = defineStore("inventory", {
             averageCost: data.averageCost || 0,
             lastPurchaseCost: data.lastPurchaseCost || 0,
             totalCostValue: data.totalCostValue || 0,
+            profitMarginPercentage: data.profitMarginPercentage || 30, // Default 30%
             lastPurchaseAt: lastPurchaseAt,
             originalLastPurchaseAt: data.lastPurchaseAt,
             lastSupplierId: data.lastSupplierId || null,
@@ -300,6 +302,7 @@ export const useInventoryStore = defineStore("inventory", {
           averageCost: data.averageCost || 0,
           lastPurchaseCost: data.lastPurchaseCost || 0,
           totalCostValue: data.totalCostValue || 0,
+          profitMarginPercentage: data.profitMarginPercentage || 30, // Default 30%
           lastPurchaseAt: lastPurchaseAt,
           originalLastPurchaseAt: data.lastPurchaseAt,
           lastSupplierId: data.lastSupplierId || null,
@@ -439,6 +442,7 @@ export const useInventoryStore = defineStore("inventory", {
           averageCost: 0,
           lastPurchaseCost: 0,
           totalCostValue: 0,
+          profitMarginPercentage: 30, // Default 30%
           createdBy: user.value.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -1334,6 +1338,171 @@ export const useInventoryStore = defineStore("inventory", {
       }
     },
     
+    // Update profit margin percentage for a product
+    async updateProfitMargin(productId: string, marginPercentage: number): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isLoading = true;
+        
+        // Find inventory record
+        const inventoryQuery = query(
+          collection(db, 'inventory'),
+          where('businessId', '==', currentBusinessId.value),
+          where('productId', '==', productId)
+        );
+        
+        const inventorySnapshot = await getDocs(inventoryQuery);
+        if (inventorySnapshot.empty) {
+          useToast(ToastEvents.error, "No se encontró el registro de inventario");
+          this.isLoading = false;
+          return false;
+        }
+        
+        // Update inventory document
+        const inventoryId = inventorySnapshot.docs[0].id;
+        const inventoryRef = doc(db, 'inventory', inventoryId);
+        
+        await updateDoc(inventoryRef, {
+          profitMarginPercentage: marginPercentage,
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Update local state
+        const index = this.inventoryItems.findIndex(item => item.productId === productId);
+        if (index >= 0) {
+          this.inventoryItems[index].profitMarginPercentage = marginPercentage;
+        }
+        
+        // Update Map cache
+        if (this.inventoryByProductId.has(productId)) {
+          const cachedItem = this.inventoryByProductId.get(productId) as Inventory;
+          cachedItem.profitMarginPercentage = marginPercentage;
+          this.inventoryByProductId.set(productId, cachedItem);
+        }
+        
+        this.isLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error updating profit margin:", error);
+        useToast(ToastEvents.error, "Hubo un error al actualizar el margen de ganancia");
+        this.isLoading = false;
+        return false;
+      }
+    },
+
+    // Update last purchase cost for a product
+    async updateLastPurchaseCost(productId: string, newCost: number): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isLoading = true;
+        
+        // Find inventory record
+        const inventoryQuery = query(
+          collection(db, 'inventory'),
+          where('businessId', '==', currentBusinessId.value),
+          where('productId', '==', productId)
+        );
+        
+        const inventorySnapshot = await getDocs(inventoryQuery);
+        if (inventorySnapshot.empty) {
+          useToast(ToastEvents.error, "No se encontró el registro de inventario");
+          this.isLoading = false;
+          return false;
+        }
+        
+        // Update inventory document
+        const inventoryId = inventorySnapshot.docs[0].id;
+        const inventoryRef = doc(db, 'inventory', inventoryId);
+        const inventoryData = inventorySnapshot.docs[0].data();
+        
+        // Recalculate total cost value
+        const unitsInStock = inventoryData.unitsInStock || 0;
+        const newTotalCostValue = unitsInStock * newCost;
+        
+        await updateDoc(inventoryRef, {
+          lastPurchaseCost: newCost,
+          totalCostValue: newTotalCostValue,
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Update local state
+        const index = this.inventoryItems.findIndex(item => item.productId === productId);
+        if (index >= 0) {
+          this.inventoryItems[index].lastPurchaseCost = newCost;
+          this.inventoryItems[index].totalCostValue = newTotalCostValue;
+        }
+        
+        // Update Map cache
+        if (this.inventoryByProductId.has(productId)) {
+          const cachedItem = this.inventoryByProductId.get(productId) as Inventory;
+          cachedItem.lastPurchaseCost = newCost;
+          cachedItem.totalCostValue = newTotalCostValue;
+          this.inventoryByProductId.set(productId, cachedItem);
+        }
+        
+        this.isLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error updating last purchase cost:", error);
+        useToast(ToastEvents.error, "Hubo un error al actualizar el costo");
+        this.isLoading = false;
+        return false;
+      }
+    },
+
+    // Calculate pricing based on cost and margin
+    calculatePricing(cost: number, marginPercentage: number, unitWeight?: number) {
+      if (cost <= 0) return null;
+      
+      const efectivo = cost * (1 + marginPercentage / 100);
+      const regular = efectivo * 1.25; // 25% markup over efectivo
+      const vip = efectivo; // Initially same as efectivo
+      const mayorista = efectivo; // Initially same as efectivo
+      
+      const pricing = {
+        efectivo: Math.round(efectivo * 100) / 100,
+        regular: Math.round(regular * 100) / 100,
+        vip: Math.round(vip * 100) / 100,
+        mayorista: Math.round(mayorista * 100) / 100,
+      };
+      
+      // For dual products, add kg pricing
+      if (unitWeight && unitWeight > 0) {
+        const costPerKg = cost / unitWeight;
+        const efectivoKg = costPerKg * (1 + marginPercentage / 100);
+        const regularKg = efectivoKg * 1.25;
+        const vipKg = efectivoKg; // Initially same as efectivo
+        
+        return {
+          ...pricing,
+          kg: {
+            efectivo: Math.round(efectivoKg * 100) / 100,
+            regular: Math.round(regularKg * 100) / 100,
+            vip: Math.round(vipKg * 100) / 100,
+          },
+          costPerKg: Math.round(costPerKg * 100) / 100,
+        };
+      }
+      
+      return pricing;
+    },
+
+    // Calculate profit margin percentage from price and cost
+    calculateMarginFromPrice(price: number, cost: number): number {
+      if (cost <= 0) return 0;
+      return Math.round(((price - cost) / cost) * 100 * 100) / 100;
+    },
+
     // Add new inventory item to local cache (for when products are created)
     addInventoryToCache(inventoryData: {
       id: string;
@@ -1357,6 +1526,7 @@ export const useInventoryStore = defineStore("inventory", {
         averageCost: 0,
         lastPurchaseCost: 0,
         totalCostValue: 0,
+        profitMarginPercentage: 30, // Default 30%
         createdBy: inventoryData.businessId, // Will be overwritten with actual user when fetched
         createdAt: $dayjs().format('DD/MM/YYYY'),
         updatedAt: $dayjs().format('DD/MM/YYYY'),

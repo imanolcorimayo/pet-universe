@@ -148,7 +148,10 @@ Pet shop management system with dual cash register approach: global business reg
 #### 2. Sales Register (Daily POS)
 - **Access**: All employees (role-based)
 - **Tracks**: Daily sales with automatic inventory updates, minor expenses, customer assignment
-- **Pricing**: Regular/cash/VIP/bulk prices, loose pet food discounts (>3kg = 10% off), promotions
+- **Pricing**: 
+  - **Unit Sales**: Regular, Efectivo (cash discount), VIP (editable), Mayorista (bulk)
+  - **Kg Sales (Updated)**: Regular, 3kg+ discount (fixed discount for 3kg or more), VIP (editable)
+  - **Dual Products**: Support both unit and weight-based pricing
 - **Features**: Multi-payment transactions, receipt generation, white/black classification
 
 #### 3. Inventory Management
@@ -170,6 +173,29 @@ Pet shop management system with dual cash register approach: global business reg
 - **Data**: Debt records, payment history, status tracking (active/paid/cancelled)
 - **Store**: `debt.ts` | **Collections**: `debt`, `debtPayment`
 
+#### 7. Pricing Management System
+- **Access**: Centralized pricing management page at `/precios/index.vue`
+- **Features**: 
+  - Mass pricing updates based on cost and profit margins
+  - Real-time price calculations with automatic recalculation
+  - Mobile-responsive table with horizontal scroll
+  - Bulk update modal for mass pricing changes
+  - Individual product cost and margin editing
+- **Pricing Logic**:
+  - **Costo**: Base cost from `inventory.lastPurchaseCost` (editable)
+  - **Profit Margin**: Stored in `inventory.profitMarginPercentage` (default 30%)
+  - **EFECTIVO**: Cost × (1 + margin/100) - Base cash price
+  - **REGULAR**: EFECTIVO × 1.25 (25% markup over cash price)
+  - **VIP**: Initially equals EFECTIVO, then manually editable
+  - **MAYORISTA**: Initially equals EFECTIVO, then manually editable
+- **Dual Product Pricing**:
+  - **Costo/kg**: Calculated as `lastPurchaseCost / unitWeight`
+  - **Regular kg**: Cost per kg with profit margin applied
+  - **3+ kg**: 10% discount on Regular kg price (calculated dynamically in sales)
+  - **VIP kg**: Initially equals Regular kg, then manually editable
+- **Components**: `PricingTable.vue`, `PricingRow.vue`, `PricingBulkUpdateModal.vue`
+- **Store Integration**: Extended `inventory.ts` and `product.ts` with pricing methods
+
 ## Page Structure
 
 All pages use modal-based entity management:
@@ -178,6 +204,7 @@ All pages use modal-based entity management:
 - **Caja Global**: `/caja-global/index.vue` + `/historico.vue` - Weekly global register
 - **Ventas**: `/ventas/index.vue` + `/historico.vue` - Daily sales register/POS
 - **Inventario**: `/inventario/index.vue` + `/categorias.vue` - Product inventory
+- **Precios**: `/precios/index.vue` - Centralized pricing management system
 - **Clientes**: `/clientes/index.vue` - Client directory with pet management
 - **Proveedores**: `/proveedores/index.vue` - Supplier directory
 - **Deudas**: `/deudas/index.vue` - Debt management and payment recording
@@ -461,26 +488,26 @@ product/
     subcategory: string          // Product subcategory
     brand: string                // Product brand
     
-    // Pricing structure
+    // Pricing structure (managed separately from product creation)
     prices: {
-      regular: number            // Regular/card price
-      cash: number               // Cash discount price (for applicable products)
-      vip: number                // VIP/special customer price (variable)
-      bulk: number               // Bulk purchase price (for unit-based sales)
+      regular: number            // Regular/card price (base price)
+      cash: number               // Efectivo (cash discount price)
+      vip: number                // VIP/special customer price (editable)
+      bulk: number               // Mayorista (bulk purchase price for unit-based sales)
       
       // Unit-specific prices for dual products
       unit?: {                   // Only for dual tracking type products
         regular: number          // Regular price per unit
-        cash: number             // Cash price per unit
-        vip: number              // VIP price per unit
-        bulk: number             // Bulk price per unit (mayorista)
+        cash: number             // Efectivo price per unit
+        vip: number              // VIP price per unit (editable)
+        bulk: number             // Mayorista price per unit
       },
       
-      // Kg-specific prices for dual products
+      // Kg-specific prices for dual products  
       kg?: {                     // Only for dual tracking type products
         regular: number          // Regular price per kg
-        cash: number             // Cash price per kg
-        vip: number              // VIP price per kg
+        cash: number             // NOT USED - 3kg+ discount is calculated dynamically
+        vip: number              // VIP price per kg (editable)
       }
     }
     
@@ -525,6 +552,7 @@ inventory/
     averageCost: number          // Weighted average cost per unit
     lastPurchaseCost: number     // Cost of last purchase
     totalCostValue: number       // Total inventory value at cost
+    profitMarginPercentage: number // Profit margin for pricing calculations (default 30%)
     
     // Purchase history summary
     lastPurchaseAt: Timestamp    // When last purchased
