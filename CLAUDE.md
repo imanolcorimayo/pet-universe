@@ -85,6 +85,14 @@ Pet shop management system with dual cash register approach: global business reg
 - **Access Pattern**: Always filter by `active: true` when displaying options to users
 - **Management**: Configuration managed through `index.ts` store methods (`addPaymentMethod`, `updateCategory`, etc.)
 
+#### Pricing Management Configuration Rules
+- **MANDATORY**: Profit margin percentage is stored in the `product` collection, NOT in `inventory`
+- **Profit Margin**: Use `productStore.updateProfitMargin()` for margin updates
+- **Pricing Calculations**: Use `productStore.calculatePricing()` and `productStore.calculateMarginFromPrice()`
+- **Cost Storage**: Last purchase cost remains in `inventory.lastPurchaseCost`
+- **Access Pattern**: Get margin from `product.profitMarginPercentage`, cost from `inventory.lastPurchaseCost`
+- **Confirmation Required**: All pricing changes require user confirmation via modal dialog before saving to database
+
 #### Component Naming Conventions
 
 **Subfolder Component Naming Rule:**

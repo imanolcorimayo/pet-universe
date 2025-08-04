@@ -29,7 +29,6 @@ interface Inventory {
   averageCost: number;
   lastPurchaseCost: number;
   totalCostValue: number;
-  profitMarginPercentage: number; // Default 30% - for pricing calculations
   lastPurchaseAt?: string;
   originalLastPurchaseAt?: any;
   lastSupplierId?: string | null;
@@ -214,7 +213,6 @@ export const useInventoryStore = defineStore("inventory", {
             averageCost: data.averageCost || 0,
             lastPurchaseCost: data.lastPurchaseCost || 0,
             totalCostValue: data.totalCostValue || 0,
-            profitMarginPercentage: data.profitMarginPercentage || 30, // Default 30%
             lastPurchaseAt: lastPurchaseAt,
             originalLastPurchaseAt: data.lastPurchaseAt,
             lastSupplierId: data.lastSupplierId || null,
@@ -302,7 +300,6 @@ export const useInventoryStore = defineStore("inventory", {
           averageCost: data.averageCost || 0,
           lastPurchaseCost: data.lastPurchaseCost || 0,
           totalCostValue: data.totalCostValue || 0,
-          profitMarginPercentage: data.profitMarginPercentage || 30, // Default 30%
           lastPurchaseAt: lastPurchaseAt,
           originalLastPurchaseAt: data.lastPurchaseAt,
           lastSupplierId: data.lastSupplierId || null,
@@ -442,7 +439,6 @@ export const useInventoryStore = defineStore("inventory", {
           averageCost: 0,
           lastPurchaseCost: 0,
           totalCostValue: 0,
-          profitMarginPercentage: 30, // Default 30%
           createdBy: user.value.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -1337,63 +1333,6 @@ export const useInventoryStore = defineStore("inventory", {
         return [];
       }
     },
-    
-    // Update profit margin percentage for a product
-    async updateProfitMargin(productId: string, marginPercentage: number): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
-      try {
-        this.isLoading = true;
-        
-        // Find inventory record
-        const inventoryQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', productId)
-        );
-        
-        const inventorySnapshot = await getDocs(inventoryQuery);
-        if (inventorySnapshot.empty) {
-          useToast(ToastEvents.error, "No se encontró el registro de inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Update inventory document
-        const inventoryId = inventorySnapshot.docs[0].id;
-        const inventoryRef = doc(db, 'inventory', inventoryId);
-        
-        await updateDoc(inventoryRef, {
-          profitMarginPercentage: marginPercentage,
-          updatedAt: serverTimestamp(),
-        });
-        
-        // Update local state
-        const index = this.inventoryItems.findIndex(item => item.productId === productId);
-        if (index >= 0) {
-          this.inventoryItems[index].profitMarginPercentage = marginPercentage;
-        }
-        
-        // Update Map cache
-        if (this.inventoryByProductId.has(productId)) {
-          const cachedItem = this.inventoryByProductId.get(productId) as Inventory;
-          cachedItem.profitMarginPercentage = marginPercentage;
-          this.inventoryByProductId.set(productId, cachedItem);
-        }
-        
-        this.isLoading = false;
-        return true;
-      } catch (error) {
-        console.error("Error updating profit margin:", error);
-        useToast(ToastEvents.error, "Hubo un error al actualizar el margen de ganancia");
-        this.isLoading = false;
-        return false;
-      }
-    },
 
     // Update last purchase cost for a product
     async updateLastPurchaseCost(productId: string, newCost: number): Promise<boolean> {
@@ -1526,7 +1465,6 @@ export const useInventoryStore = defineStore("inventory", {
         averageCost: 0,
         lastPurchaseCost: 0,
         totalCostValue: 0,
-        profitMarginPercentage: 30, // Default 30%
         createdBy: inventoryData.businessId, // Will be overwritten with actual user when fetched
         createdAt: $dayjs().format('DD/MM/YYYY'),
         updatedAt: $dayjs().format('DD/MM/YYYY'),

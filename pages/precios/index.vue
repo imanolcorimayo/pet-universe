@@ -1,125 +1,117 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- Header Section -->
-    <div class="bg-white shadow-sm border-b border-gray-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center py-4">
-          <div>
-            <h1 class="text-2xl font-bold text-gray-900">Gestión de Precios</h1>
-            <p class="text-sm text-gray-600 mt-1">
-              Administra los precios de todos tus productos de forma centralizada
-            </p>
-          </div>
-          <div class="flex space-x-3">
-            <button
-              @click="showBulkUpdateModal = true"
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
-            >
-              Actualización Masiva
-            </button>
-            <button
-              @click="refreshData"
-              :disabled="isLoading"
-              class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 text-sm font-medium disabled:opacity-50"
-            >
-              <i v-if="isLoading" class="animate-spin">⟳</i>
-              <span v-else>Actualizar</span>
-            </button>
-          </div>
-        </div>
+  <div class="w-full flex flex-col gap-4 p-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold">Gestión de Precios</h1>
+        <p class="text-gray-600 mt-1">Administra los precios de todos tus productos de forma centralizada</p>
+      </div>
+      <div class="flex space-x-3">
+        <button
+          @click="showBulkUpdateModal = true"
+          class="btn bg-primary text-white hover:bg-primary-color-light"
+        >
+          Actualización Masiva
+        </button>
+        <button
+          @click="refreshData"
+          :disabled="isLoading"
+          class="btn bg-gray-600 text-white hover:bg-gray-700 disabled:opacity-50"
+        >
+          <i v-if="isLoading" class="animate-spin">⟳</i>
+          <span v-else>Actualizar</span>
+        </button>
       </div>
     </div>
 
     <!-- Search and Filter Section -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <!-- Search -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Buscar productos
-            </label>
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Nombre, marca o descripción..."
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            />
-          </div>
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Search -->
+        <div>
+          <label class="label mb-2">
+            Buscar productos
+          </label>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Nombre, marca o descripción..."
+            class="input"
+          />
+        </div>
 
-          <!-- Category Filter -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Categoría
-            </label>
-            <select
-              v-model="selectedCategory"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+        <!-- Category Filter -->
+        <div>
+          <label class="label mb-2">
+            Categoría
+          </label>
+          <select
+            v-model="selectedCategory"
+            class="select"
+          >
+            <option value="">Todas las categorías</option>
+            <option
+              v-for="category in availableCategories"
+              :key="category.id"
+              :value="category.id"
             >
-              <option value="">Todas las categorías</option>
-              <option
-                v-for="category in availableCategories"
-                :key="category.id"
-                :value="category.id"
-              >
-                {{ category.name }}
-              </option>
-            </select>
-          </div>
+              {{ category.name }}
+            </option>
+          </select>
+        </div>
 
-          <!-- Tracking Type Filter -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Tipo de producto
-            </label>
-            <select
-              v-model="selectedTrackingType"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            >
-              <option value="">Todos los tipos</option>
-              <option value="unit">Unidades</option>
-              <option value="weight">Peso</option>
-              <option value="dual">Unidades y Peso</option>
-            </select>
-          </div>
+        <!-- Tracking Type Filter -->
+        <div>
+          <label class="label mb-2">
+            Tipo de producto
+          </label>
+          <select
+            v-model="selectedTrackingType"
+            class="select"
+          >
+            <option value="">Todos los tipos</option>
+            <option value="unit">Unidades</option>
+            <option value="weight">Peso</option>
+            <option value="dual">Unidades y Peso</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="bg-white rounded-lg shadow">
+      <!-- Loading State -->
+      <div v-if="isLoading" class="flex justify-center items-center py-12">
+        <div class="text-center">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p class="text-gray-600 mt-2">Cargando productos...</p>
         </div>
       </div>
 
-      <!-- Main Content -->
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-        <!-- Loading State -->
-        <div v-if="isLoading" class="flex justify-center items-center py-12">
-          <div class="text-center">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p class="text-gray-600 mt-2">Cargando productos...</p>
-          </div>
+      <!-- Empty State -->
+      <div v-else-if="filteredProducts.length === 0" class="text-center py-12">
+        <div class="text-gray-400 mb-4">
+          <svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+          </svg>
         </div>
-
-        <!-- Empty State -->
-        <div v-else-if="filteredProducts.length === 0" class="text-center py-12">
-          <div class="text-gray-400 mb-4">
-            <svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-            </svg>
-          </div>
-          <h3 class="text-lg font-medium text-gray-900 mb-2">No se encontraron productos</h3>
-          <p class="text-gray-600">
-            {{ searchQuery || selectedCategory || selectedTrackingType ? 
-               'Intenta ajustar los filtros de búsqueda' : 
-               'No hay productos registrados en el sistema' }}
-          </p>
-        </div>
-
-        <!-- Pricing Table -->
-        <PricingTable
-          v-else
-          :products="filteredProducts"
-          :inventory-items="inventoryItems"
-          @update-cost="handleUpdateCost"
-          @update-margin="handleUpdateMargin"
-          @update-price="handleUpdatePrice"
-        />
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No se encontraron productos</h3>
+        <p class="text-gray-600">
+          {{ searchQuery || selectedCategory || selectedTrackingType ? 
+             'Intenta ajustar los filtros de búsqueda' : 
+             'No hay productos registrados en el sistema' }}
+        </p>
       </div>
+
+      <!-- Pricing Table -->
+      <PricingTable
+        v-else
+        :products="filteredProducts"
+        :inventory-items="inventoryItems"
+        @update-cost="handleUpdateCost"
+        @update-margin="handleUpdateMargin"
+        @update-price="handleUpdatePrice"
+      />
     </div>
 
     <!-- Bulk Update Modal -->
@@ -245,7 +237,7 @@ async function handleUpdateCost(productId, newCost) {
 }
 
 async function handleUpdateMargin(productId, marginPercentage) {
-  const success = await inventoryStore.updateProfitMargin(productId, marginPercentage);
+  const success = await productStore.updateProfitMargin(productId, marginPercentage);
   if (success) {
     useToast(ToastEvents.success, 'Margen de ganancia actualizado correctamente');
   }
@@ -273,7 +265,7 @@ async function handleBulkUpdate(productIds, updateData) {
     // Handle margin updates
     if (updateData.margin !== undefined) {
       const marginPromises = productIds.map(id => 
-        inventoryStore.updateProfitMargin(id, updateData.margin)
+        productStore.updateProfitMargin(id, updateData.margin)
       );
       await Promise.all(marginPromises);
     }

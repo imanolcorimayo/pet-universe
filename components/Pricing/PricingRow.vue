@@ -1,12 +1,12 @@
 <template>
   <tr class="hover:bg-gray-50 transition-colors">
     <!-- Product Info (Sticky) -->
-    <td class="sticky left-0 bg-white px-4 py-3 border-r border-gray-200 z-10">
+    <td class="sticky left-0 bg-white px-4 py-3 border-r border-gray-200 z-10 w-[250px]">
       <div class="flex flex-col">
-        <div class="font-medium text-gray-900 text-sm">
+        <div class="font-medium text-gray-900 text-sm truncate">
           {{ displayName }}
         </div>
-        <div class="text-xs text-gray-500 mt-1">
+        <div class="text-xs text-gray-500 mt-1 truncate">
           {{ product.description || 'Sin descripción' }}
         </div>
         <div v-if="product.trackingType === 'dual'" class="text-xs text-blue-600 mt-1">
@@ -16,7 +16,7 @@
     </td>
 
     <!-- Costo -->
-    <td class="px-4 py-3">
+    <td class="px-4 py-3 w-[120px]">
       <input
         :value="formatCurrency(currentCost)"
         @blur="handleCostUpdate($event)"
@@ -30,7 +30,7 @@
     </td>
 
     <!-- Costo por kg (solo para productos duales) -->
-    <td v-if="hasDualProducts" class="px-4 py-3">
+    <td v-if="hasDualProducts" class="px-4 py-3 w-[120px]">
       <div v-if="product.trackingType === 'dual'" class="text-sm text-gray-600">
         ${{ formatNumber(costPerKg) }}
       </div>
@@ -38,7 +38,7 @@
     </td>
 
     <!-- Margen % -->
-    <td class="px-4 py-3">
+    <td class="px-4 py-3 w-[80px]">
       <div class="flex items-center space-x-1">
         <input
           :value="currentMargin"
@@ -48,14 +48,14 @@
           step="1"
           min="0"
           max="1000"
-          class="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          class="w-12 px-1 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
         <span class="text-xs text-gray-500">%</span>
       </div>
     </td>
 
     <!-- Precio Efectivo -->
-    <td class="px-4 py-3">
+    <td class="px-4 py-3 w-[120px]">
       <input
         :value="formatCurrency(calculatedPrices.efectivo)"
         @blur="handlePriceUpdate('cash', $event)"
@@ -71,7 +71,7 @@
     </td>
 
     <!-- Precio Regular -->
-    <td class="px-4 py-3">
+    <td class="px-4 py-3 w-[120px]">
       <input
         :value="formatCurrency(calculatedPrices.regular)"
         @blur="handlePriceUpdate('regular', $event)"
@@ -87,7 +87,7 @@
     </td>
 
     <!-- Precio VIP -->
-    <td class="px-4 py-3">
+    <td class="px-4 py-3 w-[120px]">
       <input
         :value="formatCurrency(calculatedPrices.vip)"
         @blur="handlePriceUpdate('vip', $event)"
@@ -103,7 +103,7 @@
     </td>
 
     <!-- Precio Mayorista -->
-    <td class="px-4 py-3">
+    <td class="px-4 py-3 w-[120px]">
       <input
         :value="formatCurrency(calculatedPrices.mayorista)"
         @blur="handlePriceUpdate('bulk', $event)"
@@ -121,7 +121,7 @@
     <!-- Columnas para productos duales - precios por kg -->
     <template v-if="hasDualProducts">
       <!-- Regular kg -->
-      <td class="px-4 py-3 bg-blue-50">
+      <td class="px-4 py-3 bg-blue-50 w-[120px]">
         <div v-if="product.trackingType === 'dual'">
           <input
             :value="formatCurrency(calculatedKgPrices?.regular || 0)"
@@ -140,7 +140,7 @@
       </td>
 
       <!-- 3+ kg (calculado dinámicamente, no editable) -->
-      <td class="px-4 py-3 bg-blue-50">
+      <td class="px-4 py-3 bg-blue-50 w-[120px]">
         <div v-if="product.trackingType === 'dual'" class="text-sm text-gray-600">
           ${{ formatNumber(threePlusKgPrice) }}
           <div class="text-xs text-gray-500 mt-1">-10% fijo</div>
@@ -149,7 +149,7 @@
       </td>
 
       <!-- VIP kg -->
-      <td class="px-4 py-3 bg-blue-50">
+      <td class="px-4 py-3 bg-blue-50 w-[120px]">
         <div v-if="product.trackingType === 'dual'">
           <input
             :value="formatCurrency(calculatedKgPrices?.vip || 0)"
@@ -192,6 +192,7 @@ const emit = defineEmits(['update-cost', 'update-margin', 'update-price']);
 
 // Store composables
 const inventoryStore = useInventoryStore();
+const productStore = useProductStore();
 
 // Computed properties
 const displayName = computed(() => {
@@ -205,7 +206,7 @@ const currentCost = computed(() => {
 });
 
 const currentMargin = computed(() => {
-  return props.inventory?.profitMarginPercentage || 30;
+  return props.product?.profitMarginPercentage || 30;
 });
 
 const costPerKg = computed(() => {
@@ -216,7 +217,7 @@ const costPerKg = computed(() => {
 });
 
 const calculatedPrices = computed(() => {
-  const pricing = inventoryStore.calculatePricing(
+  const pricing = productStore.calculatePricing(
     currentCost.value, 
     currentMargin.value, 
     props.product.unitWeight
@@ -240,7 +241,7 @@ const calculatedPrices = computed(() => {
 const calculatedKgPrices = computed(() => {
   if (props.product.trackingType !== 'dual') return null;
   
-  const pricing = inventoryStore.calculatePricing(
+  const pricing = productStore.calculatePricing(
     currentCost.value, 
     currentMargin.value, 
     props.product.unitWeight
@@ -277,7 +278,7 @@ function formatNumber(value) {
 }
 
 function getMarginFromPrice(price, cost = currentCost.value) {
-  return inventoryStore.calculateMarginFromPrice(price, cost);
+  return productStore.calculateMarginFromPrice(price, cost);
 }
 
 function handleCostUpdate(event) {

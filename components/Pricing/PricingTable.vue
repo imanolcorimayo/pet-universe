@@ -1,56 +1,48 @@
 <template>
   <div class="pricing-table-container">
-    <!-- Table Header (Sticky) -->
-    <div class="sticky top-0 bg-white border-b border-gray-200 z-10">
-      <div class="overflow-x-auto">
-        <table class="min-w-full">
-          <thead>
-            <tr class="bg-gray-50">
-              <th class="sticky left-0 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 min-w-[250px] z-20">
-                Producto
+    <!-- Desktop Table -->
+    <div class="hidden md:block overflow-x-auto max-h-[calc(100vh-400px)] overflow-y-auto">
+      <table class="min-w-full table-fixed">
+        <thead class="sticky top-0 bg-gray-50 z-10">
+          <tr>
+            <th class="sticky left-0 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 w-[250px] z-20">
+              Producto
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+              Costo
+            </th>
+            <th v-if="hasDualProducts" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+              Costo/kg
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[80px]">
+              %
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+              Efectivo
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+              Regular
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+              VIP
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+              Mayorista
+            </th>
+            <!-- Dual product kg columns -->
+            <template v-if="hasDualProducts">
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px] bg-blue-50">
+                Regular kg
               </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                Costo
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px] bg-blue-50">
+                3+ kg
               </th>
-              <th v-if="hasDualProducts" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                Costo/kg
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px] bg-blue-50">
+                VIP kg
               </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">
-                %
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                Efectivo
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                Regular
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                VIP
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                Mayorista
-              </th>
-              <!-- Dual product kg columns -->
-              <template v-if="hasDualProducts">
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px] bg-blue-50">
-                  Regular kg
-                </th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px] bg-blue-50">
-                  3+ kg
-                </th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px] bg-blue-50">
-                  VIP kg
-                </th>
-              </template>
-            </tr>
-          </thead>
-        </table>
-      </div>
-    </div>
-
-    <!-- Table Body (Scrollable) -->
-    <div class="overflow-x-auto max-h-[calc(100vh-400px)] overflow-y-auto">
-      <table class="min-w-full">
+            </template>
+          </tr>
+        </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <PricingRow
             v-for="product in products"
@@ -58,12 +50,25 @@
             :product="product"
             :inventory="getInventoryForProduct(product.id)"
             :has-dual-products="hasDualProducts"
-            @update-cost="$emit('update-cost', $event.productId, $event.cost)"
-            @update-margin="$emit('update-margin', $event.productId, $event.margin)"
-            @update-price="$emit('update-price', $event.productId, $event.pricing)"
+            @update-cost="handleCostUpdate"
+            @update-margin="handleMarginUpdate"
+            @update-price="handlePriceUpdate"
           />
         </tbody>
       </table>
+    </div>
+
+    <!-- Mobile Cards -->
+    <div class="md:hidden space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto px-4">
+      <PricingMobileCard
+        v-for="product in products"
+        :key="product.id"
+        :product="product"
+        :inventory="getInventoryForProduct(product.id)"
+        @update-cost="handleCostUpdate"
+        @update-margin="handleMarginUpdate"
+        @update-price="handlePriceUpdate"
+      />
     </div>
 
     <!-- Footer with summary info -->
@@ -85,7 +90,35 @@
           <p><strong>Regular:</strong> 25% más que el precio efectivo</p>
           <p><strong>VIP y Mayorista:</strong> Inicialmente iguales al efectivo, luego editables</p>
           <p><strong>3+ kg:</strong> Descuento fijo aplicado dinámicamente en ventas (no almacenado)</p>
-          <p><strong>%:</strong> Margen de ganancia sobre el costo. Los precios se actualizan automáticamente al cambiar el % o costo.</p>
+          <p><strong>%:</strong> Margen de ganancia sobre el costo. Confirma los cambios antes de guardar.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmation Dialog -->
+    <div v-if="showConfirmDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">
+            Confirmar cambio
+          </h3>
+          <p class="text-sm text-gray-600 mb-6">
+            {{ currentChange?.message }}
+          </p>
+          <div class="flex justify-end space-x-3">
+            <button
+              @click="cancelChange"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            >
+              Cancelar
+            </button>
+            <button
+              @click="confirmChange"
+              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Confirmar
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -95,6 +128,7 @@
 <script setup>
 // Import components
 import PricingRow from '~/components/Pricing/PricingRow.vue';
+import PricingMobileCard from '~/components/Pricing/PricingMobileCard.vue';
 
 // Props
 const props = defineProps({
@@ -115,6 +149,9 @@ const emit = defineEmits(['update-cost', 'update-margin', 'update-price']);
 
 // Reactive data
 const showHelpTooltip = ref(false);
+const pendingChanges = ref(new Map());
+const showConfirmDialog = ref(false);
+const currentChange = ref(null);
 
 // Computed properties
 const hasDualProducts = computed(() => {
@@ -125,14 +162,90 @@ const hasDualProducts = computed(() => {
 function getInventoryForProduct(productId) {
   return props.inventoryItems.find(item => item.productId === productId);
 }
+
+// Handle cost update with confirmation
+function handleCostUpdate(data) {
+  currentChange.value = {
+    type: 'cost',
+    data: data,
+    message: `¿Confirmar cambio de costo a $${data.cost.toFixed(2)}?`
+  };
+  showConfirmDialog.value = true;
+}
+
+// Handle margin update with confirmation
+function handleMarginUpdate(data) {
+  currentChange.value = {
+    type: 'margin',
+    data: data,
+    message: `¿Confirmar cambio de margen a ${data.margin}%?`
+  };
+  showConfirmDialog.value = true;
+}
+
+// Handle price update with confirmation
+function handlePriceUpdate(data) {
+  const priceType = Object.keys(data.pricing)[0];
+  const priceValue = Object.values(data.pricing)[0];
+  currentChange.value = {
+    type: 'price',
+    data: data,
+    message: `¿Confirmar cambio de precio ${priceType} a $${priceValue.toFixed(2)}?`
+  };
+  showConfirmDialog.value = true;
+}
+
+// Confirm the pending change
+function confirmChange() {
+  if (!currentChange.value) return;
+  
+  const { type, data } = currentChange.value;
+  
+  switch (type) {
+    case 'cost':
+      emit('update-cost', data.productId, data.cost);
+      break;
+    case 'margin':
+      emit('update-margin', data.productId, data.margin);
+      break;
+    case 'price':
+      emit('update-price', data.productId, data.pricing);
+      break;
+  }
+  
+  closeConfirmDialog();
+}
+
+// Cancel the pending change
+function cancelChange() {
+  closeConfirmDialog();
+}
+
+// Close confirmation dialog
+function closeConfirmDialog() {
+  showConfirmDialog.value = false;
+  currentChange.value = null;
+}
 </script>
 
 <style scoped>
-
 /* Custom scrollbar for better UX */
 .pricing-table-container ::-webkit-scrollbar {
   height: 8px;
   width: 8px;
+}
+
+.pricing-table-container ::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.pricing-table-container ::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.pricing-table-container ::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
 }
 
 /* Ensure proper table layout */
@@ -140,19 +253,29 @@ table {
   table-layout: fixed;
 }
 
-/* Mobile responsive adjustments */
+/* Fix column widths for alignment */
+.w-\[250px\] {
+  width: 250px;
+}
+
+.w-\[120px\] {
+  width: 120px;
+}
+
+.w-\[80px\] {
+  width: 80px;
+}
+
+/* Sticky column styling */
+.sticky {
+  position: sticky;
+  background: inherit;
+}
+
+/* Mobile scrollbar styling */
 @media (max-width: 768px) {
-  
-  .min-w-\[250px\] {
-    min-width: 200px;
-  }
-  
-  .min-w-\[120px\] {
-    min-width: 100px;
-  }
-  
-  .min-w-\[80px\] {
-    min-width: 70px;
+  .pricing-table-container ::-webkit-scrollbar {
+    width: 4px;
   }
 }
 </style>

@@ -53,6 +53,7 @@ interface Product {
   
   minimumStock: number;
   supplierIds: string[];
+  profitMarginPercentage: number; // Default 30% - for pricing calculations
   
   isActive: boolean;
   createdBy: string;
@@ -646,6 +647,7 @@ export const useProductStore = defineStore("product", {
             
             minimumStock: data.minimumStock || 0,
             supplierIds: data.supplierIds || [],
+            profitMarginPercentage: data.profitMarginPercentage || 30, // Default 30%
             
             isActive: data.isActive !== false, // Default to true if not specified
             createdBy: data.createdBy,
@@ -724,6 +726,7 @@ export const useProductStore = defineStore("product", {
           
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
+          profitMarginPercentage: 30, // Default 30%
           
           isActive: true,
           createdBy: user.value.uid,
@@ -747,7 +750,7 @@ export const useProductStore = defineStore("product", {
           averageCost: 0,
           lastPurchaseCost: 0,
           totalCostValue: 0,
-          profitMarginPercentage: 30, // Default 30%
+          // profitMarginPercentage now in product
           createdBy: user.value.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -781,6 +784,7 @@ export const useProductStore = defineStore("product", {
           allowsLooseSales: formData.trackingType === 'dual',
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
+          profitMarginPercentage: 30, // Default 30%
           isActive: true,
           createdBy: user.value.uid,
           createdAt: $dayjs().format('DD/MM/YYYY'),
@@ -1231,6 +1235,112 @@ export const useProductStore = defineStore("product", {
         this.isLoading = false;
         return false;
       }
+    },
+
+    // Update profit margin percentage for a product
+    async updateProfitMargin(productId: string, marginPercentage: number): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isLoading = true;
+        
+        // Get existing product to verify ownership
+        const productRef = doc(db, 'product', productId);
+        const productDoc = await getDoc(productRef);
+        
+        if (!productDoc.exists()) {
+          useToast(ToastEvents.error, "Producto no encontrado");
+          this.isLoading = false;
+          return false;
+        }
+        
+        const productData = productDoc.data();
+        if (productData.businessId !== currentBusinessId.value) {
+          useToast(ToastEvents.error, "No tienes permiso para editar este producto");
+          this.isLoading = false;
+          return false;
+        }
+        
+        // Update product document
+        await updateDoc(productRef, {
+          profitMarginPercentage: marginPercentage,
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Update local state
+        const productIndex = this.products.findIndex(p => p.id === productId);
+        if (productIndex >= 0) {
+          const { $dayjs } = useNuxtApp();
+          this.products[productIndex].profitMarginPercentage = marginPercentage;
+          this.products[productIndex].updatedAt = $dayjs().format('DD/MM/YYYY');
+          
+          // Also update the Map
+          this.productsByIdMap.set(productId, this.products[productIndex]);
+        }
+        
+        // Update selected product if applicable
+        if (this.selectedProduct && this.selectedProduct.id === productId) {
+          const updatedProduct = this.products.find(p => p.id === productId);
+          if (updatedProduct) {
+            this.selectedProduct = updatedProduct;
+          }
+        }
+        
+        this.isLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error updating profit margin:", error);
+        useToast(ToastEvents.error, "Hubo un error al actualizar el margen de ganancia");
+        this.isLoading = false;  
+        return false;
+      }
+    },
+
+    // Calculate pricing based on cost and margin
+    calculatePricing(cost: number, marginPercentage: number, unitWeight?: number) {
+      if (cost <= 0) return null;
+      
+      const efectivo = cost * (1 + marginPercentage / 100);
+      const regular = efectivo * 1.25; // 25% markup over efectivo
+      const vip = efectivo; // Initially same as efectivo
+      const mayorista = efectivo; // Initially same as efectivo
+      
+      const pricing = {
+        efectivo: Math.round(efectivo * 100) / 100,
+        regular: Math.round(regular * 100) / 100,
+        vip: Math.round(vip * 100) / 100,
+        mayorista: Math.round(mayorista * 100) / 100,
+      };
+      
+      // For dual products, add kg pricing
+      if (unitWeight && unitWeight > 0) {
+        const costPerKg = cost / unitWeight;
+        const efectivoKg = costPerKg * (1 + marginPercentage / 100);
+        const regularKg = efectivoKg * 1.25;
+        const vipKg = efectivoKg; // Initially same as efectivo
+        
+        return {
+          ...pricing,
+          kg: {
+            efectivo: Math.round(efectivoKg * 100) / 100,
+            regular: Math.round(regularKg * 100) / 100,
+            vip: Math.round(vipKg * 100) / 100,
+          },
+          costPerKg: Math.round(costPerKg * 100) / 100,
+        };
+      }
+      
+      return pricing;
+    },
+
+    // Calculate profit margin percentage from price and cost
+    calculateMarginFromPrice(price: number, cost: number): number {
+      if (cost <= 0) return 0;
+      return Math.round(((price - cost) / cost) * 100 * 100) / 100;
     }
   }
 });
