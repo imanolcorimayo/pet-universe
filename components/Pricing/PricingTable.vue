@@ -8,39 +8,33 @@
             <th class="sticky left-0 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 w-[250px] z-20">
               Producto
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
               Costo
             </th>
-            <th v-if="hasDualProducts" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
-              Costo/kg
-            </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[80px]">
-              %
-            </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
               Efectivo
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
               Regular
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
               VIP
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
               Mayorista
             </th>
             <!-- Dual product kg columns -->
             <template v-if="hasDualProducts">
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px] bg-blue-50">
-                Regular kg
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px] bg-blue-50">
+                Regular/KG
               </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px] bg-blue-50">
-                3+ kg
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px] bg-blue-50">
-                VIP kg
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px] bg-blue-50">
+                VIP/KG
               </th>
             </template>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
+              Acciones
+            </th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
@@ -50,9 +44,13 @@
             :product="product"
             :inventory="getInventoryForProduct(product.id)"
             :has-dual-products="hasDualProducts"
+            :editing-product="editingProduct"
             @update-cost="handleCostUpdate"
             @update-margin="handleMarginUpdate"
             @update-price="handlePriceUpdate"
+            @edit-product="setEditingProduct"
+            @cancel-edit="cancelEdit"
+            @save-changes="saveChanges"
           />
         </tbody>
       </table>
@@ -152,6 +150,8 @@ const showHelpTooltip = ref(false);
 const pendingChanges = ref(new Map());
 const showConfirmDialog = ref(false);
 const currentChange = ref(null);
+const editingProduct = ref(null);
+const expandedProducts = ref(new Set());
 
 // Computed properties
 const hasDualProducts = computed(() => {
@@ -161,6 +161,26 @@ const hasDualProducts = computed(() => {
 // Methods
 function getInventoryForProduct(productId) {
   return props.inventoryItems.find(item => item.productId === productId);
+}
+
+function setEditingProduct(productId) {
+  editingProduct.value = productId;
+}
+
+function cancelEdit() {
+  editingProduct.value = null;
+}
+
+function saveChanges() {
+  editingProduct.value = null;
+}
+
+function toggleExpanded(productId) {
+  if (expandedProducts.value.has(productId)) {
+    expandedProducts.value.delete(productId);
+  } else {
+    expandedProducts.value.add(productId);
+  }
 }
 
 // Handle cost update with confirmation
@@ -260,6 +280,10 @@ table {
 
 .w-\[120px\] {
   width: 120px;
+}
+
+.w-\[100px\] {
+  width: 100px;
 }
 
 .w-\[80px\] {
