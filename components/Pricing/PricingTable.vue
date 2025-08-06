@@ -229,7 +229,18 @@ function getActionMessage(action) {
     case 'price':
       const priceType = Object.keys(data.pricing)[0];
       const priceValue = Object.values(data.pricing)[0];
-      return `¿Confirmar cambio de precio ${priceType} a $${priceValue ? priceValue.toFixed(2) : '0.00'}?`;
+      
+      // Handle nested kg pricing structure
+      if (priceType === 'kg' && typeof priceValue === 'object') {
+        const kgPriceType = Object.keys(priceValue)[0];
+        const kgPriceValue = Object.values(priceValue)[0];
+        const numericValue = typeof kgPriceValue === 'number' ? kgPriceValue : (parseFloat(kgPriceValue) || 0);
+        return `¿Confirmar cambio de precio ${kgPriceType}/kg a $${numericValue.toFixed(2)}?`;
+      }
+      
+      // Handle regular pricing structure
+      const numericValue = typeof priceValue === 'number' ? priceValue : (parseFloat(priceValue) || 0);
+      return `¿Confirmar cambio de precio ${priceType} a $${numericValue.toFixed(2)}?`;
     default:
       return '¿Confirmar cambio?';
   }

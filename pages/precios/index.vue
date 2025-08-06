@@ -121,6 +121,9 @@
       @close="showBulkUpdateModal = false"
       @bulk-update="handleBulkUpdate"
     />
+    
+    <!-- Loader for updates -->
+    <Loader v-if="isUpdating" />
   </div>
 </template>
 
@@ -134,6 +137,7 @@ definePageMeta({
 // Import components
 import PricingTable from '~/components/Pricing/PricingTable.vue';
 import PricingBulkUpdateModal from '~/components/Pricing/PricingBulkUpdateModal.vue';
+import Loader from '~/components/Loader.vue';
 import { ToastEvents } from '~/interfaces';
 
 // Store composables
@@ -142,6 +146,7 @@ const inventoryStore = useInventoryStore();
 
 // Reactive data
 const isLoading = ref(false);
+const isUpdating = ref(false);
 const searchQuery = ref('');
 const selectedCategory = ref('');
 const selectedTrackingType = ref('');
@@ -230,40 +235,58 @@ async function refreshData() {
 }
 
 async function handleUpdateCost(productId, newCost) {
-  console.log('Updating cost:', { productId, newCost });
-  const success = await inventoryStore.updateLastPurchaseCost(productId, newCost);
-  if (success) {
-    useToast(ToastEvents.success, 'Costo actualizado correctamente');
-  } else {
-    console.error('Failed to update cost');
-    useToast(ToastEvents.error, 'Error al actualizar el costo');
+  isUpdating.value = true;
+  
+  try {
+    console.log('Updating cost:', { productId, newCost });
+    const success = await inventoryStore.updateLastPurchaseCost(productId, newCost);
+    if (success) {
+      useToast(ToastEvents.success, 'Costo actualizado correctamente');
+    } else {
+      console.error('Failed to update cost');
+      useToast(ToastEvents.error, 'Error al actualizar el costo');
+    }
+  } finally {
+    isUpdating.value = false;
   }
 }
 
 async function handleUpdateMargin(productId, marginPercentage) {
-  console.log('Updating margin:', { productId, marginPercentage });
-  const success = await productStore.updateProfitMargin(productId, marginPercentage);
-  if (success) {
-    useToast(ToastEvents.success, 'Margen de ganancia actualizado correctamente');
-  } else {
-    console.error('Failed to update margin');
-    useToast(ToastEvents.error, 'Error al actualizar el margen de ganancia');
+  isUpdating.value = true;
+  
+  try {
+    console.log('Updating margin:', { productId, marginPercentage });
+    const success = await productStore.updateProfitMargin(productId, marginPercentage);
+    if (success) {
+      useToast(ToastEvents.success, 'Margen de ganancia actualizado correctamente');
+    } else {
+      console.error('Failed to update margin');
+      useToast(ToastEvents.error, 'Error al actualizar el margen de ganancia');
+    }
+  } finally {
+    isUpdating.value = false;
   }
 }
 
 async function handleUpdatePrice(productId, pricingData) {
-  console.log('Updating price:', { productId, pricingData });
-  const success = await productStore.updateProductPricing(productId, pricingData);
-  if (success) {
-    useToast(ToastEvents.success, 'Precios actualizados correctamente');
-  } else {
-    console.error('Failed to update price');
-    useToast(ToastEvents.error, 'Error al actualizar los precios');
+  isUpdating.value = true;
+  
+  try {
+    console.log('Updating price:', { productId, pricingData });
+    const success = await productStore.updateProductPricing(productId, pricingData);
+    if (success) {
+      useToast(ToastEvents.success, 'Precios actualizados correctamente');
+    } else {
+      console.error('Failed to update price');
+      useToast(ToastEvents.error, 'Error al actualizar los precios');
+    }
+  } finally {
+    isUpdating.value = false;
   }
 }
 
 async function handleBulkUpdate(productIds, updateData) {
-  isLoading.value = true;
+  isUpdating.value = true;
   
   try {
     // Handle cost updates
@@ -293,7 +316,7 @@ async function handleBulkUpdate(productIds, updateData) {
     console.error('Error in bulk update:', error);
     useToast(ToastEvents.error, 'Error en la actualización masiva');
   } finally {
-    isLoading.value = false;
+    isUpdating.value = false;
   }
 }
 
