@@ -136,15 +136,15 @@
     <td class="px-4 py-4 w-[100px]">
       <div v-if="!isEditing" class="flex flex-col">
         <div class="text-sm font-medium text-gray-900">
-          ${{ formatNumber(calculatedPrices.mayorista) }}
+          ${{ formatNumber(calculatedPrices.bulk) }}
         </div>
         <div class="text-xs text-orange-600 font-medium">
-          +{{ getMarginFromPrice(calculatedPrices.mayorista) }}%
+          +{{ getMarginFromPrice(calculatedPrices.bulk) }}%
         </div>
       </div>
       <div v-else>
         <input
-          v-model="editValues.mayorista"
+          v-model="editValues.bulk"
           type="number"
           step="0.01"
           min="0"
@@ -330,7 +330,7 @@ const editValues = ref({
   efectivo: 0,
   regular: 0,
   vip: 0,
-  mayorista: 0,
+  bulk: 0,
   regularKg: 0,
   vipKg: 0,
 });
@@ -365,7 +365,7 @@ const calculatedPrices = computed(() => {
   );
   
   if (!pricing) {
-    return { efectivo: 0, regular: 0, vip: 0, mayorista: 0 };
+    return { efectivo: 0, regular: 0, vip: 0, bulk: 0 };
   }
   
   // Use current product prices if they exist, otherwise use calculated ones
@@ -375,7 +375,7 @@ const calculatedPrices = computed(() => {
     efectivo: prices.cash || pricing.efectivo,
     regular: prices.regular || pricing.regular,
     vip: prices.vip || pricing.vip,
-    mayorista: prices.bulk || pricing.mayorista,
+    bulk: prices.bulk || pricing.bulk,
   };
 });
 
@@ -433,7 +433,7 @@ function startEditing() {
     efectivo: calculatedPrices.value.efectivo,
     regular: calculatedPrices.value.regular,
     vip: calculatedPrices.value.vip,
-    mayorista: calculatedPrices.value.mayorista,
+    bulk: calculatedPrices.value.bulk,
     regularKg: calculatedKgPrices.value?.regular || 0,
     vipKg: calculatedKgPrices.value?.vip || 0,
   };
@@ -460,7 +460,7 @@ function updatePricesFromCost() {
     editValues.value.efectivo = pricing.efectivo;
     editValues.value.regular = pricing.regular;
     editValues.value.vip = pricing.vip;
-    editValues.value.mayorista = pricing.mayorista;
+    editValues.value.bulk = pricing.bulk;
     
     // Update kg prices for dual products
     if (props.product.trackingType === 'dual' && pricing.kg) {
@@ -483,7 +483,7 @@ function updatePricesFromMargin() {
     editValues.value.efectivo = pricing.efectivo;
     editValues.value.regular = pricing.regular;
     editValues.value.vip = pricing.vip;
-    editValues.value.mayorista = pricing.mayorista;
+    editValues.value.bulk = pricing.bulk;
     
     // Update kg prices for dual products
     if (props.product.trackingType === 'dual' && pricing.kg) {
@@ -500,7 +500,7 @@ function saveChanges() {
   const efectivoValue = parseFloat(editValues.value.efectivo) || 0;
   const regularValue = parseFloat(editValues.value.regular) || 0;
   const vipValue = parseFloat(editValues.value.vip) || 0;
-  const mayoristaValue = parseFloat(editValues.value.mayorista) || 0;
+  const bulkValue = parseFloat(editValues.value.bulk) || 0;
   const regularKgValue = parseFloat(editValues.value.regularKg) || 0;
   const vipKgValue = parseFloat(editValues.value.vipKg) || 0;
   
@@ -528,8 +528,8 @@ function saveChanges() {
   if (Math.abs(vipValue - calculatedPrices.value.vip) > 0.001) {
     pricingData.vip = vipValue;
   }
-  if (Math.abs(mayoristaValue - calculatedPrices.value.mayorista) > 0.001) {
-    pricingData.bulk = mayoristaValue;
+  if (Math.abs(bulkValue - calculatedPrices.value.bulk) > 0.001) {
+    pricingData.bulk = bulkValue;
   }
   
   // Handle kg prices for dual products

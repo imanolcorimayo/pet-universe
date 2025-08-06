@@ -1332,13 +1332,13 @@ export const useProductStore = defineStore("product", {
       const efectivo = cost * (1 + marginPercentage / 100);
       const regular = efectivo * 1.25; // 25% markup over efectivo
       const vip = efectivo; // Initially same as efectivo
-      const mayorista = efectivo; // Initially same as efectivo
+      const bulk = efectivo; // Initially same as efectivo
       
       const pricing = {
         efectivo: Math.round(efectivo * 100) / 100,
         regular: Math.round(regular * 100) / 100,
         vip: Math.round(vip * 100) / 100,
-        mayorista: Math.round(mayorista * 100) / 100,
+        bulk: Math.round(bulk * 100) / 100,
       };
       
       // For dual products, add kg pricing

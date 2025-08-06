@@ -57,20 +57,24 @@
     </div>
 
     <!-- Mobile Cards -->
-    <div class="md:hidden space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto px-4">
+    <div class="md:hidden">
       <PricingMobileCard
         v-for="product in products"
         :key="product.id"
         :product="product"
         :inventory="getInventoryForProduct(product.id)"
+        :editing-product="editingProduct"
         @update-cost="handleCostUpdate"
         @update-margin="handleMarginUpdate"
         @update-price="handlePriceUpdate"
+        @edit-product="setEditingProduct"
+        @cancel-edit="cancelEdit"
+        @save-changes="saveChanges"
       />
     </div>
 
-    <!-- Footer with summary info -->
-    <div class="border-t border-gray-200 bg-gray-50 px-4 py-3">
+    <!-- Footer with summary info (Desktop only) -->
+    <div class="hidden md:block border-t border-gray-200 bg-gray-50 px-4 py-3">
       <div class="flex justify-between items-center text-sm text-gray-600">
         <span>{{ products.length }} productos mostrados</span>
         <span>

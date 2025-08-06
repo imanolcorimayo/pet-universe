@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+  <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm mb-4">
     <!-- Product Header -->
     <div class="flex justify-between items-start mb-4">
       <div class="flex-1">
@@ -20,13 +20,16 @@
         <label class="text-xs font-medium text-gray-500">Costo</label>
         <div class="mt-1">
           <input
-            v-model.number="localCost"
-            @blur="updateCost"
+            v-if="isEditing"
+            v-model.number="editValues.cost"
+            @input="updatePricesFromCost"
             type="number"
             step="0.01"
             class="input text-sm h-8"
-            :class="{ 'border-amber-300': hasUnsavedCostChanges }"
           />
+          <div v-else class="text-sm font-medium text-gray-900">
+            ${{ formatNumber(currentCost) }}
+          </div>
         </div>
       </div>
       
@@ -41,45 +44,122 @@
         <label class="text-xs font-medium text-gray-500">Margen %</label>
         <div class="mt-1">
           <input
-            v-model.number="localMargin"
-            @blur="updateMargin"
+            v-if="isEditing"
+            v-model.number="editValues.margin"
+            @input="updatePricesFromMargin"
             type="number"
             step="1"
             min="0"
             max="999"
             class="input text-sm h-8"
-            :class="{ 'border-amber-300': hasUnsavedMarginChanges }"
           />
+          <div v-else class="text-sm text-gray-600 font-medium">
+            {{ currentMargin.toFixed(1) }}% margen
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Unit Prices -->
     <div class="space-y-3">
-      <h4 class="font-medium text-gray-700 text-sm">Precios por Unidad</h4>
+      <div class="flex justify-between items-center">
+        <h4 class="font-medium text-gray-700 text-sm">Precios por Unidad</h4>
+        
+        <!-- Action Buttons -->
+        <div v-if="!isEditing" class="flex items-center justify-center">
+          <button
+            @click="startEditing"
+            class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+            title="Editar precios"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
+        </div>
+        <div v-else class="flex items-center justify-center space-x-1">
+          <button
+            @click="saveChanges"
+            class="p-1.5 text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors"
+            title="Guardar cambios"
+          >
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </button>
+          <button
+            @click="cancelEdit"
+            class="p-1.5 text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+            title="Cancelar"
+          >
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
       
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="text-xs font-medium text-gray-500">Efectivo</label>
-          <div class="mt-1 text-sm text-gray-700">${{ prices.cash }}</div>
+          <div class="mt-1">
+            <input
+              v-if="isEditing"
+              v-model.number="editValues.efectivo"
+              type="number"
+              step="0.01"
+              class="input text-sm h-8"
+            />
+            <div v-else class="flex flex-col">
+              <div class="text-sm font-medium text-gray-900">
+                ${{ formatNumber(calculatedPrices.efectivo) }}
+              </div>
+              <div class="text-xs text-green-600 font-medium">
+                +{{ getMarginFromPrice(calculatedPrices.efectivo) }}%
+              </div>
+            </div>
+          </div>
         </div>
         
         <div>
           <label class="text-xs font-medium text-gray-500">Regular</label>
-          <div class="mt-1 text-sm text-gray-700">${{ prices.regular }}</div>
+          <div class="mt-1">
+            <input
+              v-if="isEditing"
+              v-model.number="editValues.regular"
+              type="number"
+              step="0.01"
+              class="input text-sm h-8"
+            />
+            <div v-else class="flex flex-col">
+              <div class="text-sm font-medium text-gray-900">
+                ${{ formatNumber(calculatedPrices.regular) }}
+              </div>
+              <div class="text-xs text-blue-600 font-medium">
+                +{{ getMarginFromPrice(calculatedPrices.regular) }}%
+              </div>
+            </div>
+          </div>
         </div>
         
         <div>
           <label class="text-xs font-medium text-gray-500">VIP</label>
           <div class="mt-1">
             <input
-              v-model.number="localVipPrice"
-              @blur="updateVipPrice"
+              v-if="isEditing"
+              v-model.number="editValues.vip"
               type="number"
               step="0.01"
               class="input text-sm h-8"
-              :class="{ 'border-amber-300': hasUnsavedVipChanges }"
             />
+            <div v-else class="flex flex-col">
+              <div class="text-sm font-medium text-gray-900">
+                ${{ formatNumber(calculatedPrices.vip) }}
+              </div>
+              <div class="text-xs text-purple-600 font-medium">
+                +{{ getMarginFromPrice(calculatedPrices.vip) }}%
+              </div>
+            </div>
           </div>
         </div>
         
@@ -87,13 +167,20 @@
           <label class="text-xs font-medium text-gray-500">Mayorista</label>
           <div class="mt-1">
             <input
-              v-model.number="localBulkPrice"
-              @blur="updateBulkPrice"
+              v-if="isEditing"
+              v-model.number="editValues.bulk"
               type="number"
               step="0.01"
               class="input text-sm h-8"
-              :class="{ 'border-amber-300': hasUnsavedBulkChanges }"
             />
+            <div v-else class="flex flex-col">
+              <div class="text-sm font-medium text-gray-900">
+                ${{ formatNumber(calculatedPrices.bulk) }}
+              </div>
+              <div class="text-xs text-orange-600 font-medium">
+                +{{ getMarginFromPrice(calculatedPrices.bulk) }}%
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -106,25 +193,57 @@
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="text-xs font-medium text-gray-500">Regular kg</label>
-          <div class="mt-1 text-sm text-gray-700">${{ kgPrices.regular }}</div>
+          <div class="mt-1">
+            <input
+              v-if="isEditing"
+              v-model.number="editValues.regularKg"
+              type="number"
+              step="0.01"
+              class="input text-sm h-8"
+            />
+            <div v-else class="flex flex-col">
+              <div class="text-sm font-medium text-gray-900">
+                ${{ formatNumber(calculatedKgPrices?.regular || 0) }}
+              </div>
+              <div class="text-xs text-blue-600 font-medium">
+                +{{ getMarginFromPrice(calculatedKgPrices?.regular || 0, currentCost / product.unitWeight) }}%
+              </div>
+            </div>
+          </div>
         </div>
         
         <div>
           <label class="text-xs font-medium text-gray-500">3+ kg (10% desc.)</label>
-          <div class="mt-1 text-sm text-gray-500">${{ kgPrices.bulk }}</div>
+          <div class="mt-1">
+            <div class="flex flex-col">
+              <div class="text-sm text-gray-500">
+                ${{ formatNumber(calculatedKgPrices?.bulk || 0) }}
+              </div>
+              <div class="text-xs text-gray-400">
+                Descuento automático
+              </div>
+            </div>
+          </div>
         </div>
         
         <div class="col-span-2">
           <label class="text-xs font-medium text-gray-500">VIP kg</label>
           <div class="mt-1">
             <input
-              v-model.number="localVipKgPrice"
-              @blur="updateVipKgPrice"
+              v-if="isEditing"
+              v-model.number="editValues.vipKg"
               type="number"
               step="0.01"
               class="input text-sm h-8"
-              :class="{ 'border-amber-300': hasUnsavedVipKgChanges }"
             />
+            <div v-else class="flex flex-col">
+              <div class="text-sm font-medium text-gray-900">
+                ${{ formatNumber(calculatedKgPrices?.vip || 0) }}
+              </div>
+              <div class="text-xs text-purple-600 font-medium">
+                +{{ getMarginFromPrice(calculatedKgPrices?.vip || 0, currentCost / product.unitWeight) }}%
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -143,10 +262,14 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  editingProduct: {
+    type: String,
+    default: null,
+  },
 });
 
 // Emits
-const emit = defineEmits(['update-cost', 'update-margin', 'update-price']);
+const emit = defineEmits(['update-cost', 'update-margin', 'update-price', 'edit-product', 'cancel-edit', 'save-changes']);
 
 // Store composables
 const productStore = useProductStore();
@@ -157,8 +280,31 @@ const localMargin = ref(30);
 const localVipPrice = ref(0);
 const localBulkPrice = ref(0);
 const localVipKgPrice = ref(0);
+const preserveEditValues = ref(false);
+const editValues = ref({
+  cost: 0,
+  margin: 30,
+  efectivo: 0,
+  regular: 0,
+  vip: 0,
+  bulk: 0,
+  regularKg: 0,
+  vipKg: 0,
+});
 
 // Computed properties
+const isEditing = computed(() => {
+  return props.editingProduct === props.product.id;
+});
+
+const currentCost = computed(() => {
+  return props.inventory?.lastPurchaseCost || 0;
+});
+
+const currentMargin = computed(() => {
+  return props.product?.profitMarginPercentage || 30;
+});
+
 const hasUnsavedCostChanges = computed(() => {
   const currentCost = props.inventory?.lastPurchaseCost ?? 0;
   return Math.abs(localCost.value - currentCost) > 0.01;
@@ -187,33 +333,82 @@ const costPerKg = computed(() => {
   return '0.00';
 });
 
-const prices = computed(() => {
-  const cost = localCost.value || 0;
-  const margin = localMargin.value || 0;
+const calculatedPrices = computed(() => {
+  const cost = isEditing.value ? parseFloat(editValues.value.cost) || 0 : currentCost.value;
+  const margin = isEditing.value ? parseFloat(editValues.value.margin) || 0 : currentMargin.value;
   
-  const cashPrice = cost * (1 + margin / 100);
-  const regularPrice = cashPrice * 1.25;
+  const pricing = productStore.calculatePricing(cost, margin, props.product.unitWeight);
+  
+  if (!pricing) {
+    return { efectivo: 0, regular: 0, vip: 0, bulk: 0 };
+  }
+  
+  // Use current product prices if they exist and not editing, otherwise use calculated ones
+  const prices = props.product.prices || {};
+  
+  if (isEditing.value) {
+    return {
+      efectivo: editValues.value.efectivo || pricing.efectivo,
+      regular: editValues.value.regular || pricing.regular,
+      vip: editValues.value.vip || pricing.vip,
+      bulk: editValues.value.bulk || pricing.bulk,
+    };
+  }
   
   return {
-    cash: cashPrice.toFixed(2),
-    regular: regularPrice.toFixed(2),
+    efectivo: prices.cash || pricing.efectivo,
+    regular: prices.regular || pricing.regular,
+    vip: prices.vip || pricing.vip,
+    bulk: prices.bulk || pricing.bulk,
+  };
+});
+
+const calculatedKgPrices = computed(() => {
+  if (props.product.trackingType !== 'dual') return null;
+  
+  const cost = isEditing.value ? parseFloat(editValues.value.cost) || 0 : currentCost.value;
+  const margin = isEditing.value ? parseFloat(editValues.value.margin) || 0 : currentMargin.value;
+  
+  const pricing = productStore.calculatePricing(cost, margin, props.product.unitWeight);
+  
+  if (!pricing || !pricing.kg) {
+    return { regular: 0, vip: 0, bulk: 0 };
+  }
+  
+  // Use current product kg prices if they exist and not editing, otherwise use calculated ones
+  const kgPrices = props.product.prices?.kg || {};
+  
+  if (isEditing.value) {
+    return {
+      regular: editValues.value.regularKg || pricing.kg.regular,
+      vip: editValues.value.vipKg || pricing.kg.vip,
+      bulk: pricing.kg.regular * 0.9, // 10% discount for 3+ kg
+    };
+  }
+  
+  return {
+    regular: kgPrices.regular || pricing.kg.regular,
+    vip: kgPrices.vip || pricing.kg.vip,
+    bulk: (kgPrices.regular || pricing.kg.regular) * 0.9, // 10% discount for 3+ kg
+  };
+});
+
+// Legacy computed properties for backward compatibility
+const prices = computed(() => {
+  return {
+    cash: calculatedPrices.value.efectivo.toFixed(2),
+    regular: calculatedPrices.value.regular.toFixed(2),
   };
 });
 
 const kgPrices = computed(() => {
-  if (props.product.trackingType !== 'dual' || !props.product.unitWeight) {
+  if (!calculatedKgPrices.value) {
     return { regular: '0.00', bulk: '0.00' };
   }
   
-  const costPerKgValue = parseFloat(costPerKg.value);
-  const margin = localMargin.value || 0;
-  
-  const regularKgPrice = costPerKgValue * (1 + margin / 100);
-  const bulkKgPrice = regularKgPrice * 0.9; // 10% discount
-  
   return {
-    regular: regularKgPrice.toFixed(2),
-    bulk: bulkKgPrice.toFixed(2),
+    regular: calculatedKgPrices.value.regular.toFixed(2),
+    bulk: calculatedKgPrices.value.bulk.toFixed(2),
   };
 });
 
@@ -227,34 +422,172 @@ function getTrackingTypeLabel(type) {
   return labels[type] || type;
 }
 
-function updateCost() {
-  if (hasUnsavedCostChanges.value) {
-    emit('update-cost', props.product.id, localCost.value);
+function formatNumber(value) {
+  if (!value || value === 0) return '0.00';
+  return parseFloat(value).toFixed(2);
+}
+
+function getMarginFromPrice(price, cost = currentCost.value) {
+  return productStore.calculateMarginFromPrice(price, cost);
+}
+
+function startEditing() {
+  // Initialize edit values with current values
+  editValues.value = {
+    cost: currentCost.value,
+    margin: currentMargin.value,
+    efectivo: calculatedPrices.value.efectivo,
+    regular: calculatedPrices.value.regular,
+    vip: calculatedPrices.value.vip,
+    bulk: calculatedPrices.value.bulk,
+    regularKg: calculatedKgPrices.value?.regular || 0,
+    vipKg: calculatedKgPrices.value?.vip || 0,
+  };
+  
+  preserveEditValues.value = false;
+  emit('edit-product', props.product.id);
+}
+
+function cancelEdit() {
+  preserveEditValues.value = false;
+  emit('cancel-edit');
+}
+
+function updatePricesFromCost() {
+  if (!editValues.value.cost || !editValues.value.margin) return;
+  
+  const pricing = productStore.calculatePricing(
+    parseFloat(editValues.value.cost), 
+    parseFloat(editValues.value.margin), 
+    props.product.unitWeight
+  );
+  
+  if (pricing) {
+    editValues.value.efectivo = pricing.efectivo;
+    editValues.value.regular = pricing.regular;
+    editValues.value.vip = pricing.vip;
+    editValues.value.bulk = pricing.bulk;
+    
+    // Update kg prices for dual products
+    if (props.product.trackingType === 'dual' && pricing.kg) {
+      editValues.value.regularKg = pricing.kg.regular;
+      editValues.value.vipKg = pricing.kg.vip;
+    }
   }
+}
+
+function updatePricesFromMargin() {
+  if (!editValues.value.cost || !editValues.value.margin) return;
+  
+  const pricing = productStore.calculatePricing(
+    parseFloat(editValues.value.cost), 
+    parseFloat(editValues.value.margin), 
+    props.product.unitWeight
+  );
+  
+  if (pricing) {
+    editValues.value.efectivo = pricing.efectivo;
+    editValues.value.regular = pricing.regular;
+    editValues.value.vip = pricing.vip;
+    editValues.value.bulk = pricing.bulk;
+    
+    // Update kg prices for dual products
+    if (props.product.trackingType === 'dual' && pricing.kg) {
+      editValues.value.regularKg = pricing.kg.regular;
+      editValues.value.vipKg = pricing.kg.vip;
+    }
+  }
+}
+
+function saveChanges() {
+  // Convert values to numbers for proper comparison
+  const costValue = parseFloat(editValues.value.cost) || 0;
+  const marginValue = parseFloat(editValues.value.margin) || 0;
+  const efectivoValue = parseFloat(editValues.value.efectivo) || 0;
+  const regularValue = parseFloat(editValues.value.regular) || 0;
+  const vipValue = parseFloat(editValues.value.vip) || 0;
+  const bulkValue = parseFloat(editValues.value.bulk) || 0;
+  const regularKgValue = parseFloat(editValues.value.regularKg) || 0;
+  const vipKgValue = parseFloat(editValues.value.vipKg) || 0;
+  
+  // Preserve edit values during async operations to prevent "refresh" behavior
+  preserveEditValues.value = true;
+  
+  // Emit the individual update events based on changed values
+  if (Math.abs(costValue - currentCost.value) > 0.001) {
+    emit('update-cost', props.product.id, costValue);
+  }
+  
+  if (Math.abs(marginValue - currentMargin.value) > 0.001) {
+    emit('update-margin', props.product.id, marginValue);
+  }
+  
+  // Build pricing update object
+  const pricingData = {};
+  const currentPrices = props.product.prices || {};
+  
+  if (Math.abs(efectivoValue - (currentPrices.cash || 0)) > 0.001) {
+    pricingData.cash = efectivoValue;
+  }
+  if (Math.abs(regularValue - (currentPrices.regular || 0)) > 0.001) {
+    pricingData.regular = regularValue;
+  }
+  if (Math.abs(vipValue - (currentPrices.vip || 0)) > 0.001) {
+    pricingData.vip = vipValue;
+  }
+  if (Math.abs(bulkValue - (currentPrices.bulk || 0)) > 0.001) {
+    pricingData.bulk = bulkValue;
+  }
+  
+  // Handle kg prices for dual products
+  if (props.product.trackingType === 'dual') {
+    const currentRegularKg = currentPrices.kg?.regular || 0;
+    const currentVipKg = currentPrices.kg?.vip || 0;
+    
+    if (Math.abs(regularKgValue - currentRegularKg) > 0.001 ||
+        Math.abs(vipKgValue - currentVipKg) > 0.001) {
+      pricingData.kg = {};
+      if (Math.abs(regularKgValue - currentRegularKg) > 0.001) {
+        pricingData.kg.regular = regularKgValue;
+      }
+      if (Math.abs(vipKgValue - currentVipKg) > 0.001) {
+        pricingData.kg.vip = vipKgValue;
+      }
+    }
+  }
+  
+  // Emit pricing update if there are changes
+  if (Object.keys(pricingData).length > 0) {
+    emit('update-price', props.product.id, pricingData);
+  }
+  
+  emit('save-changes');
+  
+  // Reset preserve flag after a short delay to allow updates to complete
+  setTimeout(() => {
+    preserveEditValues.value = false;
+  }, 500);
+}
+
+// Legacy methods for backward compatibility (now unused)
+function updateCost() {
+  // This method is no longer used - editing is handled through saveChanges
 }
 
 function updateMargin() {
-  if (hasUnsavedMarginChanges.value) {
-    emit('update-margin', props.product.id, localMargin.value);
-  }
+  // This method is no longer used - editing is handled through saveChanges
 }
 
 function updateVipPrice() {
-  if (hasUnsavedVipChanges.value) {
-    emit('update-price', props.product.id, { vip: localVipPrice.value });
-  }
+  // This method is no longer used - editing is handled through saveChanges
 }
 
 function updateBulkPrice() {
-  if (hasUnsavedBulkChanges.value) {
-    emit('update-price', props.product.id, { bulk: localBulkPrice.value });
-  }
+  // This method is no longer used - editing is handled through saveChanges
 }
 
 function updateVipKgPrice() {
-  if (hasUnsavedVipKgChanges.value) {
-    emit('update-price', props.product.id, { kg: { vip: localVipKgPrice.value } });
-  }
+  // This method is no longer used - editing is handled through saveChanges
 }
 
 // Initialize local values
