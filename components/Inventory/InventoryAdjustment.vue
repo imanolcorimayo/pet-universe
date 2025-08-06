@@ -21,7 +21,7 @@
             <p><span class="font-semibold">Nombre:</span> {{ product.name }}</p>
             <p>
               <span class="font-semibold">Categoría:</span>
-              {{ product.category }}
+              {{ productStore.getCategoryName(product.category) }}
             </p>
             <p v-if="product.brand">
               <span class="font-semibold">Marca:</span> {{ product.brand }}

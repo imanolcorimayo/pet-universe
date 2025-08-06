@@ -230,23 +230,35 @@ async function refreshData() {
 }
 
 async function handleUpdateCost(productId, newCost) {
+  console.log('Updating cost:', { productId, newCost });
   const success = await inventoryStore.updateLastPurchaseCost(productId, newCost);
   if (success) {
     useToast(ToastEvents.success, 'Costo actualizado correctamente');
+  } else {
+    console.error('Failed to update cost');
+    useToast(ToastEvents.error, 'Error al actualizar el costo');
   }
 }
 
 async function handleUpdateMargin(productId, marginPercentage) {
+  console.log('Updating margin:', { productId, marginPercentage });
   const success = await productStore.updateProfitMargin(productId, marginPercentage);
   if (success) {
     useToast(ToastEvents.success, 'Margen de ganancia actualizado correctamente');
+  } else {
+    console.error('Failed to update margin');
+    useToast(ToastEvents.error, 'Error al actualizar el margen de ganancia');
   }
 }
 
 async function handleUpdatePrice(productId, pricingData) {
+  console.log('Updating price:', { productId, pricingData });
   const success = await productStore.updateProductPricing(productId, pricingData);
   if (success) {
     useToast(ToastEvents.success, 'Precios actualizados correctamente');
+  } else {
+    console.error('Failed to update price');
+    useToast(ToastEvents.error, 'Error al actualizar los precios');
   }
 }
 

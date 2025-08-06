@@ -14,11 +14,11 @@
             <span v-if="product.trackingType === 'dual'" class="inline-block w-4 h-4 text-xs text-center bg-blue-100 text-blue-800 rounded mr-2">
               ⚖
             </span>
-            <span class="text-xs text-gray-600">
+            <span class="text-xs text-gray-600" v-if="product.trackingType === 'dual'">
               {{ product.unitWeight }}kg por unidad
             </span>
-            <span class="text-xs text-gray-500 ml-2">
-              {{ product.category }}
+            <span class="text-xs text-gray-500" :class="{['ml-2']: product.trackingType === 'dual'}">
+              {{ productStore.getCategoryName(product.category) }}
             </span>
           </div>
         </div>
@@ -35,17 +35,33 @@
 
     <!-- Costo -->
     <td class="px-4 py-4 w-[100px]">
-      <div v-if="!isEditing" class="text-sm font-medium text-gray-900">
-        ${{ formatNumber(currentCost) }}
+      <div v-if="!isEditing" class="flex flex-col">
+        <div class="text-sm font-medium text-gray-900">
+          ${{ formatNumber(currentCost) }}
+        </div>
+        <div class="text-xs text-gray-600 font-medium">
+          {{ currentMargin.toFixed(1) }}% margen
+        </div>
       </div>
-      <div v-else>
+      <div v-else class="space-y-1">
         <input
           v-model="editValues.cost"
+          @input="updatePricesFromCost"
           type="number"
           step="0.01"
           min="0"
           class="professional-input w-full"
           placeholder="0.00"
+        />
+        <input
+          v-model="editValues.margin"
+          @input="updatePricesFromMargin"
+          type="number"
+          step="0.1"
+          min="0"
+          max="1000"
+          class="professional-input w-full text-xs"
+          placeholder="30.0"
         />
       </div>
     </td>
@@ -229,49 +245,47 @@
 
   <!-- Expandable Details Row -->
   <tr v-if="isExpanded" class="bg-gray-50">
-    <td colspan="100%" class="px-4 py-4">
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <h4 class="text-sm font-medium text-gray-900 mb-3">Detalles adicionales</h4>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <!-- Cost Details -->
-          <div class="space-y-2">
-            <div class="text-xs font-medium text-gray-700 uppercase tracking-wide">Costo</div>
-            <div class="text-sm text-gray-900">${{ formatNumber(currentCost) }}</div>
-            <div v-if="product.trackingType === 'dual'" class="text-xs text-gray-600">
-              Costo por KG: ${{ formatNumber(costPerKg) }}
-            </div>
-          </div>
-
-          <!-- Margin Details -->
-          <div class="space-y-2">
-            <div class="text-xs font-medium text-gray-700 uppercase tracking-wide">Margen promedio</div>
-            <div class="text-sm text-gray-900">{{ currentMargin.toFixed(1) }}%</div>
-          </div>
-
-          <!-- Last Update -->
-          <div class="space-y-2">
-            <div class="text-xs font-medium text-gray-700 uppercase tracking-wide">Última actualización</div>
-            <div class="text-sm text-gray-900">Hace 2 horas</div>
-          </div>
-
-          <!-- Status -->
-          <div class="space-y-2">
-            <div class="text-xs font-medium text-gray-700 uppercase tracking-wide">Estado</div>
-            <div class="flex items-center">
-              <span class="inline-block w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-              <span class="text-sm text-gray-900">Activo</span>
-            </div>
+    <td colspan="100%" class="px-4 py-2">
+      <div class="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">Detalles adicionales</div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <!-- Cost Details -->
+        <div>
+          <div class="text-xs text-gray-600 mb-1">Costo</div>
+          <div class="text-sm text-gray-900 font-medium">${{ formatNumber(currentCost) }}</div>
+          <div v-if="product.trackingType === 'dual'" class="text-xs text-gray-600 mt-1">
+            Costo por KG: ${{ formatNumber(costPerKg) }}
           </div>
         </div>
 
-        <!-- Additional Info for Dual Products -->
-        <div v-if="product.trackingType === 'dual'" class="mt-4 pt-4 border-t border-gray-200">
-          <div class="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">Precios por KG adicionales</div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="flex justify-between items-center">
-              <span class="text-sm text-gray-600">3+ kg (descuento 10%):</span>
-              <span class="text-sm font-medium text-gray-900">${{ formatNumber(threePlusKgPrice) }}</span>
-            </div>
+        <!-- Margin Details -->
+        <div>
+          <div class="text-xs text-gray-600 mb-1">Margen promedio</div>
+          <div class="text-sm text-gray-900 font-medium">{{ currentMargin.toFixed(1) }}%</div>
+        </div>
+
+        <!-- Last Update -->
+        <div>
+          <div class="text-xs text-gray-600 mb-1">Última actualización</div>
+          <div class="text-sm text-gray-900 font-medium">Hace 2 horas</div>
+        </div>
+
+        <!-- Status -->
+        <div>
+          <div class="text-xs text-gray-600 mb-1">Estado</div>
+          <div class="flex items-center">
+            <span class="inline-block w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+            <span class="text-sm text-gray-900 font-medium">Activo</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Additional Info for Dual Products -->
+      <div v-if="product.trackingType === 'dual'" class="mt-3">
+        <div class="text-xs text-gray-600 mb-2">Precios por KG adicionales</div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600">3+ kg (descuento 10%):</span>
+            <span class="text-sm font-medium text-gray-900">${{ formatNumber(threePlusKgPrice) }}</span>
           </div>
         </div>
       </div>
@@ -309,8 +323,10 @@ const productStore = useProductStore();
 
 // Reactive data
 const isExpanded = ref(false);
+const preserveEditValues = ref(false); // Flag to preserve edit values during updates
 const editValues = ref({
   cost: 0,
+  margin: 30,
   efectivo: 0,
   regular: 0,
   vip: 0,
@@ -413,6 +429,7 @@ function startEditing() {
   // Initialize edit values with current values
   editValues.value = {
     cost: currentCost.value,
+    margin: currentMargin.value,
     efectivo: calculatedPrices.value.efectivo,
     regular: calculatedPrices.value.regular,
     vip: calculatedPrices.value.vip,
@@ -421,45 +438,113 @@ function startEditing() {
     vipKg: calculatedKgPrices.value?.vip || 0,
   };
   
+  preserveEditValues.value = false;
   emit('edit-product', props.product.id);
 }
 
 function cancelEdit() {
+  preserveEditValues.value = false;
   emit('cancel-edit');
 }
 
+function updatePricesFromCost() {
+  if (!editValues.value.cost || !editValues.value.margin) return;
+  
+  const pricing = productStore.calculatePricing(
+    parseFloat(editValues.value.cost), 
+    parseFloat(editValues.value.margin), 
+    props.product.unitWeight
+  );
+  
+  if (pricing) {
+    editValues.value.efectivo = pricing.efectivo;
+    editValues.value.regular = pricing.regular;
+    editValues.value.vip = pricing.vip;
+    editValues.value.mayorista = pricing.mayorista;
+    
+    // Update kg prices for dual products
+    if (props.product.trackingType === 'dual' && pricing.kg) {
+      editValues.value.regularKg = pricing.kg.regular;
+      editValues.value.vipKg = pricing.kg.vip;
+    }
+  }
+}
+
+function updatePricesFromMargin() {
+  if (!editValues.value.cost || !editValues.value.margin) return;
+  
+  const pricing = productStore.calculatePricing(
+    parseFloat(editValues.value.cost), 
+    parseFloat(editValues.value.margin), 
+    props.product.unitWeight
+  );
+  
+  if (pricing) {
+    editValues.value.efectivo = pricing.efectivo;
+    editValues.value.regular = pricing.regular;
+    editValues.value.vip = pricing.vip;
+    editValues.value.mayorista = pricing.mayorista;
+    
+    // Update kg prices for dual products
+    if (props.product.trackingType === 'dual' && pricing.kg) {
+      editValues.value.regularKg = pricing.kg.regular;
+      editValues.value.vipKg = pricing.kg.vip;
+    }
+  }
+}
+
 function saveChanges() {
+  // Convert values to numbers for proper comparison
+  const costValue = parseFloat(editValues.value.cost) || 0;
+  const marginValue = parseFloat(editValues.value.margin) || 0;
+  const efectivoValue = parseFloat(editValues.value.efectivo) || 0;
+  const regularValue = parseFloat(editValues.value.regular) || 0;
+  const vipValue = parseFloat(editValues.value.vip) || 0;
+  const mayoristaValue = parseFloat(editValues.value.mayorista) || 0;
+  const regularKgValue = parseFloat(editValues.value.regularKg) || 0;
+  const vipKgValue = parseFloat(editValues.value.vipKg) || 0;
+  
+  // Preserve edit values during async operations to prevent "refresh" behavior
+  preserveEditValues.value = true;
+  
   // Emit the individual update events based on changed values
-  if (editValues.value.cost !== currentCost.value) {
-    emit('update-cost', props.product.id, editValues.value.cost);
+  if (Math.abs(costValue - currentCost.value) > 0.001) {
+    emit('update-cost', props.product.id, costValue);
+  }
+  
+  if (Math.abs(marginValue - currentMargin.value) > 0.001) {
+    emit('update-margin', props.product.id, marginValue);
   }
   
   // Build pricing update object
   const pricingData = {};
   
-  if (editValues.value.efectivo !== calculatedPrices.value.efectivo) {
-    pricingData.cash = editValues.value.efectivo;
+  if (Math.abs(efectivoValue - calculatedPrices.value.efectivo) > 0.001) {
+    pricingData.cash = efectivoValue;
   }
-  if (editValues.value.regular !== calculatedPrices.value.regular) {
-    pricingData.regular = editValues.value.regular;
+  if (Math.abs(regularValue - calculatedPrices.value.regular) > 0.001) {
+    pricingData.regular = regularValue;
   }
-  if (editValues.value.vip !== calculatedPrices.value.vip) {
-    pricingData.vip = editValues.value.vip;
+  if (Math.abs(vipValue - calculatedPrices.value.vip) > 0.001) {
+    pricingData.vip = vipValue;
   }
-  if (editValues.value.mayorista !== calculatedPrices.value.mayorista) {
-    pricingData.bulk = editValues.value.mayorista;
+  if (Math.abs(mayoristaValue - calculatedPrices.value.mayorista) > 0.001) {
+    pricingData.bulk = mayoristaValue;
   }
   
   // Handle kg prices for dual products
   if (props.product.trackingType === 'dual') {
-    if (editValues.value.regularKg !== (calculatedKgPrices.value?.regular || 0) ||
-        editValues.value.vipKg !== (calculatedKgPrices.value?.vip || 0)) {
+    const currentRegularKg = calculatedKgPrices.value?.regular || 0;
+    const currentVipKg = calculatedKgPrices.value?.vip || 0;
+    
+    if (Math.abs(regularKgValue - currentRegularKg) > 0.001 ||
+        Math.abs(vipKgValue - currentVipKg) > 0.001) {
       pricingData.kg = {};
-      if (editValues.value.regularKg !== (calculatedKgPrices.value?.regular || 0)) {
-        pricingData.kg.regular = editValues.value.regularKg;
+      if (Math.abs(regularKgValue - currentRegularKg) > 0.001) {
+        pricingData.kg.regular = regularKgValue;
       }
-      if (editValues.value.vipKg !== (calculatedKgPrices.value?.vip || 0)) {
-        pricingData.kg.vip = editValues.value.vipKg;
+      if (Math.abs(vipKgValue - currentVipKg) > 0.001) {
+        pricingData.kg.vip = vipKgValue;
       }
     }
   }
@@ -470,6 +555,11 @@ function saveChanges() {
   }
   
   emit('save-changes');
+  
+  // Reset preserve flag after a short delay to allow updates to complete
+  setTimeout(() => {
+    preserveEditValues.value = false;
+  }, 500);
 }
 </script>
 

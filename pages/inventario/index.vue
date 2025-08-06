@@ -167,7 +167,7 @@
                       <span v-if="getProductById(item.productId)?.brand">{{ getProductById(item.productId).brand }} - </span>{{ item.productName }}<span v-if="getProductById(item.productId)?.trackingType === 'dual' && getProductById(item.productId)?.unitWeight"> - {{ getProductById(item.productId).unitWeight }}kg</span>
                     </div>
                     <div v-if="getProductById(item.productId)?.category" class="text-xs text-gray-500">
-                      {{ getCategoryName(getProductById(item.productId)?.category) }}
+                      {{ productStore.getCategoryName(getProductById(item.productId)?.category) }}
                     </div>
                   </div>
                 </div>
@@ -366,11 +366,7 @@ function getProductById(productId) {
   return productStore.getProductById(productId);
 }
 
-function getCategoryName(categoryId) {
-  if (!categoryId) return '';
-  const category = productStore.getCategoryById(categoryId);
-  return category?.name || categoryId;
-}
+// Removed getCategoryName function - now using productStore.getCategoryName directly
 
 function formatStock(item) {
   const product = getProductById(item.productId);

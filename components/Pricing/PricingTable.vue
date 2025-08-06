@@ -94,32 +94,7 @@
     </div>
 
     <!-- Confirmation Dialog -->
-    <div v-if="showConfirmDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div class="p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">
-            Confirmar cambio
-          </h3>
-          <p class="text-sm text-gray-600 mb-6">
-            {{ currentChange?.message }}
-          </p>
-          <div class="flex justify-end space-x-3">
-            <button
-              @click="cancelChange"
-              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
-            >
-              Cancelar
-            </button>
-            <button
-              @click="confirmChange"
-              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              Confirmar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialogue ref="confirmDialog" />
   </div>
 </template>
 
@@ -127,6 +102,7 @@
 // Import components
 import PricingRow from '~/components/Pricing/PricingRow.vue';
 import PricingMobileCard from '~/components/Pricing/PricingMobileCard.vue';
+import ConfirmDialogue from '~/components/ConfirmDialogue.vue';
 
 // Props
 const props = defineProps({
@@ -148,10 +124,10 @@ const emit = defineEmits(['update-cost', 'update-margin', 'update-price']);
 // Reactive data
 const showHelpTooltip = ref(false);
 const pendingChanges = ref(new Map());
-const showConfirmDialog = ref(false);
-const currentChange = ref(null);
+const confirmDialog = ref(null);
 const editingProduct = ref(null);
 const expandedProducts = ref(new Set());
+const pendingActions = ref([]);
 
 // Computed properties
 const hasDualProducts = computed(() => {
@@ -184,67 +160,97 @@ function toggleExpanded(productId) {
 }
 
 // Handle cost update with confirmation
-function handleCostUpdate(data) {
-  currentChange.value = {
+function handleCostUpdate(productId, cost) {
+  addToPendingActions({
     type: 'cost',
-    data: data,
-    message: `¿Confirmar cambio de costo a $${data.cost.toFixed(2)}?`
-  };
-  showConfirmDialog.value = true;
+    data: { productId, cost }
+  });
 }
 
 // Handle margin update with confirmation
-function handleMarginUpdate(data) {
-  currentChange.value = {
+function handleMarginUpdate(productId, margin) {
+  addToPendingActions({
     type: 'margin',
-    data: data,
-    message: `¿Confirmar cambio de margen a ${data.margin}%?`
-  };
-  showConfirmDialog.value = true;
+    data: { productId, margin }
+  });
 }
 
 // Handle price update with confirmation
-function handlePriceUpdate(data) {
-  const priceType = Object.keys(data.pricing)[0];
-  const priceValue = Object.values(data.pricing)[0];
-  currentChange.value = {
+function handlePriceUpdate(productId, pricing) {
+  addToPendingActions({
     type: 'price',
-    data: data,
-    message: `¿Confirmar cambio de precio ${priceType} a $${priceValue.toFixed(2)}?`
-  };
-  showConfirmDialog.value = true;
+    data: { productId, pricing }
+  });
 }
 
-// Confirm the pending change
-function confirmChange() {
-  if (!currentChange.value) return;
+// Add action to pending list and show confirmation if needed
+function addToPendingActions(action) {
+  pendingActions.value.push(action);
   
-  const { type, data } = currentChange.value;
+  // If this is the first pending action, show confirmation dialog
+  if (pendingActions.value.length === 1) {
+    showConfirmationDialog();
+  }
+}
+
+// Show confirmation dialog for all pending actions
+async function showConfirmationDialog() {
+  if (pendingActions.value.length === 0) return;
   
-  switch (type) {
-    case 'cost':
-      emit('update-cost', data.productId, data.cost);
-      break;
-    case 'margin':
-      emit('update-margin', data.productId, data.margin);
-      break;
-    case 'price':
-      emit('update-price', data.productId, data.pricing);
-      break;
+  const actionsCount = pendingActions.value.length;
+  const message = actionsCount === 1 
+    ? getActionMessage(pendingActions.value[0])
+    : `¿Confirmar ${actionsCount} cambios de precios?`;
+  
+  const confirmed = await confirmDialog.value.openDialog({
+    title: 'Confirmar cambios',
+    message: message,
+    textConfirmButton: 'Confirmar',
+    textCancelButton: 'Cancelar',
+    edit: true
+  });
+  
+  if (confirmed) {
+    executeAllPendingActions();
   }
   
-  closeConfirmDialog();
+  // Clear pending actions after handling
+  pendingActions.value = [];
 }
 
-// Cancel the pending change
-function cancelChange() {
-  closeConfirmDialog();
+// Get message for a single action
+function getActionMessage(action) {
+  const { type, data } = action;
+  switch (type) {
+    case 'cost':
+      return `¿Confirmar cambio de costo a $${data.cost ? data.cost.toFixed(2) : '0.00'}?`;
+    case 'margin':
+      return `¿Confirmar cambio de margen a ${data.margin ? data.margin.toFixed(1) : '0.0'}%?`;
+    case 'price':
+      const priceType = Object.keys(data.pricing)[0];
+      const priceValue = Object.values(data.pricing)[0];
+      return `¿Confirmar cambio de precio ${priceType} a $${priceValue ? priceValue.toFixed(2) : '0.00'}?`;
+    default:
+      return '¿Confirmar cambio?';
+  }
 }
 
-// Close confirmation dialog
-function closeConfirmDialog() {
-  showConfirmDialog.value = false;
-  currentChange.value = null;
+// Execute all pending actions
+function executeAllPendingActions() {
+  pendingActions.value.forEach(action => {
+    const { type, data } = action;
+    switch (type) {
+      case 'cost':
+        emit('update-cost', data.productId, data.cost);
+        break;
+      case 'margin':
+        emit('update-margin', data.productId, data.margin);
+        break;
+      case 'price':
+        emit('update-price', data.productId, data.pricing);
+        break;
+    }
+  });
 }
 </script>
 

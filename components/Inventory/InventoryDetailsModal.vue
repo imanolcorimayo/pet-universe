@@ -16,7 +16,7 @@
             </div>
             <div>
               <p class="text-sm text-gray-600">Categoría</p>
-              <p class="font-semibold">{{ product.category }} {{ product.subcategory ? `- ${product.subcategory}` : '' }}</p>
+              <p class="font-semibold">{{ productStore.getCategoryName(product.category) }} {{ product.subcategory ? `- ${product.subcategory}` : '' }}</p>
             </div>
             <div>
               <p class="text-sm text-gray-600">Marca</p>

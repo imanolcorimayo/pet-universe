@@ -7,7 +7,7 @@
           {{ product.brand ? `${product.brand} - ` : '' }}{{ product.name }}
           {{ product.trackingType === 'dual' && product.unitWeight ? ` - ${product.unitWeight}kg` : '' }}
         </h3>
-        <p class="text-xs text-gray-500 mt-1">{{ product.category }}</p>
+        <p class="text-xs text-gray-500 mt-1">{{ productStore.getCategoryName(product.category) }}</p>
       </div>
       <span class="text-xs px-2 py-1 bg-gray-100 rounded">
         {{ getTrackingTypeLabel(product.trackingType) }}
@@ -148,6 +148,9 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(['update-cost', 'update-margin', 'update-price']);
 
+// Store composables
+const productStore = useProductStore();
+
 // Reactive data
 const localCost = ref(0);
 const localMargin = ref(30);
@@ -157,11 +160,12 @@ const localVipKgPrice = ref(0);
 
 // Computed properties
 const hasUnsavedCostChanges = computed(() => {
-  return props.inventory && Math.abs(localCost.value - props.inventory.lastPurchaseCost) > 0.01;
+  const currentCost = props.inventory?.lastPurchaseCost ?? 0;
+  return Math.abs(localCost.value - currentCost) > 0.01;
 });
 
 const hasUnsavedMarginChanges = computed(() => {
-  return props.inventory && Math.abs(localMargin.value - props.inventory.profitMarginPercentage) > 0.01;
+  return props.product && Math.abs(localMargin.value - (props.product.profitMarginPercentage || 30)) > 0.01;
 });
 
 const hasUnsavedVipChanges = computed(() => {
@@ -225,43 +229,41 @@ function getTrackingTypeLabel(type) {
 
 function updateCost() {
   if (hasUnsavedCostChanges.value) {
-    emit('update-cost', { productId: props.product.id, cost: localCost.value });
+    emit('update-cost', props.product.id, localCost.value);
   }
 }
 
 function updateMargin() {
   if (hasUnsavedMarginChanges.value) {
-    emit('update-margin', { productId: props.product.id, margin: localMargin.value });
+    emit('update-margin', props.product.id, localMargin.value);
   }
 }
 
 function updateVipPrice() {
   if (hasUnsavedVipChanges.value) {
-    emit('update-price', { productId: props.product.id, pricing: { vip: localVipPrice.value } });
+    emit('update-price', props.product.id, { vip: localVipPrice.value });
   }
 }
 
 function updateBulkPrice() {
   if (hasUnsavedBulkChanges.value) {
-    emit('update-price', { productId: props.product.id, pricing: { bulk: localBulkPrice.value } });
+    emit('update-price', props.product.id, { bulk: localBulkPrice.value });
   }
 }
 
 function updateVipKgPrice() {
   if (hasUnsavedVipKgChanges.value) {
-    emit('update-price', { 
-      productId: props.product.id, 
-      pricing: { kg: { vip: localVipKgPrice.value } } 
-    });
+    emit('update-price', props.product.id, { kg: { vip: localVipKgPrice.value } });
   }
 }
 
 // Initialize local values
 function initializeValues() {
-  if (props.inventory) {
-    localCost.value = props.inventory.lastPurchaseCost || 0;
-    localMargin.value = props.inventory.profitMarginPercentage || 30;
-  }
+  // Initialize cost from inventory, defaulting to 0 if not found
+  localCost.value = props.inventory?.lastPurchaseCost ?? 0;
+  
+  // Get margin from product, not inventory
+  localMargin.value = props.product.profitMarginPercentage || 30;
   
   if (props.product.prices) {
     localVipPrice.value = props.product.prices.vip || 0;

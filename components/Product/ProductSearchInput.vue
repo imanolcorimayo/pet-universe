@@ -159,12 +159,18 @@ const isDropdownOpen = ref(false);
 const dropdownPosition = ref({ x: 0, y: 0 });
 const justSelected = ref(false);
 
+// Store composables
+const productStore = useProductStore();
+
 // Computed
 const filteredProducts = computed(() => {
-  // First, filter out excluded products
-  const availableProducts = props.products.filter(product => 
-    !props.excludeProductIds.includes(product.id)
-  );
+  // First, filter out excluded products and enhance with category name
+  const availableProducts = props.products
+    .filter(product => !props.excludeProductIds.includes(product.id))
+    .map(product => ({
+      ...product,
+      categoryName: productStore.getCategoryName(product.category)
+    }));
   
   if (!searchQuery.value) {
     return availableProducts.slice(0, 10); // Show first 10 products when no search
@@ -179,16 +185,13 @@ const filteredProducts = computed(() => {
     const weightPart = (product.trackingType === 'dual' && product.unitWeight) ? ` - ${product.unitWeight}kg` : '';
     const combinedString = `${brandPart}${namePart}${weightPart}`.toLowerCase();
     
-    // Get category name for search
-    const categoryName = getCategoryName(product.category);
-    
     return (
       // Search in individual fields
       product.name.toLowerCase().includes(query) ||
       (product.brand || '').toLowerCase().includes(query) ||
       (product.description || '').toLowerCase().includes(query) ||
       (product.unitWeight && product.unitWeight.toString().includes(query)) ||
-      (categoryName && categoryName.toLowerCase().includes(query)) ||
+      (product.categoryName && product.categoryName.toLowerCase().includes(query)) ||
       // Search in combined display string
       combinedString.includes(query)
     );
@@ -320,11 +323,7 @@ function getProductDisplayName(product) {
   return `${brandPart}${namePart}${weightPart}`;
 }
 
-function getCategoryName(categoryId) {
-  if (!categoryId || !props.productCategories) return '';
-  const category = props.productCategories.find(cat => cat.id === categoryId);
-  return category?.name || '';
-}
+// Removed getCategoryName function - now using productStore.getCategoryName directly
 
 function getProductStock(productId) {
   if (!props.productStock) return null;

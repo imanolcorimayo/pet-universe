@@ -199,6 +199,20 @@ export const useProductStore = defineStore("product", {
       return state.categories.find(category => category.id === id);
     },
 
+    // Get category name by ID (more convenient for displaying)
+    getCategoryName: (state) => (id: string) => {
+      if (!id) return '';
+      
+      // Try Map first for O(1) lookup
+      if (state.categoriesByIdMap.has(id)) {
+        return state.categoriesByIdMap.get(id)?.name || id;
+      }
+      
+      // Fallback to array lookup
+      const category = state.categories.find(category => category.id === id);
+      return category?.name || id; // Return ID as fallback if category not found
+    },
+
     // Get product by ID
     getProductById: (state) => (id: string) => {
       // First check Map for O(1) lookup
@@ -207,6 +221,17 @@ export const useProductStore = defineStore("product", {
       }
       // Fallback to array lookup (slower)
       return state.products.find(product => product.id === id);
+    },
+
+    // Get enhanced product with category name (convenience getter)
+    getProductWithCategory: (state, getters) => (id: string) => {
+      const product = getters.getProductById(id);
+      if (!product) return null;
+      
+      return {
+        ...product,
+        categoryName: getters.getCategoryName(product.category)
+      };
     },
   },
 

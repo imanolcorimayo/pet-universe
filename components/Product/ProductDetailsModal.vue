@@ -29,7 +29,7 @@
             </div>
             <div>
               <p class="text-sm text-gray-600">Categoría</p>
-              <p class="font-semibold">{{ getCategoryName(product.category) }}</p>
+              <p class="font-semibold">{{ productStore.getCategoryName(product.category) }}</p>
             </div>
             <div>
               <p class="text-sm text-gray-600">Subcategoría</p>
@@ -382,12 +382,7 @@ function getTrackingTypeLabel(type) {
   return types[type] || type;
 }
 
-function getCategoryName(categoryId) {
-  if (!categoryId) return "Sin categoría";
-  
-  const category = productStore.getCategoryById(categoryId);
-  return category ? category.name : categoryId;
-}
+// Removed getCategoryName function - now using productStore.getCategoryName directly
 
 function closeModal() {
   mainModal.value?.closeModal();
