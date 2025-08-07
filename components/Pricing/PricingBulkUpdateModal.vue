@@ -230,15 +230,23 @@
                       </div>
                     </td>
                     <td class="px-3 py-2 text-right text-sm text-gray-900">
-                      ${{ (product.currentCost || 0).toFixed(2) }}
+                      <div class="font-medium">
+                        ${{ (product.currentCost || 0).toFixed(2) }}
+                      </div>
+                      <div v-if="product.trackingType === 'dual' && product.unitWeight" class="text-xs text-gray-500">
+                        ${{ ((product.currentCost || 0) / product.unitWeight).toFixed(2) }}/kg
+                      </div>
                     </td>
                     <td class="px-3 py-2 text-right text-sm">
-                      <span :class="[
+                      <div :class="[
                         'font-medium',
                         (product.newCost || 0) !== (product.currentCost || 0) ? 'text-red-600' : 'text-gray-900'
                       ]">
                         ${{ (product.newCost || 0).toFixed(2) }}
-                      </span>
+                      </div>
+                      <div v-if="product.trackingType === 'dual' && product.unitWeight" class="text-xs text-gray-500">
+                        ${{ ((product.newCost || 0) / product.unitWeight).toFixed(2) }}/kg
+                      </div>
                     </td>
                     <td class="px-3 py-2 text-right text-sm">
                       <span :class="[
@@ -282,14 +290,24 @@
                     </td>
                     <!-- Kg prices for dual products -->
                     <td v-if="hasDualProducts" class="px-3 py-2 text-right text-sm bg-blue-50">
-                      <div v-if="product.trackingType === 'dual'" class="font-medium text-gray-900">
-                        ${{ (product.newKgPrices?.regular || 0).toFixed(2) }}
+                      <div v-if="product.trackingType === 'dual'">
+                        <div class="font-medium text-gray-900">
+                          ${{ (product.newKgPrices?.regular || 0).toFixed(2) }}
+                        </div>
+                        <div class="text-xs text-gray-500">
+                          {{ product.kgPricePercentages?.regular || 0 }}%
+                        </div>
                       </div>
                       <div v-else class="text-xs text-gray-400">-</div>
                     </td>
                     <td v-if="hasDualProducts" class="px-3 py-2 text-right text-sm bg-blue-50">
-                      <div v-if="product.trackingType === 'dual'" class="font-medium text-gray-900">
-                        ${{ (product.newKgPrices?.vip || 0).toFixed(2) }}
+                      <div v-if="product.trackingType === 'dual'">
+                        <div class="font-medium text-gray-900">
+                          ${{ (product.newKgPrices?.vip || 0).toFixed(2) }}
+                        </div>
+                        <div class="text-xs text-gray-500">
+                          {{ product.kgPricePercentages?.vip || 0 }}%
+                        </div>
                       </div>
                       <div v-else class="text-xs text-gray-400">-</div>
                     </td>
@@ -542,6 +560,10 @@ const selectedProductsForPreview = computed(() => {
         vip: productStore.calculateMarginFromPrice(vipPrice, newCost),
         bulk: productStore.calculateMarginFromPrice(bulkPrice, newCost),
       },
+      kgPricePercentages: newKgPrices ? {
+        regular: productStore.calculateMarginFromPrice(newKgPrices.regular, newCost / (product.unitWeight || 1)),
+        vip: productStore.calculateMarginFromPrice(newKgPrices.vip, newCost / (product.unitWeight || 1)),
+      } : null,
       hasInventory: !!inventory, // Add flag to debug inventory availability
     };
   }).filter(Boolean);

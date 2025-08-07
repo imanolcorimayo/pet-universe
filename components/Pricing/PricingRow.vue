@@ -8,18 +8,7 @@
             {{ displayName }}
           </div>
           <div class="text-xs text-gray-500 mt-1 truncate">
-            {{ product.description || 'Sin descripción' }}
-          </div>
-          <div class="flex items-center mt-2">
-            <span v-if="product.trackingType === 'dual'" class="inline-block w-4 h-4 text-xs text-center bg-blue-100 text-blue-800 rounded mr-2">
-              ⚖
-            </span>
-            <span class="text-xs text-gray-600" v-if="product.trackingType === 'dual'">
-              {{ product.unitWeight }}kg por unidad
-            </span>
-            <span class="text-xs text-gray-500" :class="{['ml-2']: product.trackingType === 'dual'}">
-              {{ productStore.getCategoryName(product.category) }}
-            </span>
+            {{ productStore.getCategoryName(product.category) }}
           </div>
         </div>
         <button 
@@ -247,48 +236,29 @@
   <tr v-if="isExpanded" class="bg-gray-50">
     <td colspan="100%" class="px-4 py-2">
       <div class="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">Detalles adicionales</div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-        <!-- Cost Details -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Product Details -->
         <div>
-          <div class="text-xs text-gray-600 mb-1">Costo</div>
-          <div class="text-sm text-gray-900 font-medium">${{ formatNumber(currentCost) }}</div>
-          <div v-if="product.trackingType === 'dual'" class="text-xs text-gray-600 mt-1">
-            Costo por KG: ${{ formatNumber(costPerKg) }}
-          </div>
+          <div class="text-xs text-gray-600 mb-1">Descripción del producto</div>
+          <div class="text-sm text-gray-900 font-medium">{{ product.description || 'Sin descripción' }}</div>
         </div>
 
-        <!-- Margin Details -->
-        <div>
-          <div class="text-xs text-gray-600 mb-1">Margen promedio</div>
-          <div class="text-sm text-gray-900 font-medium">{{ currentMargin.toFixed(1) }}%</div>
-        </div>
-
-        <!-- Last Update -->
-        <div>
-          <div class="text-xs text-gray-600 mb-1">Última actualización</div>
-          <div class="text-sm text-gray-900 font-medium">Hace 2 horas</div>
-        </div>
-
-        <!-- Status -->
-        <div>
-          <div class="text-xs text-gray-600 mb-1">Estado</div>
-          <div class="flex items-center">
-            <span class="inline-block w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-            <span class="text-sm text-gray-900 font-medium">Activo</span>
+        <!-- Dual Product Pricing Info -->
+        <div v-if="product.trackingType === 'dual'">
+          <div class="text-xs text-gray-600 mb-1">Precios por KG</div>
+          <div class="space-y-1">
+            <div class="flex justify-start items-center gap-4">
+              <span class="text-xs text-gray-600">Costo/kg:</span>
+              <span class="text-xs font-medium text-gray-900">${{ formatNumber(costPerKg) }}</span>
+            </div>
+            <div class="flex justify-start items-center gap-4">
+              <span class="text-xs text-gray-600">3+ kg (desc. 10%):</span>
+              <span class="text-xs font-medium text-gray-900">${{ formatNumber(threePlusKgPrice) }}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Additional Info for Dual Products -->
-      <div v-if="product.trackingType === 'dual'" class="mt-3">
-        <div class="text-xs text-gray-600 mb-2">Precios por KG adicionales</div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">3+ kg (descuento 10%):</span>
-            <span class="text-sm font-medium text-gray-900">${{ formatNumber(threePlusKgPrice) }}</span>
-          </div>
-        </div>
-      </div>
     </td>
   </tr>
 </template>
@@ -339,7 +309,8 @@ const editValues = ref({
 const displayName = computed(() => {
   const brandPart = props.product.brand ? `${props.product.brand} - ` : '';
   const namePart = props.product.name;
-  return `${brandPart}${namePart}`;
+  const weightPart = (props.product.trackingType === 'dual' && props.product.unitWeight) ? ` - ${props.product.unitWeight}kg` : '';
+  return `${brandPart}${namePart}${weightPart}`;
 });
 
 const currentCost = computed(() => {
