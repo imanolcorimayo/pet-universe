@@ -118,6 +118,7 @@
     <PricingBulkUpdateModal
       v-if="showBulkUpdateModal"
       :products="filteredProducts"
+      :inventory="inventoryItems"
       @close="showBulkUpdateModal = false"
       @bulk-update="handleBulkUpdate"
     />
@@ -289,11 +290,17 @@ async function handleBulkUpdate(productIds, updateData) {
   isUpdating.value = true;
   
   try {
-    // Handle cost updates
-    if (updateData.cost !== undefined) {
-      const costPromises = productIds.map(id => 
-        inventoryStore.updateLastPurchaseCost(id, updateData.cost)
-      );
+    // Handle cost percentage updates
+    if (updateData.costPercentage !== undefined) {
+      const costPromises = productIds.map(async (id) => {
+        const inventory = inventoryItems.value.find(inv => inv.productId === id);
+        if (inventory && inventory.lastPurchaseCost > 0) {
+          const currentCost = inventory.lastPurchaseCost;
+          const newCost = currentCost * (1 + updateData.costPercentage / 100);
+          return await inventoryStore.updateLastPurchaseCost(id, newCost);
+        }
+        return Promise.resolve(true);
+      });
       await Promise.all(costPromises);
     }
     
@@ -303,11 +310,6 @@ async function handleBulkUpdate(productIds, updateData) {
         productStore.updateProfitMargin(id, updateData.margin)
       );
       await Promise.all(marginPromises);
-    }
-    
-    // Handle price updates
-    if (updateData.pricing) {
-      await productStore.bulkUpdatePricing(productIds, updateData.pricing);
     }
     
     useToast(ToastEvents.success, `${productIds.length} productos actualizados correctamente`);
