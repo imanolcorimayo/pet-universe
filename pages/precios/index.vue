@@ -358,10 +358,24 @@ async function handleBulkUpdate(productIds, updateData) {
       
       // Handle dual products (kg prices)
       if (product.trackingType === 'dual' && product.unitWeight > 0) {
-        const regularKgPrice = calculatedPrices.kg?.regular || (calculatedPrices.cash / product.unitWeight);
-        const vipKgPrice = (currentPrices.kg?.vip && typeof currentPrices.kg.vip === 'number') 
-          ? currentPrices.kg.vip 
-          : regularKgPrice;
+        // Use calculated kg prices from productStore.calculatePricing
+        let regularKgPrice = calculatedPrices.kg?.regular;
+        let vipKgPrice = calculatedPrices.kg?.vip;
+        
+        // If calculatedPrices doesn't have kg prices, calculate them manually
+        if (!regularKgPrice) {
+          const costPerKg = cost / product.unitWeight;
+          regularKgPrice = costPerKg * (1 + margin / 100);
+        }
+        
+        // For bulk updates, recalculate VIP kg price based on new cost/margin
+        if (!vipKgPrice && currentPrices.kg?.vip && typeof currentPrices.kg.vip === 'number') {
+          // No changes applied, preserve existing VIP kg price
+          vipKgPrice = currentPrices.kg.vip;
+        } else if (!vipKgPrice) {
+          // No existing VIP kg price, use regular kg price
+          vipKgPrice = regularKgPrice;
+        }
         
         newPrices.kg = {
           regular: Number(regularKgPrice) || 0,

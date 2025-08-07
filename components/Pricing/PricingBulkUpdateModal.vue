@@ -215,6 +215,8 @@
                     <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Regular</th>
                     <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">VIP</th>
                     <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Mayorista</th>
+                    <th v-if="hasDualProducts" class="px-3 py-2 text-right text-xs font-medium text-blue-600 uppercase tracking-wider bg-blue-50">Regular kg</th>
+                    <th v-if="hasDualProducts" class="px-3 py-2 text-right text-xs font-medium text-blue-600 uppercase tracking-wider bg-blue-50">VIP kg</th>
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -277,6 +279,19 @@
                       <div class="text-xs text-gray-500">
                         {{ product.pricePercentages?.bulk || 0 }}%
                       </div>
+                    </td>
+                    <!-- Kg prices for dual products -->
+                    <td v-if="hasDualProducts" class="px-3 py-2 text-right text-sm bg-blue-50">
+                      <div v-if="product.trackingType === 'dual'" class="font-medium text-gray-900">
+                        ${{ (product.newKgPrices?.regular || 0).toFixed(2) }}
+                      </div>
+                      <div v-else class="text-xs text-gray-400">-</div>
+                    </td>
+                    <td v-if="hasDualProducts" class="px-3 py-2 text-right text-sm bg-blue-50">
+                      <div v-if="product.trackingType === 'dual'" class="font-medium text-gray-900">
+                        ${{ (product.newKgPrices?.vip || 0).toFixed(2) }}
+                      </div>
+                      <div v-else class="text-xs text-gray-400">-</div>
                     </td>
                   </tr>
                 </tbody>
@@ -382,6 +397,9 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(['close', 'bulk-update']);
 
+// Store composables
+const productStore = useProductStore();
+
 // Reactive data
 const mainModal = ref(null);
 const isLoading = ref(false);
@@ -434,6 +452,10 @@ const canUpdate = computed(() => {
          !isLoading.value;
 });
 
+const hasDualProducts = computed(() => {
+  return selectedProductsForPreview.value.some(product => product.trackingType === 'dual');
+});
+
 const selectedProductsForPreview = computed(() => {
   if (!selectedProducts.value.length) return [];
   
@@ -459,9 +481,12 @@ const selectedProductsForPreview = computed(() => {
       newMargin = updateOptions.value.margin.value;
     }
     
-    // Calculate new prices based on new cost and margin
-    const cashPrice = newCost * (1 + newMargin / 100);
-    const regularPrice = cashPrice * 1.25;
+    // Use productStore.calculatePricing for consistent calculations
+    const calculatedPricing = productStore.calculatePricing(newCost, newMargin, product.unitWeight);
+    
+    if (!calculatedPricing) {
+      return null; // Skip if pricing calculation fails
+    }
     
     // For VIP and bulk prices, use current values if no cost/margin changes are applied
     // Otherwise, recalculate based on new cost/margin
@@ -470,20 +495,33 @@ const selectedProductsForPreview = computed(() => {
     
     let vipPrice, bulkPrice;
     if (hasChanges) {
-      // If there are changes, recalculate VIP and bulk based on new cash price
-      vipPrice = cashPrice; // VIP starts at cash price after bulk updates
-      bulkPrice = cashPrice; // Bulk starts at cash price after bulk updates
+      // If there are changes, recalculate VIP and bulk based on calculated cash price
+      vipPrice = calculatedPricing.vip; // Use calculated VIP price
+      bulkPrice = calculatedPricing.bulk; // Use calculated bulk price
     } else {
       // If no changes, keep current prices
-      vipPrice = product.prices?.vip || cashPrice;
-      bulkPrice = product.prices?.bulk || cashPrice;
+      vipPrice = product.prices?.vip || calculatedPricing.vip;
+      bulkPrice = product.prices?.bulk || calculatedPricing.bulk;
     }
     
-    // Calculate percentages relative to new cost
-    const calculatePercentage = (price, cost) => {
-      if (!cost || cost <= 0) return 0;
-      return Math.round(((price - cost) / cost) * 100);
-    };
+    // Handle kg prices for dual products
+    let newKgPrices = null;
+    if (product.trackingType === 'dual' && product.unitWeight > 0 && calculatedPricing.kg) {
+      let vipKgPrice;
+      if (hasChanges) {
+        // Recalculate VIP kg price based on calculated pricing
+        vipKgPrice = calculatedPricing.kg.vip;
+      } else {
+        // Preserve existing VIP kg price if available
+        vipKgPrice = product.prices?.kg?.vip || calculatedPricing.kg.vip;
+      }
+      
+      newKgPrices = {
+        regular: calculatedPricing.kg.regular,
+        vip: vipKgPrice,
+      };
+    }
+    
     
     return {
       ...product,
@@ -492,16 +530,17 @@ const selectedProductsForPreview = computed(() => {
       currentMargin,
       newMargin,
       newPrices: {
-        cash: cashPrice,
-        regular: regularPrice,
+        cash: calculatedPricing.cash,
+        regular: calculatedPricing.regular,
         vip: vipPrice,
         bulk: bulkPrice,
       },
+      newKgPrices,
       pricePercentages: {
-        cash: calculatePercentage(cashPrice, newCost),
-        regular: calculatePercentage(regularPrice, newCost),
-        vip: calculatePercentage(vipPrice, newCost),
-        bulk: calculatePercentage(bulkPrice, newCost),
+        cash: productStore.calculateMarginFromPrice(calculatedPricing.cash, newCost),
+        regular: productStore.calculateMarginFromPrice(calculatedPricing.regular, newCost),
+        vip: productStore.calculateMarginFromPrice(vipPrice, newCost),
+        bulk: productStore.calculateMarginFromPrice(bulkPrice, newCost),
       },
       hasInventory: !!inventory, // Add flag to debug inventory availability
     };

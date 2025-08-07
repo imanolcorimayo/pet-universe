@@ -66,19 +66,19 @@
       </div>
     </td>
 
-    <!-- Precio Efectivo -->
+    <!-- Cash Price -->
     <td class="px-4 py-4 w-[100px]">
       <div v-if="!isEditing" class="flex flex-col">
         <div class="text-sm font-medium text-gray-900">
-          ${{ formatNumber(calculatedPrices.efectivo) }}
+          ${{ formatNumber(calculatedPrices.cash) }}
         </div>
         <div class="text-xs text-green-600 font-medium">
-          +{{ getMarginFromPrice(calculatedPrices.efectivo) }}%
+          +{{ getMarginFromPrice(calculatedPrices.cash) }}%
         </div>
       </div>
       <div v-else>
         <input
-          v-model="editValues.efectivo"
+          v-model="editValues.cash"
           type="number"
           step="0.01"
           min="0"
@@ -327,7 +327,7 @@ const preserveEditValues = ref(false); // Flag to preserve edit values during up
 const editValues = ref({
   cost: 0,
   margin: 30,
-  efectivo: 0,
+  cash: 0,
   regular: 0,
   vip: 0,
   bulk: 0,
@@ -372,7 +372,7 @@ const calculatedPrices = computed(() => {
   const prices = props.product.prices || {};
   
   return {
-    efectivo: prices.cash || pricing.efectivo,
+    cash: prices.cash || pricing.cash,
     regular: prices.regular || pricing.regular,
     vip: prices.vip || pricing.vip,
     bulk: prices.bulk || pricing.bulk,
@@ -430,7 +430,7 @@ function startEditing() {
   editValues.value = {
     cost: currentCost.value,
     margin: currentMargin.value,
-    efectivo: calculatedPrices.value.efectivo,
+    cash: calculatedPrices.value.cash,
     regular: calculatedPrices.value.regular,
     vip: calculatedPrices.value.vip,
     bulk: calculatedPrices.value.bulk,
@@ -457,7 +457,7 @@ function updatePricesFromCost() {
   );
   
   if (pricing) {
-    editValues.value.efectivo = pricing.efectivo;
+    editValues.value.cash = pricing.cash;
     editValues.value.regular = pricing.regular;
     editValues.value.vip = pricing.vip;
     editValues.value.bulk = pricing.bulk;
@@ -480,7 +480,7 @@ function updatePricesFromMargin() {
   );
   
   if (pricing) {
-    editValues.value.efectivo = pricing.efectivo;
+    editValues.value.cash = pricing.cash;
     editValues.value.regular = pricing.regular;
     editValues.value.vip = pricing.vip;
     editValues.value.bulk = pricing.bulk;
@@ -497,7 +497,7 @@ function saveChanges() {
   // Convert values to numbers for proper comparison
   const costValue = parseFloat(editValues.value.cost) || 0;
   const marginValue = parseFloat(editValues.value.margin) || 0;
-  const efectivoValue = parseFloat(editValues.value.efectivo) || 0;
+  const cashValue = parseFloat(editValues.value.cash) || 0;
   const regularValue = parseFloat(editValues.value.regular) || 0;
   const vipValue = parseFloat(editValues.value.vip) || 0;
   const bulkValue = parseFloat(editValues.value.bulk) || 0;
@@ -519,8 +519,8 @@ function saveChanges() {
   // Build pricing update object
   const pricingData = {};
   
-  if (Math.abs(efectivoValue - calculatedPrices.value.efectivo) > 0.001) {
-    pricingData.cash = efectivoValue;
+  if (Math.abs(cashValue - calculatedPrices.value.cash) > 0.001) {
+    pricingData.cash = cashValue;
   }
   if (Math.abs(regularValue - calculatedPrices.value.regular) > 0.001) {
     pricingData.regular = regularValue;

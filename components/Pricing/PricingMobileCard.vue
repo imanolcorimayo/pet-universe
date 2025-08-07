@@ -101,21 +101,21 @@
       
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="text-xs font-medium text-gray-500">Efectivo</label>
+          <label class="text-xs font-medium text-gray-500">Cash</label>
           <div class="mt-1">
             <input
               v-if="isEditing"
-              v-model.number="editValues.efectivo"
+              v-model.number="editValues.cash"
               type="number"
               step="0.01"
               class="input text-sm h-8"
             />
             <div v-else class="flex flex-col">
               <div class="text-sm font-medium text-gray-900">
-                ${{ formatNumber(calculatedPrices.efectivo) }}
+                ${{ formatNumber(calculatedPrices.cash) }}
               </div>
               <div class="text-xs text-green-600 font-medium">
-                +{{ getMarginFromPrice(calculatedPrices.efectivo) }}%
+                +{{ getMarginFromPrice(calculatedPrices.cash) }}%
               </div>
             </div>
           </div>
@@ -284,7 +284,7 @@ const preserveEditValues = ref(false);
 const editValues = ref({
   cost: 0,
   margin: 30,
-  efectivo: 0,
+  cash: 0,
   regular: 0,
   vip: 0,
   bulk: 0,
@@ -348,7 +348,7 @@ const calculatedPrices = computed(() => {
   
   if (isEditing.value) {
     return {
-      efectivo: editValues.value.efectivo || pricing.efectivo,
+      cash: editValues.value.cash || pricing.cash,
       regular: editValues.value.regular || pricing.regular,
       vip: editValues.value.vip || pricing.vip,
       bulk: editValues.value.bulk || pricing.bulk,
@@ -356,7 +356,7 @@ const calculatedPrices = computed(() => {
   }
   
   return {
-    efectivo: prices.cash || pricing.efectivo,
+    cash: prices.cash || pricing.cash,
     regular: prices.regular || pricing.regular,
     vip: prices.vip || pricing.vip,
     bulk: prices.bulk || pricing.bulk,
@@ -396,7 +396,7 @@ const calculatedKgPrices = computed(() => {
 // Legacy computed properties for backward compatibility
 const prices = computed(() => {
   return {
-    cash: calculatedPrices.value.efectivo.toFixed(2),
+    cash: calculatedPrices.value.cash.toFixed(2),
     regular: calculatedPrices.value.regular.toFixed(2),
   };
 });
@@ -436,7 +436,7 @@ function startEditing() {
   editValues.value = {
     cost: currentCost.value,
     margin: currentMargin.value,
-    efectivo: calculatedPrices.value.efectivo,
+    cash: calculatedPrices.value.cash,
     regular: calculatedPrices.value.regular,
     vip: calculatedPrices.value.vip,
     bulk: calculatedPrices.value.bulk,
@@ -463,7 +463,7 @@ function updatePricesFromCost() {
   );
   
   if (pricing) {
-    editValues.value.efectivo = pricing.efectivo;
+    editValues.value.cash = pricing.cash;
     editValues.value.regular = pricing.regular;
     editValues.value.vip = pricing.vip;
     editValues.value.bulk = pricing.bulk;
@@ -486,7 +486,7 @@ function updatePricesFromMargin() {
   );
   
   if (pricing) {
-    editValues.value.efectivo = pricing.efectivo;
+    editValues.value.cash = pricing.cash;
     editValues.value.regular = pricing.regular;
     editValues.value.vip = pricing.vip;
     editValues.value.bulk = pricing.bulk;
@@ -503,7 +503,7 @@ function saveChanges() {
   // Convert values to numbers for proper comparison
   const costValue = parseFloat(editValues.value.cost) || 0;
   const marginValue = parseFloat(editValues.value.margin) || 0;
-  const efectivoValue = parseFloat(editValues.value.efectivo) || 0;
+  const cashValue = parseFloat(editValues.value.cash) || 0;
   const regularValue = parseFloat(editValues.value.regular) || 0;
   const vipValue = parseFloat(editValues.value.vip) || 0;
   const bulkValue = parseFloat(editValues.value.bulk) || 0;
@@ -526,8 +526,8 @@ function saveChanges() {
   const pricingData = {};
   const currentPrices = props.product.prices || {};
   
-  if (Math.abs(efectivoValue - (currentPrices.cash || 0)) > 0.001) {
-    pricingData.cash = efectivoValue;
+  if (Math.abs(cashValue - (currentPrices.cash || 0)) > 0.001) {
+    pricingData.cash = cashValue;
   }
   if (Math.abs(regularValue - (currentPrices.regular || 0)) > 0.001) {
     pricingData.regular = regularValue;
