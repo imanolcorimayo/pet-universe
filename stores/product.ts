@@ -1329,13 +1329,13 @@ export const useProductStore = defineStore("product", {
     calculatePricing(cost: number, marginPercentage: number, unitWeight?: number) {
       if (cost <= 0) return null;
       
-      const efectivo = cost * (1 + marginPercentage / 100);
-      const regular = efectivo * 1.25; // 25% markup over efectivo
-      const vip = efectivo; // Initially same as efectivo
-      const bulk = efectivo; // Initially same as efectivo
+      const cash = cost * (1 + marginPercentage / 100);
+      const regular = cash * 1.25; // 25% markup over cash
+      const vip = cash; // Initially same as cash
+      const bulk = cash; // Initially same as cash
       
       const pricing = {
-        efectivo: Math.round(efectivo * 100) / 100,
+        cash: Math.round(cash * 100) / 100,
         regular: Math.round(regular * 100) / 100,
         vip: Math.round(vip * 100) / 100,
         bulk: Math.round(bulk * 100) / 100,
@@ -1344,14 +1344,14 @@ export const useProductStore = defineStore("product", {
       // For dual products, add kg pricing
       if (unitWeight && unitWeight > 0) {
         const costPerKg = cost / unitWeight;
-        const efectivoKg = costPerKg * (1 + marginPercentage / 100);
-        const regularKg = efectivoKg * 1.25;
-        const vipKg = efectivoKg; // Initially same as efectivo
+        const cashKg = costPerKg * (1 + marginPercentage / 100);
+        const regularKg = cashKg * 1.25;
+        const vipKg = cashKg; // Initially same as cash
         
         return {
           ...pricing,
           kg: {
-            efectivo: Math.round(efectivoKg * 100) / 100,
+            cash: Math.round(cashKg * 100) / 100,
             regular: Math.round(regularKg * 100) / 100,
             vip: Math.round(vipKg * 100) / 100,
           },

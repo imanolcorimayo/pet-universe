@@ -462,8 +462,22 @@ const selectedProductsForPreview = computed(() => {
     // Calculate new prices based on new cost and margin
     const cashPrice = newCost * (1 + newMargin / 100);
     const regularPrice = cashPrice * 1.25;
-    const vipPrice = product.prices?.vip || cashPrice;
-    const bulkPrice = product.prices?.bulk || cashPrice;
+    
+    // For VIP and bulk prices, use current values if no cost/margin changes are applied
+    // Otherwise, recalculate based on new cost/margin
+    const hasChanges = (updateOptions.value.cost.enabled && updateOptions.value.cost.percentage) || 
+                      (updateOptions.value.margin.enabled && updateOptions.value.margin.value >= 0);
+    
+    let vipPrice, bulkPrice;
+    if (hasChanges) {
+      // If there are changes, recalculate VIP and bulk based on new cash price
+      vipPrice = cashPrice; // VIP starts at cash price after bulk updates
+      bulkPrice = cashPrice; // Bulk starts at cash price after bulk updates
+    } else {
+      // If no changes, keep current prices
+      vipPrice = product.prices?.vip || cashPrice;
+      bulkPrice = product.prices?.bulk || cashPrice;
+    }
     
     // Calculate percentages relative to new cost
     const calculatePercentage = (price, cost) => {

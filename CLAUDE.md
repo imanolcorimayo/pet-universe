@@ -7,6 +7,10 @@ Pet shop management system with dual cash register approach: global business reg
 - Nuxt 3 (Vue 3), Tailwind CSS, Firebase, Pinia
 - Package manager: yarn (not npm)
 
+## Code Standards
+- **MANDATORY**: Never use Spanish variable names, function names, or property names in the code
+- Use English for all identifiers to maintain code consistency and international standards
+
 ## Code Architecture
 
 #### Package JSON scripts and dependencies

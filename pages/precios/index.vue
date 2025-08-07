@@ -312,6 +312,68 @@ async function handleBulkUpdate(productIds, updateData) {
       await Promise.all(marginPromises);
     }
     
+    // Recalculate and update prices for all affected products
+    const pricePromises = productIds.map(async (id) => {
+      const product = productStore.products.find(p => p.id === id);
+      const inventory = inventoryItems.value.find(inv => inv.productId === id);
+      
+      if (!product || !inventory || !inventory.lastPurchaseCost) return Promise.resolve(true);
+      
+      // Get current cost and margin (updated values)
+      const cost = inventory.lastPurchaseCost;
+      const margin = product.profitMarginPercentage || 30;
+      
+      // Calculate new prices
+      const calculatedPrices = productStore.calculatePricing(cost, margin, product.unitWeight);
+      
+      // Ensure calculated prices are valid numbers (English field names)
+      if (!calculatedPrices || typeof calculatedPrices.cash !== 'number' || typeof calculatedPrices.regular !== 'number') {
+        console.error('Invalid calculated prices for product:', id, calculatedPrices);
+        return Promise.resolve(false);
+      }
+      
+      // Calculate new prices - ensure all values are numbers
+      const currentPrices = product.prices || {};
+      const cashPrice = calculatedPrices.cash;
+      
+      // Preserve existing VIP and bulk prices if they exist and are different from cash price
+      let vipPrice = cashPrice;
+      let bulkPrice = cashPrice;
+      
+      if (currentPrices.vip && typeof currentPrices.vip === 'number' && currentPrices.vip !== currentPrices.cash) {
+        vipPrice = currentPrices.vip;
+      }
+      
+      if (currentPrices.bulk && typeof currentPrices.bulk === 'number' && currentPrices.bulk !== currentPrices.cash) {
+        bulkPrice = currentPrices.bulk;
+      }
+      
+      // Final validation - ensure no undefined values
+      const newPrices = {
+        cash: Number(cashPrice) || 0,
+        regular: Number(calculatedPrices.regular) || 0,
+        vip: Number(vipPrice) || 0,
+        bulk: Number(bulkPrice) || 0,
+      };
+      
+      // Handle dual products (kg prices)
+      if (product.trackingType === 'dual' && product.unitWeight > 0) {
+        const regularKgPrice = calculatedPrices.kg?.regular || (calculatedPrices.cash / product.unitWeight);
+        const vipKgPrice = (currentPrices.kg?.vip && typeof currentPrices.kg.vip === 'number') 
+          ? currentPrices.kg.vip 
+          : regularKgPrice;
+        
+        newPrices.kg = {
+          regular: Number(regularKgPrice) || 0,
+          vip: Number(vipKgPrice) || 0,
+        };
+      }
+      
+      return await productStore.updateProductPricing(id, newPrices);
+    });
+    
+    await Promise.all(pricePromises);
+    
     useToast(ToastEvents.success, `${productIds.length} productos actualizados correctamente`);
     showBulkUpdateModal.value = false;
   } catch (error) {
