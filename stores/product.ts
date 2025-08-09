@@ -666,7 +666,7 @@ export const useProductStore = defineStore("product", {
             minimumStock: data.minimumStock || 0,
             supplierIds: data.supplierIds || [],
             profitMarginPercentage: data.profitMarginPercentage || 30, // Default 30%
-            threePlusDiscountPercentage: data.threePlusDiscountPercentage || 25, // Default 25%
+            threePlusDiscountPercentage: data.threePlusDiscountPercentage || 10, // Default 10%
             
             isActive: data.isActive !== false, // Default to true if not specified
             createdBy: data.createdBy,
@@ -746,7 +746,7 @@ export const useProductStore = defineStore("product", {
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
           profitMarginPercentage: 30, // Default 30%
-          threePlusDiscountPercentage: 25, // Default 25%
+          threePlusDiscountPercentage: 10, // Default 10%
           
           isActive: true,
           createdBy: user.value.uid,
@@ -805,7 +805,7 @@ export const useProductStore = defineStore("product", {
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
           profitMarginPercentage: 30, // Default 30%
-          threePlusDiscountPercentage: 25, // Default 25%
+          threePlusDiscountPercentage: 10, // Default 10%
           isActive: true,
           createdBy: user.value.uid,
           createdAt: $dayjs().format('DD/MM/YYYY'),
@@ -1135,26 +1135,42 @@ export const useProductStore = defineStore("product", {
           return false;
         }
         
-        // Merge with existing prices
+        // Helper function to round numeric values to 2 decimals
+        const roundPrice = (value: any): number => {
+          if (typeof value !== 'number') return 0;
+          return parseFloat(value.toFixed(2));
+        };
+
+        // Merge with existing prices and ensure 2 decimal precision
         const existingPrices = productData.prices || {};
         const updatedPrices = {
           ...existingPrices,
-          ...pricingData,
         };
+
+        // Apply base price updates with rounding
+        if (pricingData.regular !== undefined) updatedPrices.regular = roundPrice(pricingData.regular);
+        if (pricingData.cash !== undefined) updatedPrices.cash = roundPrice(pricingData.cash);
+        if (pricingData.vip !== undefined) updatedPrices.vip = roundPrice(pricingData.vip);
+        if (pricingData.bulk !== undefined) updatedPrices.bulk = roundPrice(pricingData.bulk);
 
         // If unit or kg pricing is provided, merge with existing nested structures
         if (pricingData.unit) {
           updatedPrices.unit = {
             ...existingPrices.unit,
-            ...pricingData.unit,
           };
+          if (pricingData.unit.regular !== undefined) updatedPrices.unit.regular = roundPrice(pricingData.unit.regular);
+          if (pricingData.unit.cash !== undefined) updatedPrices.unit.cash = roundPrice(pricingData.unit.cash);
+          if (pricingData.unit.vip !== undefined) updatedPrices.unit.vip = roundPrice(pricingData.unit.vip);
+          if (pricingData.unit.bulk !== undefined) updatedPrices.unit.bulk = roundPrice(pricingData.unit.bulk);
         }
 
         if (pricingData.kg) {
           updatedPrices.kg = {
             ...existingPrices.kg,
-            ...pricingData.kg,
           };
+          if (pricingData.kg.regular !== undefined) updatedPrices.kg.regular = roundPrice(pricingData.kg.regular);
+          if (pricingData.kg.threePlusDiscount !== undefined) updatedPrices.kg.threePlusDiscount = roundPrice(pricingData.kg.threePlusDiscount);
+          if (pricingData.kg.vip !== undefined) updatedPrices.kg.vip = roundPrice(pricingData.kg.vip);
         }
         
         // Update product document
@@ -1384,8 +1400,8 @@ export const useProductStore = defineStore("product", {
       }
     },
 
-    // Calculate pricing based on cost and margin
-    calculatePricing(cost: number, marginPercentage: number, unitWeight?: number, threePlusDiscountPercentage: number = 25) {
+    // Calculate pricing based on cost and margin - round to 2 decimals max
+    calculatePricing(cost: number, marginPercentage: number, unitWeight?: number, threePlusDiscountPercentage: number = 10) {
       if (cost <= 0) return null;
       
       const cash = cost * (1 + marginPercentage / 100);
@@ -1394,10 +1410,10 @@ export const useProductStore = defineStore("product", {
       const bulk = cash; // Initially same as cash
       
       const pricing = {
-        cash: Math.round(cash * 100) / 100,
-        regular: Math.round(regular * 100) / 100,
-        vip: Math.round(vip * 100) / 100,
-        bulk: Math.round(bulk * 100) / 100,
+        cash: parseFloat(cash.toFixed(2)),
+        regular: parseFloat(regular.toFixed(2)),
+        vip: parseFloat(vip.toFixed(2)),
+        bulk: parseFloat(bulk.toFixed(2)),
       };
       
       // For dual products, add kg pricing
@@ -1410,11 +1426,11 @@ export const useProductStore = defineStore("product", {
         return {
           ...pricing,
           kg: {
-            regular: Math.round(regularKg * 100) / 100,
-            threePlusDiscount: Math.round(threePlusDiscountKg * 100) / 100,
-            vip: Math.round(vipKg * 100) / 100,
+            regular: parseFloat(regularKg.toFixed(2)),
+            threePlusDiscount: parseFloat(threePlusDiscountKg.toFixed(2)),
+            vip: parseFloat(vipKg.toFixed(2)),
           },
-          costPerKg: Math.round(costPerKg * 100) / 100,
+          costPerKg: parseFloat(costPerKg.toFixed(2)),
         };
       }
       

@@ -15,9 +15,7 @@
           @click="toggleExpanded"
           class="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
         >
-          <svg class="w-4 h-4 transform transition-transform" :class="{ 'rotate-180': isExpanded }">
-            <path fill="currentColor" d="M7 10l5 5 5-5z"/>
-          </svg>
+          <LucideChevronDown class="w-4 h-4 transform transition-transform" :class="{ 'rotate-180': isExpanded }" />
         </button>
       </div>
     </td>
@@ -99,27 +97,6 @@
       </div>
     </td>
 
-    <!-- Precio VIP -->
-    <td class="px-4 py-4 w-[100px]">
-      <div v-if="!isEditing" class="flex flex-col">
-        <div class="text-sm font-medium text-gray-900">
-          ${{ formatNumber(calculatedPrices.vip) }}
-        </div>
-        <div class="text-xs text-purple-600 font-medium">
-          +{{ getMarginFromPrice(calculatedPrices.vip) }}%
-        </div>
-      </div>
-      <div v-else>
-        <input
-          v-model="editValues.vip"
-          type="number"
-          step="0.01"
-          min="0"
-          class="professional-input w-full"
-          placeholder="0.00"
-        />
-      </div>
-    </td>
 
     <!-- Precio Mayorista -->
     <td class="px-4 py-4 w-[100px]">
@@ -238,22 +215,37 @@
   <tr v-if="isExpanded" class="bg-gray-50">
     <td colspan="100%" class="px-4 py-2">
       <div class="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">Detalles adicionales</div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <!-- Product Details -->
         <div>
           <div class="text-xs text-gray-600 mb-1">Descripción del producto</div>
           <div class="text-sm text-gray-900 font-medium">{{ product.description || 'Sin descripción' }}</div>
         </div>
 
-        <!-- Dual Product Pricing Info -->
-        <div v-if="product.trackingType === 'dual'">
-          <div class="text-xs text-gray-600 mb-1">Precios por KG - Detalles Adicionales</div>
+        <!-- Additional Pricing Info -->
+        <div>
+          <div class="text-xs text-gray-600 mb-1">Precios Adicionales</div>
           <div class="space-y-1">
+            <!-- VIP Price -->
             <div class="flex justify-start items-center gap-4">
-              <span class="text-xs text-gray-600">Costo/kg:</span>
-              <span class="text-xs font-medium text-gray-900">${{ formatNumber(costPerKg) }}</span>
+              <span class="text-xs text-gray-600">VIP:</span>
+              <div v-if="!isEditing">
+                <span class="text-xs font-medium text-gray-900">${{ formatNumber(calculatedPrices.vip) }}</span>
+              </div>
+              <div v-else>
+                <input
+                  v-model="editValues.vip"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="professional-input w-20 text-xs"
+                  placeholder="0.00"
+                />
+              </div>
             </div>
-            <div class="flex justify-start items-center gap-4">
+            
+            <!-- Dual Product VIP/kg -->
+            <div v-if="product.trackingType === 'dual'" class="flex justify-start items-center gap-4">
               <span class="text-xs text-gray-600">VIP/kg:</span>
               <div v-if="!isEditing">
                 <span class="text-xs font-medium text-gray-900">${{ formatNumber(calculatedKgPrices?.vip || 0) }}</span>
@@ -269,6 +261,17 @@
                 />
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Dual Product Pricing Info -->
+        <div v-if="product.trackingType === 'dual'">
+          <div class="text-xs text-gray-600 mb-1">Información de Productos Duales</div>
+          <div class="space-y-1">
+            <div class="flex justify-start items-center gap-4">
+              <span class="text-xs text-gray-600">Costo/kg:</span>
+              <span class="text-xs font-medium text-gray-900">${{ formatNumber(costPerKg) }}</span>
+            </div>
             <div class="flex justify-start items-center gap-4">
               <span class="text-xs text-gray-600">Descuento 3+ kg:</span>
               <div v-if="!isEditing">
@@ -277,12 +280,13 @@
               <div v-else>
                 <input
                   v-model="editValues.threePlusDiscount"
+                  @input="updateThreePlusKgFromDiscount"
                   type="number"
                   step="0.1"
                   min="0"
-                  max="50"
+                  max="100"
                   class="professional-input w-16 text-xs"
-                  placeholder="25.0"
+                  placeholder="10.0"
                 />
                 <span class="text-xs text-gray-500 ml-1">%</span>
               </div>
@@ -296,6 +300,8 @@
 </template>
 
 <script setup>
+import LucideChevronDown from '~icons/lucide/chevron-down';
+
 // Props
 const props = defineProps({
   product: {
@@ -530,6 +536,16 @@ function updateThreePlusDiscountFromPrice() {
     const discountPercentage = ((regularKg - threePlusPrice) / regularKg) * 100;
     editValues.value.threePlusDiscount = Math.max(0, Math.min(50, discountPercentage));
   }
+}
+
+// Update 3+ kg price when discount percentage changes
+function updateThreePlusKgFromDiscount() {
+  if (!editValues.value.regularKg) return;
+  
+  const regularKg = parseFloat(editValues.value.regularKg);
+  const discountPercentage = parseFloat(editValues.value.threePlusDiscount) || 0;
+  
+  editValues.value.threePlusKgPrice = regularKg * (1 - discountPercentage / 100);
 }
 
 function saveChanges() {

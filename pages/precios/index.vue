@@ -13,14 +13,6 @@
         >
           Actualización Masiva
         </button>
-        <button
-          @click="refreshData"
-          :disabled="isLoading"
-          class="btn bg-gray-600 text-white hover:bg-gray-700 disabled:opacity-50"
-        >
-          <i v-if="isLoading" class="animate-spin">⟳</i>
-          <span v-else>Actualizar</span>
-        </button>
       </div>
     </div>
 
@@ -79,7 +71,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="bg-white rounded-lg shadow">
+    <div class="rounded-lg md:shadow md:bg-white ">
       <!-- Loading State -->
       <div v-if="isLoading" class="flex justify-center items-center py-12">
         <div class="text-center">
@@ -217,25 +209,6 @@ async function loadInitialData() {
   }
 }
 
-async function refreshData() {
-  isLoading.value = true;
-  
-  try {
-    // Force refresh of all data
-    await Promise.all([
-      productStore.fetchProducts(true),
-      inventoryStore.fetchInventory(true),
-    ]);
-    
-    useToast(ToastEvents.success, 'Datos actualizados correctamente');
-  } catch (error) {
-    console.error('Error refreshing data:', error);
-    useToast(ToastEvents.error, 'Error al actualizar los datos');
-  } finally {
-    isLoading.value = false;
-  }
-}
-
 async function handleUpdateCost(productId, newCost) {
   isUpdating.value = true;
   
@@ -348,7 +321,7 @@ async function handleBulkUpdate(productIds, updateData) {
       // Get current cost, margin, and discount (updated values)
       const cost = inventory.lastPurchaseCost;
       const margin = product.profitMarginPercentage || 30;
-      const threePlusDiscount = product.threePlusDiscountPercentage || 25;
+      const threePlusDiscount = product.threePlusDiscountPercentage || 10;
       
       // Calculate new prices
       const calculatedPrices = productStore.calculatePricing(cost, margin, product.unitWeight, threePlusDiscount);

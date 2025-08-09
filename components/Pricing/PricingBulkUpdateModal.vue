@@ -223,7 +223,7 @@
                   min="0"
                   max="50"
                   class="w-full mt-1 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 text-sm"
-                  placeholder="25"
+                  placeholder="10"
                 />
                 <div class="text-xs text-gray-500 mt-1">
                   Porcentaje de descuento sobre el precio regular/kg
@@ -339,7 +339,7 @@
                           ${{ (product.newKgPrices?.threePlusDiscount || 0).toFixed(2) }}
                         </div>
                         <div class="text-xs text-green-600">
-                          {{ (product.threePlusDiscountPercentage || 25).toFixed(1) }}% desc.
+                          {{ (product.threePlusDiscountPercentage || 10).toFixed(1) }}% desc.
                         </div>
                       </div>
                       <div v-else class="text-xs text-gray-400">-</div>
@@ -373,6 +373,9 @@
             </span>
             <span v-if="updateOptions.margin.enabled">
               - Margen: {{ updateOptions.margin.value || 0 }}%
+            </span>
+            <span v-if="updateOptions.threePlusDiscount.enabled">
+              - Descuento 3+ kg: {{ updateOptions.threePlusDiscount.value || 10 }}%
             </span>
           </div>
         </div>
@@ -470,7 +473,7 @@ const updateOptions = ref({
   },
   threePlusDiscount: {
     enabled: false,
-    value: 25,
+    value: 10,
   },
 });
 
@@ -498,7 +501,9 @@ const filteredProducts = computed(() => {
 });
 
 const hasValidUpdates = computed(() => {
-  return updateOptions.value.cost.enabled || updateOptions.value.margin.enabled;
+  return updateOptions.value.cost.enabled || 
+         updateOptions.value.margin.enabled || 
+         updateOptions.value.threePlusDiscount.enabled;
 });
 
 const canUpdate = computed(() => {
@@ -537,7 +542,7 @@ const selectedProductsForPreview = computed(() => {
     }
     
     // Get current or new threePlusDiscount value
-    let newThreePlusDiscount = product.threePlusDiscountPercentage || 25;
+    let newThreePlusDiscount = product.threePlusDiscountPercentage || 10;
     if (updateOptions.value.threePlusDiscount.enabled && updateOptions.value.threePlusDiscount.value >= 0) {
       newThreePlusDiscount = updateOptions.value.threePlusDiscount.value;
     }
@@ -699,7 +704,7 @@ watch(() => props.products, () => {
   updateOptions.value = {
     cost: { enabled: false, percentage: 0 },
     margin: { enabled: false, value: null },
-    threePlusDiscount: { enabled: false, value: 25 },
+    threePlusDiscount: { enabled: false, value: 10 },
   };
 });
 

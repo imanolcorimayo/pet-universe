@@ -322,7 +322,7 @@ const editValues = ref({
   bulk: 0,
   regularKg: 0,
   vipKg: 0,
-  threePlusDiscount: 25,
+  threePlusDiscount: 10,
   threePlusKgPrice: 0,
 });
 
@@ -340,7 +340,7 @@ const currentMargin = computed(() => {
 });
 
 const currentThreePlusDiscount = computed(() => {
-  return props.product?.threePlusDiscountPercentage || 25;
+  return props.product?.threePlusDiscountPercentage || 10;
 });
 
 const hasUnsavedCostChanges = computed(() => {
@@ -550,7 +550,7 @@ function updateThreePlusKgFromRegular() {
   if (!editValues.value.regularKg) return;
   
   const regularKg = parseFloat(editValues.value.regularKg);
-  const discountPercentage = parseFloat(editValues.value.threePlusDiscount) || 25;
+  const discountPercentage = parseFloat(editValues.value.threePlusDiscount) || 10;
   
   editValues.value.threePlusKgPrice = regularKg * (1 - discountPercentage / 100);
 }
