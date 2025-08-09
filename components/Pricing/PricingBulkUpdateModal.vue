@@ -198,6 +198,39 @@
               </div>
             </div>
           </div>
+          
+          <!-- 3+ kg Discount Update (for dual products only) -->
+          <div v-if="hasDualProducts" class="bg-white border border-green-200 p-3 rounded-lg">
+            <h4 class="text-sm font-medium text-gray-900 mb-2 flex items-center">
+              <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+              Actualizar Descuento 3+ kg
+            </h4>
+            <div class="space-y-2">
+              <label class="flex items-center">
+                <input
+                  v-model="updateOptions.threePlusDiscount.enabled"
+                  type="checkbox"
+                  class="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span class="ml-2 text-xs text-gray-700">Aplicar nuevo descuento para ventas 3+ kg</span>
+              </label>
+              
+              <div v-if="updateOptions.threePlusDiscount.enabled">
+                <input
+                  v-model.number="updateOptions.threePlusDiscount.value"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="50"
+                  class="w-full mt-1 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 text-sm"
+                  placeholder="25"
+                />
+                <div class="text-xs text-gray-500 mt-1">
+                  Porcentaje de descuento sobre el precio regular/kg
+                </div>
+              </div>
+            </div>
+          </div>
 
           <!-- Preview of Selected Products with New Pricing -->
           <div class="bg-gray-50 p-4 rounded-lg">
@@ -216,7 +249,7 @@
                     <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">VIP</th>
                     <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Mayorista</th>
                     <th v-if="hasDualProducts" class="px-3 py-2 text-right text-xs font-medium text-blue-600 uppercase tracking-wider bg-blue-50">Regular kg</th>
-                    <th v-if="hasDualProducts" class="px-3 py-2 text-right text-xs font-medium text-blue-600 uppercase tracking-wider bg-blue-50">VIP kg</th>
+                    <th v-if="hasDualProducts" class="px-3 py-2 text-right text-xs font-medium text-green-600 uppercase tracking-wider bg-green-50">3+ kg</th>
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -300,13 +333,13 @@
                       </div>
                       <div v-else class="text-xs text-gray-400">-</div>
                     </td>
-                    <td v-if="hasDualProducts" class="px-3 py-2 text-right text-sm bg-blue-50">
+                    <td v-if="hasDualProducts" class="px-3 py-2 text-right text-sm bg-green-50">
                       <div v-if="product.trackingType === 'dual'">
                         <div class="font-medium text-gray-900">
-                          ${{ (product.newKgPrices?.vip || 0).toFixed(2) }}
+                          ${{ (product.newKgPrices?.threePlusDiscount || 0).toFixed(2) }}
                         </div>
-                        <div class="text-xs text-gray-500">
-                          {{ product.kgPricePercentages?.vip || 0 }}%
+                        <div class="text-xs text-green-600">
+                          {{ (product.threePlusDiscountPercentage || 25).toFixed(1) }}% desc.
                         </div>
                       </div>
                       <div v-else class="text-xs text-gray-400">-</div>
@@ -435,6 +468,10 @@ const updateOptions = ref({
     enabled: false,
     value: null,
   },
+  threePlusDiscount: {
+    enabled: false,
+    value: 25,
+  },
 });
 
 // Computed properties
@@ -499,8 +536,14 @@ const selectedProductsForPreview = computed(() => {
       newMargin = updateOptions.value.margin.value;
     }
     
+    // Get current or new threePlusDiscount value
+    let newThreePlusDiscount = product.threePlusDiscountPercentage || 25;
+    if (updateOptions.value.threePlusDiscount.enabled && updateOptions.value.threePlusDiscount.value >= 0) {
+      newThreePlusDiscount = updateOptions.value.threePlusDiscount.value;
+    }
+    
     // Use productStore.calculatePricing for consistent calculations
-    const calculatedPricing = productStore.calculatePricing(newCost, newMargin, product.unitWeight);
+    const calculatedPricing = productStore.calculatePricing(newCost, newMargin, product.unitWeight, newThreePlusDiscount);
     
     if (!calculatedPricing) {
       return null; // Skip if pricing calculation fails
@@ -536,6 +579,7 @@ const selectedProductsForPreview = computed(() => {
       
       newKgPrices = {
         regular: calculatedPricing.kg.regular,
+        threePlusDiscount: calculatedPricing.kg.threePlusDiscount,
         vip: vipKgPrice,
       };
     }
@@ -545,6 +589,7 @@ const selectedProductsForPreview = computed(() => {
       ...product,
       currentCost,
       newCost,
+      threePlusDiscountPercentage: newThreePlusDiscount,
       currentMargin,
       newMargin,
       newPrices: {
@@ -625,6 +670,10 @@ async function handleBulkUpdate() {
       updateData.margin = updateOptions.value.margin.value;
     }
     
+    if (updateOptions.value.threePlusDiscount.enabled && updateOptions.value.threePlusDiscount.value >= 0) {
+      updateData.threePlusDiscountPercentage = updateOptions.value.threePlusDiscount.value;
+    }
+    
     await emit('bulk-update', selectedProducts.value, updateData);
   } catch (error) {
     console.error('Error in bulk update:', error);
@@ -650,6 +699,7 @@ watch(() => props.products, () => {
   updateOptions.value = {
     cost: { enabled: false, percentage: 0 },
     margin: { enabled: false, value: null },
+    threePlusDiscount: { enabled: false, value: 25 },
   };
 });
 

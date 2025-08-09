@@ -29,7 +29,7 @@
                 Regular/KG
               </th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px] bg-blue-50">
-                VIP/KG
+                3+/KG
               </th>
             </template>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px] bg-white">
@@ -48,6 +48,7 @@
             @update-cost="handleCostUpdate"
             @update-margin="handleMarginUpdate"
             @update-price="handlePriceUpdate"
+            @update-three-plus-discount="handleThreePlusDiscountUpdate"
             @edit-product="setEditingProduct"
             @cancel-edit="cancelEdit"
             @save-changes="saveChanges"
@@ -67,6 +68,7 @@
         @update-cost="handleCostUpdate"
         @update-margin="handleMarginUpdate"
         @update-price="handlePriceUpdate"
+        @update-three-plus-discount="handleThreePlusDiscountUpdate"
         @edit-product="setEditingProduct"
         @cancel-edit="cancelEdit"
         @save-changes="saveChanges"
@@ -91,7 +93,8 @@
           <p><strong>Efectivo:</strong> Precio base con margen de ganancia aplicado</p>
           <p><strong>Regular:</strong> 25% más que el precio efectivo</p>
           <p><strong>VIP y Mayorista:</strong> Inicialmente iguales al efectivo, luego editables</p>
-          <p><strong>3+ kg:</strong> Descuento fijo aplicado dinámicamente en ventas (no almacenado)</p>
+          <p><strong>Regular/kg:</strong> Precio base por kilogramo para productos duales</p>
+          <p><strong>3+/kg:</strong> Descuento automático para ventas de 3 kilogramos o más</p>
           <p><strong>%:</strong> Margen de ganancia sobre el costo. Confirma los cambios antes de guardar.</p>
         </div>
       </div>
@@ -123,7 +126,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(['update-cost', 'update-margin', 'update-price']);
+const emit = defineEmits(['update-cost', 'update-margin', 'update-price', 'update-three-plus-discount']);
 
 // Reactive data
 const showHelpTooltip = ref(false);
@@ -187,6 +190,14 @@ function handlePriceUpdate(productId, pricing) {
   });
 }
 
+// Handle 3+ kg discount update with confirmation
+function handleThreePlusDiscountUpdate(productId, discountPercentage) {
+  addToPendingActions({
+    type: 'three-plus-discount',
+    data: { productId, discountPercentage }
+  });
+}
+
 // Add action to pending list and show confirmation if needed
 function addToPendingActions(action) {
   pendingActions.value.push(action);
@@ -230,6 +241,8 @@ function getActionMessage(action) {
       return `¿Confirmar cambio de costo a $${data.cost ? data.cost.toFixed(2) : '0.00'}?`;
     case 'margin':
       return `¿Confirmar cambio de margen a ${data.margin ? data.margin.toFixed(1) : '0.0'}%?`;
+    case 'three-plus-discount':
+      return `¿Confirmar cambio de descuento 3+ kg a ${data.discountPercentage ? data.discountPercentage.toFixed(1) : '0.0'}%?`;
     case 'price':
       const priceType = Object.keys(data.pricing)[0];
       const priceValue = Object.values(data.pricing)[0];
@@ -263,6 +276,9 @@ function executeAllPendingActions() {
         break;
       case 'price':
         emit('update-price', data.productId, data.pricing);
+        break;
+      case 'three-plus-discount':
+        emit('update-three-plus-discount', data.productId, data.discountPercentage);
         break;
     }
   });

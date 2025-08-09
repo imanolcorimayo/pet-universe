@@ -111,6 +111,7 @@
         @update-cost="handleUpdateCost"
         @update-margin="handleUpdateMargin"
         @update-price="handleUpdatePrice"
+        @update-three-plus-discount="handleUpdateThreePlusDiscount"
       />
     </div>
 
@@ -286,6 +287,23 @@ async function handleUpdatePrice(productId, pricingData) {
   }
 }
 
+async function handleUpdateThreePlusDiscount(productId, discountPercentage) {
+  isUpdating.value = true;
+  
+  try {
+    console.log('Updating 3+ kg discount:', { productId, discountPercentage });
+    const success = await productStore.updateThreePlusDiscountPercentage(productId, discountPercentage);
+    if (success) {
+      useToast(ToastEvents.success, 'Descuento 3+ kg actualizado correctamente');
+    } else {
+      console.error('Failed to update 3+ kg discount');
+      useToast(ToastEvents.error, 'Error al actualizar el descuento 3+ kg');
+    }
+  } finally {
+    isUpdating.value = false;
+  }
+}
+
 async function handleBulkUpdate(productIds, updateData) {
   isUpdating.value = true;
   
@@ -312,6 +330,14 @@ async function handleBulkUpdate(productIds, updateData) {
       await Promise.all(marginPromises);
     }
     
+    // Handle threePlusDiscountPercentage updates
+    if (updateData.threePlusDiscountPercentage !== undefined) {
+      const discountPromises = productIds.map(id => 
+        productStore.updateThreePlusDiscountPercentage(id, updateData.threePlusDiscountPercentage)
+      );
+      await Promise.all(discountPromises);
+    }
+    
     // Recalculate and update prices for all affected products
     const pricePromises = productIds.map(async (id) => {
       const product = productStore.products.find(p => p.id === id);
@@ -319,12 +345,13 @@ async function handleBulkUpdate(productIds, updateData) {
       
       if (!product || !inventory || !inventory.lastPurchaseCost) return Promise.resolve(true);
       
-      // Get current cost and margin (updated values)
+      // Get current cost, margin, and discount (updated values)
       const cost = inventory.lastPurchaseCost;
       const margin = product.profitMarginPercentage || 30;
+      const threePlusDiscount = product.threePlusDiscountPercentage || 25;
       
       // Calculate new prices
-      const calculatedPrices = productStore.calculatePricing(cost, margin, product.unitWeight);
+      const calculatedPrices = productStore.calculatePricing(cost, margin, product.unitWeight, threePlusDiscount);
       
       // Ensure calculated prices are valid numbers (English field names)
       if (!calculatedPrices || typeof calculatedPrices.cash !== 'number' || typeof calculatedPrices.regular !== 'number') {
@@ -379,6 +406,7 @@ async function handleBulkUpdate(productIds, updateData) {
         
         newPrices.kg = {
           regular: Number(regularKgPrice) || 0,
+          threePlusDiscount: Number(calculatedPrices.kg?.threePlusDiscount) || 0,
           vip: Number(vipKgPrice) || 0,
         };
       }

@@ -17,6 +17,26 @@ import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
 
 // Product interfaces
+
+interface ProductPrices {
+  regular: number;
+  cash: number;
+  vip: number;
+  bulk: number;
+
+  // For dual tracking products
+  unit?: {
+    regular: number;
+    cash: number;
+    vip: number;
+    bulk: number;
+  };
+  kg?: {
+    regular: number;
+    threePlusDiscount: number; // Price for 3+kg sales (replaced 'cash')
+    vip: number;
+  };
+}
 interface Product {
   id: string;
   businessId: string;
@@ -27,24 +47,7 @@ interface Product {
   brand: string;
   
   // Pricing will be managed separately
-  prices?: {
-    regular: number;
-    cash: number;
-    vip: number;
-    bulk: number;
-
-    unit?: {
-      regular: number;
-      cash: number;
-      vip: number;
-      bulk: number;
-    };
-    kg?: {
-      regular: number;
-      cash: number;
-      vip: number;
-    };
-  };
+  prices?: ProductPrices;
   
   trackingType: "unit" | "weight" | "dual";
   unitType: string;
@@ -54,6 +57,7 @@ interface Product {
   minimumStock: number;
   supplierIds: string[];
   profitMarginPercentage: number; // Default 30% - for pricing calculations
+  threePlusDiscountPercentage: number; // Default 25% - for 3+kg discount
   
   isActive: boolean;
   createdBy: string;
@@ -221,18 +225,7 @@ export const useProductStore = defineStore("product", {
       }
       // Fallback to array lookup (slower)
       return state.products.find(product => product.id === id);
-    },
-
-    // Get enhanced product with category name (convenience getter)
-    getProductWithCategory: (state, getters) => (id: string) => {
-      const product = getters.getProductById(id);
-      if (!product) return null;
-      
-      return {
-        ...product,
-        categoryName: getters.getCategoryName(product.category)
-      };
-    },
+    }
   },
 
   actions: {
@@ -660,7 +653,7 @@ export const useProductStore = defineStore("product", {
               
               kg: data.trackingType === 'dual' ? {
                 regular: data.prices?.kg?.regular || 0,
-                cash: data.prices?.kg?.cash || 0,
+                threePlusDiscount: data.prices?.kg?.threePlusDiscount || data.prices?.kg?.cash || 0, // Backward compatibility
                 vip: data.prices?.kg?.vip || 0,
               } : undefined,
             },
@@ -673,6 +666,7 @@ export const useProductStore = defineStore("product", {
             minimumStock: data.minimumStock || 0,
             supplierIds: data.supplierIds || [],
             profitMarginPercentage: data.profitMarginPercentage || 30, // Default 30%
+            threePlusDiscountPercentage: data.threePlusDiscountPercentage || 25, // Default 25%
             
             isActive: data.isActive !== false, // Default to true if not specified
             createdBy: data.createdBy,
@@ -711,7 +705,7 @@ export const useProductStore = defineStore("product", {
         this.isLoading = true;
         
         // Default pricing structure - will be set later in pricing management
-        const defaultPrices = {
+        const defaultPrices: ProductPrices = {
           regular: 0,
           cash: 0,
           vip: 0,
@@ -728,7 +722,7 @@ export const useProductStore = defineStore("product", {
           };
           defaultPrices.kg = {
             regular: 0,
-            cash: 0,
+            threePlusDiscount: 0,
             vip: 0,
           };
         }
@@ -752,6 +746,7 @@ export const useProductStore = defineStore("product", {
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
           profitMarginPercentage: 30, // Default 30%
+          threePlusDiscountPercentage: 25, // Default 25%
           
           isActive: true,
           createdBy: user.value.uid,
@@ -810,6 +805,7 @@ export const useProductStore = defineStore("product", {
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
           profitMarginPercentage: 30, // Default 30%
+          threePlusDiscountPercentage: 25, // Default 25%
           isActive: true,
           createdBy: user.value.uid,
           createdAt: $dayjs().format('DD/MM/YYYY'),
@@ -879,7 +875,7 @@ export const useProductStore = defineStore("product", {
           };
           existingPrices.kg = {
             regular: 0,
-            cash: 0,
+            threePlusDiscount: 0,
             vip: 0,
           };
         }
@@ -1109,7 +1105,7 @@ export const useProductStore = defineStore("product", {
       };
       kg?: {
         regular?: number;
-        cash?: number;
+        threePlusDiscount?: number;
         vip?: number;
       };
     }): Promise<boolean> {
@@ -1325,8 +1321,71 @@ export const useProductStore = defineStore("product", {
       }
     },
 
+    // Update 3+ kg discount percentage for a product
+    async updateThreePlusDiscountPercentage(productId: string, discountPercentage: number): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value) return false;
+
+      try {
+        this.isLoading = true;
+        
+        // Get existing product to verify ownership
+        const productRef = doc(db, 'product', productId);
+        const productDoc = await getDoc(productRef);
+        
+        if (!productDoc.exists()) {
+          useToast(ToastEvents.error, "Producto no encontrado");
+          this.isLoading = false;
+          return false;
+        }
+        
+        const productData = productDoc.data();
+        if (productData.businessId !== currentBusinessId.value) {
+          useToast(ToastEvents.error, "No tienes permiso para editar este producto");
+          this.isLoading = false;
+          return false;
+        }
+        
+        // Update product document
+        await updateDoc(productRef, {
+          threePlusDiscountPercentage: discountPercentage,
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Update local state
+        const productIndex = this.products.findIndex(p => p.id === productId);
+        if (productIndex >= 0) {
+          const { $dayjs } = useNuxtApp();
+          this.products[productIndex].threePlusDiscountPercentage = discountPercentage;
+          this.products[productIndex].updatedAt = $dayjs().format('DD/MM/YYYY');
+          
+          // Also update the Map
+          this.productsByIdMap.set(productId, this.products[productIndex]);
+        }
+        
+        // Update selected product if applicable
+        if (this.selectedProduct && this.selectedProduct.id === productId) {
+          const updatedProduct = this.products.find(p => p.id === productId);
+          if (updatedProduct) {
+            this.selectedProduct = updatedProduct;
+          }
+        }
+        
+        this.isLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error updating 3+ kg discount percentage:", error);
+        useToast(ToastEvents.error, "Hubo un error al actualizar el descuento 3+ kg");
+        this.isLoading = false;  
+        return false;
+      }
+    },
+
     // Calculate pricing based on cost and margin
-    calculatePricing(cost: number, marginPercentage: number, unitWeight?: number) {
+    calculatePricing(cost: number, marginPercentage: number, unitWeight?: number, threePlusDiscountPercentage: number = 25) {
       if (cost <= 0) return null;
       
       const cash = cost * (1 + marginPercentage / 100);
@@ -1344,15 +1403,15 @@ export const useProductStore = defineStore("product", {
       // For dual products, add kg pricing
       if (unitWeight && unitWeight > 0) {
         const costPerKg = cost / unitWeight;
-        const cashKg = costPerKg * (1 + marginPercentage / 100);
-        const regularKg = cashKg * 1.25;
-        const vipKg = cashKg; // Initially same as cash
+        const regularKg = costPerKg * (1 + marginPercentage / 100);
+        const threePlusDiscountKg = regularKg * (1 - threePlusDiscountPercentage / 100);
+        const vipKg = regularKg; // Initially same as regular
         
         return {
           ...pricing,
           kg: {
-            cash: Math.round(cashKg * 100) / 100,
             regular: Math.round(regularKg * 100) / 100,
+            threePlusDiscount: Math.round(threePlusDiscountKg * 100) / 100,
             vip: Math.round(vipKg * 100) / 100,
           },
           costPerKg: Math.round(costPerKg * 100) / 100,

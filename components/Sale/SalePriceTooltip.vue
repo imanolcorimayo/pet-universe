@@ -26,6 +26,7 @@
                 <li>• <strong>Efectivo:</strong> Descuento por pago en efectivo</li>
                 <li>• <strong>VIP:</strong> Precio especial para clientes VIP</li>
                 <li v-if="unitType === 'unit'">• <strong>Mayorista:</strong> Precio para compras mayoristas</li>
+                <li v-if="unitType === 'kg'">• <strong>3+ kg:</strong> Descuento automático para 3 kg o más</li>
               </ul>
             </div>
           </div>
@@ -209,6 +210,14 @@ const availablePrices = computed(() => {
     };
   }
   
+  // 3+ kg discount (only for kg)
+  if (props.unitType === 'kg' && basePrices.threePlusDiscount && basePrices.threePlusDiscount < basePrices.regular) {
+    prices.threePlusDiscount = {
+      price: basePrices.threePlusDiscount,
+      discount: basePrices.regular - basePrices.threePlusDiscount
+    };
+  }
+  
   return prices;
 });
 
@@ -263,7 +272,8 @@ function getPriceTypeLabel(priceType) {
     regular: 'Normal',
     cash: 'Efectivo',
     vip: 'VIP',
-    bulk: 'Mayorista'
+    bulk: 'Mayorista',
+    threePlusDiscount: '3+ kg'
   };
   return labels[priceType] || priceType;
 }

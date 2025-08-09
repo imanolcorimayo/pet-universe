@@ -72,7 +72,7 @@
                     Venta por peso desde bolsas abiertas
                   </p>
                   <p v-if="selectedUnitType === 'kg'" class="text-xs text-blue-600 mt-1">
-                    💡 Descuento automático 10% por compras >3kg
+                    💡 Descuento automático para compras de 3kg o más
                   </p>
                 </div>
               </div>

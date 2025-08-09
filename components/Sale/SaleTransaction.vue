@@ -966,10 +966,10 @@ function updateItemTotal(index) {
   
   if (!product) return;
   
-  // Apply bulk pricing rule if applicable for kg sales
-  if (item.unitType === 'kg' && item.quantity > 3 && item.priceType === 'regular') {
-    // Switch to bulk pricing
-    item.priceType = 'bulk';
+  // Apply 3+ kg discount pricing rule if applicable for kg sales
+  if (item.unitType === 'kg' && item.quantity >= 3 && item.priceType === 'regular') {
+    // Switch to threePlusDiscount pricing
+    item.priceType = 'threePlusDiscount';
     updatePriceFromType(index);
     return;
   }
@@ -1117,7 +1117,8 @@ function getPriceTypeLabel(priceType) {
     regular: 'Normal',
     cash: 'Efectivo',
     vip: 'VIP',
-    bulk: 'Mayorista'
+    bulk: 'Mayorista',
+    threePlusDiscount: '3+ kg'
   };
   return labels[priceType] || priceType;
 }

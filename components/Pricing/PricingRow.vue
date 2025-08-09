@@ -159,6 +159,7 @@
           <div v-else>
             <input
               v-model="editValues.regularKg"
+              @input="updateThreePlusKgFromRegular"
               type="number"
               step="0.01"
               min="0"
@@ -170,20 +171,21 @@
         <div v-else class="text-sm text-gray-400">-</div>
       </td>
 
-      <!-- VIP kg -->
+      <!-- 3+ kg discount -->
       <td class="px-4 py-4 bg-blue-50 w-[100px]">
         <div v-if="product.trackingType === 'dual'">
           <div v-if="!isEditing" class="flex flex-col">
             <div class="text-sm font-medium text-gray-900">
-              ${{ formatNumber(calculatedKgPrices?.vip || 0) }}
+              ${{ formatNumber(threePlusKgPrice) }}
             </div>
-            <div class="text-xs text-purple-600 font-medium">
-              +{{ getMarginFromPrice(calculatedKgPrices?.vip || 0, costPerKg) }}%
+            <div class="text-xs text-green-600 font-medium">
+              {{ currentThreePlusDiscount.toFixed(1) }}% desc.
             </div>
           </div>
           <div v-else>
             <input
-              v-model="editValues.vipKg"
+              v-model="editValues.threePlusKgPrice"
+              @input="updateThreePlusDiscountFromPrice"
               type="number"
               step="0.01"
               min="0"
@@ -245,15 +247,45 @@
 
         <!-- Dual Product Pricing Info -->
         <div v-if="product.trackingType === 'dual'">
-          <div class="text-xs text-gray-600 mb-1">Precios por KG</div>
+          <div class="text-xs text-gray-600 mb-1">Precios por KG - Detalles Adicionales</div>
           <div class="space-y-1">
             <div class="flex justify-start items-center gap-4">
               <span class="text-xs text-gray-600">Costo/kg:</span>
               <span class="text-xs font-medium text-gray-900">${{ formatNumber(costPerKg) }}</span>
             </div>
             <div class="flex justify-start items-center gap-4">
-              <span class="text-xs text-gray-600">3+ kg (desc. 10%):</span>
-              <span class="text-xs font-medium text-gray-900">${{ formatNumber(threePlusKgPrice) }}</span>
+              <span class="text-xs text-gray-600">VIP/kg:</span>
+              <div v-if="!isEditing">
+                <span class="text-xs font-medium text-gray-900">${{ formatNumber(calculatedKgPrices?.vip || 0) }}</span>
+              </div>
+              <div v-else>
+                <input
+                  v-model="editValues.vipKg"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="professional-input w-20 text-xs"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div class="flex justify-start items-center gap-4">
+              <span class="text-xs text-gray-600">Descuento 3+ kg:</span>
+              <div v-if="!isEditing">
+                <span class="text-xs font-medium text-gray-900">{{ currentThreePlusDiscount.toFixed(1) }}%</span>
+              </div>
+              <div v-else>
+                <input
+                  v-model="editValues.threePlusDiscount"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="50"
+                  class="professional-input w-16 text-xs"
+                  placeholder="25.0"
+                />
+                <span class="text-xs text-gray-500 ml-1">%</span>
+              </div>
             </div>
           </div>
         </div>
@@ -285,7 +317,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(['update-cost', 'update-margin', 'update-price', 'edit-product', 'cancel-edit', 'save-changes']);
+const emit = defineEmits(['update-cost', 'update-margin', 'update-price', 'update-three-plus-discount', 'edit-product', 'cancel-edit', 'save-changes']);
 
 // Store composables
 const inventoryStore = useInventoryStore();
@@ -303,6 +335,8 @@ const editValues = ref({
   bulk: 0,
   regularKg: 0,
   vipKg: 0,
+  threePlusDiscount: 25,
+  threePlusKgPrice: 0,
 });
 
 // Computed properties
@@ -319,6 +353,10 @@ const currentCost = computed(() => {
 
 const currentMargin = computed(() => {
   return props.product?.profitMarginPercentage || 30;
+});
+
+const currentThreePlusDiscount = computed(() => {
+  return props.product?.threePlusDiscountPercentage || 25;
 });
 
 const costPerKg = computed(() => {
@@ -356,11 +394,12 @@ const calculatedKgPrices = computed(() => {
   const pricing = productStore.calculatePricing(
     currentCost.value, 
     currentMargin.value, 
-    props.product.unitWeight
+    props.product.unitWeight,
+    currentThreePlusDiscount.value
   );
   
   if (!pricing || !pricing.kg) {
-    return { regular: 0, vip: 0 };
+    return { regular: 0, threePlusDiscount: 0, vip: 0 };
   }
   
   // Use current product kg prices if they exist, otherwise use calculated ones
@@ -368,14 +407,14 @@ const calculatedKgPrices = computed(() => {
   
   return {
     regular: kgPrices.regular || pricing.kg.regular,
+    threePlusDiscount: kgPrices.threePlusDiscount || pricing.kg.threePlusDiscount,
     vip: kgPrices.vip || pricing.kg.vip,
   };
 });
 
 const threePlusKgPrice = computed(() => {
   if (props.product.trackingType !== 'dual' || !calculatedKgPrices.value) return 0;
-  // 10% discount on regular kg price for 3kg or more
-  return calculatedKgPrices.value.regular * 0.9;
+  return calculatedKgPrices.value.threePlusDiscount || 0;
 });
 
 const isEditing = computed(() => {
@@ -407,6 +446,8 @@ function startEditing() {
     bulk: calculatedPrices.value.bulk,
     regularKg: calculatedKgPrices.value?.regular || 0,
     vipKg: calculatedKgPrices.value?.vip || 0,
+    threePlusDiscount: currentThreePlusDiscount.value,
+    threePlusKgPrice: calculatedKgPrices.value?.threePlusDiscount || 0,
   };
   
   preserveEditValues.value = false;
@@ -424,7 +465,8 @@ function updatePricesFromCost() {
   const pricing = productStore.calculatePricing(
     parseFloat(editValues.value.cost), 
     parseFloat(editValues.value.margin), 
-    props.product.unitWeight
+    props.product.unitWeight,
+    parseFloat(editValues.value.threePlusDiscount)
   );
   
   if (pricing) {
@@ -437,6 +479,7 @@ function updatePricesFromCost() {
     if (props.product.trackingType === 'dual' && pricing.kg) {
       editValues.value.regularKg = pricing.kg.regular;
       editValues.value.vipKg = pricing.kg.vip;
+      editValues.value.threePlusKgPrice = pricing.kg.threePlusDiscount;
     }
   }
 }
@@ -447,7 +490,8 @@ function updatePricesFromMargin() {
   const pricing = productStore.calculatePricing(
     parseFloat(editValues.value.cost), 
     parseFloat(editValues.value.margin), 
-    props.product.unitWeight
+    props.product.unitWeight,
+    parseFloat(editValues.value.threePlusDiscount)
   );
   
   if (pricing) {
@@ -460,7 +504,31 @@ function updatePricesFromMargin() {
     if (props.product.trackingType === 'dual' && pricing.kg) {
       editValues.value.regularKg = pricing.kg.regular;
       editValues.value.vipKg = pricing.kg.vip;
+      editValues.value.threePlusKgPrice = pricing.kg.threePlusDiscount;
     }
+  }
+}
+
+// Auto-calculate 3+ kg price when regular/kg changes
+function updateThreePlusKgFromRegular() {
+  if (!editValues.value.regularKg) return;
+  
+  const regularKg = parseFloat(editValues.value.regularKg);
+  const discountPercentage = parseFloat(editValues.value.threePlusDiscount) || 25;
+  
+  editValues.value.threePlusKgPrice = regularKg * (1 - discountPercentage / 100);
+}
+
+// Update discount percentage when 3+ kg price changes
+function updateThreePlusDiscountFromPrice() {
+  if (!editValues.value.regularKg || !editValues.value.threePlusKgPrice) return;
+  
+  const regularKg = parseFloat(editValues.value.regularKg);
+  const threePlusPrice = parseFloat(editValues.value.threePlusKgPrice);
+  
+  if (regularKg > 0) {
+    const discountPercentage = ((regularKg - threePlusPrice) / regularKg) * 100;
+    editValues.value.threePlusDiscount = Math.max(0, Math.min(50, discountPercentage));
   }
 }
 
@@ -474,6 +542,8 @@ function saveChanges() {
   const bulkValue = parseFloat(editValues.value.bulk) || 0;
   const regularKgValue = parseFloat(editValues.value.regularKg) || 0;
   const vipKgValue = parseFloat(editValues.value.vipKg) || 0;
+  const threePlusDiscountValue = parseFloat(editValues.value.threePlusDiscount) || 0;
+  const threePlusKgPriceValue = parseFloat(editValues.value.threePlusKgPrice) || 0;
   
   // Preserve edit values during async operations to prevent "refresh" behavior
   preserveEditValues.value = true;
@@ -485,6 +555,10 @@ function saveChanges() {
   
   if (Math.abs(marginValue - currentMargin.value) > 0.001) {
     emit('update-margin', props.product.id, marginValue);
+  }
+  
+  if (Math.abs(threePlusDiscountValue - currentThreePlusDiscount.value) > 0.001) {
+    emit('update-three-plus-discount', props.product.id, threePlusDiscountValue);
   }
   
   // Build pricing update object
@@ -508,11 +582,17 @@ function saveChanges() {
     const currentRegularKg = calculatedKgPrices.value?.regular || 0;
     const currentVipKg = calculatedKgPrices.value?.vip || 0;
     
+    const currentThreePlusKg = calculatedKgPrices.value?.threePlusDiscount || 0;
+    
     if (Math.abs(regularKgValue - currentRegularKg) > 0.001 ||
-        Math.abs(vipKgValue - currentVipKg) > 0.001) {
+        Math.abs(vipKgValue - currentVipKg) > 0.001 ||
+        Math.abs(threePlusKgPriceValue - currentThreePlusKg) > 0.001) {
       pricingData.kg = {};
       if (Math.abs(regularKgValue - currentRegularKg) > 0.001) {
         pricingData.kg.regular = regularKgValue;
+      }
+      if (Math.abs(threePlusKgPriceValue - currentThreePlusKg) > 0.001) {
+        pricingData.kg.threePlusDiscount = threePlusKgPriceValue;
       }
       if (Math.abs(vipKgValue - currentVipKg) > 0.001) {
         pricingData.kg.vip = vipKgValue;
