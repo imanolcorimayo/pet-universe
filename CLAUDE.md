@@ -495,6 +495,7 @@ product/
   {document-id}/
     businessId: string           // References the business this product belongs to
     name: string                 // Product name
+    productCode: string          // Optional product code for identification/SKU
     description: string          // Product description
     category: string             // Product category (e.g., "ALIMENTO", "ACCESORIO")
     subcategory: string          // Product subcategory

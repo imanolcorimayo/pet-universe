@@ -78,7 +78,7 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Buscar por nombre, marca, descripción o kg..."
+            placeholder="Buscar por código, nombre, marca, descripción o kg..."
             class="w-full !pl-10 !pr-4 !py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
           <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
@@ -166,8 +166,14 @@
                     <div class="text-sm font-medium text-gray-900">
                       <span v-if="getProductById(item.productId)?.brand">{{ getProductById(item.productId).brand }} - </span>{{ item.productName }}<span v-if="getProductById(item.productId)?.trackingType === 'dual' && getProductById(item.productId)?.unitWeight"> - {{ getProductById(item.productId).unitWeight }}kg</span>
                     </div>
-                    <div v-if="getProductById(item.productId)?.category" class="text-xs text-gray-500">
-                      {{ productStore.getCategoryName(getProductById(item.productId)?.category) }}
+                    <div class="flex items-center gap-2 mt-1">
+                      <span v-if="getProductById(item.productId)?.productCode" class="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">
+                        {{ getProductById(item.productId).productCode }}
+                      </span>
+                      <span v-if="getProductById(item.productId)?.productCode && getProductById(item.productId)?.category" class="text-xs text-gray-300">•</span>
+                      <div v-if="getProductById(item.productId)?.category" class="text-xs text-gray-500">
+                        {{ productStore.getCategoryName(getProductById(item.productId)?.category) }}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -340,6 +346,7 @@ const filteredInventory = computed(() => {
       return (
         // Search in individual fields
         item.productName.toLowerCase().includes(query) ||
+        (product?.productCode && product.productCode.toLowerCase().includes(query)) ||
         (product?.brand || '').toLowerCase().includes(query) ||
         (product?.description || '').toLowerCase().includes(query) ||
         (product?.unitWeight && product.unitWeight.toString().includes(query)) ||

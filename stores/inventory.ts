@@ -507,7 +507,7 @@ export const useInventoryStore = defineStore("inventory", {
         const inventoryData = inventorySnapshot.docs[0].data();
         
         // Calculate if low in stock based on new minimum
-        const isLowStock = (inventoryData.unitsInStock || 0) < minimumStock;
+        const isLowStock = minimumStock > 0 && (inventoryData.unitsInStock || 0) < minimumStock;
         
         await updateDoc(inventoryRef, {
           productName: productName,
@@ -575,7 +575,7 @@ export const useInventoryStore = defineStore("inventory", {
         }
         
         // Calculate if product is low in stock
-        const isLowStock = newUnitsInStock < inventoryData.minimumStock;
+        const isLowStock = inventoryData.minimumStock > 0 && newUnitsInStock < inventoryData.minimumStock;
         
         // Update inventory document
         await updateDoc(inventoryRef, {
@@ -783,7 +783,7 @@ export const useInventoryStore = defineStore("inventory", {
         }
         
         // Calculate if product is low in stock
-        const isLowStock = newUnitsInStock < (inventoryData.minimumStock || 0);
+        const isLowStock = (inventoryData.minimumStock || 0) > 0 && newUnitsInStock < (inventoryData.minimumStock || 0);
         
         // Update inventory document
         await updateDoc(inventoryRef, {
@@ -915,7 +915,7 @@ export const useInventoryStore = defineStore("inventory", {
         const newOpenUnitsWeight = currentWeight - actualWeightChange;
         
         // Calculate if product is low in stock
-        const isLowStock = newUnitsInStock < (inventoryData.minimumStock || 0);
+        const isLowStock = (inventoryData.minimumStock || 0) > 0 && newUnitsInStock < (inventoryData.minimumStock || 0);
         
         // Update inventory document
         await updateDoc(inventoryRef, {
@@ -1044,7 +1044,7 @@ export const useInventoryStore = defineStore("inventory", {
         }
         
         // Calculate if product is low in stock
-        const isLowStock = data.newUnits < (inventoryData.minimumStock || 0);
+        const isLowStock = (inventoryData.minimumStock || 0) > 0 && data.newUnits < (inventoryData.minimumStock || 0);
         
         // Update inventory document
         await updateDoc(inventoryRef, {
@@ -1206,7 +1206,7 @@ export const useInventoryStore = defineStore("inventory", {
         const newOpenUnitsWeight = currentWeight + weightToAdd;
         
         // Calculate if product is low in stock
-        const isLowStock = newUnitsInStock < (inventoryData.minimumStock || 0);
+        const isLowStock = (inventoryData.minimumStock || 0) > 0 && newUnitsInStock < (inventoryData.minimumStock || 0);
         
         // Update inventory document
         await updateDoc(inventoryRef, {

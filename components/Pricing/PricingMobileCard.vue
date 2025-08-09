@@ -7,7 +7,13 @@
           {{ product.brand ? `${product.brand} - ` : '' }}{{ product.name }}
           {{ product.trackingType === 'dual' && product.unitWeight ? ` - ${product.unitWeight}kg` : '' }}
         </h3>
-        <p class="text-xs text-gray-500 mt-1">{{ productStore.getCategoryName(product.category) }}</p>
+        <div class="flex items-center gap-2 mt-1">
+          <span v-if="product.productCode" class="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">
+            {{ product.productCode }}
+          </span>
+          <span v-if="product.productCode" class="text-xs text-gray-300">•</span>
+          <span class="text-xs text-gray-500">{{ productStore.getCategoryName(product.category) }}</span>
+        </div>
       </div>
       <span class="text-xs px-2 py-1 bg-gray-100 rounded">
         {{ getTrackingTypeLabel(product.trackingType) }}

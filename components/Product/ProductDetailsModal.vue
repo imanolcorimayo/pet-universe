@@ -22,6 +22,12 @@
               <p class="font-semibold">{{ product.name }}</p>
             </div>
             <div>
+              <p class="text-sm text-gray-600">Código del Producto</p>
+              <p class="font-semibold">
+                {{ product.productCode || "No especificado" }}
+              </p>
+            </div>
+            <div>
               <p class="text-sm text-gray-600">Marca</p>
               <p class="font-semibold">
                 {{ product.brand || "No especificada" }}

@@ -27,7 +27,7 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Nombre, marca o descripción..."
+            placeholder="Código, nombre, marca o descripción..."
             class="input"
           />
         </div>
@@ -169,6 +169,7 @@ const filteredProducts = computed(() => {
       
       return (
         product.name.toLowerCase().includes(query) ||
+        (product.productCode && product.productCode.toLowerCase().includes(query)) ||
         product.brand.toLowerCase().includes(query) ||
         product.description.toLowerCase().includes(query) ||
         combinedString.includes(query)

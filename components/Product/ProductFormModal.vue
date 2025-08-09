@@ -25,6 +25,22 @@
             />
           </div>
 
+          <!-- Product Code Field -->
+          <div class="mb-4">
+            <label
+              for="productCode"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Código del Producto</label
+            >
+            <input
+              id="productCode"
+              v-model="formData.productCode"
+              type="text"
+              placeholder="Código único del producto (opcional)"
+              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+            />
+          </div>
+
           <!-- Brand Field -->
           <div class="mb-4">
             <label
@@ -279,6 +295,7 @@ const isFormValid = computed(() => {
 // Initialize form data - prices will be managed separately
 const formData = ref({
   name: "",
+  productCode: "",
   description: "",
   category: "",
   subcategory: "",
@@ -300,6 +317,7 @@ function closeModal() {
 function resetForm() {
   formData.value = {
     name: "",
+    productCode: "",
     description: "",
     category: "",
     subcategory: "",
@@ -368,6 +386,7 @@ watch(
       // Initialize form with existing data (excluding prices)
       formData.value = {
         name: newProductData.name,
+        productCode: newProductData.productCode || "",
         description: newProductData.description || "",
         category: newProductData.category || "",
         subcategory: newProductData.subcategory || "",
@@ -377,7 +396,7 @@ watch(
         unitType: newProductData.unitType || "unidad",
         unitWeight: newProductData.unitWeight || 0,
 
-        minimumStock: newProductData.minimumStock || 2,
+        minimumStock: newProductData.minimumStock ?? 0,
         supplierIds: newProductData.supplierIds || [],
       };
     } else {

@@ -7,8 +7,14 @@
           <div class="font-medium text-gray-900 text-sm truncate">
             {{ displayName }}
           </div>
-          <div class="text-xs text-gray-500 mt-1 truncate">
-            {{ productStore.getCategoryName(product.category) }}
+          <div class="flex items-center gap-2 mt-1">
+            <span v-if="product.productCode" class="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">
+              {{ product.productCode }}
+            </span>
+            <span v-if="product.productCode" class="text-xs text-gray-300">•</span>
+            <div class="text-xs text-gray-500 truncate">
+              {{ productStore.getCategoryName(product.category) }}
+            </div>
           </div>
         </div>
         <button 

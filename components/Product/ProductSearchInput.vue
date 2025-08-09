@@ -62,12 +62,16 @@
                       <span v-if="product.brand">{{ product.brand }} - </span>{{ product.name }}<span v-if="product.trackingType === 'dual' && product.unitWeight"> - {{ product.unitWeight }}kg</span>
                     </div>
                     
-                    <!-- Category and stock info -->
+                    <!-- Category, code and stock info -->
                     <div class="flex items-center gap-2 mt-1">
+                      <span v-if="product.productCode" class="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">
+                        {{ product.productCode }}
+                      </span>
+                      <span v-if="product.productCode && product.categoryName" class="text-xs text-gray-300">•</span>
                       <span v-if="product.categoryName" class="text-xs text-gray-500">
                         {{ product.categoryName }}
                       </span>
-                      <span v-if="showStock && getProductStock(product.id) && product.categoryName" class="text-xs text-gray-300">•</span>
+                      <span v-if="showStock && getProductStock(product.id) && (product.categoryName || product.productCode)" class="text-xs text-gray-300">•</span>
                       <span v-if="showStock && getProductStock(product.id)" class="text-xs text-gray-500">
                         Stock: {{ formatProductStock(getProductStock(product.id)) }}
                       </span>
@@ -85,7 +89,7 @@
               <!-- Initial state -->
               <div v-else class="text-center py-4 text-gray-500">
                 <div class="text-sm">Escribe para buscar productos</div>
-                <div class="text-xs mt-1">Puedes buscar por nombre, marca o categoría</div>
+                <div class="text-xs mt-1">Puedes buscar por código, nombre, marca o categoría</div>
               </div>
             </div>
           </div>
@@ -188,6 +192,7 @@ const filteredProducts = computed(() => {
     return (
       // Search in individual fields
       product.name.toLowerCase().includes(query) ||
+      (product.productCode && product.productCode.toLowerCase().includes(query)) ||
       (product.brand || '').toLowerCase().includes(query) ||
       (product.description || '').toLowerCase().includes(query) ||
       (product.unitWeight && product.unitWeight.toString().includes(query)) ||

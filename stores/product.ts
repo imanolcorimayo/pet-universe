@@ -41,6 +41,7 @@ interface Product {
   id: string;
   businessId: string;
   name: string;
+  productCode?: string;
   description: string;
   category: string;
   subcategory: string;
@@ -87,6 +88,7 @@ interface ProductCategoryFormData {
 // Form interfaces - prices removed from product creation form
 interface ProductFormData {
   name: string;
+  productCode?: string;
   description: string;
   category: string;
   subcategory: string;
@@ -171,6 +173,7 @@ export const useProductStore = defineStore("product", {
           return (
             // Search in individual fields
             product.name.toLowerCase().includes(query) ||
+            (product.productCode && product.productCode.toLowerCase().includes(query)) ||
             product.brand.toLowerCase().includes(query) ||
             product.description.toLowerCase().includes(query) ||
             // Include weight search for dual tracking products
@@ -632,6 +635,7 @@ export const useProductStore = defineStore("product", {
             id: doc.id,
             businessId: data.businessId,
             name: data.name,
+            productCode: data.productCode || '',
             description: data.description || '',
             category: data.category || '',
             subcategory: data.subcategory || '',
@@ -731,6 +735,7 @@ export const useProductStore = defineStore("product", {
         const productData = {
           businessId: currentBusinessId.value,
           name: formData.name,
+          productCode: formData.productCode || '',
           description: formData.description || '',
           category: formData.category,
           subcategory: formData.subcategory || '',
@@ -793,6 +798,7 @@ export const useProductStore = defineStore("product", {
           id: docRef.id,
           businessId: currentBusinessId.value,
           name: formData.name,
+          productCode: formData.productCode || '',
           description: formData.description || '',
           category: formData.category,
           subcategory: formData.subcategory || '',
@@ -883,6 +889,7 @@ export const useProductStore = defineStore("product", {
         // Update product document
         await updateDoc(productRef, {
           name: formData.name,
+          productCode: formData.productCode || '',
           description: formData.description || '',
           category: formData.category,
           subcategory: formData.subcategory || '',
@@ -924,6 +931,7 @@ export const useProductStore = defineStore("product", {
           const productUpdated: Product = {
             ...this.products[productIndex],
             name: formData.name,
+            productCode: formData.productCode || '',
             description: formData.description || '',
             category: formData.category,
             subcategory: formData.subcategory || '',

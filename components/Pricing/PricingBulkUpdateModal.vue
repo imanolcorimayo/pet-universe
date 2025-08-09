@@ -492,6 +492,7 @@ const filteredProducts = computed(() => {
     
     return (
       product.name.toLowerCase().includes(query) ||
+      (product.productCode && product.productCode.toLowerCase().includes(query)) ||
       (product.brand || '').toLowerCase().includes(query) ||
       (product.description || '').toLowerCase().includes(query) ||
       (product.unitWeight && product.unitWeight.toString().includes(query)) ||

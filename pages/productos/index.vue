@@ -33,7 +33,7 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Buscar por nombre, marca o descripción..."
+            placeholder="Buscar por código, nombre, marca o descripción..."
             class="w-full !pl-10 !pr-4 !py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
           <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
@@ -100,11 +100,15 @@
                 <span v-if="product.brand">{{ product.brand }} - </span>{{ product.name }}<span v-if="product.trackingType === 'dual' && product.unitWeight"> - {{ product.unitWeight }}kg</span>
               </h3>
               <p class="text-sm text-gray-500">{{ productStore.getCategoryName(product.category) }} {{ product.subcategory ? `- ${product.subcategory}` : '' }}</p>
-              <p class="text-xs text-gray-400 mt-1">
-                <span v-if="product.trackingType === 'dual'">Unidades y Peso</span>
-                <span v-else-if="product.trackingType === 'weight'">Peso</span>
-                <span v-else>Unidades</span>
-              </p>
+              <div class="flex items-center gap-2 mt-1">
+                <p class="text-xs text-gray-400">
+                  <span v-if="product.trackingType === 'dual'">Unidades y Peso</span>
+                  <span v-else-if="product.trackingType === 'weight'">Peso</span>
+                  <span v-else>Unidades</span>
+                </p>
+                <span v-if="product.productCode" class="text-xs text-gray-300">•</span>
+                <span v-if="product.productCode" class="text-xs text-gray-500 font-mono">{{ product.productCode }}</span>
+              </div>
             </div>
           </div>
           
