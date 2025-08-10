@@ -1,15 +1,15 @@
-# Pet Shop Management System Specifications
+# Pet Shop Management System
 
 ## Overview
-A comprehensive management system for pet shops that handles purchases, sales, inventory, client management, supplier tracking, and financial reporting. The system implements a dual cash register approach with a global business register for major operations and daily sales registers for point-of-sale transactions. The system tracks both officially reported transactions (white) and non-reported transactions (black), with combined totals.
+Pet shop management system with dual cash register approach: global business register (weekly, major operations) and daily sales registers (POS). Tracks reported (white) and non-reported (black) transactions.
 
-## Technical Stack
-- Frontend: Nuxt 3 (Vue 3)
-- Styling: Tailwind CSS
-- Database & Hosting: Firebase
-- State Management: Pinia (with Firestore integration)
-- Current Scope: Admin dashboard (client portal planned for future)
-- Package dependencies: yarn (not npm)
+## Tech Stack
+- Nuxt 3 (Vue 3), Tailwind CSS, Firebase, Pinia
+- Package manager: yarn (not npm)
+
+## Code Standards
+- **MANDATORY**: Never use Spanish variable names, function names, or property names in the code
+- Use English for all identifiers to maintain code consistency and international standards
 
 ## Code Architecture
 
@@ -52,363 +52,192 @@ A comprehensive management system for pet shops that handles purchases, sales, i
 
 ```
 
-#### Login System Architecture
-The login system uses Firebase Authentication:
+#### Authentication & Business Selection
+- **Login**: Firebase Auth with Google OAuth via `welcome.vue`
+- **Middleware**: `auth.global.ts` checks auth state and business selection
+- **Business Storage**: Firestore `userBusiness` collection, selected ID in localStorage (`cBId`)
+- **Roles**: Owner-created vs employee-joined businesses, permissions via `userRole` collection
+- **Invitation Codes**: Format `${businessId}-${4-digit-number}`
 
-- **Entry Point**: `welcome.vue`
-  - Users are redirected here if not authenticated
-  - Sign-in is handled with Google OAuth via Firebase
+#### Architecture Patterns
+- **Stores**: Pinia stores for state management (`index.ts`, `cashRegister.ts`, `salesRegister.ts`, `products.ts`, `clients.ts`)
+- **Data Flow**: Standard CRUD with `addDoc`, `updateDoc`, `deleteDoc`, filtered by `businessId`
+- **Components**: Modal-based entity management, naming convention `/entity/EntityDetails.vue`
+- **Tooltips**: Interactive tooltip system using `TooltipStructure.vue` for space-efficient UI controls
+- **Layout**: Sidebar navigation (`default.vue`) with role-based menu visibility
+- **Design**: Tailwind CSS, icons via `~icons/pack-name/icon-name`, toast notifications
+- **Utils**: Common functions in `@/utils/index.ts`, dates with $dayjs
 
-- **Authentication Flow**:
-  - `googleSignIn()` function triggers Firebase authentication
-  - Upon successful authentication, users are redirected to their requested page or the default route
+#### Firebase Optimization Guidelines
+- **MANDATORY**: Use local variable caching to minimize Firebase API calls
+- **Initial Load**: Fetch data once per session/register/week, store in local state
+- **After Operations**: Update local arrays directly, avoid re-fetching from Firebase
+- **Cache Pattern**: `loadInitialData()` → `addToCache()` → `updateInCache()` → `refreshFromFirebase()`
+- **Cache Invalidation**: Clear cache on context changes (register switch, week navigation)
+- **Implementation**: 
+  - Sales Store: `loadInitialRegisterData()`, `addSaleToCache()`, `addExpenseToCache()`
+  - Global Store: `loadInitialTransactions()`, `addTransactionToCache()`, `updateTransactionInCache()`
+- **Benefits**: Reduced API costs, faster UI updates, better user experience
+- **Trade-off**: Manual refresh needed after page reload (acceptable)
 
-- **Auth Middleware**:
-  - Global route middleware in `auth.global.ts` checks authentication state
-  - Uses `getCurrentUser()` to verify if a user is logged in
-  - Unauthenticated users are redirected to `/welcome` with the intended destination in query params
-  - Also checks business selection and permissions
+#### Business Configuration Rules
+- **MANDATORY**: All payment methods and categories MUST be dynamic from `businessConfig`
+- **Payment Methods**: Use `indexStore.getActivePaymentMethods` or `indexStore.businessConfig.paymentMethods`
+- **Income Categories**: Use `indexStore.getActiveIncomeCategories` or `indexStore.businessConfig.incomeCategories`
+- **Expense Categories**: Use `indexStore.getActiveExpenseCategories` or `indexStore.businessConfig.expenseCategories`
+- **Never hardcode**: Payment methods, categories, or any business configuration values
+- **Access Pattern**: Always filter by `active: true` when displaying options to users
+- **Management**: Configuration managed through `index.ts` store methods (`addPaymentMethod`, `updateCategory`, etc.)
 
-- **Sign Out**:
-  - Implemented in `signOut()` function in both `default.vue` layout and `blocked.vue`
-  - Calls Firebase Auth's `signOut()` method and redirects to `/welcome`
+#### Pricing Management Configuration Rules
+- **MANDATORY**: Profit margin percentage is stored in the `product` collection, NOT in `inventory`
+- **Profit Margin**: Use `productStore.updateProfitMargin()` for margin updates
+- **Pricing Calculations**: Use `productStore.calculatePricing()` and `productStore.calculateMarginFromPrice()`
+- **Cost Storage**: Last purchase cost remains in `inventory.lastPurchaseCost`
+- **Access Pattern**: Get margin from `product.profitMarginPercentage`, cost from `inventory.lastPurchaseCost`
+- **Confirmation Required**: All pricing changes require user confirmation via modal dialog before saving to database
 
-#### Business Selection Architecture
-- **Business Storage**:
-  - Businesses are stored in Firestore's `userBusiness` collection
-  - The selected business ID is stored in localStorage with key `cBId`
+#### Component Naming Conventions
 
-- **Selection Flow**:
-  - Users see businesses in `index.vue`
-  - Selection is managed by `changeCurrentBusiness()` in `index.ts`
-  - When a business is selected, ID is saved to localStorage and page is reloaded
+**Subfolder Component Naming Rule:**
+- Components in subfolders must be prefixed with the folder name when used
+- Format: `[FolderName][ComponentName].vue`
+- Usage: `<Sale[ComponentName]>` for components in `/Sale/` folder
+- Exception: If component name already starts with folder name (e.g., `SaleTransaction.vue`), use full name without duplication
 
-- **Business Types**:
-  - Two types: owner-created businesses and employee-joined businesses
-  - Distinction is made with `isEmployee` field in the database
-  - Role-based permissions stored in `userRole` collection
+**Examples:**
+```vue
+<!-- ✅ Correct Usage -->
+<SaleDiscountTooltip />     <!-- from /Sale/SaleDiscountTooltip.vue -->
+<SalePriceTooltip />        <!-- from /Sale/SalePriceTooltip.vue -->
+<SaleUnitTooltip />         <!-- from /Sale/SaleUnitTooltip.vue -->
+<SaleTransaction />         <!-- from /Sale/SaleTransaction.vue (no SaleSale) -->
 
-- **Create/Join Flow**:
-  - Create: `saveBusiness()` in `index.ts` handles business creation
-  - Join: Employees use invitation codes via `joinBusiness()` function
-  - Codes follow format: `${businessId}-${4-digit-number}`
+<!-- ❌ Incorrect Usage -->
+<DiscountTooltip />         <!-- Wrong - missing Sale prefix -->
+<SaleSaleTransaction />     <!-- Wrong - folder name duplicated -->
+```
 
-#### Firebase Deployment Architecture
-The application is configured for Firebase hosting and services:
+#### UI Components Structure
 
-- **Environment Configuration**:
-  - Development/production environment distinction via `config.public.env`
-  - Firebase configuration is injected through Nuxt's runtime config
+**TooltipStructure.vue** - Base tooltip component for interactive controls:
+- Reusable dropdown-style tooltip positioned relative to trigger button
+- Consistent styling and behavior across the application
+- Used for space-efficient form controls (price selection, discounts, units)
+- Props: `title`, `tooltipClass`, `position` (bottom-left, bottom-right, top-left, top-right)
+- Slots: `trigger`, `content`, `footer`
+- Features: 
+  - Smart positioning with viewport edge detection
+  - Focus trapping, keyboard navigation (ESC to close)
+  - Click-outside-to-close with backdrop
+  - Modal namespace class `tooltip-namespace` for click propagation filtering
+  - Automatic position adjustment when tooltip exceeds viewport boundaries
 
-- **Firebase Services Used**:
-  - Authentication (Google sign-in)
-  - Firestore Database (data storage)
-  - Hosting (web application)
+**ModalStructure.vue** - Base modal component for all modal dialogs:
+- **MANDATORY**: All modal dialogs MUST use ModalStructure.vue as the base component
+- Consistent modal behavior, styling, and functionality across the application
+- Props: `title`, `modalClass`, `closeOnBackdropClick`, `clickPropagationFilter`, `modalNamespace`
+- Slots: `header`, default slot (content), `footer`
+- Features:
+  - Teleport to body for proper z-index handling
+  - ESC key to close functionality
+  - Click outside to close (configurable)
+  - Focus trapping and scroll prevention
+  - Fade-in animation
+  - Proper cleanup on unmount
+- Usage: `<ModalStructure ref="modal" title="Modal Title" @on-close="closeModal">`
+- Methods: `showModal()`, `closeModal()`
 
-- **Environment Indication**:
-  - Development environment shows "Test Environment" banner
-
-#### Firestore Connection Architecture
-- **Store Pattern**:
-  - Uses Pinia stores (`defineStore`) to manage state and Firebase interactions
-  - Main stores: `index.ts`, `cashRegister.ts`, `salesRegister.ts`, `products.ts`, `clients.ts` 
-
-- **Common Connection Pattern**:
-  - Each store validates prerequisites with helper functions that check:
-    - User authentication status via `useCurrentUser()`
-    - Selected business ID via `useLocalStorage("cBId", null)`
-  - CRUD operations follow consistent patterns with error handling and toast notifications
-
-- **Data Flow Pattern**:
-  - Fetch: Query Firestore collections with filters (typically `businessId`)
-  - Update: Use `updateDoc` with specific document references
-  - Create: Use `addDoc` with collection references
-  - Delete: Use `deleteDoc` or set archive flag via `updateDoc`
-
-- **Business Context**:
-  - All data operations filtered by current business ID
-  - Role-based access controls verified before operations
-
-#### Page Structure Architecture
-- **Main Layout** (`/layouts/default.vue`):
-  - Sidebar navigation with business selector and menu items
-  - Role-based menu visibility
-  - Mobile-responsive design with collapsible sidebar
-
-- **Core Components**:
-  - `ModalStructure.vue`: Reusable modal dialog component
-  - `ConfirmDialogue.vue`: Confirmation dialog system
-  - `Loader.vue`: Loading indicator
-  - All components follow the naming convention `/entity/EntityDetails.vue` Where the folder is included in the name of the component
-
-- **Page Structure Pattern**:
-  - List views → Detail views → Edit views
-  - Common sections: header with title/description, action buttons, content area
-
-- **Design System**:
-  - Based on Tailwind CSS with custom color scheme
-  - Main colors: primary (actions), secondary (background), danger (destructive)
-  - Icons from various icon packs using the syntax `~icons/pack-name/icon-name`
-  - Toast notification system for user feedback
-
-- **Data Interaction Pattern**:
-  - Components expose `showModal()` method for displaying details/editors
-  - CRUD operations trigger store actions
-  - Success/error feedback via toast notifications
-
-This architecture follows a consistent pattern across the application, making it maintainable and extensible while leveraging Firebase services.
-
-## Pet Shop Management System Architecture
-
-Following the established architecture pattern, the Pet Shop Management System will implement these core modules using the same architectural principles:
+## Core System Modules
 
 ### Dual Cash Register System
 
-The system implements a dual cash register approach:
+#### 1. Global Cash Register (Weekly, Business-Level)
+- **Access**: Managers/owners only
+- **Tracks**: Major business transactions (inventory purchases, payroll, taxes, utilities, capital expenses, automatic daily sales summaries)
+- **Features**: Opening/closing balances, payment method tracking, discrepancy tracking, white/black transaction classification
 
-#### 1. Global Cash Register (Business-Level)
-**Purpose:** Track all major business operations and financial movements at the business level.
-
-**Scope:** Business-level (each business has its own global register)
-**Frequency:** Weekly cycles with manual opening/closing
-**Access:** Only managers and business owners
-
-**Data Requirements:**
-- Weekly register with:
-  * Opening balances for all payment methods
-  * Major business transactions:
-    - Inventory purchases from suppliers
-    - Payroll and salary payments
-    - Tax payments and government fees
-    - Utilities and service expenses
-    - Large capital expenses
-    - Loan payments
-    - **Automatic daily sales summaries from sales registers**
-  * Weekly closing balances
-  * Discrepancy tracking between expected and actual balances
-- Payment method tracking with same codes as sales registers
-- Transaction categorization (income/expense with subcategories)
-- Option to classify transactions as reported (white) or non-reported (black)
-- Complete audit trail of all register operations
-
-#### 2. Sales Register (Daily Point-of-Sale)
-**Purpose:** Handle daily sales operations with integrated inventory management.
-
-**Scope:** Location/point-of-sale level
-**Frequency:** Daily cycles with manual opening/closing
-**Access:** All employees (based on role permissions)
-
-**Data Requirements:**
-- Daily sales register with:
-  * Opening cash balance
-  * Individual sale transactions with automatic inventory updates
-  * Minor daily expenses (petty cash, small supplies)
-  * Daily closing balance and reconciliation
-  * Discrepancy tracking
-- **Integrated Sales Processing:**
-  * Product selection interface with real-time inventory
-  * Multiple payment methods per transaction
-  * Automatic inventory deduction per sale
-  * Receipt generation
-  * Customer assignment (optional)
-- **Pricing Structure Integration:**
-  * For bagged pet food:
-    - Regular price (card price - predefined)
-    - Cash discount price (predefined)
-    - VIP/bulk purchase price (variable)
-  * For loose pet food:
-    - Standard price (up to 3kg)
-    - Bulk price (more than 3kg, 10% discount)
-  * For accessories:
-    - Regular price
-    - VIP/special discount price (for cash or quantity purchases)
-  * Promotions (typically cash-only)
-- Daily summary automatically fed to global register upon closing
-- Option to classify transactions as reported (white) or non-reported (black)
-
-### Core Modules Implementation
+#### 2. Sales Register (Daily POS)
+- **Access**: All employees (role-based)
+- **Tracks**: Daily sales with automatic inventory updates, minor expenses, customer assignment
+- **Pricing**: 
+  - **Unit Sales**: Regular, Efectivo (cash discount), VIP (editable), Mayorista (bulk)
+  - **Kg Sales (Updated)**: Regular, 3kg+ discount (fixed discount for 3kg or more), VIP (editable)
+  - **Dual Products**: Support both unit and weight-based pricing
+- **Features**: Multi-payment transactions, receipt generation, white/black classification
 
 #### 3. Inventory Management
-**Data Requirements:**
-- **Dual-Unit System for Pet Food:**
-  * Closed bags (counted as units)
-  * Open bags (tracked by weight in kg)
-  * Display format: "14 units + 10kg" for mixed inventory
-- **Accessories:** Tracked by unit only
-- **Automatic Integration with Sales:**
-  * Real-time stock updates per sale transaction
-  * Automatic deduction based on sale quantities
-  * Support for partial bag sales (weight-based)
-- **Stock Management:**
-  * Minimum stock alerts
-  * Product rotation analytics
-  * Cost and price tracking
-  * Inventory adjustment capabilities
-- **Product Classification:**
-  * Not all pet food types are sold by weight (loose)
-  * Product categories and subcategories
-  * Supplier association
-
-**Implementation Pattern:**
-- **Store**: `inventory.ts` and `products.ts` Pinia stores
-- **Components**: 
-  * `ProductList.vue` - List of all products
-  * `ProductDetails.vue` - Modal for viewing product details
-  * `ProductForm.vue` - Modal for creating/editing products
-  * `InventoryAdjustment.vue` - Modal for adjusting inventory levels
-- **Firestore Collections**:
-  * `product` - Product catalog
-  * `inventory` - Current inventory levels
-  * `inventoryMovement` - Record of inventory changes
+- **Dual-Unit System**: Pet food tracked as closed bags (units) + open bags (kg weight). Display: "14 units + 10kg"
+- **Features**: Real-time stock updates, automatic deduction, minimum stock alerts, cost tracking
+- **Store**: `inventory.ts` and `products.ts` | **Collections**: `product`, `inventory`, `inventoryMovement`
 
 #### 4. Customer Management
-**Data Requirements:**
-- Customer profiles with contact information
-- Pet information for each customer (species, name, birthdate)
-- Customer birthday tracking
-- Purchase history linked to sales transactions
-- Customer loyalty status
-- Notifications for upcoming pet food purchases based on consumption patterns
-
-**Implementation Pattern:**
-- **Store**: `clients.ts` Pinia store (following existing naming pattern)
-- **Components**: 
-  * `ClientList.vue` - List of all clients
-  * `ClientDetails.vue` - Modal for viewing client details
-  * `ClientForm.vue` - Modal for creating/editing clients
-  * `PetForm.vue` - Modal for adding/editing client pets
-- **Firestore Collections**:
-  * `client` - Customer information
-  * `pet` - Pet information with client reference
+- **Data**: Customer profiles, pet information, purchase history, loyalty status
+- **Store**: `clients.ts` | **Collections**: `client`, `pet`
 
 #### 5. Supplier Management
-**Data Requirements:**
-- Supplier profiles with contact information
-- Purchase history by supplier
-- Payment orders and schedules
-- Notifications for important dates
-- Outstanding balances
+- **Data**: Supplier profiles, purchase history, payment schedules, outstanding balances
+- **Store**: `suppliers.ts` | **Collections**: `supplier`
 
-**Implementation Pattern:**
-- **Store**: `suppliers.ts` Pinia store
-- **Components**: 
-  * `SupplierList.vue` - List of all suppliers
-  * `SupplierDetails.vue` - Modal for viewing supplier details
-  * `SupplierForm.vue` - Modal for creating/editing suppliers
-- **Firestore Collections**:
-  * `supplier` - Supplier information
+#### 6. Debt Management
+- **Features**: Customer and supplier debt tracking, partial payment support, debt payment recording
+- **Integration**: Sales register integration for debt payments, automatic debt creation from partial sales
+- **Data**: Debt records, payment history, status tracking (active/paid/cancelled)
+- **Store**: `debt.ts` | **Collections**: `debt`, `debtPayment`
 
-#### 6. Payment Methods & Accounts
-**Data Requirements:**
-- Complete list of payment methods with their codes:
-  * EFECTIVO (EFT) - Cash
-  * SANTANDER - Santander Bank
-  * MACRO - Macro Bank
-  * UALÁ - Ualá digital wallet
-  * Mercado Pago (MPG) - MercadoPago digital wallet
-  * Naranja X/Viumi (VAT) - Naranja X/Viumi digital wallet
-  * Tarjeta Débito (TDB) - Debit Card
-  * Tarjeta Crédito (TCR) - Credit Card
-  * Transferencias (TRA) - Bank Transfers
-- Account tracking for each payment method
-- Daily/weekly balances by payment method/account
-- Transaction history by account
+#### 7. Pricing Management System
+- **Access**: Centralized pricing management page at `/precios/index.vue`
+- **Features**: 
+  - Mass pricing updates based on cost and profit margins
+  - Real-time price calculations with automatic recalculation
+  - Mobile-responsive table with horizontal scroll
+  - Bulk update modal for mass pricing changes
+  - Individual product cost and margin editing
+- **Pricing Logic**:
+  - **Costo**: Base cost from `inventory.lastPurchaseCost` (editable)
+  - **Profit Margin**: Stored in `inventory.profitMarginPercentage` (default 30%)
+  - **EFECTIVO**: Cost × (1 + margin/100) - Base cash price
+  - **REGULAR**: EFECTIVO × 1.25 (25% markup over cash price)
+  - **VIP**: Initially equals EFECTIVO, then manually editable
+  - **MAYORISTA**: Initially equals EFECTIVO, then manually editable
+- **Dual Product Pricing**:
+  - **Costo/kg**: Calculated as `lastPurchaseCost / unitWeight`
+  - **Regular kg**: Cost per kg with profit margin applied
+  - **3+ kg**: 10% discount on Regular kg price (calculated dynamically in sales)
+  - **VIP kg**: Initially equals Regular kg, then manually editable
+- **Components**: `PricingTable.vue`, `PricingRow.vue`, `PricingBulkUpdateModal.vue`
+- **Store Integration**: Extended `inventory.ts` and `product.ts` with pricing methods
 
-**Implementation Pattern:**
-- **Store**: `payments.ts` Pinia store
-- **Components**: 
-  * No components. Everything managed in the page `/configuration/index.vue`
-- **Firestore Collections**:
-  * `businessConfig` - Global business configuration
+## Page Structure
 
-#### 7. Reporting
-**Data Requirements:**
-- TO BE DEFINED
+All pages use modal-based entity management:
 
-## Page Folder Structure
+- **Dashboard**: `/dashboard/index.vue` - Main overview with key metrics
+- **Caja Global**: `/caja-global/index.vue` + `/historico.vue` - Weekly global register
+- **Ventas**: `/ventas/index.vue` + `/historico.vue` - Daily sales register/POS
+- **Inventario**: `/inventario/index.vue` + `/categorias.vue` - Product inventory
+- **Precios**: `/precios/index.vue` - Centralized pricing management system
+- **Clientes**: `/clientes/index.vue` - Client directory with pet management
+- **Proveedores**: `/proveedores/index.vue` - Supplier directory
+- **Deudas**: `/deudas/index.vue` - Debt management and payment recording
+- **Configuración**: `/configuracion/index.vue` + `/empleados.vue` - Settings
 
-Following the architecture pattern of using modals for details and edits rather than separate pages:
+## Feature Development System (FDS)
 
-### 1. Dashboard
-- `/dashboard`
-  - `/dashboard/index.vue` - Main dashboard overview with key metrics and notifications
+Structured workflow for new features using standardized templates:
 
-### 2. Caja Global (Global Cash Register)
-- `/caja-global`
-  - `/caja-global/index.vue` - Current week's global register with status, major transactions, and modal triggers for:
-    - `GlobalRegisterOpeningModal.vue` - Opening the weekly global register
-    - `GlobalTransactionEntryModal.vue` - New major business transactions
-    - `GlobalRegisterClosingModal.vue` - End-of-week closing with sales register summaries
-  - `/caja-global/historico.vue` - Past global register closings
+### Workflow Phases
+1. **Request** (`[feature-name]-request.md`) - Requirements gathering, acceptance criteria
+2. **Plan** (`[feature-name]-plan.md`) - Task breakdown, architecture decisions
+3. **Execution** (`[feature-name]-execution.md`) - Real-time progress tracking
+4. **Changes** (`[feature-name]-changes.md`) - Complete modification record
 
-### 3. Ventas (Sales Register - Daily POS)
-- `/ventas`
-  - `/ventas/index.vue` - Current day's sales register with status, transactions, and modal triggers for:
-    - `SalesRegisterOpeningModal.vue` - Opening the daily sales register
-    - `SaleTransactionModal.vue` - New sale with product selection and inventory integration
-    - `ExpenseEntryModal.vue` - Small daily expenses
-    - `SalesRegisterClosingModal.vue` - End-of-day closing
-    - `SaleDetails.vue` - View individual sale details
-  - `/ventas/historico.vue` - Past sales register closings
-
-### 4. Inventario (Inventory)
-- `/inventario`
-  - `/inventario/index.vue` - Inventory overview and product listing with modals for:
-    - `ProductDetailsModal.vue` - View product details
-    - `ProductFormModal.vue` - Add/edit products
-    - `InventoryAdjustmentModal.vue` - Make inventory adjustments
-  - `/inventario/categorias.vue` - Product categories management
-
-### 5. Clientes (Clients)
-- `/clientes`
-  - `/clientes/index.vue` - Client directory with modals for:
-    - `ClientDetailsModal.vue` - View client profile with tabs for:
-      - Client information
-      - Client's pets with `PetFormModal.vue` for adding/editing
-      - Purchase history
-    - `ClientFormModal.vue` - Add/edit client information
-
-### 6. Proveedores (Suppliers)
-- `/proveedores`
-  - `/proveedores/index.vue` - Supplier directory with modals for:
-    - `SupplierDetailsModal.vue` - View supplier details with tabs for:
-      - Supplier information
-      - Purchase history
-      - Payment tracking
-    - `SupplierFormModal.vue` - Add/edit supplier information
-
-### 7. Reportes (Reports)
-- TO BE DEFINED
-
-### 8. Configuración (Settings)
-- `/configuracion`
-  - `/configuracion/index.vue` - General settings with tabs for:
-    - Store settings
-    - Payment methods configuration
-    - System parameters and notifications
-  - `/configuracion/empleados.vue` - General settings for employees
-
-## UI/UX Implementation
-
-Following the architecture pattern:
-
-### UI Flow Patterns
-- **Addition/Edition → Modal Pattern**: All entity management follows add/edit-with-modal pattern instead of navigating to separate add/detail pages
-- **Toast Notifications**: All operations provide feedback through toast notifications (`useToast` composable)
-- **Confirmation Dialogs**: All destructive actions require confirmation
-- **Mobile Responsiveness**: Sidebar collapses to menu button on small screens
-
-### Design System
-- **Tailwind CSS**: Custom color scheme matching existing system:
-  - Primary: Action buttons and highlighted items
-  - Secondary: Background elements
-  - Danger: Destructive actions and errors
-- **Icon System**: Using icon packs with `~icons/pack-name/icon-name` syntax
-- **Utils functions**: For commons functions like "formatCurrency" or "formatQuantity" let's always create the function in `@/utils/index.ts` if doesn't exist already.
-- **Dates management**: Always choose to use $dayjs library instead of Date native object
-
-## Future Enhancements
-- TBD
+### Claude Guidelines
+- Always check `/features/` directory before starting work
+- Read existing documents before continuing development
+- Update execution log in real-time
+- Follow documented plan - update plan if deviating
+- Create proper change manifest when completed
 
 ---
 
@@ -642,6 +471,22 @@ salesRegisterExpense/
 
 ## Product & Inventory Management
 
+### productCategory
+Product categories for organizing the product catalog.
+
+```
+productCategory/
+  {document-id}/
+    businessId: string           // References the business this category belongs to
+    name: string                 // Category name
+    description: string          // Category description
+    isActive: boolean            // Whether category is active
+    createdBy: string            // User ID who created the category
+    createdAt: Timestamp         // When the category was created
+    updatedAt: Timestamp         // When the category was last updated
+    archivedAt: Timestamp|null   // When the category was archived (if applicable)
+```
+
 ### product
 Product catalog for the business.
 
@@ -650,31 +495,32 @@ product/
   {document-id}/
     businessId: string           // References the business this product belongs to
     name: string                 // Product name
+    productCode: string          // Optional product code for identification/SKU
     description: string          // Product description
     category: string             // Product category (e.g., "ALIMENTO", "ACCESORIO")
     subcategory: string          // Product subcategory
     brand: string                // Product brand
     
-    // Pricing structure
+    // Pricing structure (managed separately from product creation)
     prices: {
-      regular: number            // Regular/card price
-      cash: number               // Cash discount price (for applicable products)
-      vip: number                // VIP/special customer price (variable)
-      bulk: number               // Bulk purchase price (for weight-based sales)
+      regular: number            // Regular/card price (base price)
+      cash: number               // Efectivo (cash discount price)
+      vip: number                // VIP/special customer price (editable)
+      bulk: number               // Mayorista (bulk purchase price for unit-based sales)
       
       // Unit-specific prices for dual products
       unit?: {                   // Only for dual tracking type products
         regular: number          // Regular price per unit
-        cash: number             // Cash price per unit
-        vip: number              // VIP price per unit
+        cash: number             // Efectivo price per unit
+        vip: number              // VIP price per unit (editable)
+        bulk: number             // Mayorista price per unit
       },
       
-      // Kg-specific prices for dual products
+      // Kg-specific prices for dual products  
       kg?: {                     // Only for dual tracking type products
         regular: number          // Regular price per kg
-        cash: number             // Cash price per kg
-        vip: number              // VIP price per kg
-        bulk: number             // Bulk price per kg
+        cash: number             // NOT USED - 3kg+ discount is calculated dynamically
+        vip: number              // VIP price per kg (editable)
       }
     }
     
@@ -719,6 +565,7 @@ inventory/
     averageCost: number          // Weighted average cost per unit
     lastPurchaseCost: number     // Cost of last purchase
     totalCostValue: number       // Total inventory value at cost
+    profitMarginPercentage: number // Profit margin for pricing calculations (default 30%)
     
     // Purchase history summary
     lastPurchaseAt: Timestamp    // When last purchased
@@ -792,6 +639,59 @@ supplier/
     archivedAt: Timestamp|null   // When the supplier was archived (if applicable)
 ```
 
+## Debt Management
+
+### debt
+Customer and supplier debt tracking with status management.
+
+```
+debt/
+  {document-id}/
+    businessId: string           // References the business this debt belongs to
+    type: "customer" | "supplier" // Type of entity that owes the debt
+    entityId: string             // Reference to client or supplier ID
+    entityName: string           // Name of the client or supplier for quick reference
+    originalAmount: number       // Original debt amount
+    paidAmount: number           // Total amount paid so far
+    remainingAmount: number      // Remaining amount to be paid
+    originType: "sale" | "purchase" | "manual" // How the debt was created
+    originId: string|null        // Reference to originating transaction (sale ID, etc.)
+    originDescription: string    // Description of the debt origin
+    status: "active" | "paid" | "cancelled" // Current status of the debt
+    dueDate: Timestamp|null      // When the debt is due (optional)
+    notes: string                // Additional notes about the debt
+    createdBy: string            // User ID who created the debt
+    createdByName: string        // Name of user who created the debt
+    createdAt: Timestamp         // When the debt was created
+    updatedAt: Timestamp         // When the debt was last updated
+    
+    // Payment completion fields
+    paidAt: Timestamp|null       // When the debt was fully paid (if applicable)
+    
+    // Cancellation fields
+    cancelledAt: Timestamp|null  // When the debt was cancelled (if applicable)
+    cancelledBy: string|null     // User ID who cancelled the debt
+    cancelReason: string|null    // Reason for cancellation
+```
+
+### debtPayment
+Individual payment records for debt transactions.
+
+```
+debtPayment/
+  {document-id}/
+    businessId: string           // References the business this payment belongs to
+    debtId: string               // References the debt this payment is for
+    salesRegisterId: string      // References the sales register where payment was recorded
+    amount: number               // Amount of this payment
+    paymentMethod: string        // Payment method used (e.g., "EFECTIVO", "SANTANDER")
+    isReported: boolean          // Whether this payment is reported for accounting (white/black)
+    notes: string                // Additional notes about the payment
+    createdBy: string            // User ID who recorded the payment
+    createdByName: string        // Name of user who recorded the payment
+    createdAt: Timestamp         // When the payment was recorded
+```
+
 
 ## Customer Management
 
@@ -843,4 +743,72 @@ pet/
     // Health and dietary information
     dietaryRestrictions: string  // Any dietary restrictions or special needs
     foodPreferences: string[]    // Array of preferred food brands/types
-    feedingSchedule: string      // Feeding
+    feedingSchedule: string      // Feeding schedule information
+    vaccinations: [{             // Array of vaccination records
+      vaccine: string            // Vaccine name
+      date: Timestamp            // Vaccination date
+      nextDue: Timestamp|null    // Next vaccination due
+      veterinarian: string|null  // Veterinarian who administered
+    }]
+    
+    // Status
+    isActive: boolean            // Whether pet is active
+    createdBy: string            // User ID who created the pet record
+    createdAt: Timestamp         // When the pet record was created
+    updatedAt: Timestamp         // When the pet record was last updated
+    archivedAt: Timestamp|null   // When the pet record was archived (if applicable)
+```
+
+## Configuration
+
+### businessConfig
+Global business configuration settings.
+
+```
+businessConfig/
+  {document-id}/
+    businessId: string           // References the business
+    
+    // Payment methods configuration
+    paymentMethods: [{           // Array of available payment methods
+      code: string               // Payment method code (e.g., "EFECTIVO", "SANTANDER")
+      name: string               // Display name
+      type: string               // "cash" | "bank" | "digital" | "card"
+      isActive: boolean          // Whether this method is currently active
+      accountInfo: string|null   // Account details if applicable
+      notes: string|null         // Additional notes
+    }]
+    
+    // Categories configuration (deprecated - categories are now managed via productCategory collection)
+    
+    supplierCategories: string[] // Array of supplier category names
+    
+    expenseCategories: string[]  // Array of expense category names
+    
+    // Business settings
+    businessName: string         // Business name
+    businessAddress: string|null // Business address
+    businessPhone: string|null   // Business phone
+    businessEmail: string|null   // Business email
+    taxId: string|null           // Tax identification number
+    
+    // System settings
+    currency: string             // Currency code (e.g., "ARS", "USD")
+    timezone: string             // Timezone identifier
+    dateFormat: string           // Preferred date format
+    
+    // Notifications settings
+    lowStockThreshold: number    // Default minimum stock threshold
+    enableBirthdayReminders: boolean // Whether to enable birthday notifications
+    enablePetFoodReminders: boolean  // Whether to enable pet food purchase reminders
+    
+    // Register settings
+    requireOpeningBalance: boolean   // Whether opening balance is required
+    allowNegativeStock: boolean      // Whether negative inventory is allowed
+    autoCloseRegisters: boolean      // Whether to auto-close registers at day/week end
+    
+    createdAt: Timestamp         // When the configuration was created
+    updatedAt: Timestamp         // When the configuration was last updated
+```
+
+This database structure provides a comprehensive foundation for the Pet Universe application, supporting the dual cash register system, inventory management, customer relationships, and business operations while maintaining data integrity and supporting the application's architectural patterns.

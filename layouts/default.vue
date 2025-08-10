@@ -146,28 +146,38 @@
             </NuxtLink>
           </li>
           <li>
-            <NuxtLink
-              to="/inventario"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+            <button
+              @click="toggleProducts"
+              class="w-full flex items-center justify-between text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
-              <MingcuteInventoryFill class="text-gray-500" /> Inventario
-            </NuxtLink>
-          </li>
-          <li>
-            <NuxtLink
-              to="/productos"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
-            >
-              <MingcuteInventoryFill class="text-gray-500" /> Productos
-            </NuxtLink>
-          </li>
-          <li>
-            <NuxtLink
-              to="/precios"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
-            >
-              <PhCurrencyDollarFill class="text-gray-500" /> Precios
-            </NuxtLink>
+              <div class="flex items-center gap-2">
+                <MingcuteInventoryFill class="text-gray-500" /> Productos
+              </div>
+              <MaterialSymbolsKeyboardArrowDown
+                class="text-gray-600 transition-transform"
+                :class="{ 'rotate-180': productsExpanded }"
+              />
+            </button>
+            <div v-if="productsExpanded" class="pl-6 ml-1 border-l border-gray-300 mt-1 space-y-2">
+              <NuxtLink
+                to="/productos"
+                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              >
+                <MingcuteInventoryFill class="text-gray-500" /> Lista de productos
+              </NuxtLink>
+              <NuxtLink
+                to="/inventario"
+                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              >
+                <MingcuteInventoryFill class="text-gray-500" /> Inventario
+              </NuxtLink>
+              <NuxtLink
+                to="/precios"
+                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              >
+                <PhCurrencyDollarFill class="text-gray-500" /> Precios
+              </NuxtLink>
+            </div>
           </li>
           <li>
             <NuxtLink
@@ -281,6 +291,7 @@ indexStore.fetchBusinesses();
 const showSideBar = ref(false);
 const menu = ref(null);
 const configExpanded = ref(false);
+const productsExpanded = ref(false);
 
 // If clicking outside the menu, and screen is smaller than 768px, close it
 onClickOutside(menu, () => {
@@ -317,6 +328,10 @@ function switchMenu() {
 
 function toggleConfig() {
   configExpanded.value = !configExpanded.value;
+}
+
+function toggleProducts() {
+  productsExpanded.value = !productsExpanded.value;
 }
 
 // ------ Define Watchers --------
