@@ -301,7 +301,7 @@ const formData = ref({
   subcategory: "",
   brand: "",
 
-  trackingType: "dual",
+  trackingType: "unit",
   unitType: "unidad",
   unitWeight: 0,
 
@@ -323,7 +323,7 @@ function resetForm() {
     subcategory: "",
     brand: "",
 
-    trackingType: "dual",
+    trackingType: "unit",
     unitType: "unidad",
     unitWeight: 0,
 
