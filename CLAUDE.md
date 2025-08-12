@@ -10,6 +10,8 @@ Pet shop management system with dual cash register approach: global business reg
 ## Code Standards
 - **MANDATORY**: Never use Spanish variable names, function names, or property names in the code
 - Use English for all identifiers to maintain code consistency and international standards
+- **MANDATORY**: Always use `~icons/pack-name/icon-name` imports instead of custom SVG code in templates
+- Icon usage: `import IconName from '~icons/lucide/icon-name'` then use `<IconName class="w-4 h-4" />`
 
 ## Code Architecture
 

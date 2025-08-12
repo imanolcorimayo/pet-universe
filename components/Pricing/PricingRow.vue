@@ -63,10 +63,10 @@
     <td class="px-4 py-4 w-[100px]">
       <div v-if="!isEditing" class="flex flex-col">
         <div class="text-sm font-medium text-gray-900">
-          ${{ formatNumber(calculatedPrices.cash) }}
+          ${{ formatNumber(displayPrices.cash) }}
         </div>
         <div class="text-xs text-green-600 font-medium">
-          +{{ getMarginFromPrice(calculatedPrices.cash) }}%
+          +{{ getMarginFromPrice(displayPrices.cash) }}%
         </div>
       </div>
       <div v-else>
@@ -85,10 +85,10 @@
     <td class="px-4 py-4 w-[100px]">
       <div v-if="!isEditing" class="flex flex-col">
         <div class="text-sm font-medium text-gray-900">
-          ${{ formatNumber(calculatedPrices.regular) }}
+          ${{ formatNumber(displayPrices.regular) }}
         </div>
         <div class="text-xs text-blue-600 font-medium">
-          +{{ getMarginFromPrice(calculatedPrices.regular) }}%
+          +{{ getMarginFromPrice(displayPrices.regular) }}%
         </div>
       </div>
       <div v-else>
@@ -108,10 +108,10 @@
     <td class="px-4 py-4 w-[100px]">
       <div v-if="!isEditing" class="flex flex-col">
         <div class="text-sm font-medium text-gray-900">
-          ${{ formatNumber(calculatedPrices.bulk) }}
+          ${{ formatNumber(displayPrices.bulk) }}
         </div>
         <div class="text-xs text-orange-600 font-medium">
-          +{{ getMarginFromPrice(calculatedPrices.bulk) }}%
+          +{{ getMarginFromPrice(displayPrices.bulk) }}%
         </div>
       </div>
       <div v-else>
@@ -133,10 +133,10 @@
         <div v-if="product.trackingType === 'dual'">
           <div v-if="!isEditing" class="flex flex-col">
             <div class="text-sm font-medium text-gray-900">
-              ${{ formatNumber(calculatedKgPrices?.regular || 0) }}
+              ${{ formatNumber(displayKgPrices?.regular || 0) }}
             </div>
             <div class="text-xs text-blue-600 font-medium">
-              +{{ getMarginFromPrice(calculatedKgPrices?.regular || 0, costPerKg) }}%
+              +{{ getMarginFromPrice(displayKgPrices?.regular || 0, costPerKg) }}%
             </div>
           </div>
           <div v-else>
@@ -183,7 +183,15 @@
 
     <!-- Actions Column -->
     <td class="px-4 py-4 w-[100px]">
-      <div v-if="!isEditing" class="flex items-center justify-center">
+      <div v-if="!isEditing" class="flex items-center justify-center space-x-1">
+        <button
+          v-if="isPriceOutdated"
+          @click="refreshPrices"
+          class="p-1.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-md transition-colors"
+          title="Actualizar precios según costo actual"
+        >
+          <LucideRefreshCw class="w-4 h-4" />
+        </button>
         <button
           @click="startEditing"
           class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
@@ -236,7 +244,7 @@
             <div class="flex justify-start items-center gap-4">
               <span class="text-xs text-gray-600">VIP:</span>
               <div v-if="!isEditing">
-                <span class="text-xs font-medium text-gray-900">${{ formatNumber(calculatedPrices.vip) }}</span>
+                <span class="text-xs font-medium text-gray-900">${{ formatNumber(displayPrices.vip) }}</span>
               </div>
               <div v-else>
                 <input
@@ -254,7 +262,7 @@
             <div v-if="product.trackingType === 'dual'" class="flex justify-start items-center gap-4">
               <span class="text-xs text-gray-600">VIP/kg:</span>
               <div v-if="!isEditing">
-                <span class="text-xs font-medium text-gray-900">${{ formatNumber(calculatedKgPrices?.vip || 0) }}</span>
+                <span class="text-xs font-medium text-gray-900">${{ formatNumber(displayKgPrices?.vip || 0) }}</span>
               </div>
               <div v-else>
                 <input
@@ -307,6 +315,7 @@
 
 <script setup>
 import LucideChevronDown from '~icons/lucide/chevron-down';
+import LucideRefreshCw from '~icons/lucide/refresh-cw';
 
 // Props
 const props = defineProps({
@@ -378,59 +387,102 @@ const costPerKg = computed(() => {
   return 0;
 });
 
-const calculatedPrices = computed(() => {
-  const pricing = productStore.calculatePricing(
-    currentCost.value, 
-    currentMargin.value, 
-    props.product.unitWeight
-  );
+// Freshly calculated prices based on current cost and margin (for comparison and refresh)
+const freshlyCalculatedPrices = computed(() => {
+  const cost = currentCost.value;
+  const margin = currentMargin.value;
+  const threePlusDiscount = currentThreePlusDiscount.value;
+  
+  const pricing = productStore.calculatePricing(cost, margin, props.product.unitWeight, threePlusDiscount);
   
   if (!pricing) {
-    return { efectivo: 0, regular: 0, vip: 0, bulk: 0 };
+    return { cash: 0, regular: 0, vip: 0, bulk: 0 };
   }
   
-  // Use current product prices if they exist, otherwise use calculated ones
-  const prices = props.product.prices || {};
-  
   return {
-    cash: prices.cash || pricing.cash,
-    regular: prices.regular || pricing.regular,
-    vip: prices.vip || pricing.vip,
-    bulk: prices.bulk || pricing.bulk,
+    cash: pricing.cash,
+    regular: pricing.regular,
+    vip: pricing.vip,
+    bulk: pricing.bulk,
+    kg: pricing.kg || null
   };
 });
 
-const calculatedKgPrices = computed(() => {
-  if (props.product.trackingType !== 'dual') return null;
-  
-  const pricing = productStore.calculatePricing(
-    currentCost.value, 
-    currentMargin.value, 
-    props.product.unitWeight,
-    currentThreePlusDiscount.value
-  );
-  
-  if (!pricing || !pricing.kg) {
-    return { regular: 0, threePlusDiscount: 0, vip: 0 };
+// Display prices (either stored product prices or edit values during editing)
+const displayPrices = computed(() => {
+  if (isEditing.value) {
+    return {
+      cash: editValues.value.cash,
+      regular: editValues.value.regular,
+      vip: editValues.value.vip,
+      bulk: editValues.value.bulk,
+    };
   }
   
-  // Use current product kg prices if they exist, otherwise use calculated ones
-  const kgPrices = props.product.prices?.kg || {};
+  // Use stored product prices, fallback to freshly calculated if not available
+  const storedPrices = props.product.prices || {};
+  return {
+    cash: storedPrices.cash || freshlyCalculatedPrices.value.cash,
+    regular: storedPrices.regular || freshlyCalculatedPrices.value.regular,
+    vip: storedPrices.vip || freshlyCalculatedPrices.value.vip,
+    bulk: storedPrices.bulk || freshlyCalculatedPrices.value.bulk,
+  };
+});
+
+// Display kg prices (either stored product kg prices or edit values during editing)
+const displayKgPrices = computed(() => {
+  if (props.product.trackingType !== 'dual') return null;
+  
+  if (isEditing.value) {
+    return {
+      regular: editValues.value.regularKg,
+      vip: editValues.value.vipKg,
+      threePlusDiscount: editValues.value.threePlusKgPrice,
+    };
+  }
+  
+  // Use stored product kg prices, fallback to freshly calculated if not available
+  const storedKgPrices = props.product.prices?.kg || {};
+  const freshKgPrices = freshlyCalculatedPrices.value.kg || {};
   
   return {
-    regular: kgPrices.regular || pricing.kg.regular,
-    threePlusDiscount: kgPrices.threePlusDiscount || pricing.kg.threePlusDiscount,
-    vip: kgPrices.vip || pricing.kg.vip,
+    regular: storedKgPrices.regular || freshKgPrices.regular || 0,
+    vip: storedKgPrices.vip || freshKgPrices.vip || 0,
+    threePlusDiscount: storedKgPrices.threePlusDiscount || freshKgPrices.threePlusDiscount || 0,
   };
 });
 
 const threePlusKgPrice = computed(() => {
-  if (props.product.trackingType !== 'dual' || !calculatedKgPrices.value) return 0;
-  return calculatedKgPrices.value.threePlusDiscount || 0;
+  if (props.product.trackingType !== 'dual' || !displayKgPrices.value) return 0;
+  return displayKgPrices.value.threePlusDiscount || 0;
 });
 
 const isEditing = computed(() => {
   return props.editingProduct === props.product.id;
+});
+
+const isPriceOutdated = computed(() => {
+  if (!props.inventory || !props.inventory.lastPurchaseCost || props.inventory.lastPurchaseCost <= 0) {
+    return false;
+  }
+
+  const storedPrices = props.product.prices;
+  if (!storedPrices || !freshlyCalculatedPrices.value) return false;
+
+  // Check if stored prices match freshly calculated prices (with small tolerance for rounding)
+  const tolerance = 0.01;
+  const cashMismatch = Math.abs((storedPrices.cash || 0) - freshlyCalculatedPrices.value.cash) > tolerance;
+  const regularMismatch = Math.abs((storedPrices.regular || 0) - freshlyCalculatedPrices.value.regular) > tolerance;
+  
+  let kgMismatch = false;
+  if (props.product.trackingType === 'dual' && props.product.unitWeight && freshlyCalculatedPrices.value.kg) {
+    const currentKgRegular = storedPrices.kg?.regular || 0;
+    const currentKgThreePlus = storedPrices.kg?.threePlusDiscount || 0;
+    kgMismatch = Math.abs(currentKgRegular - freshlyCalculatedPrices.value.kg.regular) > tolerance ||
+                 Math.abs(currentKgThreePlus - freshlyCalculatedPrices.value.kg.threePlusDiscount) > tolerance;
+  }
+
+  return cashMismatch || regularMismatch || kgMismatch;
 });
 
 // Methods
@@ -448,18 +500,18 @@ function toggleExpanded() {
 }
 
 function startEditing() {
-  // Initialize edit values with current values
+  // Initialize edit values with current stored prices (not calculated ones)
   editValues.value = {
     cost: currentCost.value,
     margin: currentMargin.value,
-    cash: calculatedPrices.value.cash,
-    regular: calculatedPrices.value.regular,
-    vip: calculatedPrices.value.vip,
-    bulk: calculatedPrices.value.bulk,
-    regularKg: calculatedKgPrices.value?.regular || 0,
-    vipKg: calculatedKgPrices.value?.vip || 0,
+    cash: displayPrices.value.cash,
+    regular: displayPrices.value.regular,
+    vip: displayPrices.value.vip,
+    bulk: displayPrices.value.bulk,
+    regularKg: displayKgPrices.value?.regular || 0,
+    vipKg: displayKgPrices.value?.vip || 0,
     threePlusDiscount: currentThreePlusDiscount.value,
-    threePlusKgPrice: calculatedKgPrices.value?.threePlusDiscount || 0,
+    threePlusKgPrice: displayKgPrices.value?.threePlusDiscount || 0,
   };
   
   preserveEditValues.value = false;
@@ -585,26 +637,27 @@ function saveChanges() {
   
   // Build pricing update object
   const pricingData = {};
+  const currentPrices = props.product.prices || {};
   
-  if (Math.abs(cashValue - calculatedPrices.value.cash) > 0.001) {
+  if (Math.abs(cashValue - (currentPrices.cash || 0)) > 0.001) {
     pricingData.cash = cashValue;
   }
-  if (Math.abs(regularValue - calculatedPrices.value.regular) > 0.001) {
+  if (Math.abs(regularValue - (currentPrices.regular || 0)) > 0.001) {
     pricingData.regular = regularValue;
   }
-  if (Math.abs(vipValue - calculatedPrices.value.vip) > 0.001) {
+  if (Math.abs(vipValue - (currentPrices.vip || 0)) > 0.001) {
     pricingData.vip = vipValue;
   }
-  if (Math.abs(bulkValue - calculatedPrices.value.bulk) > 0.001) {
+  if (Math.abs(bulkValue - (currentPrices.bulk || 0)) > 0.001) {
     pricingData.bulk = bulkValue;
   }
   
   // Handle kg prices for dual products
   if (props.product.trackingType === 'dual') {
-    const currentRegularKg = calculatedKgPrices.value?.regular || 0;
-    const currentVipKg = calculatedKgPrices.value?.vip || 0;
+    const currentRegularKg = currentPrices.kg?.regular || 0;
+    const currentVipKg = currentPrices.kg?.vip || 0;
     
-    const currentThreePlusKg = calculatedKgPrices.value?.threePlusDiscount || 0;
+    const currentThreePlusKg = currentPrices.kg?.threePlusDiscount || 0;
     
     if (Math.abs(regularKgValue - currentRegularKg) > 0.001 ||
         Math.abs(vipKgValue - currentVipKg) > 0.001 ||
@@ -633,6 +686,54 @@ function saveChanges() {
   setTimeout(() => {
     preserveEditValues.value = false;
   }, 500);
+}
+
+function refreshPrices() {
+  if (!props.inventory || !props.inventory.lastPurchaseCost || props.inventory.lastPurchaseCost <= 0) {
+    return;
+  }
+
+  const freshPrices = freshlyCalculatedPrices.value;
+  if (!freshPrices) return;
+
+  // Preserve existing VIP and bulk prices if they were manually set
+  const storedPrices = props.product.prices || {};
+  let vipPrice = freshPrices.vip;
+  let bulkPrice = freshPrices.bulk;
+  
+  // If VIP or bulk prices were manually customized (different from cash), preserve them
+  if (storedPrices.vip && typeof storedPrices.vip === 'number' && storedPrices.vip !== storedPrices.cash) {
+    vipPrice = storedPrices.vip;
+  }
+  
+  if (storedPrices.bulk && typeof storedPrices.bulk === 'number' && storedPrices.bulk !== storedPrices.cash) {
+    bulkPrice = storedPrices.bulk;
+  }
+
+  const newPrices = {
+    cash: freshPrices.cash,
+    regular: freshPrices.regular,
+    vip: vipPrice,
+    bulk: bulkPrice,
+  };
+
+  // Handle dual products (kg prices)
+  if (props.product.trackingType === 'dual' && props.product.unitWeight > 0 && freshPrices.kg) {
+    let vipKgPrice = freshPrices.kg.vip;
+    
+    // Preserve existing VIP kg price if it was manually set
+    if (storedPrices.kg?.vip && typeof storedPrices.kg.vip === 'number' && storedPrices.kg.vip !== freshPrices.kg.regular) {
+      vipKgPrice = storedPrices.kg.vip;
+    }
+
+    newPrices.kg = {
+      regular: freshPrices.kg.regular,
+      threePlusDiscount: freshPrices.kg.threePlusDiscount,
+      vip: vipKgPrice,
+    };
+  }
+
+  emit('update-price', props.product.id, newPrices);
 }
 </script>
 

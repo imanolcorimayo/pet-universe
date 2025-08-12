@@ -15,6 +15,70 @@
       </div>
 
       <div v-else class="space-y-6">
+        <!-- Invoice Information ---->
+        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <h3 class="text-md font-medium mb-3 flex items-center gap-2">
+            <TablerReceipt class="h-5 w-5 text-gray-600" />
+            Información de Factura
+          </h3>
+          <p class="text-sm text-gray-600 mb-3">Datos de la factura de compra</p>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="text-sm font-medium text-gray-700">Número de Factura</label>
+              <input
+                type="text"
+                v-model="invoiceNumber"
+                class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                placeholder="Ej: 0001-00012345"
+                :disabled="isSubmitting"
+              />
+            </div>
+            
+            <div>
+              <label class="text-sm font-medium text-gray-700">Fecha de Factura</label>
+              <input
+                type="date"
+                v-model="invoiceDate"
+                class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                :disabled="isSubmitting"
+              />
+            </div>
+            
+            <div>
+              <label class="text-sm font-medium text-gray-700">Tipo de Factura</label>
+              <select
+                v-model="invoiceType"
+                class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                :disabled="isSubmitting"
+              >
+                <option value="">Seleccionar</option>
+                <option value="A">A - Responsable Inscripto</option>
+                <option value="B">B - Responsable Inscripto a CF</option>
+                <option value="C">C - Consumidor Final</option>
+                <option value="X">X - Otros</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="mt-4">
+            <label class="text-sm font-medium text-gray-700">Cargos Adicionales</label>
+            <div class="relative">
+              <span class="absolute left-3 top-3 text-gray-500">$</span>
+              <input
+                type="number"
+                v-model.number="additionalCharges"
+                class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 !pl-8"
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                :disabled="isSubmitting"
+              />
+            </div>
+            <p class="text-xs text-gray-600 mt-1">Envío, impuestos, gastos administrativos, etc.</p>
+          </div>
+        </div>
+
         <!-- Supplier Selection Card -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-md font-medium mb-3 flex items-center gap-2">
@@ -363,6 +427,7 @@
           </div>
         </div>
 
+
         <!-- Notes -->
         <div class="flex flex-col gap-2">
           <label class="text-sm font-medium text-gray-700">Notas adicionales</label>
@@ -447,6 +512,7 @@ const inventoryStore = useInventoryStore();
 const suppliersStore = useSupplierStore();
 const globalCashRegisterStore = useGlobalCashRegisterStore();
 const indexStore = useIndexStore();
+const purchaseInvoiceStore = usePurchaseInvoiceStore();
 const loading = ref(false);
 const isSubmitting = ref(false);
 
@@ -466,6 +532,12 @@ const paymentMethod = ref(null);
 const paidAmount = ref(0);
 const dueDate = ref('');
 const isReported = ref(true);
+
+// Invoice information
+const invoiceNumber = ref('');
+const invoiceDate = ref('');
+const invoiceType = ref('');
+const additionalCharges = ref(0);
 
 // Watch for payment method changes to automatically set isReported
 watch(paymentMethod, (newPaymentMethod) => {
@@ -562,7 +634,14 @@ function resetForm() {
   paidAmount.value = 0;
   dueDate.value = '';
   isReported.value = true;
+  
+  // Reset invoice fields
+  invoiceNumber.value = '';
+  invoiceDate.value = '';
+  invoiceType.value = '';
+  additionalCharges.value = 0;
 }
+
 
 // Supplier methods
 function onSupplierInput() {
@@ -781,6 +860,32 @@ async function savePurchase() {
 
       if (!debtResult) {
         useToast(ToastEvents.warning, 'Compra registrada pero no se pudo crear la deuda pendiente');
+      }
+    }
+
+    // Create invoice record if invoice fields are filled
+    if (invoiceNumber.value.trim() || invoiceDate.value || invoiceType.value) {
+      const invoiceData = {
+        supplierId: selectedSupplier.value.id,
+        supplierName: selectedSupplier.value.name,
+        invoiceNumber: invoiceNumber.value.trim(),
+        invoiceDate: invoiceDate.value ? new Date(invoiceDate.value) : new Date(),
+        invoiceType: invoiceType.value,
+        notes: purchaseNotes.value || '',
+        additionalCharges: additionalCharges.value || 0,
+        totalSpent: totalAmount + (additionalCharges.value || 0),
+        products: validProductItems.value.map(item => ({
+          productId: item.selectedProduct.id,
+          productName: item.selectedProduct.name,
+          quantity: item.unitsChange,
+          unitCost: item.unitCost,
+          totalCost: item.unitsChange * item.unitCost
+        }))
+      };
+
+      const invoiceResult = await purchaseInvoiceStore.createInvoice(invoiceData);
+      if (!invoiceResult) {
+        useToast(ToastEvents.warning, 'Compra registrada pero no se pudo crear el registro de factura');
       }
     }
 

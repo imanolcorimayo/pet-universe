@@ -191,6 +191,7 @@ const filteredProducts = computed(() => {
   return products.sort((a, b) => a.name.localeCompare(b.name));
 });
 
+
 // Methods
 async function loadInitialData() {
   isLoading.value = true;
