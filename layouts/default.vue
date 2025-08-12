@@ -177,6 +177,12 @@
               >
                 <PhCurrencyDollarFill class="text-gray-500" /> Precios
               </NuxtLink>
+              <NuxtLink
+                to="/facturas-compra"
+                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              >
+                <PhFileTextFill class="text-gray-500" /> Facturas de Compra
+              </NuxtLink>
             </div>
           </li>
           <li>
@@ -193,14 +199,6 @@
               class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
               <PhTruckFill class="text-gray-500" /> Proveedores
-            </NuxtLink>
-          </li>
-          <li>
-            <NuxtLink
-              to="/facturas-compra"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
-            >
-              <PhFileTextFill class="text-gray-500" /> Facturas de Compra
             </NuxtLink>
           </li>
           <li>
