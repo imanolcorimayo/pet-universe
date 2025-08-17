@@ -1,35 +1,63 @@
 <template>
   <div class="pricing-table-container">
     <!-- Desktop Table -->
-    <div class="hidden md:block overflow-x-auto max-h-[calc(100vh-400px)] overflow-y-auto">
-      <table class="min-w-full table-fixed">
+    <div
+      class="hidden md:block overflow-x-auto max-h-[calc(100vh-400px)] overflow-y-auto"
+    >
+      <table class="table-fixed">
+        <colgroup>
+          <col class="max-w-[300px]" />
+          <col class="w-[150px]" />
+          <col class="w-[150px]" />
+          <col class="w-[150px]" />
+          <col class="w-[150px]" />
+          <col class="w-[150px]" />
+          <col class="w-[150px]" />
+          <col class="w-[150px]" />
+        </colgroup>
         <thead class="sticky top-0 bg-gray-50 z-10">
           <tr>
-            <th class="sticky left-0 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 w-[250px] z-20">
+            <th
+              class="sticky left-0 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 z-20"
+            >
               Producto
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px] bg-white">
+            <th
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px] bg-white"
+            >
               Costo
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px] bg-white">
+            <th
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px] bg-white"
+            >
               Efectivo
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px] bg-white">
+            <th
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px] bg-white"
+            >
               Regular
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px] bg-white">
+            <th
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px] bg-white"
+            >
               Mayorista
             </th>
             <!-- Dual product kg columns -->
             <template v-if="hasDualProducts">
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px] bg-blue-50">
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px] bg-blue-50"
+              >
                 Regular/KG
               </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px] bg-blue-50">
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px] bg-blue-50"
+              >
                 3+/KG
               </th>
             </template>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px] bg-white">
+            <th
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px] bg-white"
+            >
               Acciones
             </th>
           </tr>
@@ -77,22 +105,43 @@
       <div class="flex justify-between items-center text-sm text-gray-600">
         <span>{{ products.length }} productos mostrados</span>
         <span>
-          Actualización en tiempo real • 
-          <button @click="showHelpTooltip = !showHelpTooltip" class="text-blue-600 hover:text-blue-800">
+          Actualización en tiempo real •
+          <button
+            @click="showHelpTooltip = !showHelpTooltip"
+            class="text-blue-600 hover:text-blue-800"
+          >
             ¿Cómo funciona?
           </button>
         </span>
       </div>
-      
+
       <!-- Help tooltip -->
-      <div v-if="showHelpTooltip" class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+      <div
+        v-if="showHelpTooltip"
+        class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800"
+      >
         <div class="space-y-2">
-          <p><strong>Efectivo:</strong> Precio base con margen de ganancia aplicado</p>
+          <p>
+            <strong>Efectivo:</strong> Precio base con margen de ganancia
+            aplicado
+          </p>
           <p><strong>Regular:</strong> 25% más que el precio efectivo</p>
-          <p><strong>VIP y Mayorista:</strong> Inicialmente iguales al efectivo, luego editables</p>
-          <p><strong>Regular/kg:</strong> Precio base por kilogramo para productos duales</p>
-          <p><strong>3+/kg:</strong> Descuento automático para ventas de 3 kilogramos o más</p>
-          <p><strong>%:</strong> Margen de ganancia sobre el costo. Confirma los cambios antes de guardar.</p>
+          <p>
+            <strong>VIP y Mayorista:</strong> Inicialmente iguales al efectivo,
+            luego editables
+          </p>
+          <p>
+            <strong>Regular/kg:</strong> Precio base por kilogramo para
+            productos duales
+          </p>
+          <p>
+            <strong>3+/kg:</strong> Descuento automático para ventas de 3
+            kilogramos o más
+          </p>
+          <p>
+            <strong>%:</strong> Margen de ganancia sobre el costo. Confirma los
+            cambios antes de guardar.
+          </p>
         </div>
       </div>
     </div>
@@ -104,9 +153,9 @@
 
 <script setup>
 // Import components
-import PricingRow from '~/components/Pricing/PricingRow.vue';
-import PricingMobileCard from '~/components/Pricing/PricingMobileCard.vue';
-import ConfirmDialogue from '~/components/ConfirmDialogue.vue';
+import PricingRow from "~/components/Pricing/PricingRow.vue";
+import PricingMobileCard from "~/components/Pricing/PricingMobileCard.vue";
+import ConfirmDialogue from "~/components/ConfirmDialogue.vue";
 
 // Props
 const props = defineProps({
@@ -123,7 +172,12 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(['update-cost', 'update-margin', 'update-price', 'update-three-plus-discount']);
+const emit = defineEmits([
+  "update-cost",
+  "update-margin",
+  "update-price",
+  "update-three-plus-discount",
+]);
 
 // Reactive data
 const showHelpTooltip = ref(false);
@@ -135,12 +189,12 @@ const pendingActions = ref([]);
 
 // Computed properties
 const hasDualProducts = computed(() => {
-  return props.products.some(product => product.trackingType === 'dual');
+  return props.products.some((product) => product.trackingType === "dual");
 });
 
 // Methods
 function getInventoryForProduct(productId) {
-  return props.inventoryItems.find(item => item.productId === productId);
+  return props.inventoryItems.find((item) => item.productId === productId);
 }
 
 function setEditingProduct(productId) {
@@ -166,39 +220,39 @@ function toggleExpanded(productId) {
 // Handle cost update with confirmation
 function handleCostUpdate(productId, cost) {
   addToPendingActions({
-    type: 'cost',
-    data: { productId, cost }
+    type: "cost",
+    data: { productId, cost },
   });
 }
 
 // Handle margin update with confirmation
 function handleMarginUpdate(productId, margin) {
   addToPendingActions({
-    type: 'margin',
-    data: { productId, margin }
+    type: "margin",
+    data: { productId, margin },
   });
 }
 
 // Handle price update with confirmation
 function handlePriceUpdate(productId, pricing) {
   addToPendingActions({
-    type: 'price',
-    data: { productId, pricing }
+    type: "price",
+    data: { productId, pricing },
   });
 }
 
 // Handle 3+ kg discount update with confirmation
 function handleThreePlusDiscountUpdate(productId, discountPercentage) {
   addToPendingActions({
-    type: 'three-plus-discount',
-    data: { productId, discountPercentage }
+    type: "three-plus-discount",
+    data: { productId, discountPercentage },
   });
 }
 
 // Add action to pending list and show confirmation if needed
 function addToPendingActions(action) {
   pendingActions.value.push(action);
-  
+
   // If this is the first pending action, show confirmation dialog
   if (pendingActions.value.length === 1) {
     showConfirmationDialog();
@@ -208,24 +262,25 @@ function addToPendingActions(action) {
 // Show confirmation dialog for all pending actions
 async function showConfirmationDialog() {
   if (pendingActions.value.length === 0) return;
-  
+
   const actionsCount = pendingActions.value.length;
-  const message = actionsCount === 1 
-    ? getActionMessage(pendingActions.value[0])
-    : `¿Confirmar ${actionsCount} cambios de precios?`;
-  
+  const message =
+    actionsCount === 1
+      ? getActionMessage(pendingActions.value[0])
+      : `¿Confirmar ${actionsCount} cambios de precios?`;
+
   const confirmed = await confirmDialog.value.openDialog({
-    title: 'Confirmar cambios',
+    title: "Confirmar cambios",
     message: message,
-    textConfirmButton: 'Confirmar',
-    textCancelButton: 'Cancelar',
-    edit: true
+    textConfirmButton: "Confirmar",
+    textCancelButton: "Cancelar",
+    edit: true,
   });
-  
+
   if (confirmed) {
     executeAllPendingActions();
   }
-  
+
   // Clear pending actions after handling
   pendingActions.value = [];
 }
@@ -234,48 +289,68 @@ async function showConfirmationDialog() {
 function getActionMessage(action) {
   const { type, data } = action;
   switch (type) {
-    case 'cost':
-      return `¿Confirmar cambio de costo a $${data.cost ? data.cost.toFixed(2) : '0.00'}?`;
-    case 'margin':
-      return `¿Confirmar cambio de margen a ${data.margin ? data.margin.toFixed(1) : '0.0'}%?`;
-    case 'three-plus-discount':
-      return `¿Confirmar cambio de descuento 3+ kg a ${data.discountPercentage ? data.discountPercentage.toFixed(1) : '0.0'}%?`;
-    case 'price':
+    case "cost":
+      return `¿Confirmar cambio de costo a $${
+        data.cost ? data.cost.toFixed(2) : "0.00"
+      }?`;
+    case "margin":
+      return `¿Confirmar cambio de margen a ${
+        data.margin ? data.margin.toFixed(1) : "0.0"
+      }%?`;
+    case "three-plus-discount":
+      return `¿Confirmar cambio de descuento 3+ kg a ${
+        data.discountPercentage ? data.discountPercentage.toFixed(1) : "0.0"
+      }%?`;
+    case "price":
       const priceType = Object.keys(data.pricing)[0];
       const priceValue = Object.values(data.pricing)[0];
-      
+
       // Handle nested kg pricing structure
-      if (priceType === 'kg' && typeof priceValue === 'object') {
+      if (priceType === "kg" && typeof priceValue === "object") {
         const kgPriceType = Object.keys(priceValue)[0];
         const kgPriceValue = Object.values(priceValue)[0];
-        const numericValue = typeof kgPriceValue === 'number' ? kgPriceValue : (parseFloat(kgPriceValue) || 0);
-        return `¿Confirmar cambio de precio ${kgPriceType}/kg a $${numericValue.toFixed(2)}?`;
+        const numericValue =
+          typeof kgPriceValue === "number"
+            ? kgPriceValue
+            : parseFloat(kgPriceValue) || 0;
+        return `¿Confirmar cambio de precio ${kgPriceType}/kg a $${numericValue.toFixed(
+          2
+        )}?`;
       }
-      
+
       // Handle regular pricing structure
-      const numericValue = typeof priceValue === 'number' ? priceValue : (parseFloat(priceValue) || 0);
-      return `¿Confirmar cambio de precio ${priceType} a $${numericValue.toFixed(2)}?`;
+      const numericValue =
+        typeof priceValue === "number"
+          ? priceValue
+          : parseFloat(priceValue) || 0;
+      return `¿Confirmar cambio de precio ${priceType} a $${numericValue.toFixed(
+        2
+      )}?`;
     default:
-      return '¿Confirmar cambio?';
+      return "¿Confirmar cambio?";
   }
 }
 
 // Execute all pending actions
 function executeAllPendingActions() {
-  pendingActions.value.forEach(action => {
+  pendingActions.value.forEach((action) => {
     const { type, data } = action;
     switch (type) {
-      case 'cost':
-        emit('update-cost', data.productId, data.cost);
+      case "cost":
+        emit("update-cost", data.productId, data.cost);
         break;
-      case 'margin':
-        emit('update-margin', data.productId, data.margin);
+      case "margin":
+        emit("update-margin", data.productId, data.margin);
         break;
-      case 'price':
-        emit('update-price', data.productId, data.pricing);
+      case "price":
+        emit("update-price", data.productId, data.pricing);
         break;
-      case 'three-plus-discount':
-        emit('update-three-plus-discount', data.productId, data.discountPercentage);
+      case "three-plus-discount":
+        emit(
+          "update-three-plus-discount",
+          data.productId,
+          data.discountPercentage
+        );
         break;
     }
   });

@@ -1,10 +1,10 @@
 <template>
   <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100">
     <!-- Product Info (Sticky) -->
-    <td class="sticky left-0 bg-white px-4 py-4 border-r border-gray-200 z-10 w-[250px]">
-      <div class="flex items-center justify-between">
-        <div class="flex flex-col">
-          <div class="font-medium text-gray-900 text-sm truncate">
+    <td class="sticky left-0 bg-white px-4 py-4 border-r border-gray-200 z-10 max-w-[300px]">
+      <div class="flex items-center justify-between max-w-full">
+        <div class="flex flex-col max-w-full min-w-0">
+          <div class="font-medium text-gray-900 text-sm truncate min-w-0">
             {{ displayName }}
           </div>
           <div class="flex items-center gap-2 mt-1">

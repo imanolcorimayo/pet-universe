@@ -27,6 +27,7 @@
           <input
             v-model="searchQuery"
             type="text"
+            style="padding-block: 0.5rem; padding-inline: 0.75rem;"
             placeholder="Código, nombre, marca o descripción..."
             class="input"
           />
