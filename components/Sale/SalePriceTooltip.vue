@@ -64,46 +64,36 @@
           </div>
         </div>
         
-        <!-- Custom price option -->
-        <div class="border-t pt-4">
+        <!-- VIP custom price option -->
+        <div v-if="selectedPriceType === 'vip'" class="border-t pt-4">
           <div class="space-y-3">
+            <h4 class="text-sm font-medium text-gray-700">Precio VIP personalizado</h4>
+            
             <div class="flex items-center gap-2">
+              <span class="text-sm text-gray-500">$</span>
               <input
-                type="radio"
-                value="custom"
-                v-model="selectedPriceType"
-                class="w-3 h-3 text-primary"
+                ref="customPriceInput"
+                type="number"
+                v-model.number="customPrice"
+                class="flex-1 p-2 border rounded-md text-sm"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
               />
-              <label class="text-sm font-medium">Precio personalizado</label>
             </div>
             
-            <div v-if="selectedPriceType === 'custom'" class="ml-5">
-              <div class="flex items-center gap-2">
-                <span class="text-sm text-gray-500">$</span>
-                <input
-                  ref="customPriceInput"
-                  type="number"
-                  v-model.number="customPrice"
-                  class="flex-1 p-2 border rounded-md text-sm"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                />
-              </div>
-              
-              <div v-if="customPrice > 0 && customPrice < regularPrice" class="mt-2">
-                <span class="text-xs text-green-600">
-                  Descuento: ${{ formatNumber(regularPrice - customPrice) }} 
-                  ({{ formatNumber(((regularPrice - customPrice) / regularPrice) * 100) }}%)
-                </span>
-              </div>
+            <div v-if="customPrice > 0 && customPrice < regularPrice" class="mt-2">
+              <span class="text-xs text-green-600">
+                Descuento: ${{ formatNumber(regularPrice - customPrice) }} 
+                ({{ formatNumber(((regularPrice - customPrice) / regularPrice) * 100) }}%)
+              </span>
             </div>
           </div>
         </div>
       </div>
     </template>
     
-    <template #footer="{ closeTooltip }" v-if="selectedPriceType === 'custom'">
+    <template #footer="{ closeTooltip }" v-if="selectedPriceType === 'vip'">
       <div class="flex justify-end gap-2">
         <button
           @click="closeTooltip"
@@ -177,9 +167,9 @@ const regularPrice = computed(() => {
 const availablePrices = computed(() => {
   const prices = {};
   const basePrices = props.trackingType === 'dual' 
-    ? (props.unitType === 'unit' ? props.productPrices.unit || props.productPrices : props.productPrices.kg || props.productPrices)
+    ? (props.unitType === 'unit' ? (props.productPrices.unit || props.productPrices) : props.productPrices.kg || props.productPrices)
     : props.productPrices;
-  
+
   // Regular price
   prices.regular = {
     price: basePrices.regular || 0,
@@ -187,34 +177,34 @@ const availablePrices = computed(() => {
   };
   
   // Cash price
-  if (basePrices.cash && basePrices.cash < basePrices.regular) {
+  if (basePrices.cash) {
     prices.cash = {
       price: basePrices.cash,
-      discount: basePrices.regular - basePrices.cash
+      discount: Math.max(parseFloat((basePrices.regular - basePrices.cash), 0).toFixed(2), 0)
     };
   }
   
   // VIP price
-  if (basePrices.vip && basePrices.vip < basePrices.regular) {
+  if (basePrices.vip) {
     prices.vip = {
       price: basePrices.vip,
-      discount: basePrices.regular - basePrices.vip
+      discount: Math.max(parseFloat((basePrices.regular - basePrices.vip), 0).toFixed(2), 0)
     };
   }
   
   // Bulk price (only for units)
-  if (props.unitType === 'unit' && basePrices.bulk && basePrices.bulk < basePrices.regular) {
+  if (props.unitType === 'unit' && basePrices.bulk) {
     prices.bulk = {
       price: basePrices.bulk,
-      discount: basePrices.regular - basePrices.bulk
+      discount: Math.max(parseFloat((basePrices.regular - basePrices.bulk), 0).toFixed(2), 0)
     };
   }
   
   // 3+ kg discount (only for kg)
-  if (props.unitType === 'kg' && basePrices.threePlusDiscount && basePrices.threePlusDiscount < basePrices.regular) {
+  if (props.unitType === 'kg' && basePrices.threePlusDiscount) {
     prices.threePlusDiscount = {
       price: basePrices.threePlusDiscount,
-      discount: basePrices.regular - basePrices.threePlusDiscount
+      discount: Math.max(parseFloat((basePrices.regular - basePrices.threePlusDiscount), 0).toFixed(2), 0)
     };
   }
   
@@ -225,16 +215,14 @@ const hasDiscount = computed(() => {
   return props.currentPrice < regularPrice.value;
 });
 
-// Methods
-function selectPriceType(priceType) {
-  selectedPriceType.value = priceType;
-  if (priceType !== 'custom') {
-    customPrice.value = 0;
-  }
-}
-
 function selectAndApplyPrice(priceType, closeTooltip) {
   selectedPriceType.value = priceType;
+  
+  // If VIP is selected, set the custom price input to the VIP price and don't close tooltip
+  if (priceType === 'vip') {
+    customPrice.value = availablePrices.value[priceType]?.price || 0;
+    return;
+  }
   
   const finalPrice = availablePrices.value[priceType]?.price || 0;
   
@@ -243,25 +231,17 @@ function selectAndApplyPrice(priceType, closeTooltip) {
     price: finalPrice,
     isCustom: false
   });
-  
+
   closeTooltip();
 }
 
 function applyPrice(closeTooltip) {
-  let finalPrice = 0;
-  let finalPriceType = selectedPriceType.value;
-  
-  if (selectedPriceType.value === 'custom') {
-    finalPrice = customPrice.value || 0;
-    finalPriceType = 'regular'; // Set to regular for data consistency
-  } else {
-    finalPrice = availablePrices.value[selectedPriceType.value]?.price || 0;
-  }
+  const finalPrice = customPrice.value || 0;
   
   emit('apply-price', {
-    priceType: finalPriceType,
+    priceType: 'vip',
     price: finalPrice,
-    isCustom: selectedPriceType.value === 'custom'
+    isCustom: true
   });
   
   closeTooltip();
@@ -287,12 +267,15 @@ watch(() => props.currentPriceType, (newVal) => {
   selectedPriceType.value = newVal;
 });
 
-// Check if current price is custom
+// Check if current price is custom VIP
 watchEffect(() => {
-  const standardPrice = availablePrices.value[props.currentPriceType]?.price || 0;
-  if (props.currentPrice !== standardPrice && props.currentPrice > 0) {
-    selectedPriceType.value = 'custom';
-    customPrice.value = props.currentPrice;
+  if (props.currentPriceType === 'vip') {
+    const standardVipPrice = availablePrices.value.vip?.price || 0;
+    if (props.currentPrice !== standardVipPrice && props.currentPrice > 0) {
+      customPrice.value = props.currentPrice;
+    } else {
+      customPrice.value = standardVipPrice;
+    }
   }
 });
 </script>

@@ -119,8 +119,8 @@
                       type="number"
                       v-model.number="item.quantity"
                       class="w-full !p-1.5 border rounded-md text-sm text-center"
-                      min="0.01"
-                      step="0.01"
+                      step="1"
+                      min="0"
                       :disabled="isLoading || !item.productId"
                       @input="updateItemTotal(index)"
                     />
@@ -967,9 +967,17 @@ function updateItemTotal(index) {
   if (!product) return;
   
   // Apply 3+ kg discount pricing rule if applicable for kg sales
-  if (item.unitType === 'kg' && item.quantity >= 3 && item.priceType === 'regular') {
+  if (item.unitType === 'kg' && item.quantity > 3 && item.priceType === 'regular') {
     // Switch to threePlusDiscount pricing
     item.priceType = 'threePlusDiscount';
+    updatePriceFromType(index);
+    return;
+  }
+
+  // Remove threePlusDiscount if conditions are not met
+  if (item.unitType === 'kg' && item.quantity <= 3 && item.priceType === 'threePlusDiscount') {
+    // Switch to regular pricing
+    item.priceType = 'regular';
     updatePriceFromType(index);
     return;
   }

@@ -3,7 +3,7 @@ import { ToastEvents } from "~/interfaces";
 export default defineNuxtRouteMiddleware(async (to, from) => {
   // If going to /welcome or blocked just continue
   // process.server should never be activated since ssr was set to false
-  if (to.path.includes("/welcome") || to.path.includes("/blocked") || process.server) return;
+  if (to.path.includes("/welcome") || to.path.includes("/blocked")) return;
 
   // If going to the home page, always redirect to /dashboard
   if (to.path === "/") return navigateTo("/dashboard");

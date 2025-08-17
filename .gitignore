@@ -23,4 +23,8 @@ logs
 .env.*
 !.env.example
 
+# Firebase Deployment
 .firebase
+
+# Firebase service account
+/scripts/*
