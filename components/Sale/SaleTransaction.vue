@@ -525,6 +525,7 @@
                   :disabled="isLoading"
                   min="0"
                   step="0.01"
+                  @input="payment.amount = roundToTwo(payment.amount)"
                 />
               </div>
             </div>
@@ -709,24 +710,30 @@ const selectedProductIds = computed(() => {
     .map(item => item.productId);
 });
 
+// Subtotal w/o discounts
 const subtotal = computed(() => {
-  return saleItems.value.reduce((sum, item) => sum + item.totalPrice, 0);
+  return roundToTwo(saleItems.value.reduce((sum, item) => {
+    return sum + roundToTwo(item.quantity * item.regularPrice);
+  }, 0));
 });
 
+
 const totalDiscount = computed(() => {
-  return saleItems.value.reduce((sum, item) => sum + (item.appliedDiscount || 0), 0);
+  return roundToTwo(saleItems.value.reduce((sum, item) => sum + getTotalItemDiscount(item), 0));
 });
 
 const total = computed(() => {
-  return subtotal.value;
+  return roundToTwo(saleItems.value.reduce((sum, item) => {
+    return sum + roundToTwo(item.totalPrice);
+  }, 0));
 });
 
 const paymentTotal = computed(() => {
-  return paymentDetails.value.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  return roundToTwo(paymentDetails.value.reduce((sum, payment) => sum + (payment.amount || 0), 0));
 });
 
 const paymentDifference = computed(() => {
-  return total.value - paymentTotal.value;
+  return roundToTwo(total.value - paymentTotal.value);
 });
 
 const paymentTotalClass = computed(() => {
@@ -802,6 +809,11 @@ const stockAlerts = computed(() => {
 watch(paymentDetails, () => {
   updateIsReportedBasedOnPayment();
 }, { deep: true });
+
+// Watch for changes in total to update payment methods
+watch(total, (newTotal) => {
+  updatePaymentMethodsWithNewTotal(newTotal);
+});
 
 // Event emitter
 const emit = defineEmits(['sale-completed']);
@@ -925,13 +937,13 @@ function updatePriceFromType(index) {
       selectedPrice = product.prices[item.priceType] || 0;
     }
     
-    // Store the regular price for discount calculation
-    item.regularPrice = regularPrice;
-    item.unitPrice = selectedPrice;
+    // Store the regular price for discount calculation (rounded)
+    item.regularPrice = roundToTwo(regularPrice);
+    item.unitPrice = roundToTwo(selectedPrice);
     
-    // Calculate discount based on price type selection
+    // Calculate discount based on price type selection (rounded)
     if (item.priceType !== 'regular') {
-      const priceTypeDiscount = regularPrice - selectedPrice;
+      const priceTypeDiscount = roundToTwo(regularPrice - selectedPrice);
       item.appliedDiscount = priceTypeDiscount > 0 ? priceTypeDiscount : 0;
     } else {
       item.appliedDiscount = 0;
@@ -982,38 +994,41 @@ function updateItemTotal(index) {
     return;
   }
   
-  // Calculate base total price
-  let baseTotal = item.quantity * item.unitPrice;
+  // Calculate base total price (rounded)
+  let baseTotal = roundToTwo(item.quantity * item.unitPrice);
   
-  // Apply custom discount if set
+  // Apply custom discount if set (rounded)
   let customDiscountAmount = 0;
   if (item.customDiscount > 0) {
     if (item.customDiscountType === 'percentage') {
-      customDiscountAmount = baseTotal * (item.customDiscount / 100);
+      customDiscountAmount = roundToTwo(baseTotal * (item.customDiscount / 100));
     } else {
-      customDiscountAmount = item.customDiscount;
+      customDiscountAmount = roundToTwo(item.customDiscount);
     }
   }
   
-  // Check if manually edited price is lower than regular price
+  // Check if manually edited price is lower than regular price (rounded)
   let manualDiscountAmount = 0;
   if (item.regularPrice > 0 && item.unitPrice < item.regularPrice) {
-    manualDiscountAmount = (item.regularPrice - item.unitPrice) * item.quantity;
+    manualDiscountAmount = roundToTwo((item.regularPrice - item.unitPrice) * item.quantity);
   }
   
-  // Calculate total discount (price type discount + custom discount + manual discount)
-  const priceTypeDiscount = item.appliedDiscount * item.quantity;
-  const totalDiscount = priceTypeDiscount + customDiscountAmount + manualDiscountAmount;
+  // Calculate total discount (price type discount + custom discount + manual discount) - all rounded
+  const priceTypeDiscount = roundToTwo(item.appliedDiscount * item.quantity);
+  const totalDiscountAmount = roundToTwo(priceTypeDiscount + customDiscountAmount + manualDiscountAmount);
   
-  // Update applied discount for display
-  item.appliedDiscount = totalDiscount / item.quantity;
+  // Update applied discount for display (rounded)
+  item.appliedDiscount = roundToTwo(totalDiscountAmount / item.quantity);
   
-  // Calculate final total price
-  item.totalPrice = baseTotal - customDiscountAmount;
-  
-  // Only auto-update payment if it's the first time or if payment is currently zero
-  if (paymentDetails.value.length > 0 && paymentDetails.value[0].amount === 0) {
-    paymentDetails.value[0].amount = total.value;
+  // Calculate final total price (rounded)
+  item.totalPrice = roundToTwo(baseTotal - customDiscountAmount);
+}
+
+// Function to update payment methods when total changes
+function updatePaymentMethodsWithNewTotal(newTotal) {
+  if (paymentDetails.value.length > 0) {
+    // Update the first payment method with the new total
+    paymentDetails.value[0].amount = roundToTwo(newTotal);
   }
 }
 
@@ -1031,8 +1046,8 @@ function updateIsReportedBasedOnPayment() {
 
 // Methods for payment management
 function addPaymentMethod() {
-  // Determine the remaining amount
-  const remainingAmount = Math.max(0, paymentDifference.value);
+  // Determine the remaining amount (rounded)
+  const remainingAmount = roundToTwo(Math.max(0, paymentDifference.value));
   
   // Find a payment method not used yet
   const usedMethods = new Set(paymentDetails.value.map(p => p.paymentMethod));
@@ -1059,17 +1074,6 @@ function removePaymentMethod(index) {
 // Product stock helpers
 function getProductStock(productId) {
   return inventoryItems.value.find(item => item.productId === productId);
-}
-
-function formatProductStock(inventory) {
-  if (!inventory) return 'Sin stock';
-  
-  const { unitsInStock, openUnitsWeight } = inventory;
-  
-  if (openUnitsWeight > 0) {
-    return `${unitsInStock} unid. + ${openUnitsWeight.toFixed(2)} kg`;
-  }
-  return `${unitsInStock} unidades`;
 }
 
 function canSellByWeight(productId) {
@@ -1131,33 +1135,33 @@ function getPriceTypeLabel(priceType) {
   return labels[priceType] || priceType;
 }
 
-// Get price discount amount
+// Get price discount amount (rounded)
 function getPriceDiscount(item) {
   if (!item.regularPrice || item.priceType === 'regular') return 0;
-  return Math.max(0, item.regularPrice - item.unitPrice);
+  return roundToTwo(Math.max(0, item.regularPrice - item.unitPrice));
 }
 
-// Get custom discount amount
+// Get custom discount amount (rounded)
 function getCustomDiscountAmount(item) {
   if (!item.customDiscount || item.customDiscount <= 0) return 0;
   
-  const baseTotal = item.quantity * item.unitPrice;
+  const baseTotal = roundToTwo(item.quantity * item.unitPrice);
   
   if (item.customDiscountType === 'percentage') {
-    return Math.min(baseTotal * (item.customDiscount / 100), baseTotal);
+    return roundToTwo(Math.min(baseTotal * (item.customDiscount / 100), baseTotal));
   } else {
-    return Math.min(item.customDiscount, baseTotal);
+    return roundToTwo(Math.min(item.customDiscount, baseTotal));
   }
 }
 
-// Get total item discount
+// Get total item discount (rounded)
 function getTotalItemDiscount(item) {
   if (!item.regularPrice) return 0;
   
-  const originalTotal = item.quantity * item.regularPrice;
-  const currentTotal = item.totalPrice;
+  const originalTotal = roundToTwo(item.quantity * item.regularPrice);
+  const currentTotal = roundToTwo(item.totalPrice);
   
-  return Math.max(0, originalTotal - currentTotal);
+  return roundToTwo(Math.max(0, originalTotal - currentTotal));
 }
 
 // Client management
@@ -1213,26 +1217,29 @@ async function submitForm() {
       }
     }
     
-    // Prepare sale data
+    // Prepare sale data with rounded values
     const saleData = {
       clientId: selectedClientId.value || null,
       clientName,
       items: saleItems.value.map(item => ({
         productId: item.productId,
         productName: item.productName,
-        quantity: item.quantity,
+        quantity: roundToTwo(item.quantity),
         unitType: item.unitType,
-        unitPrice: item.unitPrice,
-        totalPrice: item.totalPrice,
-        appliedDiscount: item.appliedDiscount || 0,
+        unitPrice: roundToTwo(item.unitPrice),
+        totalPrice: roundToTwo(item.totalPrice),
+        appliedDiscount: roundToTwo(item.appliedDiscount || 0),
         priceType: item.priceType,
-        customDiscount: item.customDiscount || 0,
+        customDiscount: roundToTwo(item.customDiscount || 0),
         customDiscountType: item.customDiscountType || 'amount'
       })),
-      paymentDetails: paymentDetails.value,
-      subtotal: subtotal.value,
-      totalDiscount: totalDiscount.value,
-      total: total.value,
+      paymentDetails: paymentDetails.value.map(payment => ({
+        paymentMethod: payment.paymentMethod,
+        amount: roundToTwo(payment.amount)
+      })),
+      subtotal: roundToTwo(subtotal.value),
+      totalDiscount: roundToTwo(totalDiscount.value),
+      total: roundToTwo(total.value),
       isReported: isReported.value,
       notes: notes.value
     };
@@ -1248,7 +1255,7 @@ async function submitForm() {
             type: 'customer',
             entityId: selectedClientId.value,
             entityName: clientName || 'Cliente',
-            originalAmount: paymentDifference.value,
+            originalAmount: roundToTwo(paymentDifference.value),
             originType: 'sale',
             originId: result.id,
             originDescription: `Venta #${saleStore.nextSaleNumber} - Saldo pendiente`,
@@ -1277,9 +1284,14 @@ async function submitForm() {
   }
 }
 
+// Helper for rounding to 2 decimals
+function roundToTwo(value) {
+  return Math.round((value || 0) * 100) / 100;
+}
+
 // Helper for formatting numbers
 function formatNumber(value) {
-  return Number(value || 0).toFixed(2);
+  return roundToTwo(value).toFixed(2);
 }
 
 // Stock display helpers
