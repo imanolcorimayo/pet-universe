@@ -56,6 +56,7 @@ export interface CreateResult {
 
 export interface UpdateResult {
   success: boolean;
+  data?: DocumentWithId;
   error?: string;
 }
 

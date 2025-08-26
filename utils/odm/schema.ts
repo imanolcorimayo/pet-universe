@@ -253,7 +253,8 @@ export abstract class Schema {
       }
 
       // Validate schema (only for provided fields)
-      const validation = this.validate({ ...existingData, ...data });
+      const completeData = { ...existingData, ...data };
+      const validation = this.validate(completeData);
       if (!validation.valid) {
         return { 
           success: false, 
@@ -263,7 +264,7 @@ export abstract class Schema {
 
       // Validate references if requested
       if (validateRefs) {
-        const refValidation = await this.validateReferences({ ...existingData, ...data });
+        const refValidation = await this.validateReferences(completeData);
         if (!refValidation.valid) {
           return { 
             success: false, 
@@ -273,12 +274,14 @@ export abstract class Schema {
       }
 
       // Prepare document for saving
-      const prepared = this.prepareForSave(data, true);
+      const prepared = this.prepareForSave(completeData, true);
+
+      console.log("Prepared for Update:", prepared);
 
       // Update in Firestore
       await updateDoc(docRef, prepared);
 
-      return { success: true };
+      return { success: true, data: this.addDocumentId(await getDoc(docRef)) };
     } catch (error) {
       console.error(`Error updating ${this.collectionName}:`, error);
       return { success: false, error: `Failed to update document: ${error}` };

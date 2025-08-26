@@ -1,23 +1,9 @@
-import {
-  addDoc,
-  collection,
-  doc,
-  updateDoc,
-  serverTimestamp,
-  getDocs,
-  getDoc,
-  query,
-  where,
-  orderBy,
-  Timestamp,
-  limit,
-  deleteDoc,
-} from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
+import { ProductSchema } from "~/utils/odm/schemas/productSchema";
 
 // Product interfaces
-
 interface ProductPrices {
   regular: number;
   cash: number;
@@ -33,10 +19,11 @@ interface ProductPrices {
   };
   kg?: {
     regular: number;
-    threePlusDiscount: number; // Price for 3+kg sales (replaced 'cash')
+    threePlusDiscount: number;
     vip: number;
   };
 }
+
 interface Product {
   id: string;
   businessId: string;
@@ -47,7 +34,6 @@ interface Product {
   subcategory: string;
   brand: string;
   
-  // Pricing will be managed separately
   prices?: ProductPrices;
   
   trackingType: "unit" | "weight" | "dual";
@@ -57,8 +43,8 @@ interface Product {
   
   minimumStock: number;
   supplierIds: string[];
-  profitMarginPercentage: number; // Default 30% - for pricing calculations
-  threePlusDiscountPercentage: number; // Default 25% - for 3+kg discount
+  profitMarginPercentage: number;
+  threePlusDiscountPercentage: number;
   
   isActive: boolean;
   createdBy: string;
@@ -85,7 +71,7 @@ interface ProductCategoryFormData {
   description: string;
 }
 
-// Form interfaces - prices removed from product creation form
+// Form interfaces
 interface ProductFormData {
   name: string;
   productCode?: string;
@@ -232,6 +218,11 @@ export const useProductStore = defineStore("product", {
   },
 
   actions: {
+    // Initialize ProductSchema instance
+    _getProductSchema() {
+      return new ProductSchema();
+    },
+
     // Set product filter
     setProductFilter(filter: ProductFilter) {
       this.productFilter = filter;
@@ -315,7 +306,7 @@ export const useProductStore = defineStore("product", {
       }
     },
 
-    // Create a new category
+    // Create a new category (placeholder - would need CategorySchema)
     async createCategory(formData: ProductCategoryFormData): Promise<boolean> {
       const db = useFirestore();
       const user = useCurrentUser();
@@ -366,7 +357,7 @@ export const useProductStore = defineStore("product", {
       }
     },
 
-    // Update an existing category
+    // Update an existing category (placeholder - would need CategorySchema)
     async updateCategory(categoryId: string, formData: ProductCategoryFormData): Promise<boolean> {
       const db = useFirestore();
       const user = useCurrentUser();
@@ -593,95 +584,30 @@ export const useProductStore = defineStore("product", {
 
     // Fetch all products for the current business
     async fetchProducts(forceFetch = false): Promise<boolean> {
-
       if (this.productsLoaded && !forceFetch) {
-        // If products are already loaded and not forcing fetch, return true
         return true;
       }
 
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const { $dayjs } = useNuxtApp();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
-
-        // Clear the Map when fetching all products
         this.productsByIdMap.clear();
         
-        // Get all products for this business
-        const productsQuery = query(
-          collection(db, 'product'),
-          where('businessId', '==', currentBusinessId.value),
-          orderBy('name', 'asc')
-        );
-        
-        const productsSnapshot = await getDocs(productsQuery);
-        
-        // Transform documents to product objects
-        const products = productsSnapshot.docs.map(doc => {
-          const data = doc.data();
-          
-          // Format dates
-          let archivedAt = null;
-          if (data.archivedAt) {
-            archivedAt = $dayjs(data.archivedAt.toDate()).format('YYYY-MM-DD');
-          }
-          
-          const product: Product = {
-            id: doc.id,
-            businessId: data.businessId,
-            name: data.name,
-            productCode: data.productCode || '',
-            description: data.description || '',
-            category: data.category || '',
-            subcategory: data.subcategory || '',
-            brand: data.brand || '',
-            
-            prices: {
-              regular: data.prices?.regular || 0,
-              cash: data.prices?.cash || 0,
-              vip: data.prices?.vip || 0,
-              bulk: data.prices?.bulk || 0,
-              
-              // Handle dual tracking type prices
-              unit: data.trackingType === 'dual' ? {
-                regular: data.prices?.unit?.regular || 0,
-                cash: data.prices?.unit?.cash || 0,
-                vip: data.prices?.unit?.vip || 0,
-                bulk: data.prices?.unit?.bulk || data.prices?.kg?.bulk || 0,
-              } : undefined,
-              
-              kg: data.trackingType === 'dual' ? {
-                regular: data.prices?.kg?.regular || 0,
-                threePlusDiscount: data.prices?.kg?.threePlusDiscount || data.prices?.kg?.cash || 0, // Backward compatibility
-                vip: data.prices?.kg?.vip || 0,
-              } : undefined,
-            },
-            
-            trackingType: data.trackingType || 'unit',
-            unitWeight: data.unitWeight || 0,
-            unitType: data.unitType || 'unit',
-            allowsLooseSales: data.allowsLooseSales || false,
-            
-            minimumStock: data.minimumStock || 0,
-            supplierIds: data.supplierIds || [],
-            profitMarginPercentage: data.profitMarginPercentage || 30, // Default 30%
-            threePlusDiscountPercentage: data.threePlusDiscountPercentage || 10, // Default 10%
-            
-            isActive: data.isActive !== false, // Default to true if not specified
-            createdBy: data.createdBy,
-            createdAt: $dayjs(data.createdAt.toDate()).format('DD/MM/YYYY'),
-            updatedAt: $dayjs(data.updatedAt.toDate()).format('DD/MM/YYYY'),
-            archivedAt: archivedAt,
-          };
+        const productSchema = this._getProductSchema();
+        const result = await productSchema.find({
+          orderBy: [{ field: 'name', direction: 'asc' }]
+        });
 
-          this.productsByIdMap.set(doc.id, product);
+        if (!result.success) {
+          useToast(ToastEvents.error, "Hubo un error al cargar los productos. Por favor intenta nuevamente.");
+          this.isLoading = false;
+          return false;
+        }
 
-          return product;
+        // Transform ODM results to Product format
+        const products: Product[] = result.data as Product[];
+        
+        result.data!.forEach(doc => {
+          this.productsByIdMap.set(doc.id, doc as Product);
         });
         
         this.products = products;
@@ -700,15 +626,14 @@ export const useProductStore = defineStore("product", {
     async createProduct(formData: ProductFormData): Promise<boolean> {
       const db = useFirestore();
       const user = useCurrentUser();
-      const { $dayjs } = useNuxtApp();
       
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
-    
+
       try {
         this.isLoading = true;
         
-        // Default pricing structure - will be set later in pricing management
+        // Default pricing structure
         const defaultPrices: ProductPrices = {
           regular: 0,
           cash: 0,
@@ -731,9 +656,9 @@ export const useProductStore = defineStore("product", {
           };
         }
         
-        // Create product document
-        const productData = {
-          businessId: currentBusinessId.value,
+        // Create product using ODM
+        const productSchema = this._getProductSchema();
+        const result = await productSchema.create({
           name: formData.name,
           productCode: formData.productCode || '',
           description: formData.description || '',
@@ -752,20 +677,21 @@ export const useProductStore = defineStore("product", {
           supplierIds: formData.supplierIds || [],
           profitMarginPercentage: 30, // Default 30%
           threePlusDiscountPercentage: 10, // Default 10%
-          
-          isActive: true,
-          createdBy: user.value.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          archivedAt: null,
-        };
-        
-        const docRef = await addDoc(collection(db, 'product'), productData);
+        });
+
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al crear el producto");
+          this.isLoading = false;
+          return false;
+        }
+
+        // Add product to the local state
+        const newProduct: Product = result.data as Product;
         
         // Initialize inventory record
         const inventoryDocRef = await addDoc(collection(db, 'inventory'), {
           businessId: currentBusinessId.value,
-          productId: docRef.id,
+          productId: newProduct.id,
           productName: formData.name,
           unitsInStock: 0,
           openUnitsWeight: 0,
@@ -775,7 +701,6 @@ export const useProductStore = defineStore("product", {
           averageCost: 0,
           lastPurchaseCost: 0,
           totalCostValue: 0,
-          // profitMarginPercentage now in product
           createdBy: user.value.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -787,42 +712,16 @@ export const useProductStore = defineStore("product", {
           inventoryStore.addInventoryToCache({
             id: inventoryDocRef.id,
             businessId: currentBusinessId.value,
-            productId: docRef.id,
+            productId: newProduct.id,
             productName: formData.name,
             minimumStock: formData.minimumStock || 0,
           });
         }
-        
-        // Add product to the local state
-        const newProduct: Product = {
-          id: docRef.id,
-          businessId: currentBusinessId.value,
-          name: formData.name,
-          productCode: formData.productCode || '',
-          description: formData.description || '',
-          category: formData.category,
-          subcategory: formData.subcategory || '',
-          brand: formData.brand || '',
-          prices: defaultPrices as Product['prices'],
-          trackingType: formData.trackingType,
-          unitType: formData.unitType,
-          unitWeight: formData.unitWeight || 0,
-          allowsLooseSales: formData.trackingType === 'dual',
-          minimumStock: formData.minimumStock || 0,
-          supplierIds: formData.supplierIds || [],
-          profitMarginPercentage: 30, // Default 30%
-          threePlusDiscountPercentage: 10, // Default 10%
-          isActive: true,
-          createdBy: user.value.uid,
-          createdAt: $dayjs().format('DD/MM/YYYY'),
-          updatedAt: $dayjs().format('DD/MM/YYYY'),
-          archivedAt: null,
-        };
 
         // Add to products array
         this.products.push(newProduct);
         // Add to Map for O(1) access
-        this.productsByIdMap.set(docRef.id, newProduct);
+        this.productsByIdMap.set(newProduct.id, newProduct);
 
         useToast(ToastEvents.success, "Producto creado exitosamente");
         this.isLoading = false;
@@ -837,65 +736,17 @@ export const useProductStore = defineStore("product", {
 
     // Update an existing product
     async updateProduct(productId: string, formData: ProductFormData): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-    
       try {
         this.isLoading = true;
         
-        // Get existing product to verify ownership
-        const productRef = doc(db, 'product', productId);
-        const productDoc = await getDoc(productRef);
-        
-        if (!productDoc.exists()) {
-          useToast(ToastEvents.error, "Producto no encontrado");
-          this.isLoading = false;
-          return false;
-        }
-        
-        const productData = productDoc.data();
-        if (productData.businessId !== currentBusinessId.value) {
-          useToast(ToastEvents.error, "No tienes permiso para editar este producto");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Keep existing pricing structure - only update product info, not prices
-        const existingPrices = productData.prices || {
-          regular: 0,
-          cash: 0,
-          vip: 0,
-          bulk: 0,
-        };
-
-        // Ensure proper price structure for dual products
-        if (formData.trackingType === 'dual' && !existingPrices.unit) {
-          existingPrices.unit = {
-            regular: 0,
-            cash: 0,
-            vip: 0,
-            bulk: 0,
-          };
-          existingPrices.kg = {
-            regular: 0,
-            threePlusDiscount: 0,
-            vip: 0,
-          };
-        }
-        
-        // Update product document
-        await updateDoc(productRef, {
+        const productSchema = this._getProductSchema();
+        const result = await productSchema.update(productId, {
           name: formData.name,
           productCode: formData.productCode || '',
           description: formData.description || '',
           category: formData.category,
           subcategory: formData.subcategory || '',
           brand: formData.brand || '',
-          
-          prices: existingPrices,
           
           trackingType: formData.trackingType,
           unitType: formData.unitType,
@@ -904,67 +755,28 @@ export const useProductStore = defineStore("product", {
           
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
-          
-          updatedAt: serverTimestamp(),
         });
         
-        // Update inventory minimum stock
-        const inventoryQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', productId)
-        );
-        
-        const inventorySnapshot = await getDocs(inventoryQuery);
-        if (!inventorySnapshot.empty) {
-          await updateDoc(doc(db, 'inventory', inventorySnapshot.docs[0].id), {
-            productName: formData.name,
-            minimumStock: formData.minimumStock || 0,
-            updatedAt: serverTimestamp(),
-          });
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar el producto");
+          this.isLoading = false;
+          return false;
         }
-        
-        // After updating in Firestore and the products array:
+
+        // Update local state
         const productIndex = this.products.findIndex(p => p.id === productId);
         if (productIndex >= 0) {
-          const { $dayjs } = useNuxtApp();
-          const productUpdated: Product = {
-            ...this.products[productIndex],
-            name: formData.name,
-            productCode: formData.productCode || '',
-            description: formData.description || '',
-            category: formData.category,
-            subcategory: formData.subcategory || '',
-            brand: formData.brand || '',
-            prices: existingPrices as Product['prices'],
-            trackingType: formData.trackingType,
-            unitType: formData.unitType,
-            unitWeight: formData.unitWeight || 0,
-            allowsLooseSales: formData.trackingType === 'dual',
-            minimumStock: formData.minimumStock || 0,
-            supplierIds: formData.supplierIds || [],
-            updatedAt: $dayjs().format('DD/MM/YYYY'),
-            // Keep other fields unchanged
-            isActive: this.products[productIndex].isActive, // Preserve active status
-            createdBy: this.products[productIndex].createdBy, // Preserve creator
-            createdAt: this.products[productIndex].createdAt, // Preserve creation date
-            archivedAt: this.products[productIndex].archivedAt, // Preserve archived date
-          };
-    
-          this.products[productIndex] = productUpdated;
-          
-          // Also update the Map
-          this.productsByIdMap.set(productId, productUpdated);
-        }
-        
-        // Update local state for selected product if applicable
-        if (this.selectedProduct && this.selectedProduct.id === productId) {
-          const updatedProduct = this.products.find(p => p.id === productId);
-          if (updatedProduct) {
+          const updatedProduct: Product = result.data as Product;
+
+          this.products[productIndex] = updatedProduct;
+          this.productsByIdMap.set(productId, updatedProduct);
+
+          // Update selected product if applicable
+          if (this.selectedProduct && this.selectedProduct.id === productId) {
             this.selectedProduct = updatedProduct;
           }
         }
-        
+
         useToast(ToastEvents.success, "Producto actualizado exitosamente");
         this.isLoading = false;
         return true;
@@ -978,49 +790,22 @@ export const useProductStore = defineStore("product", {
 
     // Archive a product (soft delete)
     async archiveProduct(productId: string): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const { $dayjs } = useNuxtApp();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
         
-        // Get existing product to verify ownership
-        const productRef = doc(db, 'product', productId);
-        const productDoc = await getDoc(productRef);
+        const productSchema = this._getProductSchema();
+        const result = await productSchema.archive(productId);
         
-        if (!productDoc.exists()) {
-          useToast(ToastEvents.error, "Producto no encontrado");
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al archivar el producto");
           this.isLoading = false;
           return false;
         }
-        
-        const productData = productDoc.data();
-        if (productData.businessId !== currentBusinessId.value) {
-          useToast(ToastEvents.error, "No tienes permiso para archivar este producto");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Update product document to archive it
-        await updateDoc(productRef, {
-          isActive: false,
-          archivedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        
-        // Update local product state
+
+        // Update local state
         const productIndex = this.products.findIndex(p => p.id === productId);
         if (productIndex >= 0) {
-          const archivedProduct = {
-            ...this.products[productIndex],
-            isActive: false,
-            archivedAt: $dayjs().format('YYYY-MM-DD'),
-            updatedAt: $dayjs().format('DD/MM/YYYY'),
-          };
+          const archivedProduct = result.data as Product;
 
           this.products[productIndex] = archivedProduct;
           this.productsByIdMap.set(productId, archivedProduct);
@@ -1043,44 +828,25 @@ export const useProductStore = defineStore("product", {
 
     // Restore an archived product
     async restoreProduct(productId: string): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
         
-        // Get existing product to verify ownership
-        const productRef = doc(db, 'product', productId);
-        const productDoc = await getDoc(productRef);
+        const productSchema = this._getProductSchema();
+        const result = await productSchema.restore(productId);
         
-        if (!productDoc.exists()) {
-          useToast(ToastEvents.error, "Producto no encontrado");
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al restaurar el producto");
           this.isLoading = false;
           return false;
         }
-        
-        const productData = productDoc.data();
-        if (productData.businessId !== currentBusinessId.value) {
-          useToast(ToastEvents.error, "No tienes permiso para restaurar este producto");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Update product document to restore it
-        await updateDoc(productRef, {
-          isActive: true,
-          archivedAt: null,
-          updatedAt: serverTimestamp(),
-        });
-        
-        // Update local product state
+
+        // Update local state
         const productIndex = this.products.findIndex(p => p.id === productId);
         if (productIndex >= 0) {
-          this.products[productIndex].isActive = true;
-          this.products[productIndex].archivedAt = null;
+          const restoredProduct = result.data as Product;
+
+          this.products[productIndex] = restoredProduct;
+          this.productsByIdMap.set(productId, restoredProduct);
         }
         
         useToast(ToastEvents.success, "Producto restaurado exitosamente");
@@ -1117,91 +883,44 @@ export const useProductStore = defineStore("product", {
         vip?: number;
       };
     }): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
         
-        // Get existing product to verify ownership
-        const productRef = doc(db, 'product', productId);
-        const productDoc = await getDoc(productRef);
-        
-        if (!productDoc.exists()) {
+        // Get current product to merge pricing
+        const currentProduct = this.getProductById(productId);
+        if (!currentProduct) {
           useToast(ToastEvents.error, "Producto no encontrado");
           this.isLoading = false;
           return false;
         }
-        
-        const productData = productDoc.data();
-        if (productData.businessId !== currentBusinessId.value) {
-          useToast(ToastEvents.error, "No tienes permiso para editar este producto");
+
+        const updatedPrices = {
+          ...currentProduct.prices,
+          ...pricingData,
+        };
+
+        console.log("Updated Prices:", updatedPrices);
+
+        const productSchema = this._getProductSchema();
+        const result = await productSchema.update(productId, {
+          prices: updatedPrices
+        });
+
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar los precios del producto");
           this.isLoading = false;
           return false;
         }
-        
-        // Helper function to round numeric values to 2 decimals
-        const roundPrice = (value: any): number => {
-          if (typeof value !== 'number') return 0;
-          return parseFloat(value.toFixed(2));
-        };
 
-        // Merge with existing prices and ensure 2 decimal precision
-        const existingPrices = productData.prices || {};
-        const updatedPrices = {
-          ...existingPrices,
-        };
-
-        // Apply base price updates with rounding
-        if (pricingData.regular !== undefined) updatedPrices.regular = roundPrice(pricingData.regular);
-        if (pricingData.cash !== undefined) updatedPrices.cash = roundPrice(pricingData.cash);
-        if (pricingData.vip !== undefined) updatedPrices.vip = roundPrice(pricingData.vip);
-        if (pricingData.bulk !== undefined) updatedPrices.bulk = roundPrice(pricingData.bulk);
-
-        // If unit or kg pricing is provided, merge with existing nested structures
-        if (pricingData.unit) {
-          updatedPrices.unit = {
-            ...existingPrices.unit,
-          };
-          if (pricingData.unit.regular !== undefined) updatedPrices.unit.regular = roundPrice(pricingData.unit.regular);
-          if (pricingData.unit.cash !== undefined) updatedPrices.unit.cash = roundPrice(pricingData.unit.cash);
-          if (pricingData.unit.vip !== undefined) updatedPrices.unit.vip = roundPrice(pricingData.unit.vip);
-          if (pricingData.unit.bulk !== undefined) updatedPrices.unit.bulk = roundPrice(pricingData.unit.bulk);
-        }
-
-        if (pricingData.kg) {
-          updatedPrices.kg = {
-            ...existingPrices.kg,
-          };
-          if (pricingData.kg.regular !== undefined) updatedPrices.kg.regular = roundPrice(pricingData.kg.regular);
-          if (pricingData.kg.threePlusDiscount !== undefined) updatedPrices.kg.threePlusDiscount = roundPrice(pricingData.kg.threePlusDiscount);
-          if (pricingData.kg.vip !== undefined) updatedPrices.kg.vip = roundPrice(pricingData.kg.vip);
-        }
-        
-        // Update product document
-        await updateDoc(productRef, {
-          prices: updatedPrices,
-          updatedAt: serverTimestamp(),
-        });
-        
         // Update local state
         const productIndex = this.products.findIndex(p => p.id === productId);
         if (productIndex >= 0) {
-          const { $dayjs } = useNuxtApp();
-          this.products[productIndex].prices = updatedPrices as Product['prices'];
-          this.products[productIndex].updatedAt = $dayjs().format('DD/MM/YYYY');
-          
-          // Also update the Map
-          this.productsByIdMap.set(productId, this.products[productIndex]);
-        }
-        
-        // Update selected product if applicable
-        if (this.selectedProduct && this.selectedProduct.id === productId) {
-          const updatedProduct = this.products.find(p => p.id === productId);
-          if (updatedProduct) {
+          const updatedProduct: Product = result.data as Product;
+          this.products[productIndex] = updatedProduct;
+          this.productsByIdMap.set(productId, updatedProduct);
+
+          // Update selected product if applicable
+          if (this.selectedProduct && this.selectedProduct.id === productId) {
             this.selectedProduct = updatedProduct;
           }
         }
@@ -1216,121 +935,31 @@ export const useProductStore = defineStore("product", {
       }
     },
 
-    // Bulk update pricing for multiple products
-    async bulkUpdatePricing(productIds: string[], pricingData: {
-      regular?: number;
-      cash?: number;
-      vip?: number;
-      bulk?: number;
-    }): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
-      try {
-        this.isLoading = true;
-        
-        // Update each product
-        const updatePromises = productIds.map(async (productId) => {
-          const productRef = doc(db, 'product', productId);
-          const productDoc = await getDoc(productRef);
-          
-          if (!productDoc.exists()) return false;
-          
-          const productData = productDoc.data();
-          if (productData.businessId !== currentBusinessId.value) return false;
-          
-          // Merge with existing prices
-          const existingPrices = productData.prices || {};
-          const updatedPrices = {
-            ...existingPrices,
-            ...pricingData,
-          };
-          
-          await updateDoc(productRef, {
-            prices: updatedPrices,
-            updatedAt: serverTimestamp(),
-          });
-          
-          // Update local state
-          const productIndex = this.products.findIndex(p => p.id === productId);
-          if (productIndex >= 0) {
-            const { $dayjs } = useNuxtApp();
-            this.products[productIndex].prices = updatedPrices as Product['prices'];
-            this.products[productIndex].updatedAt = $dayjs().format('DD/MM/YYYY');
-            
-            // Also update the Map
-            this.productsByIdMap.set(productId, this.products[productIndex]);
-          }
-          
-          return true;
-        });
-        
-        const results = await Promise.all(updatePromises);
-        const successCount = results.filter(Boolean).length;
-        
-        useToast(ToastEvents.success, `${successCount} productos actualizados exitosamente`);
-        this.isLoading = false;
-        return successCount > 0;
-      } catch (error) {
-        console.error("Error bulk updating pricing:", error);
-        useToast(ToastEvents.error, "Hubo un error al actualizar los precios de los productos");
-        this.isLoading = false;
-        return false;
-      }
-    },
-
     // Update profit margin percentage for a product
     async updateProfitMargin(productId: string, marginPercentage: number): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
         
-        // Get existing product to verify ownership
-        const productRef = doc(db, 'product', productId);
-        const productDoc = await getDoc(productRef);
-        
-        if (!productDoc.exists()) {
-          useToast(ToastEvents.error, "Producto no encontrado");
-          this.isLoading = false;
-          return false;
-        }
-        
-        const productData = productDoc.data();
-        if (productData.businessId !== currentBusinessId.value) {
-          useToast(ToastEvents.error, "No tienes permiso para editar este producto");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Update product document
-        await updateDoc(productRef, {
-          profitMarginPercentage: marginPercentage,
-          updatedAt: serverTimestamp(),
+        const productSchema = this._getProductSchema();
+        const result = await productSchema.update(productId, {
+          profitMarginPercentage: marginPercentage
         });
         
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar el margen de ganancia");
+          this.isLoading = false;
+          return false;
+        }
+
         // Update local state
         const productIndex = this.products.findIndex(p => p.id === productId);
         if (productIndex >= 0) {
-          const { $dayjs } = useNuxtApp();
-          this.products[productIndex].profitMarginPercentage = marginPercentage;
-          this.products[productIndex].updatedAt = $dayjs().format('DD/MM/YYYY');
-          
-          // Also update the Map
-          this.productsByIdMap.set(productId, this.products[productIndex]);
-        }
-        
-        // Update selected product if applicable
-        if (this.selectedProduct && this.selectedProduct.id === productId) {
-          const updatedProduct = this.products.find(p => p.id === productId);
-          if (updatedProduct) {
+          const updatedProduct: Product = result.data as Product;
+          this.products[productIndex] = updatedProduct;
+          this.productsByIdMap.set(productId, updatedProduct);
+
+          // Update selected product if applicable
+          if (this.selectedProduct && this.selectedProduct.id === productId) {
             this.selectedProduct = updatedProduct;
           }
         }
@@ -1340,60 +969,36 @@ export const useProductStore = defineStore("product", {
       } catch (error) {
         console.error("Error updating profit margin:", error);
         useToast(ToastEvents.error, "Hubo un error al actualizar el margen de ganancia");
-        this.isLoading = false;  
+        this.isLoading = false;
         return false;
       }
     },
 
     // Update 3+ kg discount percentage for a product
     async updateThreePlusDiscountPercentage(productId: string, discountPercentage: number): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
         
-        // Get existing product to verify ownership
-        const productRef = doc(db, 'product', productId);
-        const productDoc = await getDoc(productRef);
-        
-        if (!productDoc.exists()) {
-          useToast(ToastEvents.error, "Producto no encontrado");
-          this.isLoading = false;
-          return false;
-        }
-        
-        const productData = productDoc.data();
-        if (productData.businessId !== currentBusinessId.value) {
-          useToast(ToastEvents.error, "No tienes permiso para editar este producto");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Update product document
-        await updateDoc(productRef, {
-          threePlusDiscountPercentage: discountPercentage,
-          updatedAt: serverTimestamp(),
+        const productSchema = this._getProductSchema();
+        const result = await productSchema.update(productId, {
+          threePlusDiscountPercentage: discountPercentage
         });
         
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar el descuento 3+ kg");
+          this.isLoading = false;
+          return false;
+        }
+
         // Update local state
         const productIndex = this.products.findIndex(p => p.id === productId);
         if (productIndex >= 0) {
-          const { $dayjs } = useNuxtApp();
-          this.products[productIndex].threePlusDiscountPercentage = discountPercentage;
-          this.products[productIndex].updatedAt = $dayjs().format('DD/MM/YYYY');
-          
-          // Also update the Map
-          this.productsByIdMap.set(productId, this.products[productIndex]);
-        }
-        
-        // Update selected product if applicable
-        if (this.selectedProduct && this.selectedProduct.id === productId) {
-          const updatedProduct = this.products.find(p => p.id === productId);
-          if (updatedProduct) {
+          const updatedProduct: Product = result.data as Product;
+          this.products[productIndex] = updatedProduct;
+          this.productsByIdMap.set(productId, updatedProduct);
+
+          // Update selected product if applicable
+          if (this.selectedProduct && this.selectedProduct.id === productId) {
             this.selectedProduct = updatedProduct;
           }
         }
@@ -1403,12 +1008,12 @@ export const useProductStore = defineStore("product", {
       } catch (error) {
         console.error("Error updating 3+ kg discount percentage:", error);
         useToast(ToastEvents.error, "Hubo un error al actualizar el descuento 3+ kg");
-        this.isLoading = false;  
+        this.isLoading = false;
         return false;
       }
     },
 
-    // Calculate pricing based on cost and margin - round to 2 decimals max
+    // Calculate pricing based on cost and margin
     calculatePricing(cost: number, marginPercentage: number, unitWeight?: number, threePlusDiscountPercentage: number = 10) {
       if (cost <= 0) return null;
       
