@@ -73,6 +73,30 @@ export abstract class Schema {
     }
   }
 
+  // Add businessId, createdBy, createdAt, updatedAt fields if missing and when required
+  protected addSystemFields(data: any): any {
+    const user = this.getCurrentUser();
+    const businessId = this.getCurrentBusinessId();
+
+    let updatedData = { ...data };
+
+    const schemaFields = this.schema;
+
+    // For new documents
+    if (user.value?.uid && !updatedData.createdBy && schemaFields.createdBy?.required) {
+      updatedData.createdBy = user.value.uid;
+    }
+
+    // These fields will always be required
+    updatedData.createdAt = serverTimestamp();
+    updatedData.updatedAt = serverTimestamp();
+    if (!updatedData.businessId && businessId) {
+      updatedData.businessId = businessId;
+    }
+
+    return updatedData;
+  }
+
   // Validate document against schema
   validate(data: any): ValidationResult {
     return Validator.validateDocument(data, this.schema);
@@ -190,6 +214,9 @@ export abstract class Schema {
         return { success: false, error: 'Business ID is required' };
       }
 
+      // Add system fields
+      data = this.addSystemFields(data);
+
       // Validate schema
       const validation = this.validate(data);
       if (!validation.valid) {
@@ -217,10 +244,7 @@ export abstract class Schema {
       const docRef = await addDoc(collection(db, this.collectionName), prepared);
 
       // Return with ID
-      const created: DocumentWithId = {
-        id: docRef.id,
-        ...prepared
-      };
+      const created: DocumentWithId = this.addDocumentId(await getDoc(docRef));
 
       return { success: true, data: created };
     } catch (error) {

@@ -139,9 +139,13 @@ export class Validator {
         break;
 
       case 'date':
-        // Accept Date objects or Firestore Timestamps
-        if (!(value instanceof Date) && 
-            !(value && typeof value.toDate === 'function')) {
+        // Accept Date objects, dayjs objects, or Firestore Timestamps
+        const isDayjs = value && typeof value.format === 'function' && typeof value.isValid === 'function';
+        const isDate = value instanceof Date;
+        const isTimestamp = value && typeof value.toDate === 'function';
+        const isServerTimestamp = value && value._methodName === 'serverTimestamp';
+
+        if (!isDayjs && !isDate && !isTimestamp && !isServerTimestamp) {
           errors.push({
             field: fieldName,
             message: `${fieldName} must be a Date or Timestamp`,

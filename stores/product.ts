@@ -2,6 +2,7 @@ import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, se
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
 import { ProductSchema } from "~/utils/odm/schemas/productSchema";
+import { ProductCategorySchema } from "~/utils/odm/schemas/productCategorySchema";
 
 // Product interfaces
 interface ProductPrices {
@@ -91,7 +92,6 @@ interface ProductFormData {
 // Enums
 type ProductFilter = "all" | "active" | "archived";
 type ProductCategoryFilter = "all" | string;
-type TrackingType = "unit" | "weight" | "dual";
 
 // Store state interface
 interface ProductState {
@@ -218,9 +218,13 @@ export const useProductStore = defineStore("product", {
   },
 
   actions: {
-    // Initialize ProductSchema instance
+    // Initialize schema instances
     _getProductSchema() {
       return new ProductSchema();
+    },
+
+    _getProductCategorySchema() {
+      return new ProductCategorySchema();
     },
 
     // Set product filter
@@ -251,47 +255,26 @@ export const useProductStore = defineStore("product", {
         return true;
       }
 
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const { $dayjs } = useNuxtApp();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isCategoriesLoading = true;
         this.categoriesByIdMap.clear();
         
-        const categoriesQuery = query(
-          collection(db, 'productCategory'),
-          where('businessId', '==', currentBusinessId.value),
-          orderBy('name', 'asc')
-        );
-        
-        const categoriesSnapshot = await getDocs(categoriesQuery);
-        
-        const categories = categoriesSnapshot.docs.map(doc => {
-          const data = doc.data();
-          
-          let archivedAt = null;
-          if (data.archivedAt) {
-            archivedAt = $dayjs(data.archivedAt.toDate()).format('YYYY-MM-DD');
-          }
-          
-          const category: ProductCategory = {
-            id: doc.id,
-            businessId: data.businessId,
-            name: data.name,
-            description: data.description || '',
-            isActive: data.isActive !== false,
-            createdBy: data.createdBy,
-            createdAt: $dayjs(data.createdAt.toDate()).format('DD/MM/YYYY'),
-            updatedAt: $dayjs(data.updatedAt.toDate()).format('DD/MM/YYYY'),
-            archivedAt: archivedAt,
-          };
+        const categorySchema = this._getProductCategorySchema();
+        const result = await categorySchema.find({
+          orderBy: [{ field: 'name', direction: 'asc' }]
+        });
 
-          this.categoriesByIdMap.set(doc.id, category);
-          return category;
+        if (!result.success) {
+          useToast(ToastEvents.error, "Hubo un error al cargar las categorías. Por favor intenta nuevamente.");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+
+        // Transform ODM results to ProductCategory format
+        const categories: ProductCategory[] = result.data as ProductCategory[];
+        
+        result.data!.forEach(doc => {
+          this.categoriesByIdMap.set(doc.id, doc as ProductCategory);
         });
         
         this.categories = categories;
@@ -306,45 +289,27 @@ export const useProductStore = defineStore("product", {
       }
     },
 
-    // Create a new category (placeholder - would need CategorySchema)
+    // Create a new category
     async createCategory(formData: ProductCategoryFormData): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const { $dayjs } = useNuxtApp();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isCategoriesLoading = true;
         
-        const categoryData = {
-          businessId: currentBusinessId.value,
+        const categorySchema = this._getProductCategorySchema();
+        const result = await categorySchema.create({
           name: formData.name,
           description: formData.description || '',
-          isActive: true,
-          createdBy: user.value.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          archivedAt: null,
-        };
-        
-        const docRef = await addDoc(collection(db, 'productCategory'), categoryData);
-        
-        const newCategory: ProductCategory = {
-          id: docRef.id,
-          businessId: currentBusinessId.value,
-          name: formData.name,
-          description: formData.description || '',
-          isActive: true,
-          createdBy: user.value.uid,
-          createdAt: $dayjs().format('DD/MM/YYYY'),
-          updatedAt: $dayjs().format('DD/MM/YYYY'),
-          archivedAt: null,
-        };
+        });
 
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al crear la categoría");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+
+        // Add category to the local state
+        const newCategory: ProductCategory = result.data as ProductCategory;
         this.categories.push(newCategory);
-        this.categoriesByIdMap.set(docRef.id, newCategory);
+        this.categoriesByIdMap.set(newCategory.id, newCategory);
 
         useToast(ToastEvents.success, "Categoría creada exitosamente");
         this.isCategoriesLoading = false;
@@ -357,49 +322,27 @@ export const useProductStore = defineStore("product", {
       }
     },
 
-    // Update an existing category (placeholder - would need CategorySchema)
+    // Update an existing category
     async updateCategory(categoryId: string, formData: ProductCategoryFormData): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isCategoriesLoading = true;
         
-        const categoryRef = doc(db, 'productCategory', categoryId);
-        const categoryDoc = await getDoc(categoryRef);
-        
-        if (!categoryDoc.exists()) {
-          useToast(ToastEvents.error, "Categoría no encontrada");
-          this.isCategoriesLoading = false;
-          return false;
-        }
-        
-        const categoryData = categoryDoc.data();
-        if (categoryData.businessId !== currentBusinessId.value) {
-          useToast(ToastEvents.error, "No tienes permiso para editar esta categoría");
-          this.isCategoriesLoading = false;
-          return false;
-        }
-        
-        await updateDoc(categoryRef, {
+        const categorySchema = this._getProductCategorySchema();
+        const result = await categorySchema.update(categoryId, {
           name: formData.name,
           description: formData.description || '',
-          updatedAt: serverTimestamp(),
         });
         
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar la categoría");
+          this.isCategoriesLoading = false;
+          return false;
+        }
+
+        // Update local state
         const categoryIndex = this.categories.findIndex(c => c.id === categoryId);
         if (categoryIndex >= 0) {
-          const { $dayjs } = useNuxtApp();
-          const updatedCategory: ProductCategory = {
-            ...this.categories[categoryIndex],
-            name: formData.name,
-            description: formData.description || '',
-            updatedAt: $dayjs().format('DD/MM/YYYY'),
-          };
-
+          const updatedCategory: ProductCategory = result.data as ProductCategory;
           this.categories[categoryIndex] = updatedCategory;
           this.categoriesByIdMap.set(categoryId, updatedCategory);
         }
@@ -417,47 +360,22 @@ export const useProductStore = defineStore("product", {
 
     // Archive a category (soft delete)
     async archiveCategory(categoryId: string): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const { $dayjs } = useNuxtApp();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isCategoriesLoading = true;
         
-        const categoryRef = doc(db, 'productCategory', categoryId);
-        const categoryDoc = await getDoc(categoryRef);
+        const categorySchema = this._getProductCategorySchema();
+        const result = await categorySchema.archive(categoryId);
         
-        if (!categoryDoc.exists()) {
-          useToast(ToastEvents.error, "Categoría no encontrada");
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al archivar la categoría");
           this.isCategoriesLoading = false;
           return false;
         }
-        
-        const categoryData = categoryDoc.data();
-        if (categoryData.businessId !== currentBusinessId.value) {
-          useToast(ToastEvents.error, "No tienes permiso para archivar esta categoría");
-          this.isCategoriesLoading = false;
-          return false;
-        }
-        
-        await updateDoc(categoryRef, {
-          isActive: false,
-          archivedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        
+
+        // Update local state
         const categoryIndex = this.categories.findIndex(c => c.id === categoryId);
         if (categoryIndex >= 0) {
-          const archivedCategory = {
-            ...this.categories[categoryIndex],
-            isActive: false,
-            archivedAt: $dayjs().format('YYYY-MM-DD'),
-            updatedAt: $dayjs().format('DD/MM/YYYY'),
-          };
-
+          const archivedCategory = result.data as ProductCategory;
           this.categories[categoryIndex] = archivedCategory;
           this.categoriesByIdMap.set(categoryId, archivedCategory);
         }
@@ -474,41 +392,24 @@ export const useProductStore = defineStore("product", {
 
     // Restore an archived category
     async restoreCategory(categoryId: string): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isCategoriesLoading = true;
         
-        const categoryRef = doc(db, 'productCategory', categoryId);
-        const categoryDoc = await getDoc(categoryRef);
+        const categorySchema = this._getProductCategorySchema();
+        const result = await categorySchema.restore(categoryId);
         
-        if (!categoryDoc.exists()) {
-          useToast(ToastEvents.error, "Categoría no encontrada");
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al restaurar la categoría");
           this.isCategoriesLoading = false;
           return false;
         }
-        
-        const categoryData = categoryDoc.data();
-        if (categoryData.businessId !== currentBusinessId.value) {
-          useToast(ToastEvents.error, "No tienes permiso para restaurar esta categoría");
-          this.isCategoriesLoading = false;
-          return false;
-        }
-        
-        await updateDoc(categoryRef, {
-          isActive: true,
-          archivedAt: null,
-          updatedAt: serverTimestamp(),
-        });
-        
+
+        // Update local state
         const categoryIndex = this.categories.findIndex(c => c.id === categoryId);
         if (categoryIndex >= 0) {
-          this.categories[categoryIndex].isActive = true;
-          this.categories[categoryIndex].archivedAt = null;
+          const restoredCategory = result.data as ProductCategory;
+          this.categories[categoryIndex] = restoredCategory;
+          this.categoriesByIdMap.set(categoryId, restoredCategory);
         }
         
         useToast(ToastEvents.success, "Categoría restaurada exitosamente");
@@ -524,46 +425,17 @@ export const useProductStore = defineStore("product", {
 
     // Delete a category (hard delete)
     async deleteCategory(categoryId: string): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isCategoriesLoading = true;
         
-        // Check if category is being used by any products
-        const productsQuery = query(
-          collection(db, 'product'),
-          where('businessId', '==', currentBusinessId.value),
-          where('category', '==', categoryId)
-        );
+        const categorySchema = this._getProductCategorySchema();
+        const result = await categorySchema.delete(categoryId);
         
-        const productsSnapshot = await getDocs(productsQuery);
-        if (!productsSnapshot.empty) {
-          useToast(ToastEvents.error, "No se puede eliminar la categoría porque está siendo utilizada por productos.");
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al eliminar la categoría");
           this.isCategoriesLoading = false;
           return false;
         }
-        
-        const categoryRef = doc(db, 'productCategory', categoryId);
-        const categoryDoc = await getDoc(categoryRef);
-        
-        if (!categoryDoc.exists()) {
-          useToast(ToastEvents.error, "Categoría no encontrada");
-          this.isCategoriesLoading = false;
-          return false;
-        }
-        
-        const categoryData = categoryDoc.data();
-        if (categoryData.businessId !== currentBusinessId.value) {
-          useToast(ToastEvents.error, "No tienes permiso para eliminar esta categoría");
-          this.isCategoriesLoading = false;
-          return false;
-        }
-        
-        await deleteDoc(categoryRef);
         
         // Remove from local state
         this.categories = this.categories.filter(c => c.id !== categoryId);
