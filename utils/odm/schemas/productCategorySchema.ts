@@ -177,38 +177,4 @@ export class ProductCategorySchema extends Schema {
 
     return super.delete(id);
   }
-
-  // Find category by name
-  async findByName(name: string) {
-    return this.find({
-      where: [{ field: 'name', operator: '==', value: name.trim() }],
-      limit: 1
-    });
-  }
-
-  // Find all active categories ordered by name
-  async findActiveCategories() {
-    return this.findActive({
-      orderBy: [{ field: 'name', direction: 'asc' }]
-    });
-  }
-
-  // Find categories with partial name match
-  async findByNameContains(searchTerm: string) {
-    // Note: Firestore doesn't support contains queries natively
-    // This would need to be implemented with compound queries or client-side filtering
-    // For now, we'll get all active categories and filter client-side
-    const result = await this.findActive({
-      orderBy: [{ field: 'name', direction: 'asc' }]
-    });
-
-    if (result.success && result.data) {
-      const filteredData = result.data.filter(category => 
-        category.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      return { ...result, data: filteredData };
-    }
-
-    return result;
-  }
 }
