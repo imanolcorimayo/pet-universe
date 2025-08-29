@@ -1,4 +1,3 @@
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
 import { ProductSchema } from "~/utils/odm/schemas/productSchema";
@@ -265,7 +264,7 @@ export const useProductStore = defineStore("product", {
         });
 
         if (!result.success) {
-          useToast(ToastEvents.error, "Hubo un error al cargar las categorías. Por favor intenta nuevamente.");
+          useToast(ToastEvents.error, result.error || "Hubo un error al cargar las categorías. Por favor intenta nuevamente.");
           this.isCategoriesLoading = false;
           return false;
         }
@@ -273,8 +272,8 @@ export const useProductStore = defineStore("product", {
         // Transform ODM results to ProductCategory format
         const categories: ProductCategory[] = result.data as ProductCategory[];
         
-        result.data!.forEach(doc => {
-          this.categoriesByIdMap.set(doc.id, doc as ProductCategory);
+        categories.forEach(category => {
+          this.categoriesByIdMap.set(category.id, category);
         });
         
         this.categories = categories;
@@ -470,7 +469,7 @@ export const useProductStore = defineStore("product", {
         });
 
         if (!result.success) {
-          useToast(ToastEvents.error, "Hubo un error al cargar los productos. Por favor intenta nuevamente.");
+          useToast(ToastEvents.error, result.error || "Hubo un error al cargar los productos. Por favor intenta nuevamente.");
           this.isLoading = false;
           return false;
         }
@@ -478,8 +477,8 @@ export const useProductStore = defineStore("product", {
         // Transform ODM results to Product format
         const products: Product[] = result.data as Product[];
         
-        result.data!.forEach(doc => {
-          this.productsByIdMap.set(doc.id, doc as Product);
+        products.forEach(product => {
+          this.productsByIdMap.set(product.id, product);
         });
         
         this.products = products;
@@ -496,12 +495,6 @@ export const useProductStore = defineStore("product", {
 
     // Create a new product
     async createProduct(formData: ProductFormData): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
         
@@ -560,34 +553,16 @@ export const useProductStore = defineStore("product", {
         // Add product to the local state
         const newProduct: Product = result.data as Product;
         
-        // Initialize inventory record
-        const inventoryDocRef = await addDoc(collection(db, 'inventory'), {
-          businessId: currentBusinessId.value,
-          productId: newProduct.id,
-          productName: formData.name,
-          unitsInStock: 0,
-          openUnitsWeight: 0,
-          totalWeight: 0,
-          minimumStock: formData.minimumStock || 0,
-          isLowStock: true,
-          averageCost: 0,
-          lastPurchaseCost: 0,
-          totalCostValue: 0,
-          createdBy: user.value.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        
-        // Update inventory cache if inventory store is loaded
+        // Initialize inventory record using inventory store
         const inventoryStore = useInventoryStore();
-        if (inventoryStore.inventoryLoaded) {
-          inventoryStore.addInventoryToCache({
-            id: inventoryDocRef.id,
-            businessId: currentBusinessId.value,
-            productId: newProduct.id,
-            productName: formData.name,
-            minimumStock: formData.minimumStock || 0,
-          });
+        const inventoryCreated = await inventoryStore.createInventory(
+          newProduct.id, 
+          formData.name, 
+          formData.minimumStock || 0
+        );
+
+        if (!inventoryCreated) {
+          console.warn("Product created but inventory initialization failed");
         }
 
         // Add to products array

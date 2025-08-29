@@ -184,24 +184,69 @@ export abstract class Schema {
     // Always update timestamp
     prepared.updatedAt = serverTimestamp();
 
+    // Ensure date fields are properly handled for Firestore
+    // Convert any $dayjs or Date objects to Firestore timestamps or serverTimestamp
+    for (const [fieldName, definition] of Object.entries(this.schema)) {
+      if (definition.type === 'date' && prepared[fieldName] !== undefined) {
+        const dateValue = prepared[fieldName];
+        
+        // Skip if already a serverTimestamp or null
+        if (dateValue === null || (dateValue && typeof dateValue === 'object' && dateValue.constructor.name === 'ServerTimestampTransform')) {
+          continue;
+        }
+        
+        // Convert $dayjs objects, Date objects, or invalid dates to proper Firestore timestamps
+        if (dateValue && typeof dateValue === 'object') {
+          if (typeof dateValue.toDate === 'function') {
+            // Already a Firestore timestamp, keep as is
+            continue;
+          } else if (dateValue._isAMomentObject || (dateValue.constructor && dateValue.constructor.name === 'Dayjs')) {
+            // Convert dayjs to JavaScript Date, then let Firestore handle it
+            prepared[fieldName] = dateValue.toDate ? dateValue.toDate() : new Date(dateValue.valueOf());
+          } else if (dateValue instanceof Date) {
+            // Keep Date objects as is - Firestore will convert them
+            continue;
+          }
+        } else if (typeof dateValue === 'string') {
+          // Convert string dates to Date objects
+          const parsedDate = new Date(dateValue);
+          if (!isNaN(parsedDate.getTime())) {
+            prepared[fieldName] = parsedDate;
+          } else {
+            // Invalid date string, remove the field or set to null
+            console.warn(`Invalid date string for field ${fieldName}:`, dateValue);
+            prepared[fieldName] = null;
+          }
+        }
+      }
+    }
+
     return prepared;
   }
 
   // Add document ID to fetched data
   protected addDocumentId(docSnapshot: any): DocumentWithId {
     const data = docSnapshot.data();
-    return {
+    const result: DocumentWithId = {
       id: docSnapshot.id,
-      ...data,
-      // Format common timestamp fields
-      createdAt: data.createdAt ? this.formatDate(data.createdAt) : undefined,
-      updatedAt: data.updatedAt ? this.formatDate(data.updatedAt) : undefined,
-      archivedAt: data.archivedAt ? this.formatDate(data.archivedAt) : null,
-      // Keep original timestamps for reference
-      originalCreatedAt: data.createdAt,
-      originalUpdatedAt: data.updatedAt,
-      originalArchivedAt: data.archivedAt
+      ...data
     };
+
+    // Dynamically format date fields based on schema definition
+    for (const [fieldName, definition] of Object.entries(this.schema)) {
+      if (definition.type === 'date' && data[fieldName]) {
+        // Add formatted date for display
+        result[fieldName] = this.formatDate(data[fieldName]);
+        // Keep original timestamp for reference with 'original' prefix
+        result[`original${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}`] = data[fieldName];
+      } else if (definition.type === 'date' && data[fieldName] === null) {
+        // Handle null date fields explicitly
+        result[fieldName] = null;
+        result[`original${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}`] = null;
+      }
+    }
+
+    return result;
   }
 
   // Create a new document

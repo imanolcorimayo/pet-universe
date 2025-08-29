@@ -123,6 +123,8 @@
 </template>
 
 <script setup>
+import { ToastEvents } from '~/interfaces';
+
 
 // Props
 const props = defineProps({

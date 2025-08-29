@@ -63,7 +63,8 @@ Pet shop management system with dual cash register approach: global business reg
 
 #### Architecture Patterns
 - **Stores**: Pinia stores for state management (`index.ts`, `cashRegister.ts`, `salesRegister.ts`, `products.ts`, `clients.ts`)
-- **Data Flow**: Standard CRUD with `addDoc`, `updateDoc`, `deleteDoc`, filtered by `businessId`
+- **Data Flow**: Schema-based CRUD operations with automatic validation and business logic
+- **ODM Schemas**: Single source of truth for each Firestore collection with built-in validation
 - **Components**: Modal-based entity management, naming convention `/entity/EntityDetails.vue`
 - **Tooltips**: Interactive tooltip system using `TooltipStructure.vue` for space-efficient UI controls
 - **Layout**: Sidebar navigation (`default.vue`) with role-based menu visibility
@@ -98,6 +99,64 @@ Pet shop management system with dual cash register approach: global business reg
 - **Cost Storage**: Last purchase cost remains in `inventory.lastPurchaseCost`
 - **Access Pattern**: Get margin from `product.profitMarginPercentage`, cost from `inventory.lastPurchaseCost`
 - **Confirmation Required**: All pricing changes require user confirmation via modal dialog before saving to database
+
+#### ODM Schema System
+
+**MANDATORY**: All Firestore operations MUST use ODM schemas as the single source of truth for data structure and validation.
+
+**Schema Architecture:**
+- **Base Schema**: `utils/odm/schema.ts` - Abstract base class with CRUD operations
+- **Schema Definitions**: Type-safe field definitions in `utils/odm/types.ts`
+- **Automatic Features**: BusinessId injection, timestamps, validation, reference checking
+- **Custom Validations**: Schema-specific business logic and constraints
+
+**Available Schemas:**
+- `ProductSchema` - Product catalog management with pricing and tracking validation
+- `ProductCategorySchema` - Product categories with uniqueness validation
+- `InventorySchema` - Inventory levels with stock and cost validation
+- `InventoryMovementSchema` - Immutable inventory movement audit trail
+
+**Schema Usage Patterns:**
+```typescript
+// Initialize schema
+const productSchema = new ProductSchema();
+
+// Create with validation
+const result = await productSchema.create({
+  name: 'Product Name',
+  category: 'category-id',
+  // ... other fields
+});
+
+// Handle results
+if (!result.success) {
+  console.error(result.error);
+  return false;
+}
+
+// Update with validation
+const updateResult = await productSchema.update(productId, {
+  name: 'New Name'
+});
+
+// Query with business filtering
+const products = await productSchema.find({
+  where: [{ field: 'isActive', operator: '==', value: true }],
+  orderBy: [{ field: 'name', direction: 'asc' }]
+});
+```
+
+**Custom Validation Examples:**
+- **Unique Constraints**: Category names, product-inventory relationships
+- **Business Rules**: Dual-tracking product requirements, cost validations
+- **Data Consistency**: Movement before/after snapshots, stock level calculations
+- **Reference Integrity**: Product category relationships, supplier references
+
+**Store Integration:**
+- **Schema Instances**: `_getSchemaName()` methods in stores
+- **Error Handling**: Unified error responses from schema operations
+- **Cache Management**: Schema results integrated with store caching patterns
+- **Business Logic**: Complex operations using schema validation and store coordination
 
 #### Component Naming Conventions
 
@@ -245,7 +304,16 @@ Structured workflow for new features using standardized templates:
 
 # Pet Universe Database Structure
 
-This document outlines the Firestore database structure for the Pet Universe application.
+**IMPORTANT**: The authoritative source for Firestore collection structures is the ODM Schema definitions in `utils/odm/schemas/`. This section provides high-level guidance - refer to individual schema files for detailed field definitions, validations, and business rules.
+
+## Schema-Driven Architecture
+
+All database operations must use the ODM schemas which provide:
+- **Automatic Validation**: Field types, constraints, business rules
+- **Reference Integrity**: Automatic relationship validation
+- **System Fields**: BusinessId, timestamps, user tracking
+- **Custom Logic**: Schema-specific validation and calculations
+- **Error Handling**: Consistent error responses
 
 ## Business Management
 
@@ -473,150 +541,33 @@ salesRegisterExpense/
 
 ## Product & Inventory Management
 
-### productCategory
+**Schema Reference**: See `utils/odm/schemas/` for complete field definitions and validation rules.
+
+### productCategory → ProductCategorySchema
 Product categories for organizing the product catalog.
+- **Key Validations**: Unique category names within business
+- **Business Rules**: Check for product usage before deletion
+- **Custom Methods**: `validateUniqueName()`, `checkCategoryUsage()`
 
-```
-productCategory/
-  {document-id}/
-    businessId: string           // References the business this category belongs to
-    name: string                 // Category name
-    description: string          // Category description
-    isActive: boolean            // Whether category is active
-    createdBy: string            // User ID who created the category
-    createdAt: Timestamp         // When the category was created
-    updatedAt: Timestamp         // When the category was last updated
-    archivedAt: Timestamp|null   // When the category was archived (if applicable)
-```
-
-### product
+### product → ProductSchema  
 Product catalog for the business.
+- **Key Validations**: Tracking type consistency, pricing structure validation
+- **Business Rules**: Dual tracking requirements, profit margin constraints
+- **Custom Methods**: `validateTrackingType()`, `validatePricingStructure()`
 
-```
-product/
-  {document-id}/
-    businessId: string           // References the business this product belongs to
-    name: string                 // Product name
-    productCode: string          // Optional product code for identification/SKU
-    description: string          // Product description
-    category: string             // Product category (e.g., "ALIMENTO", "ACCESORIO")
-    subcategory: string          // Product subcategory
-    brand: string                // Product brand
-    
-    // Pricing structure (managed separately from product creation)
-    prices: {
-      regular: number            // Regular/card price (base price)
-      cash: number               // Efectivo (cash discount price)
-      vip: number                // VIP/special customer price (editable)
-      bulk: number               // Mayorista (bulk purchase price for unit-based sales)
-      
-      // Unit-specific prices for dual products
-      unit?: {                   // Only for dual tracking type products
-        regular: number          // Regular price per unit
-        cash: number             // Efectivo price per unit
-        vip: number              // VIP price per unit (editable)
-        bulk: number             // Mayorista price per unit
-      },
-      
-      // Kg-specific prices for dual products  
-      kg?: {                     // Only for dual tracking type products
-        regular: number          // Regular price per kg
-        cash: number             // NOT USED - 3kg+ discount is calculated dynamically
-        vip: number              // VIP price per kg (editable)
-      }
-    }
-    
-    // Inventory tracking configuration
-    trackingType: string         // "unit" | "weight" | "dual" (for pet food)
-    unitType: string             // "bag" | "kg" | "piece" | etc.
-    unitWeight: number;          // Weight of each full unit in kg (When "dual" trackingType)
-    allowsLooseSales: boolean    // Whether this product can be sold by weight
-    
-    // Stock information
-    minimumStock: number         // Minimum stock level for alerts
-    supplierIds: string[]        // Array of supplier references
-    
-    // Status
-    isActive: boolean            // Whether product is active
-    createdBy: string            // User ID who created the product
-    createdAt: Timestamp         // When the product was created
-    updatedAt: Timestamp         // When the product was last updated
-    archivedAt: Timestamp|null   // When the product was archived (if applicable)
-```
-
-### inventory
+### inventory → InventorySchema
 Current inventory levels for products.
+- **Key Validations**: Non-negative stock quantities, cost validations
+- **Business Rules**: One inventory record per product, low stock calculations  
+- **Custom Methods**: `validateUniqueProductInventory()`, `calculateLowStockStatus()`
 
-```
-inventory/
-  {document-id}/
-    businessId: string           // References the business
-    productId: string            // References the product
-    productName: string          // Product name for quick reference
-    
-    // Current stock levels
-    unitsInStock: number         // Closed bags/units in stock
-    openUnitsWeight: number      // Weight of open bags/units (in kg)
-    totalWeight: number          // Total weight available (calculated)
-    
-    // Stock control
-    minimumStock: number         // Minimum stock level
-    isLowStock: boolean          // Whether stock is below minimum    
-    
-    // Cost tracking
-    averageCost: number          // Weighted average cost per unit
-    lastPurchaseCost: number     // Cost of last purchase
-    totalCostValue: number       // Total inventory value at cost
-    profitMarginPercentage: number // Profit margin for pricing calculations (default 30%)
-    
-    // Purchase history summary
-    lastPurchaseAt: Timestamp    // When last purchased
-    lastSupplierId: string       // Last supplier used
-    
-    // Last movement tracking
-    lastMovementAt: Timestamp    // When stock was last updated
-    lastMovementType: string     // "sale" | "purchase" | "adjustment"
-    lastMovementBy: string       // User who made the last movement
-    
-    updatedAt: Timestamp         // When the inventory was last updated
-```
+### inventoryMovement → InventoryMovementSchema
+Historical record of all inventory changes (immutable audit trail).
+- **Key Validations**: Movement type consistency, before/after snapshot validation
+- **Business Rules**: Immutable records, cost requirements for purchases
+- **Custom Methods**: `validateMovementConsistency()`, `validateCostInformation()`
 
-### inventoryMovement
-Historical record of all inventory changes.
-
-```
-inventoryMovement/
-  {document-id}/
-    businessId: string           // References the business
-    supplierId: string|null      // References the supplier if exist
-    productId: string            // References the product
-    productName: string          // Product name for reference
-    
-    movementType: string         // "sale" | "purchase" | "adjustment" | "opening"
-    referenceType: string        // "sale" | "purchase_order" | "manual_adjustment"
-    referenceId: string          // ID of the source transaction (sale ID, purchase order ID, etc.)
-    
-    // Movement details
-    quantityChange: number       // Change in units (positive = increase, negative = decrease)
-    weightChange: number         // Change in weight (for weight-tracked products)    
-    
-    // Cost information (for purchase movements)
-    unitCost: number|null        // Cost per unit when purchased
-    previousCost: number|null    // Previous unit cost from inventory
-    totalCost: number|null       // Total cost of this movement
-    supplierId: string|null      // Supplier (for purchase movements)
-    
-    // Before/after snapshots
-    unitsBefore: number          // Units before this movement
-    unitsAfter: number           // Units after this movement
-    weightBefore: number         // Weight before this movement
-    weightAfter: number          // Weight after this movement
-    
-    notes: string                // Additional notes about the movement
-    createdBy: string            // User ID who caused this movement
-    createdByName: string        // Name of user who caused this movement
-    createdAt: Timestamp         // When the movement occurred
-```
+**Field Details**: Refer to respective schema files for complete field definitions, types, constraints, and validation rules.
 
 ### supplier
 Supplier information and profiles for managing business relationships and purchases.
@@ -813,4 +764,33 @@ businessConfig/
     updatedAt: Timestamp         // When the configuration was last updated
 ```
 
-This database structure provides a comprehensive foundation for the Pet Universe application, supporting the dual cash register system, inventory management, customer relationships, and business operations while maintaining data integrity and supporting the application's architectural patterns.
+This schema-driven architecture provides a comprehensive foundation for the Pet Universe application, supporting the dual cash register system, inventory management, customer relationships, and business operations while maintaining data integrity through automatic validation and business rule enforcement.
+
+## Schema Development Guidelines
+
+When creating new schemas:
+
+1. **Extend Base Schema**: Always extend from `utils/odm/schema.ts`
+2. **Define Field Schema**: Use `SchemaDefinition` with proper types and constraints
+3. **Add Custom Validations**: Override `create()` and `update()` methods for business rules
+4. **Handle References**: Use `referenceTo` for foreign key relationships
+5. **Error Handling**: Return structured error responses with clear messages
+6. **Documentation**: Document custom methods and validation logic
+7. **Store Integration**: Add `_getSchemaName()` methods in corresponding stores
+
+Example schema structure:
+```typescript
+export class ExampleSchema extends Schema {
+  protected collectionName = 'example';
+  
+  protected schema: SchemaDefinition = {
+    // Field definitions with types, constraints, defaults
+  };
+  
+  // Custom validation methods
+  validateCustomRule(data: any): ValidationResult { ... }
+  
+  // Override create/update for business logic
+  override async create(data: any, validateRefs = true) { ... }
+}
+```

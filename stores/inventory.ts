@@ -1,19 +1,8 @@
-import {
-  addDoc,
-  collection,
-  doc,
-  updateDoc,
-  serverTimestamp,
-  getDocs,
-  getDoc,
-  query,
-  where,
-  orderBy,
-  Timestamp,
-  limit,
-} from "firebase/firestore";
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
+import { InventorySchema } from "~/utils/odm/schemas/inventorySchema";
+import { InventoryMovementSchema } from "~/utils/odm/schemas/inventoryMovementSchema";
+import { serverTimestamp } from "firebase/firestore";
 
 // Inventory interfaces
 interface Inventory {
@@ -156,20 +145,21 @@ export const useInventoryStore = defineStore("inventory", {
   },
 
   actions: {
+    // Initialize schema instances
+    _getInventorySchema() {
+      return new InventorySchema();
+    },
+
+    _getInventoryMovementSchema() {
+      return new InventoryMovementSchema();
+    },
+
     // Fetch all inventory for the current business
     async fetchInventory(forceFetch = false): Promise<boolean> {
-
       if (this.inventoryLoaded && !forceFetch) {
         console.log("Inventory already loaded, skipping fetch.");
-        return true; // Already loaded
+        return true;
       }
-
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const { $dayjs } = useNuxtApp();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
 
       try {
         this.isLoading = true;
@@ -177,61 +167,23 @@ export const useInventoryStore = defineStore("inventory", {
         // Clear the Map when fetching all inventory
         this.inventoryByProductId.clear();
         
-        // Rest of the function remains the same...
-        const inventoryQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value)
-        );
+        const inventorySchema = this._getInventorySchema();
+        const result = await inventorySchema.find();
+
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al cargar el inventario. Por favor intenta nuevamente.");
+          this.isLoading = false;
+          return false;
+        }
         
-        const inventorySnapshot = await getDocs(inventoryQuery);
+        // Transform ODM results to Inventory format
+        const inventoryItems: Inventory[] = result.data as Inventory[];
         
-        // Transform documents to inventory objects
-        const inventoryItems = inventorySnapshot.docs.map(doc => {
-          const data = doc.data();
-          
-          // Format timestamps
-          let lastPurchaseAt = null;
-          if (data.lastPurchaseAt) {
-            lastPurchaseAt = $dayjs(data.lastPurchaseAt.toDate()).format('DD/MM/YYYY');
-          }
-          
-          let lastMovementAt = null;
-          if (data.lastMovementAt) {
-            lastMovementAt = $dayjs(data.lastMovementAt.toDate()).format('DD/MM/YYYY');
-          }
-          
-          const inventoryItem = {
-            id: doc.id,
-            businessId: data.businessId,
-            productId: data.productId,
-            productName: data.productName || '',
-            unitsInStock: data.unitsInStock || 0,
-            openUnitsWeight: data.openUnitsWeight || 0,
-            totalWeight: data.totalWeight || 0,
-            minimumStock: data.minimumStock || 0,
-            isLowStock: data.isLowStock || false,
-            averageCost: data.averageCost || 0,
-            lastPurchaseCost: data.lastPurchaseCost || 0,
-            totalCostValue: data.totalCostValue || 0,
-            lastPurchaseAt: lastPurchaseAt,
-            originalLastPurchaseAt: data.lastPurchaseAt,
-            lastSupplierId: data.lastSupplierId || null,
-            lastMovementAt: lastMovementAt,
-            originalLastMovementAt: data.lastMovementAt,
-            lastMovementType: data.lastMovementType || null,
-            lastMovementBy: data.lastMovementBy || null,
-            createdBy: data.createdBy,
-            createdAt: $dayjs(data.createdAt.toDate()).format('DD/MM/YYYY'),
-            updatedAt: $dayjs(data.updatedAt.toDate()).format('DD/MM/YYYY'),
-          };
-          
-          // Add to Map for quick lookup
-          this.inventoryByProductId.set(data.productId, inventoryItem as Inventory);
-          
-          return inventoryItem;
+        inventoryItems.forEach(item => {
+          this.inventoryByProductId.set(item.productId, item);
         });
         
-        this.inventoryItems = inventoryItems as Inventory[];
+        this.inventoryItems = inventoryItems;
         this.inventoryLoaded = true;
         this.isLoading = false;
         return true;
@@ -245,86 +197,42 @@ export const useInventoryStore = defineStore("inventory", {
     
     // Fetch inventory for a specific product
     async fetchInventoryForProduct(productId: string): Promise<Inventory | null> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const { $dayjs } = useNuxtApp();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value || !productId) return null;
+      if (!productId) return null;
 
       if (this.inventoryByProductId.has(productId)) {
         console.log(`Inventory for product ${productId} is already cached.`);
-        // If already cached, return immediately
         return this.inventoryByProductId.get(productId) as Inventory;
       }
 
       try {
         this.isLoading = true;
         
-        const inventoryQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', productId)
-        );
+        const inventorySchema = this._getInventorySchema();
+        const result = await inventorySchema.find({
+          where: [{ field: 'productId', operator: '==', value: productId }],
+          limit: 1
+        });
         
-        const inventorySnapshot = await getDocs(inventoryQuery);
-        if (inventorySnapshot.empty) {
+        if (!result.success || !result.data || result.data.length === 0) {
           this.isLoading = false;
           return null;
         }
         
-        const data = inventorySnapshot.docs[0].data();
-        const docId = inventorySnapshot.docs[0].id;
-        
-        // Format timestamps
-        let lastPurchaseAt = null;
-        if (data.lastPurchaseAt) {
-          lastPurchaseAt = $dayjs(data.lastPurchaseAt.toDate()).format('DD/MM/YYYY');
-        }
-        
-        let lastMovementAt = null;
-        if (data.lastMovementAt) {
-          lastMovementAt = $dayjs(data.lastMovementAt.toDate()).format('DD/MM/YYYY');
-        }
-        
-        const inventoryItem = {
-          id: docId,
-          businessId: data.businessId,
-          productId: data.productId,
-          productName: data.productName || '',
-          unitsInStock: data.unitsInStock || 0,
-          openUnitsWeight: data.openUnitsWeight || 0,
-          totalWeight: data.totalWeight || 0,
-          minimumStock: data.minimumStock || 0,
-          isLowStock: data.isLowStock || false,
-          averageCost: data.averageCost || 0,
-          lastPurchaseCost: data.lastPurchaseCost || 0,
-          totalCostValue: data.totalCostValue || 0,
-          lastPurchaseAt: lastPurchaseAt,
-          originalLastPurchaseAt: data.lastPurchaseAt,
-          lastSupplierId: data.lastSupplierId || null,
-          lastMovementAt: lastMovementAt,
-          originalLastMovementAt: data.lastMovementAt,
-          lastMovementType: data.lastMovementType || null,
-          lastMovementBy: data.lastMovementBy || null,
-          createdBy: data.createdBy,
-          createdAt: $dayjs(data.createdAt.toDate()).format('DD/MM/YYYY'),
-          updatedAt: $dayjs(data.updatedAt.toDate()).format('DD/MM/YYYY'),
-        };
+        const inventoryItem = result.data[0] as Inventory;
         
         // Update both array and Map
         const existingIndex = this.inventoryItems.findIndex(item => item.productId === productId);
         if (existingIndex >= 0) {
-          this.inventoryItems[existingIndex] = inventoryItem as Inventory;
+          this.inventoryItems[existingIndex] = inventoryItem;
         } else {
-          this.inventoryItems.push(inventoryItem as Inventory);
+          this.inventoryItems.push(inventoryItem);
         }
         
         // Update Map with latest data
-        this.inventoryByProductId.set(productId, inventoryItem as Inventory);
+        this.inventoryByProductId.set(productId, inventoryItem);
         
         this.isLoading = false;
-        return inventoryItem as Inventory;
+        return inventoryItem;
       } catch (error) {
         console.error("Error fetching inventory for product:", error);
         useToast(ToastEvents.error, "Hubo un error al cargar el inventario del producto.");
@@ -335,58 +243,29 @@ export const useInventoryStore = defineStore("inventory", {
     
     // Fetch movements for a specific product
     async fetchMovementsForProduct(productId: string): Promise<InventoryMovement[]> {
-
       // Check if movements are already cached
       if (this.inventoryMovementsByProductId.has(productId)) {
         console.log(`Movements for product ${productId} are already cached.`);
         return this.inventoryMovementsByProductId.get(productId) || [];
       }
 
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const { $dayjs } = useNuxtApp();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value || !productId) return [];
+      if (!productId) return [];
 
       try {
         this.isLoading = true;
         
-        const movementsQuery = query(
-          collection(db, 'inventoryMovement'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', productId),
-          orderBy('createdAt', 'desc')
-        );
-        
-        const movementsSnapshot = await getDocs(movementsQuery);
-        
-        const movements = movementsSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            businessId: data.businessId,
-            productId: data.productId,
-            productName: data.productName,
-            movementType: data.movementType,
-            referenceType: data.referenceType,
-            referenceId: data.referenceId,
-            quantityChange: data.quantityChange,
-            weightChange: data.weightChange,
-            unitCost: data.unitCost,
-            previousCost: data.previousCost,
-            totalCost: data.totalCost,
-            supplierId: data.supplierId,
-            unitsBefore: data.unitsBefore,
-            unitsAfter: data.unitsAfter,
-            weightBefore: data.weightBefore,
-            weightAfter: data.weightAfter,
-            notes: data.notes || '',
-            createdBy: data.createdBy,
-            createdByName: data.createdByName || '',
-            createdAt: $dayjs(data.createdAt.toDate()).format('DD/MM/YYYY HH:mm'),
-          };
+        const movementSchema = this._getInventoryMovementSchema();
+        const result = await movementSchema.find({
+          where: [{ field: 'productId', operator: '==', value: productId }],
+          orderBy: [{ field: 'createdAt', direction: 'desc' }]
         });
+        
+        if (!result.success || !result.data) {
+          this.isLoading = false;
+          return [];
+        }
+        
+        const movements = result.data as InventoryMovement[];
         
         // Update the cache
         this.inventoryMovementsByProductId.set(productId, movements);
@@ -403,32 +282,13 @@ export const useInventoryStore = defineStore("inventory", {
     
     // Create a new inventory record for a product
     async createInventory(productId: string, productName: string, minimumStock: number = 0): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
         
-        // Check if inventory already exists
-        const existingQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', productId)
-        );
-        
-        const existingSnapshot = await getDocs(existingQuery);
-        if (!existingSnapshot.empty) {
-          useToast(ToastEvents.info, "Ya existe un registro de inventario para este producto");
-          this.isLoading = false;
-          return true; // Not an error, just already exists
-        }
+        const inventorySchema = this._getInventorySchema();
         
         // Create new inventory record
-        const inventoryData = {
-          businessId: currentBusinessId.value,
+        const result = await inventorySchema.create({
           productId: productId,
           productName: productName,
           unitsInStock: 0,
@@ -439,12 +299,19 @@ export const useInventoryStore = defineStore("inventory", {
           averageCost: 0,
           lastPurchaseCost: 0,
           totalCostValue: 0,
-          createdBy: user.value.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
+        });
         
-        const docRef = await addDoc(collection(db, 'inventory'), inventoryData);
+        if (!result.success) {
+          if (result.error?.includes('already exists')) {
+            useToast(ToastEvents.info, "Ya existe un registro de inventario para este producto");
+            this.isLoading = false;
+            return true; // Not an error, just already exists
+          }
+          
+          useToast(ToastEvents.error, result.error || "Hubo un error al crear el registro de inventario");
+          this.isLoading = false;
+          return false;
+        }
         
         // Add initial inventory movement
         await this.recordInventoryMovement({
@@ -479,49 +346,41 @@ export const useInventoryStore = defineStore("inventory", {
     
     // Update inventory basic info (product name, minimum stock)
     async updateInventoryInfo(productId: string, productName: string, minimumStock: number): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
         
-        // Find inventory record
-        const inventoryQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', productId)
-        );
+        const inventorySchema = this._getInventorySchema();
         
-        const inventorySnapshot = await getDocs(inventoryQuery);
-        if (inventorySnapshot.empty) {
+        // Find existing inventory record
+        const existingResult = await inventorySchema.find({
+          where: [{ field: 'productId', operator: '==', value: productId }],
+          limit: 1
+        });
+        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
           // Create new inventory if it doesn't exist
           return await this.createInventory(productId, productName, minimumStock);
         }
         
+        const existingInventory = existingResult.data[0];
+        
         // Update existing inventory
-        const inventoryId = inventorySnapshot.docs[0].id;
-        const inventoryRef = doc(db, 'inventory', inventoryId);
-        const inventoryData = inventorySnapshot.docs[0].data();
-        
-        // Calculate if low in stock based on new minimum
-        const isLowStock = minimumStock > 0 && (inventoryData.unitsInStock || 0) < minimumStock;
-        
-        await updateDoc(inventoryRef, {
+        const result = await inventorySchema.update(existingInventory.id, {
           productName: productName,
           minimumStock: minimumStock,
-          isLowStock: isLowStock,
-          updatedAt: serverTimestamp(),
         });
         
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar la información de inventario");
+          this.isLoading = false;
+          return false;
+        }
+        
         // Update local state
+        const updatedInventory = result.data as Inventory;
         const index = this.inventoryItems.findIndex(item => item.productId === productId);
         if (index >= 0) {
-          this.inventoryItems[index].productName = productName;
-          this.inventoryItems[index].minimumStock = minimumStock;
-          this.inventoryItems[index].isLowStock = isLowStock;
+          this.inventoryItems[index] = updatedInventory;
+          this.inventoryByProductId.set(productId, updatedInventory);
         }
         
         this.isLoading = false;
@@ -536,36 +395,27 @@ export const useInventoryStore = defineStore("inventory", {
     
     // Adjust inventory for a product
     async adjustInventory(adjustmentData: InventoryAdjustmentData): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
         
-        // Get existing inventory record
-        const inventoryQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', adjustmentData.productId)
-        );
+        const inventorySchema = this._getInventorySchema();
         
-        const inventorySnapshot = await getDocs(inventoryQuery);
-        if (inventorySnapshot.empty) {
+        // Get existing inventory record
+        const existingResult = await inventorySchema.find({
+          where: [{ field: 'productId', operator: '==', value: adjustmentData.productId }],
+          limit: 1
+        });
+        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
           useToast(ToastEvents.error, "No se encontró el registro de inventario");
           this.isLoading = false;
           return false;
         }
         
-        // Get product details from the inventory record
-        const inventoryData = inventorySnapshot.docs[0].data();
-        const inventoryRef = doc(db, 'inventory', inventorySnapshot.docs[0].id);
+        const existingInventory = existingResult.data[0];
         
         // Calculate new inventory levels
-        const newUnitsInStock = inventoryData.unitsInStock + adjustmentData.unitsChange;
-        const newOpenUnitsWeight = inventoryData.openUnitsWeight + adjustmentData.weightChange;
+        const newUnitsInStock = existingInventory.unitsInStock + adjustmentData.unitsChange;
+        const newOpenUnitsWeight = existingInventory.openUnitsWeight + adjustmentData.weightChange;
         
         // Validate new values
         if (newUnitsInStock < 0 || newOpenUnitsWeight < 0) {
@@ -574,19 +424,20 @@ export const useInventoryStore = defineStore("inventory", {
           return false;
         }
         
-        // Calculate if product is low in stock
-        const isLowStock = inventoryData.minimumStock > 0 && newUnitsInStock < inventoryData.minimumStock;
-        
-        // Update inventory document
-        await updateDoc(inventoryRef, {
+        // Update inventory using schema
+        const result = await inventorySchema.update(existingInventory.id, {
           unitsInStock: newUnitsInStock,
           openUnitsWeight: newOpenUnitsWeight,
-          isLowStock: isLowStock,
           lastMovementAt: serverTimestamp(),
           lastMovementType: "adjustment",
-          lastMovementBy: user.value.uid,
-          updatedAt: serverTimestamp(),
+          lastMovementBy: useCurrentUser().value?.uid || '',
         });
+        
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al ajustar el inventario");
+          this.isLoading = false;
+          return false;
+        }
         
         // Record inventory movement
         const success = await this.recordInventoryMovement({
@@ -600,37 +451,21 @@ export const useInventoryStore = defineStore("inventory", {
           previousCost: null,
           totalCost: null,
           supplierId: null,
-          unitsBefore: inventoryData.unitsInStock,
+          unitsBefore: existingInventory.unitsInStock,
           unitsAfter: newUnitsInStock,
-          weightBefore: inventoryData.openUnitsWeight,
+          weightBefore: existingInventory.openUnitsWeight,
           weightAfter: newOpenUnitsWeight,
           notes: adjustmentData.notes,
-          productName: inventoryData.productName,
+          productName: existingInventory.productName,
         });
         
         if (success) {
-          // Update local cache
+          // Update local cache with schema result
+          const updatedInventory = result.data as Inventory;
           const index = this.inventoryItems.findIndex(item => item.productId === adjustmentData.productId);
           if (index >= 0) {
-            const { $dayjs } = useNuxtApp();
-            this.inventoryItems[index].unitsInStock = newUnitsInStock;
-            this.inventoryItems[index].openUnitsWeight = newOpenUnitsWeight;
-            this.inventoryItems[index].isLowStock = isLowStock;
-            this.inventoryItems[index].lastMovementAt = $dayjs().format('DD/MM/YYYY');
-            this.inventoryItems[index].lastMovementType = "adjustment";
-            this.inventoryItems[index].lastMovementBy = user.value.uid;
-            
-            // Also update the Map
-            if (this.inventoryByProductId.has(adjustmentData.productId)) {
-              const cachedItem = this.inventoryByProductId.get(adjustmentData.productId) as Inventory;
-              cachedItem.unitsInStock = newUnitsInStock;
-              cachedItem.openUnitsWeight = newOpenUnitsWeight;
-              cachedItem.isLowStock = isLowStock;
-              cachedItem.lastMovementAt = $dayjs().format('DD/MM/YYYY');
-              cachedItem.lastMovementType = "adjustment";
-              cachedItem.lastMovementBy = user.value.uid;
-              this.inventoryByProductId.set(adjustmentData.productId, cachedItem);
-            }
+            this.inventoryItems[index] = updatedInventory;
+            this.inventoryByProductId.set(adjustmentData.productId, updatedInventory);
           }
         }
         
@@ -663,16 +498,11 @@ export const useInventoryStore = defineStore("inventory", {
       notes: string;
       productName: string;
     }): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
+        const movementSchema = this._getInventoryMovementSchema();
+        
         // Create movement record
-        const refDoc = await addDoc(collection(db, 'inventoryMovement'), {
-          businessId: currentBusinessId.value,
+        const result = await movementSchema.create({
           productId: data.productId,
           productName: data.productName,
           movementType: data.movementType,
@@ -689,40 +519,18 @@ export const useInventoryStore = defineStore("inventory", {
           weightBefore: data.weightBefore,
           weightAfter: data.weightAfter,
           notes: data.notes || '',
-          createdBy: user.value.uid,
-          createdByName: user.value.displayName || user.value.email,
-          createdAt: serverTimestamp(),
         });
+        
+        if (!result.success) {
+          console.error("Error creating inventory movement:", result.error);
+          useToast(ToastEvents.error, result.error || "Hubo un error al registrar el movimiento de inventario");
+          return false;
+        }
         
         // Refresh movements for this product in cache if it exists
         if (this.inventoryMovementsByProductId.has(data.productId)) {
-          const { $dayjs } = useNuxtApp();
-          // Add to existing movements
-          const newMovement: InventoryMovement = {
-            id: refDoc.id,
-            businessId: currentBusinessId.value,
-            productId: data.productId,
-            productName: data.productName,
-            movementType: data.movementType,
-            referenceType: data.referenceType,
-            referenceId: data.referenceId,
-            quantityChange: data.quantityChange,
-            weightChange: data.weightChange,
-            unitCost: data.unitCost,
-            previousCost: data.previousCost,
-            totalCost: data.totalCost,
-            supplierId: data.supplierId,
-            unitsBefore: data.unitsBefore,
-            unitsAfter: data.unitsAfter,
-            weightBefore: data.weightBefore,
-            weightAfter: data.weightAfter,
-            notes: data.notes || '',
-            createdBy: user.value.uid,
-            createdByName: (user.value.displayName || user.value.email) as string,
-            createdAt: $dayjs().format('DD/MM/YYYY HH:mm'), // Use current date for local cache
-          };
-
           // Add to existing movements array
+          const newMovement = result.data as InventoryMovement;
           this.inventoryMovementsByProductId.get(data.productId)?.unshift(newMovement);
         } else {
           await this.fetchMovementsForProduct(data.productId);
@@ -738,36 +546,35 @@ export const useInventoryStore = defineStore("inventory", {
     
     // New action for adding inventory (purchases)
     async addInventory(data: InventoryAdditionData): Promise<boolean> {
-      const db = useFirestore();
       const user = useCurrentUser();
-      
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
 
       try {
         this.isLoading = true;
         
-        // Get existing inventory record
-        const inventoryQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', data.productId)
-        );
+        // Get existing inventory record using schema
+        const inventorySchema = this._getInventorySchema();
+        const existingResult = await inventorySchema.find({
+          where: [
+            { field: 'businessId', operator: '==', value: currentBusinessId.value },
+            { field: 'productId', operator: '==', value: data.productId }
+          ],
+          limit: 1
+        });
         
-        const inventorySnapshot = await getDocs(inventoryQuery);
-        if (inventorySnapshot.empty) {
+        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
           useToast(ToastEvents.error, "No se encontró el registro de inventario");
           this.isLoading = false;
           return false;
         }
         
-        const inventoryData = inventorySnapshot.docs[0].data();
-        const inventoryRef = doc(db, 'inventory', inventorySnapshot.docs[0].id);
+        const existingInventory = existingResult.data[0];
         
         // Calculate new inventory values
-        const currentUnits = inventoryData.unitsInStock || 0;
-        const currentWeight = inventoryData.openUnitsWeight || 0;
-        const currentCost = inventoryData.averageCost || 0;
+        const currentUnits = existingInventory.unitsInStock || 0;
+        const currentWeight = existingInventory.openUnitsWeight || 0;
+        const currentCost = existingInventory.averageCost || 0;
         
         const newUnitsInStock = currentUnits + data.unitsChange;
         const newOpenUnitsWeight = currentWeight + data.weightChange;
@@ -783,23 +590,30 @@ export const useInventoryStore = defineStore("inventory", {
         }
         
         // Calculate if product is low in stock
-        const isLowStock = (inventoryData.minimumStock || 0) > 0 && newUnitsInStock < (inventoryData.minimumStock || 0);
+        const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
         
-        // Update inventory document
-        await updateDoc(inventoryRef, {
+        // Update inventory document using schema
+        const { $dayjs } = useNuxtApp();
+        const updateResult = await inventorySchema.update(existingInventory.id, {
           unitsInStock: newUnitsInStock,
           openUnitsWeight: newOpenUnitsWeight,
           averageCost: newAverageCost,
           lastPurchaseCost: data.unitCost,
           totalCostValue: newUnitsInStock * newAverageCost,
           isLowStock: isLowStock,
-          lastPurchaseAt: serverTimestamp(),
+          lastPurchaseAt: $dayjs().toDate(),
           lastSupplierId: data.supplierId || null,
-          lastMovementAt: serverTimestamp(),
+          lastMovementAt: $dayjs().toDate(),
           lastMovementType: "purchase",
           lastMovementBy: user.value.uid,
-          updatedAt: serverTimestamp(),
         });
+        
+        if (!updateResult.success) {
+          console.error("Error updating inventory:", updateResult.error);
+          useToast(ToastEvents.error, updateResult.error || "Error al actualizar inventario");
+          this.isLoading = false;
+          return false;
+        }
         
         // Record inventory movement
         const success = await this.recordInventoryMovement({
@@ -818,7 +632,7 @@ export const useInventoryStore = defineStore("inventory", {
           weightBefore: currentWeight,
           weightAfter: newOpenUnitsWeight,
           notes: data.notes || `Adición de ${data.unitsChange} unidades al inventario`,
-          productName: inventoryData.productName,
+          productName: existingInventory.productName,
         });
         
         if (success) {
@@ -877,35 +691,34 @@ export const useInventoryStore = defineStore("inventory", {
     
     // New action for reducing inventory (losses/returns)
     async reduceInventory(data: InventoryReductionData): Promise<boolean> {
-      const db = useFirestore();
       const user = useCurrentUser();
-      
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
 
       try {
         this.isLoading = true;
         
-        // Get existing inventory record
-        const inventoryQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', data.productId)
-        );
+        // Get existing inventory record using schema
+        const inventorySchema = this._getInventorySchema();
+        const existingResult = await inventorySchema.find({
+          where: [
+            { field: 'businessId', operator: '==', value: currentBusinessId.value },
+            { field: 'productId', operator: '==', value: data.productId }
+          ],
+          limit: 1
+        });
         
-        const inventorySnapshot = await getDocs(inventoryQuery);
-        if (inventorySnapshot.empty) {
+        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
           useToast(ToastEvents.error, "No se encontró el registro de inventario");
           this.isLoading = false;
           return false;
         }
         
-        const inventoryData = inventorySnapshot.docs[0].data();
-        const inventoryRef = doc(db, 'inventory', inventorySnapshot.docs[0].id);
+        const existingInventory = existingResult.data[0];
         
         // Calculate new inventory values
-        const currentUnits = inventoryData.unitsInStock || 0;
-        const currentWeight = inventoryData.openUnitsWeight || 0;
+        const currentUnits = existingInventory.unitsInStock || 0;
+        const currentWeight = existingInventory.openUnitsWeight || 0;
         
         // Cap to avoid negative inventory
         const actualUnitsChange = Math.min(data.unitsChange, currentUnits);
@@ -915,18 +728,25 @@ export const useInventoryStore = defineStore("inventory", {
         const newOpenUnitsWeight = currentWeight - actualWeightChange;
         
         // Calculate if product is low in stock
-        const isLowStock = (inventoryData.minimumStock || 0) > 0 && newUnitsInStock < (inventoryData.minimumStock || 0);
+        const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
         
-        // Update inventory document
-        await updateDoc(inventoryRef, {
+        // Update inventory document using schema
+        const { $dayjs } = useNuxtApp();
+        const updateResult = await inventorySchema.update(existingInventory.id, {
           unitsInStock: newUnitsInStock,
           openUnitsWeight: newOpenUnitsWeight,
           isLowStock: isLowStock,
-          lastMovementAt: serverTimestamp(),
+          lastMovementAt: $dayjs().toDate(),
           lastMovementType: data.isLoss ? "loss" : "return",
           lastMovementBy: user.value.uid,
-          updatedAt: serverTimestamp(),
         });
+        
+        if (!updateResult.success) {
+          console.error("Error updating inventory:", updateResult.error);
+          useToast(ToastEvents.error, updateResult.error || "Error al actualizar inventario");
+          this.isLoading = false;
+          return false;
+        }
         
         // Record inventory movement
         const movementType = data.isLoss ? "loss" : "return";
@@ -948,7 +768,7 @@ export const useInventoryStore = defineStore("inventory", {
           notes: data.notes || (data.isLoss 
             ? `Pérdida de ${actualUnitsChange} unidades${data.reason ? ` por ${data.reason}` : ''}`
             : `Devolución de ${actualUnitsChange} unidades`),
-          productName: inventoryData.productName,
+          productName: existingInventory.productName,
         });
         
         if (success) {
@@ -958,7 +778,7 @@ export const useInventoryStore = defineStore("inventory", {
               const globalCashRegisterStore = useGlobalCashRegisterStore();
               const productStore = useProductStore();
               const product = productStore.getProductById(data.productId);
-              const totalAmount = actualUnitsChange * (inventoryData.averageCost || 0);
+              const totalAmount = actualUnitsChange * (existingInventory.averageCost || 0);
               
               await globalCashRegisterStore.addTransaction({
                 type: 'income',
@@ -1002,36 +822,35 @@ export const useInventoryStore = defineStore("inventory", {
     
     // New action for adjusting inventory to specific values
     async adjustInventoryToValues(data: InventoryAdjustmentToValuesData): Promise<boolean> {
-      const db = useFirestore();
       const user = useCurrentUser();
-      
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
 
       try {
         this.isLoading = true;
         
-        // Get existing inventory record
-        const inventoryQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', data.productId)
-        );
+        // Get existing inventory record using schema
+        const inventorySchema = this._getInventorySchema();
+        const existingResult = await inventorySchema.find({
+          where: [
+            { field: 'businessId', operator: '==', value: currentBusinessId.value },
+            { field: 'productId', operator: '==', value: data.productId }
+          ],
+          limit: 1
+        });
         
-        const inventorySnapshot = await getDocs(inventoryQuery);
-        if (inventorySnapshot.empty) {
+        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
           useToast(ToastEvents.error, "No se encontró el registro de inventario");
           this.isLoading = false;
           return false;
         }
         
-        const inventoryData = inventorySnapshot.docs[0].data();
-        const inventoryRef = doc(db, 'inventory', inventorySnapshot.docs[0].id);
+        const existingInventory = existingResult.data[0];
         
         // Calculate changes
-        const currentUnits = inventoryData.unitsInStock || 0;
-        const currentWeight = inventoryData.openUnitsWeight || 0;
-        const currentCost = inventoryData.averageCost || 0;
+        const currentUnits = existingInventory.unitsInStock || 0;
+        const currentWeight = existingInventory.openUnitsWeight || 0;
+        const currentCost = existingInventory.averageCost || 0;
         
         const unitsChange = data.newUnits - currentUnits;
         const weightChange = data.newWeight - currentWeight;
@@ -1044,20 +863,27 @@ export const useInventoryStore = defineStore("inventory", {
         }
         
         // Calculate if product is low in stock
-        const isLowStock = (inventoryData.minimumStock || 0) > 0 && data.newUnits < (inventoryData.minimumStock || 0);
+        const isLowStock = (existingInventory.minimumStock || 0) > 0 && data.newUnits < (existingInventory.minimumStock || 0);
         
-        // Update inventory document
-        await updateDoc(inventoryRef, {
+        // Update inventory document using schema
+        const { $dayjs } = useNuxtApp();
+        const updateResult = await inventorySchema.update(existingInventory.id, {
           unitsInStock: data.newUnits,
           openUnitsWeight: data.newWeight,
           averageCost: data.newCost,
           totalCostValue: data.newUnits * data.newCost,
           isLowStock: isLowStock,
-          lastMovementAt: serverTimestamp(),
+          lastMovementAt: $dayjs().toDate(),
           lastMovementType: "adjustment",
           lastMovementBy: user.value.uid,
-          updatedAt: serverTimestamp(),
         });
+        
+        if (!updateResult.success) {
+          console.error("Error updating inventory:", updateResult.error);
+          useToast(ToastEvents.error, updateResult.error || "Error al actualizar inventario");
+          this.isLoading = false;
+          return false;
+        }
         
         // Record inventory movement
         const success = await this.recordInventoryMovement({
@@ -1076,7 +902,7 @@ export const useInventoryStore = defineStore("inventory", {
           weightBefore: currentWeight,
           weightAfter: data.newWeight,
           notes: data.notes || `Ajuste manual de inventario a ${data.newUnits} unidades`,
-          productName: inventoryData.productName,
+          productName: existingInventory.productName,
         });
         
         if (success) {
@@ -1109,27 +935,26 @@ export const useInventoryStore = defineStore("inventory", {
     
     // Fetch latest inventory
     async fetchLatestMovement(): Promise<{ date: string, type: string } | null> {
-      const db = useFirestore();
       const user = useCurrentUser();
       const { $dayjs } = useNuxtApp();
-      
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return null;
     
       try {
-        const movementQuery = query(
-          collection(db, 'inventoryMovement'),
-          where('businessId', '==', currentBusinessId.value),
-          orderBy('createdAt', 'desc'),
-          limit(1)
-        );
+        // Use schema to fetch latest movement
+        const inventoryMovementSchema = this._getInventoryMovementSchema();
+        const movementsResult = await inventoryMovementSchema.find({
+          where: [{ field: 'businessId', operator: '==', value: currentBusinessId.value }],
+          orderBy: [{ field: 'createdAt', direction: 'desc' }],
+          limit: 1
+        });
         
-        const movementSnapshot = await getDocs(movementQuery);
-        if (movementSnapshot.empty) return null;
+        if (!movementsResult.success || !movementsResult.data || movementsResult.data.length === 0) return null;
         
-        const latestMovement = movementSnapshot.docs[0].data();
+        const latestMovement = movementsResult.data[0];
+        
         return {
-          date: $dayjs(latestMovement.createdAt.toDate()).format('DD/MM/YYYY HH:mm'),
+          date: $dayjs(latestMovement.createdAt).format('DD/MM/YYYY HH:mm'),
           type: latestMovement.movementType
         };
       } catch (error) {
@@ -1139,31 +964,30 @@ export const useInventoryStore = defineStore("inventory", {
     },
 
     async convertUnitsToWeight(data: UnitConversionData): Promise<boolean> {
-      const db = useFirestore();
       const user = useCurrentUser();
-      
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
     
       try {
         this.isLoading = true;
         
-        // Get existing inventory record
-        const inventoryQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', data.productId)
-        );
+        // Get existing inventory record using schema
+        const inventorySchema = this._getInventorySchema();
+        const existingResult = await inventorySchema.find({
+          where: [
+            { field: 'businessId', operator: '==', value: currentBusinessId.value },
+            { field: 'productId', operator: '==', value: data.productId }
+          ],
+          limit: 1
+        });
         
-        const inventorySnapshot = await getDocs(inventoryQuery);
-        if (inventorySnapshot.empty) {
+        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
           useToast(ToastEvents.error, "No se encontró el registro de inventario");
           this.isLoading = false;
           return false;
         }
         
-        const inventoryData = inventorySnapshot.docs[0].data();
-        const inventoryRef = doc(db, 'inventory', inventorySnapshot.docs[0].id);
+        const existingInventory = existingResult.data[0];
         
         // Get product to verify it's dual tracking type
         const productStore = useProductStore();
@@ -1176,8 +1000,8 @@ export const useInventoryStore = defineStore("inventory", {
         }
         
         // Calculate values
-        const currentUnits = inventoryData.unitsInStock || 0;
-        const currentWeight = inventoryData.openUnitsWeight || 0;
+        const currentUnits = existingInventory.unitsInStock || 0;
+        const currentWeight = existingInventory.openUnitsWeight || 0;
         
         // Validate conversion
         if (data.unitsToConvert <= 0) {
@@ -1206,18 +1030,25 @@ export const useInventoryStore = defineStore("inventory", {
         const newOpenUnitsWeight = currentWeight + weightToAdd;
         
         // Calculate if product is low in stock
-        const isLowStock = (inventoryData.minimumStock || 0) > 0 && newUnitsInStock < (inventoryData.minimumStock || 0);
+        const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
         
-        // Update inventory document
-        await updateDoc(inventoryRef, {
+        // Update inventory document using schema
+        const { $dayjs } = useNuxtApp();
+        const updateResult = await inventorySchema.update(existingInventory.id, {
           unitsInStock: newUnitsInStock,
           openUnitsWeight: newOpenUnitsWeight,
           isLowStock: isLowStock,
-          lastMovementAt: serverTimestamp(),
+          lastMovementAt: $dayjs().toDate(),
           lastMovementType: "conversion",
           lastMovementBy: user.value.uid,
-          updatedAt: serverTimestamp(),
         });
+        
+        if (!updateResult.success) {
+          console.error("Error updating inventory:", updateResult.error);
+          useToast(ToastEvents.error, updateResult.error || "Error al actualizar inventario");
+          this.isLoading = false;
+          return false;
+        }
         
         // Record inventory movement
         const success = await this.recordInventoryMovement({
@@ -1236,7 +1067,7 @@ export const useInventoryStore = defineStore("inventory", {
           weightBefore: currentWeight,
           weightAfter: newOpenUnitsWeight,
           notes: data.notes || `Conversión de ${unitsToRemove} unidad(es) a ${weightToAdd.toFixed(2)} kg`,
-          productName: inventoryData.productName,
+          productName: existingInventory.productName,
         });
         
         if (success) {
@@ -1277,55 +1108,38 @@ export const useInventoryStore = defineStore("inventory", {
       }
     },
     async fetchMovementsBySupplier(supplierId: string): Promise<InventoryMovement[]> {
-      const db = useFirestore();
       const user = useCurrentUser();
       const { $dayjs } = useNuxtApp();
-      
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value || !supplierId) return [];
 
       try {
         this.isLoading = true;
         
-        const movementsQuery = query(
-          collection(db, 'inventoryMovement'),
-          where('businessId', '==', currentBusinessId.value),
-          where('supplierId', '==', supplierId),
-          where('movementType', '==', 'purchase'), // Only purchase movements for supplier history
-          orderBy('createdAt', 'desc')
-        );
-        
-        const movementsSnapshot = await getDocs(movementsQuery);
-        
-        const movements = movementsSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            businessId: data.businessId,
-            productId: data.productId,
-            productName: data.productName,
-            movementType: data.movementType,
-            referenceType: data.referenceType,
-            referenceId: data.referenceId,
-            quantityChange: data.quantityChange,
-            weightChange: data.weightChange,
-            unitCost: data.unitCost,
-            previousCost: data.previousCost,
-            totalCost: data.totalCost,
-            supplierId: data.supplierId,
-            unitsBefore: data.unitsBefore,
-            unitsAfter: data.unitsAfter,
-            weightBefore: data.weightBefore,
-            weightAfter: data.weightAfter,
-            notes: data.notes || '',
-            createdBy: data.createdBy,
-            createdByName: data.createdByName || '',
-            createdAt: $dayjs(data.createdAt.toDate()).format('DD/MM/YYYY HH:mm'),
-          };
+        // Use schema to fetch movements
+        const inventoryMovementSchema = this._getInventoryMovementSchema();
+        const movementsResult = await inventoryMovementSchema.find({
+          where: [
+            { field: 'businessId', operator: '==', value: currentBusinessId.value },
+            { field: 'supplierId', operator: '==', value: supplierId },
+            { field: 'movementType', operator: '==', value: 'purchase' }
+          ],
+          orderBy: [{ field: 'createdAt', direction: 'desc' }]
         });
         
+        if (!movementsResult.success || !movementsResult.data) {
+          this.isLoading = false;
+          return [];
+        }
+        
+        // Map movements with formatted dates
+        const sortedMovements: InventoryMovement[] = movementsResult.data.map(movement => ({
+          ...movement,
+          createdAt: $dayjs(movement.createdAt).format('DD/MM/YYYY HH:mm')
+        })) as InventoryMovement[];
+        
         this.isLoading = false;
-        return movements;
+        return sortedMovements;
       } catch (error) {
         console.error("Error fetching movements by supplier:", error);
         useToast(ToastEvents.error, "Hubo un error al cargar el historial de compras del proveedor.");
@@ -1336,43 +1150,47 @@ export const useInventoryStore = defineStore("inventory", {
 
     // Update last purchase cost for a product
     async updateLastPurchaseCost(productId: string, newCost: number): Promise<boolean> {
-      const db = useFirestore();
       const user = useCurrentUser();
-      
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
 
       try {
         this.isLoading = true;
         
-        // Find inventory record
-        const inventoryQuery = query(
-          collection(db, 'inventory'),
-          where('businessId', '==', currentBusinessId.value),
-          where('productId', '==', productId)
-        );
+        // Find inventory record using schema
+        const inventorySchema = this._getInventorySchema();
+        const existingResult = await inventorySchema.find({
+          where: [
+            { field: 'businessId', operator: '==', value: currentBusinessId.value },
+            { field: 'productId', operator: '==', value: productId }
+          ],
+          limit: 1
+        });
         
-        const inventorySnapshot = await getDocs(inventoryQuery);
-        if (inventorySnapshot.empty) {
+        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
           useToast(ToastEvents.error, "No se encontró el registro de inventario");
           this.isLoading = false;
           return false;
         }
         
-        // Update inventory document
-        const inventoryId = inventorySnapshot.docs[0].id;
-        const inventoryRef = doc(db, 'inventory', inventoryId);
-        const inventoryData = inventorySnapshot.docs[0].data();
+        const existingInventory = existingResult.data[0];
         
         // Recalculate total cost value
-        const unitsInStock = inventoryData.unitsInStock || 0;
+        const unitsInStock = existingInventory.unitsInStock || 0;
         const newTotalCostValue = unitsInStock * newCost;
         
-        await updateDoc(inventoryRef, {
+        // Update inventory document using schema
+        const updateResult = await inventorySchema.update(existingInventory.id, {
           lastPurchaseCost: newCost,
           totalCostValue: newTotalCostValue,
-          updatedAt: serverTimestamp(),
         });
+        
+        if (!updateResult.success) {
+          console.error("Error updating inventory:", updateResult.error);
+          useToast(ToastEvents.error, updateResult.error || "Error al actualizar el costo");
+          this.isLoading = false;
+          return false;
+        }
         
         // Update local state
         const index = this.inventoryItems.findIndex(item => item.productId === productId);
