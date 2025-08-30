@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
+import { SupplierSchema } from "~/utils/odm/schemas/supplierSchema";
 
 // Supplier interface
 interface Supplier {
@@ -104,6 +105,11 @@ export const useSupplierStore = defineStore("supplier", {
   },
 
   actions: {
+    // Get supplier schema instance
+    _getSupplierSchema() {
+      return new SupplierSchema();
+    },
+
     // Set supplier filter
     setSupplierFilter(filter: SupplierFilter) {
       this.supplierFilter = filter;
@@ -126,56 +132,28 @@ export const useSupplierStore = defineStore("supplier", {
         return true;
       }
 
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const { $dayjs } = useNuxtApp();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
         
-        // Get all suppliers for this business
-        const suppliersQuery = query(
-          collection(db, 'supplier'),
-          where('businessId', '==', currentBusinessId.value),
-          orderBy('name', 'asc')
-        );
-        
-        const suppliersSnapshot = await getDocs(suppliersQuery);
-        
-        // Transform documents to supplier objects
-        const suppliers = suppliersSnapshot.docs.map(doc => {
-          const data = doc.data();
-          
-          // Format dates
-          let archivedAt = null;
-          if (data.archivedAt) {
-            archivedAt = $dayjs(data.archivedAt.toDate()).format('YYYY-MM-DD');
-          }
-          
-          return {
-            id: doc.id,
-            businessId: data.businessId,
-            name: data.name,
-            category: data.category || "servicios", // Default to servicios for existing records
-            email: data.email || null,
-            phone: data.phone || null,
-            address: data.address || null,
-            contactPerson: data.contactPerson || null,
-            notes: data.notes || null,
-            
-            isActive: data.isActive !== false, // Default to true if not specified
-            createdBy: data.createdBy,
-            createdAt: $dayjs(data.createdAt.toDate()).format('DD/MM/YYYY'),
-            updatedAt: $dayjs(data.updatedAt.toDate()).format('DD/MM/YYYY'),
-            archivedAt: archivedAt,
-            originalArchivedAt: data.archivedAt,
-          };
+        const schema = this._getSupplierSchema();
+        const result = await schema.find({
+          orderBy: [{ field: 'name', direction: 'asc' }]
         });
+
+        if (!result.success) {
+          console.error("Error fetching suppliers:", result.error);
+          useToast(ToastEvents.error, "Hubo un error al cargar los proveedores. Por favor intenta nuevamente.");
+          this.isLoading = false;
+          return false;
+        }
+
+        // Transform schema results to match existing supplier interface
+        this.suppliers = result.data?.map(supplier => ({
+          ...supplier,
+          category: supplier.category || "servicios", // Default for existing records
+          originalArchivedAt: supplier.originalArchivedAt
+        })) || [];
         
-        this.suppliers = suppliers;
         this.suppliersLoaded = true;
         this.isLoading = false;
         return true;
@@ -189,18 +167,11 @@ export const useSupplierStore = defineStore("supplier", {
 
     // Create a new supplier
     async createSupplier(formData: SupplierFormData): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
-
       try {
         this.isLoading = true;
         
-        // Create supplier data object
-        const supplierData = {
-          businessId: currentBusinessId.value,
+        const schema = this._getSupplierSchema();
+        const result = await schema.create({
           name: formData.name,
           category: formData.category,
           email: formData.email || null,
@@ -208,40 +179,27 @@ export const useSupplierStore = defineStore("supplier", {
           address: formData.address || null,
           contactPerson: formData.contactPerson || null,
           notes: formData.notes || null,
-          
-          isActive: true,
-          createdBy: user.value.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          archivedAt: null,
-        };
-        
-        const docRef = await addDoc(collection(db, 'supplier'), supplierData);
-        
-        // Add to cache immediately (optimistic update)
-        const { $dayjs } = useNuxtApp();
-        this.suppliers.push({
-          id: docRef.id,
-          businessId: currentBusinessId.value,
-          name: formData.name,
-          category: formData.category,
-          email: formData.email || null,
-          phone: formData.phone || null,
-          address: formData.address || null,
-          contactPerson: formData.contactPerson || null,
-          notes: formData.notes || null,
-          isActive: true,
-          createdBy: user.value.uid,
-          createdAt: $dayjs().format('DD/MM/YYYY'),
-          updatedAt: $dayjs().format('DD/MM/YYYY'),
-          archivedAt: null,
         });
+
+        if (!result.success) {
+          console.error("Error creating supplier:", result.error);
+          useToast(ToastEvents.error, result.error || "Hubo un error al crear el proveedor. Por favor intenta nuevamente.");
+          this.isLoading = false;
+          return false;
+        }
+
+        // Add to cache immediately (optimistic update)
+        if (result.data) {
+          this.suppliers.push({
+            ...result.data,
+            originalArchivedAt: result.data.originalArchivedAt
+          });
+        }
 
         this.suppliersLoaded = true;
         this.isLoading = false;
         
         useToast(ToastEvents.success, "Proveedor creado exitosamente");
-        this.isLoading = false;
         return true;
       } catch (error) {
         console.error("Error creating supplier:", error);
@@ -253,17 +211,13 @@ export const useSupplierStore = defineStore("supplier", {
 
     // Update an existing supplier
     async updateSupplier(supplierId: string, formData: SupplierFormData): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value || !supplierId) return false;
+      if (!supplierId) return false;
 
       try {
         this.isLoading = true;
         
-        // Update supplier document
-        await updateDoc(doc(db, 'supplier', supplierId), {
+        const schema = this._getSupplierSchema();
+        const result = await schema.update(supplierId, {
           name: formData.name,
           category: formData.category,
           email: formData.email || null,
@@ -271,29 +225,27 @@ export const useSupplierStore = defineStore("supplier", {
           address: formData.address || null,
           contactPerson: formData.contactPerson || null,
           notes: formData.notes || null,
-          updatedAt: serverTimestamp(),
         });
+
+        if (!result.success) {
+          console.error("Error updating supplier:", result.error);
+          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar el proveedor. Por favor intenta nuevamente.");
+          this.isLoading = false;
+          return false;
+        }
         
         // Update cache
-        const { $dayjs } = useNuxtApp();
         const idx = this.suppliers.findIndex(s => s.id === supplierId);
-        if (idx !== -1) {
+        if (idx !== -1 && result.data) {
           this.suppliers[idx] = {
-            ...this.suppliers[idx],
-            name: formData.name,
-            category: formData.category,
-            email: formData.email || null,
-            phone: formData.phone || null,
-            address: formData.address || null,
-            contactPerson: formData.contactPerson || null,
-            notes: formData.notes || null,
-            updatedAt: $dayjs().format('DD/MM/YYYY'),
+            ...result.data,
+            originalArchivedAt: result.data.originalArchivedAt
           };
-        }
 
-        // Update local state for selected supplier if applicable
-        if (this.selectedSupplier && this.selectedSupplier.id === supplierId) {
-          this.selectedSupplier = this.suppliers[idx];
+          // Update local state for selected supplier if applicable
+          if (this.selectedSupplier && this.selectedSupplier.id === supplierId) {
+            this.selectedSupplier = this.suppliers[idx];
+          }
         }
 
         this.isLoading = false;
@@ -308,31 +260,27 @@ export const useSupplierStore = defineStore("supplier", {
 
     // Archive a supplier (soft delete)
     async archiveSupplier(supplierId: string): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value || !supplierId) return false;
+      if (!supplierId) return false;
 
       try {
         this.isLoading = true;
         
-        // Update supplier document to archived status
-        await updateDoc(doc(db, 'supplier', supplierId), {
-          isActive: false,
-          archivedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
+        const schema = this._getSupplierSchema();
+        const result = await schema.archive(supplierId);
+
+        if (!result.success) {
+          console.error("Error archiving supplier:", result.error);
+          useToast(ToastEvents.error, result.error || "Hubo un error al archivar el proveedor. Por favor intenta nuevamente.");
+          this.isLoading = false;
+          return false;
+        }
 
         // Update cache
-        const { $dayjs } = useNuxtApp();
         const idx = this.suppliers.findIndex(s => s.id === supplierId);
-        if (idx !== -1) {
+        if (idx !== -1 && result.data) {
           this.suppliers[idx] = {
-            ...this.suppliers[idx],
-            isActive: false,
-            archivedAt: $dayjs().format('YYYY-MM-DD'),
-            updatedAt: $dayjs().format('DD/MM/YYYY'),
+            ...result.data,
+            originalArchivedAt: result.data.originalArchivedAt
           };
         }
 
@@ -348,31 +296,27 @@ export const useSupplierStore = defineStore("supplier", {
 
     // Restore an archived supplier
     async restoreSupplier(supplierId: string): Promise<boolean> {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value || !supplierId) return false;
+      if (!supplierId) return false;
 
       try {
         this.isLoading = true;
         
-        // Update supplier document to active status
-        await updateDoc(doc(db, 'supplier', supplierId), {
-          isActive: true,
-          archivedAt: null,
-          updatedAt: serverTimestamp(),
-        });
+        const schema = this._getSupplierSchema();
+        const result = await schema.restore(supplierId);
+
+        if (!result.success) {
+          console.error("Error restoring supplier:", result.error);
+          useToast(ToastEvents.error, result.error || "Hubo un error al restaurar el proveedor. Por favor intenta nuevamente.");
+          this.isLoading = false;
+          return false;
+        }
         
         // Update cache
-        const { $dayjs } = useNuxtApp();
         const idx = this.suppliers.findIndex(s => s.id === supplierId);
-        if (idx !== -1) {
+        if (idx !== -1 && result.data) {
           this.suppliers[idx] = {
-            ...this.suppliers[idx],
-            isActive: true,
-            archivedAt: null,
-            updatedAt: $dayjs().format('DD/MM/YYYY'),
+            ...result.data,
+            originalArchivedAt: result.data.originalArchivedAt
           };
         }
 
