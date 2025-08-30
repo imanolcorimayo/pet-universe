@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
 import { ProductSchema } from "~/utils/odm/schemas/productSchema";
 import { ProductCategorySchema } from "~/utils/odm/schemas/productCategorySchema";
+import { roundUpPrice } from "~/utils/index";
 
 // Product interfaces
 interface ProductPrices {
@@ -44,7 +45,7 @@ interface Product {
   minimumStock: number;
   supplierIds: string[];
   profitMarginPercentage: number;
-  threePlusDiscountPercentage: number;
+  threePlusMarkupPercentage: number;
   
   isActive: boolean;
   createdBy: string;
@@ -541,7 +542,7 @@ export const useProductStore = defineStore("product", {
           minimumStock: formData.minimumStock || 0,
           supplierIds: formData.supplierIds || [],
           profitMarginPercentage: 30, // Default 30%
-          threePlusDiscountPercentage: 10, // Default 10%
+          threePlusMarkupPercentage: 8, // Default 8%
         });
 
         if (!result.success) {
@@ -821,18 +822,21 @@ export const useProductStore = defineStore("product", {
       }
     },
 
-    // Update 3+ kg discount percentage for a product
-    async updateThreePlusDiscountPercentage(productId: string, discountPercentage: number): Promise<boolean> {
+    // Update 3+ kg markup percentage for a product
+    async updateThreePlusMarkupPercentage(productId: string, markupPercentage: number): Promise<boolean> {
       try {
         this.isLoading = true;
         
+
+        console.log("Updating 3+ kg markup to:", markupPercentage);
+
         const productSchema = this._getProductSchema();
         const result = await productSchema.update(productId, {
-          threePlusDiscountPercentage: discountPercentage
+          threePlusMarkupPercentage: markupPercentage
         });
         
         if (!result.success) {
-          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar el descuento 3+ kg");
+          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar el markup 3+ kg");
           this.isLoading = false;
           return false;
         }
@@ -853,15 +857,15 @@ export const useProductStore = defineStore("product", {
         this.isLoading = false;
         return true;
       } catch (error) {
-        console.error("Error updating 3+ kg discount percentage:", error);
-        useToast(ToastEvents.error, "Hubo un error al actualizar el descuento 3+ kg");
+        console.error("Error updating 3+ kg markup percentage:", error);
+        useToast(ToastEvents.error, "Hubo un error al actualizar el markup 3+ kg");
         this.isLoading = false;
         return false;
       }
     },
 
     // Calculate pricing based on cost and margin
-    calculatePricing(cost: number, marginPercentage: number, unitWeight?: number, threePlusDiscountPercentage: number = 10) {
+    calculatePricing(cost: number, marginPercentage: number, unitWeight?: number, threePlusMarkupPercentage: number = 8) {
       if (cost <= 0) return null;
       
       const cash = cost * (1 + marginPercentage / 100);
@@ -870,27 +874,28 @@ export const useProductStore = defineStore("product", {
       const bulk = cash; // Initially same as cash
       
       const pricing = {
-        cash: parseFloat(cash.toFixed(2)),
-        regular: parseFloat(regular.toFixed(2)),
-        vip: parseFloat(vip.toFixed(2)),
-        bulk: parseFloat(bulk.toFixed(2)),
+        cash: roundUpPrice(cash),
+        regular: roundUpPrice(regular),
+        vip: roundUpPrice(vip),
+        bulk: roundUpPrice(bulk),
       };
       
       // For dual products, add kg pricing
       if (unitWeight && unitWeight > 0) {
-        const costPerKg = cost / unitWeight;
-        const regularKg = costPerKg * (1 + marginPercentage / 100);
-        const threePlusDiscountKg = regularKg * (1 - threePlusDiscountPercentage / 100);
+        const cashPerKg = cash / unitWeight;
+        const threePlusKg = cashPerKg * (1 + threePlusMarkupPercentage / 100);
+        const regularKg = threePlusKg * 1.11; // Fixed 11% markup over 3+ kg price
         const vipKg = regularKg; // Initially same as regular
         
         return {
           ...pricing,
           kg: {
-            regular: parseFloat(regularKg.toFixed(2)),
-            threePlusDiscount: parseFloat(threePlusDiscountKg.toFixed(2)),
-            vip: parseFloat(vipKg.toFixed(2)),
+            regular: roundUpPrice(regularKg),
+            threePlusDiscount: roundUpPrice(threePlusKg),
+            vip: roundUpPrice(vipKg),
           },
-          costPerKg: parseFloat(costPerKg.toFixed(2)),
+          costPerKg: parseFloat((cost / unitWeight).toFixed(2)),
+          cashPerKg: parseFloat(cashPerKg.toFixed(2)),
         };
       }
       

@@ -173,3 +173,21 @@ export const ORDER_STATUS_VALUES = {
   cancelado: "cancelado",
   rechazado: "rechazado"
 };
+
+// Round up prices based on number of digits
+export const roundUpPrice = (price: number): number => {
+  if (price <= 0) return price;
+  
+  const priceStr = Math.floor(price).toString();
+  
+  if (priceStr.length === 3) {
+    // 3-digit numbers: round up to nearest 50
+    return Math.ceil(price / 50) * 50;
+  } else if (priceStr.length >= 4) {
+    // 4+ digit numbers: round up to nearest 100
+    return Math.ceil(price / 100) * 100;
+  }
+  
+  // For 1-2 digit numbers, return rounded to 2 decimals
+  return Math.round(price * 100) / 100;
+};

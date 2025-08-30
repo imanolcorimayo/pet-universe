@@ -97,12 +97,12 @@ export class ProductSchema extends Schema {
       max: 1000,
       default: 30
     },
-    threePlusDiscountPercentage: {
+    threePlusMarkupPercentage: {
       type: 'number',
       required: false,
       min: 0,
-      max: 100,
-      default: 10
+      max: 200,
+      default: 8
     },
     isActive: {
       type: 'boolean',
@@ -256,13 +256,13 @@ export class ProductSchema extends Schema {
       }
     }
     
-    if (data.threePlusDiscountPercentage !== undefined) {
-      if (typeof data.threePlusDiscountPercentage !== 'number' || 
-          data.threePlusDiscountPercentage < 0 || 
-          data.threePlusDiscountPercentage > 100) {
+    if (data.threePlusMarkupPercentage !== undefined) {
+      if (typeof data.threePlusMarkupPercentage !== 'number' || 
+          data.threePlusMarkupPercentage < 0 || 
+          data.threePlusMarkupPercentage > 200) {
         errors.push({
-          field: 'threePlusDiscountPercentage',
-          message: 'Three plus discount percentage must be between 0 and 100'
+          field: 'threePlusMarkupPercentage',
+          message: 'Three plus markup percentage must be between 0 and 200'
         });
       }
     }

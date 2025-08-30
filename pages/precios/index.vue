@@ -104,7 +104,7 @@
         @update-cost="handleUpdateCost"
         @update-margin="handleUpdateMargin"
         @update-price="handleUpdatePrice"
-        @update-three-plus-discount="handleUpdateThreePlusDiscount"
+        @update-three-plus-markup="handleUpdateThreePlusMarkup"
       />
     </div>
 
@@ -134,6 +134,7 @@ import PricingTable from '~/components/Pricing/PricingTable.vue';
 import PricingBulkUpdateModal from '~/components/Pricing/PricingBulkUpdateModal.vue';
 import Loader from '~/components/Loader.vue';
 import { ToastEvents } from '~/interfaces';
+import { roundUpPrice } from '~/utils/index';
 
 // Store composables
 const productStore = useProductStore();
@@ -263,17 +264,17 @@ async function handleUpdatePrice(productId, pricingData) {
   }
 }
 
-async function handleUpdateThreePlusDiscount(productId, discountPercentage) {
+async function handleUpdateThreePlusMarkup(productId, markupPercentage) {
   isUpdating.value = true;
   
   try {
-    console.log('Updating 3+ kg discount:', { productId, discountPercentage });
-    const success = await productStore.updateThreePlusDiscountPercentage(productId, discountPercentage);
+    console.log('Updating 3+ kg markup:', { productId, markupPercentage });
+    const success = await productStore.updateThreePlusMarkupPercentage(productId, markupPercentage);
     if (success) {
-      useToast(ToastEvents.success, 'Descuento 3+ kg actualizado correctamente');
+      useToast(ToastEvents.success, 'Markup 3+ kg actualizado correctamente');
     } else {
-      console.error('Failed to update 3+ kg discount');
-      useToast(ToastEvents.error, 'Error al actualizar el descuento 3+ kg');
+      console.error('Failed to update 3+ kg markup');
+      useToast(ToastEvents.error, 'Error al actualizar el markup 3+ kg');
     }
   } finally {
     isUpdating.value = false;
@@ -306,12 +307,12 @@ async function handleBulkUpdate(productIds, updateData) {
       await Promise.all(marginPromises);
     }
     
-    // Handle threePlusDiscountPercentage updates
-    if (updateData.threePlusDiscountPercentage !== undefined) {
-      const discountPromises = productIds.map(id => 
-        productStore.updateThreePlusDiscountPercentage(id, updateData.threePlusDiscountPercentage)
+    // Handle threePlusMarkupPercentage updates
+    if (updateData.threePlusMarkupPercentage !== undefined) {
+      const markupPromises = productIds.map(id => 
+        productStore.updateThreePlusMarkupPercentage(id, updateData.threePlusMarkupPercentage)
       );
-      await Promise.all(discountPromises);
+      await Promise.all(markupPromises);
     }
     
     // Recalculate and update prices for all affected products
@@ -321,13 +322,13 @@ async function handleBulkUpdate(productIds, updateData) {
       
       if (!product || !inventory || !inventory.lastPurchaseCost) return Promise.resolve(true);
       
-      // Get current cost, margin, and discount (updated values)
+      // Get current cost, margin, and markup (updated values)
       const cost = inventory.lastPurchaseCost;
       const margin = product.profitMarginPercentage || 30;
-      const threePlusDiscount = product.threePlusDiscountPercentage || 10;
+      const threePlusMarkup = product.threePlusMarkupPercentage || 8;
       
       // Calculate new prices
-      const calculatedPrices = productStore.calculatePricing(cost, margin, product.unitWeight, threePlusDiscount);
+      const calculatedPrices = productStore.calculatePricing(cost, margin, product.unitWeight, threePlusMarkup);
       
       // Ensure calculated prices are valid numbers (English field names)
       if (!calculatedPrices || typeof calculatedPrices.cash !== 'number' || typeof calculatedPrices.regular !== 'number') {
@@ -335,26 +336,26 @@ async function handleBulkUpdate(productIds, updateData) {
         return Promise.resolve(false);
       }
       
-      // Calculate new prices - ensure all values are numbers
+      // Calculate new prices - ensure all values are numbers and apply rounding
       const currentPrices = product.prices || {};
-      const cashPrice = calculatedPrices.cash;
+      const cashPrice = roundUpPrice(calculatedPrices.cash);
       
       // Preserve existing VIP and bulk prices if they exist and are different from cash price
-      let vipPrice = cashPrice;
-      let bulkPrice = cashPrice;
+      let vipPrice = roundUpPrice(cashPrice);
+      let bulkPrice = roundUpPrice(cashPrice);
       
       if (currentPrices.vip && typeof currentPrices.vip === 'number' && currentPrices.vip !== currentPrices.cash) {
-        vipPrice = currentPrices.vip;
+        vipPrice = roundUpPrice(currentPrices.vip);
       }
       
       if (currentPrices.bulk && typeof currentPrices.bulk === 'number' && currentPrices.bulk !== currentPrices.cash) {
-        bulkPrice = currentPrices.bulk;
+        bulkPrice = roundUpPrice(currentPrices.bulk);
       }
       
       // Final validation - ensure no undefined values
       const newPrices = {
         cash: Number(cashPrice) || 0,
-        regular: Number(calculatedPrices.regular) || 0,
+        regular: Number(roundUpPrice(calculatedPrices.regular)) || 0,
         vip: Number(vipPrice) || 0,
         bulk: Number(bulkPrice) || 0,
       };
@@ -368,21 +369,21 @@ async function handleBulkUpdate(productIds, updateData) {
         // If calculatedPrices doesn't have kg prices, calculate them manually
         if (!regularKgPrice) {
           const costPerKg = cost / product.unitWeight;
-          regularKgPrice = costPerKg * (1 + margin / 100);
+          regularKgPrice = roundUpPrice(costPerKg * (1 + margin / 100));
         }
         
         // For bulk updates, recalculate VIP kg price based on new cost/margin
         if (!vipKgPrice && currentPrices.kg?.vip && typeof currentPrices.kg.vip === 'number') {
           // No changes applied, preserve existing VIP kg price
-          vipKgPrice = currentPrices.kg.vip;
+          vipKgPrice = roundUpPrice(currentPrices.kg.vip);
         } else if (!vipKgPrice) {
           // No existing VIP kg price, use regular kg price
-          vipKgPrice = regularKgPrice;
+          vipKgPrice = roundUpPrice(regularKgPrice);
         }
         
         newPrices.kg = {
-          regular: Number(regularKgPrice) || 0,
-          threePlusDiscount: Number(calculatedPrices.kg?.threePlusDiscount) || 0,
+          regular: Number(roundUpPrice(regularKgPrice)) || 0,
+          threePlusDiscount: Number(roundUpPrice(calculatedPrices.kg?.threePlusDiscount)) || 0,
           vip: Number(vipKgPrice) || 0,
         };
       }

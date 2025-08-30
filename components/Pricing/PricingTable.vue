@@ -100,51 +100,6 @@
       />
     </div>
 
-    <!-- Footer with summary info (Desktop only) -->
-    <div class="hidden md:block border-t border-gray-200 bg-gray-50 px-4 py-3">
-      <div class="flex justify-between items-center text-sm text-gray-600">
-        <span>{{ products.length }} productos mostrados</span>
-        <span>
-          Actualización en tiempo real •
-          <button
-            @click="showHelpTooltip = !showHelpTooltip"
-            class="text-blue-600 hover:text-blue-800"
-          >
-            ¿Cómo funciona?
-          </button>
-        </span>
-      </div>
-
-      <!-- Help tooltip -->
-      <div
-        v-if="showHelpTooltip"
-        class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800"
-      >
-        <div class="space-y-2">
-          <p>
-            <strong>Efectivo:</strong> Precio base con margen de ganancia
-            aplicado
-          </p>
-          <p><strong>Regular:</strong> 25% más que el precio efectivo</p>
-          <p>
-            <strong>VIP y Mayorista:</strong> Inicialmente iguales al efectivo,
-            luego editables
-          </p>
-          <p>
-            <strong>Regular/kg:</strong> Precio base por kilogramo para
-            productos duales
-          </p>
-          <p>
-            <strong>3+/kg:</strong> Descuento automático para ventas de 3
-            kilogramos o más
-          </p>
-          <p>
-            <strong>%:</strong> Margen de ganancia sobre el costo. Confirma los
-            cambios antes de guardar.
-          </p>
-        </div>
-      </div>
-    </div>
 
     <!-- Confirmation Dialog -->
     <ConfirmDialogue ref="confirmDialog" />
@@ -180,7 +135,6 @@ const emit = defineEmits([
 ]);
 
 // Reactive data
-const showHelpTooltip = ref(false);
 const pendingChanges = ref(new Map());
 const confirmDialog = ref(null);
 const editingProduct = ref(null);
