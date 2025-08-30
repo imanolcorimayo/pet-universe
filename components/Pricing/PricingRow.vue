@@ -136,8 +136,13 @@
             <div class="text-sm font-medium text-gray-900">
               ${{ formatNumber(displayKgPrices?.regular || 0) }}
             </div>
-            <div class="text-xs text-blue-600 font-medium">
-              +{{ getMarginFromPrice(displayKgPrices?.regular || 0, costPerKg) }}%
+            <div class="flex flex-col items-start" style="font-size: 10px; line-height: 1.2;">
+              <div class="text-blue-600 font-medium">
+                vs Costo/kg: +{{ getMarginFromPrice(displayKgPrices?.regular || 0, costPerKg) }}%
+              </div>
+              <div class="text-green-600 font-medium">
+                vs Efectivo/kg: +{{ getMarginFromPrice(displayKgPrices?.regular || 0, cashPerKg) }}%
+              </div>
             </div>
           </div>
           <div v-else>
@@ -161,8 +166,13 @@
             <div class="text-sm font-medium text-gray-900">
               ${{ formatNumber(threePlusKgPrice) }}
             </div>
-            <div class="text-xs text-green-600 font-medium">
-              +{{ currentThreePlusMarkup.toFixed(1) }}% markup
+            <div class="flex flex-col items-start" style="font-size: 10px; line-height: 1.2;">
+              <div class="text-blue-600 font-medium">
+                vs Costo/kg: +{{ getMarginFromPrice(displayKgPrices?.threePlusDiscount || 0, costPerKg) }}%
+              </div>
+              <div class="text-green-600 font-medium">
+                vs Efectivo/kg: +{{ getMarginFromPrice(displayKgPrices?.threePlusDiscount || 0, cashPerKg) }}%
+              </div>
             </div>
           </div>
           <div v-else>
@@ -263,6 +273,14 @@
               <span class="text-xs text-gray-600">VIP/kg:</span>
               <div v-if="!isEditing">
                 <span class="text-xs font-medium text-gray-900">${{ formatNumber(displayKgPrices?.vip || 0) }}</span>
+                <div class="flex flex-col items-start" style="font-size: 10px; line-height: 1.2;">
+                  <div class="text-blue-600 font-medium">
+                    vs Costo/kg: +{{ getMarginFromPrice(displayKgPrices?.vip || 0, costPerKg) }}%
+                  </div>
+                  <div class="text-green-600 font-medium">
+                    vs Efectivo/kg: +{{ getMarginFromPrice(displayKgPrices?.vip || 0, cashPerKg) }}%
+                  </div>
+                </div>
               </div>
               <div v-else>
                 <input
@@ -285,6 +303,10 @@
             <div class="flex justify-start items-center gap-4">
               <span class="text-xs text-gray-600">Costo/kg:</span>
               <span class="text-xs font-medium text-gray-900">${{ formatNumber(costPerKg) }}</span>
+            </div>
+            <div class="flex justify-start items-center gap-4">
+              <span class="text-xs text-gray-600">Efectivo/kg:</span>
+              <span class="text-xs font-medium text-gray-900">${{ formatNumber(cashPerKg) }}</span>
             </div>
             <div class="flex justify-start items-center gap-4">
               <span class="text-xs text-gray-600">Markup 3+ kg:</span>
@@ -383,6 +405,13 @@ const currentThreePlusMarkup = computed(() => {
 const costPerKg = computed(() => {
   if (props.product.trackingType === 'dual' && props.product.unitWeight > 0) {
     return currentCost.value / props.product.unitWeight;
+  }
+  return 0;
+});
+
+const cashPerKg = computed(() => {
+  if (props.product.trackingType === 'dual' && props.product.unitWeight > 0) {
+    return displayPrices.value.cash / props.product.unitWeight;
   }
   return 0;
 });

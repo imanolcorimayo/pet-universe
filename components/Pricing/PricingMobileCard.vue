@@ -220,8 +220,13 @@
               <div class="text-sm font-medium text-gray-900">
                 ${{ formatNumber(displayKgPrices?.regular || 0) }}
               </div>
-              <div class="text-xs text-blue-600 font-medium">
-                +{{ getMarginFromPrice(displayKgPrices?.regular || 0, currentCost / product.unitWeight) }}%
+              <div class="flex flex-col items-start" style="font-size: 10px; line-height: 1.2;">
+                <div class="text-blue-600 font-medium">
+                  vs Costo/kg: +{{ getMarginFromPrice(displayKgPrices?.regular || 0, parseFloat(costPerKg)) }}%
+                </div>
+                <div class="text-green-600 font-medium">
+                  vs Efectivo/kg: +{{ getMarginFromPrice(displayKgPrices?.regular || 0, parseFloat(cashPerKg)) }}%
+                </div>
               </div>
             </div>
           </div>
@@ -242,8 +247,13 @@
               <div class="text-sm text-gray-500">
                 ${{ formatNumber(displayKgPrices?.threePlusDiscount || 0) }}
               </div>
-              <div class="text-xs text-gray-400">
-                +{{ currentThreePlusMarkup.toFixed(1) }}% markup
+              <div class="flex flex-col items-start" style="font-size: 10px; line-height: 1.2;">
+                <div class="text-blue-600 font-medium">
+                  vs Costo/kg: +{{ getMarginFromPrice(displayKgPrices?.threePlusDiscount || 0, parseFloat(costPerKg)) }}%
+                </div>
+                <div class="text-green-600 font-medium">
+                  vs Efectivo/kg: +{{ getMarginFromPrice(displayKgPrices?.threePlusDiscount || 0, parseFloat(cashPerKg)) }}%
+                </div>
               </div>
             </div>
           </div>
@@ -287,8 +297,13 @@
               <div class="text-sm font-medium text-gray-900">
                 ${{ formatNumber(displayKgPrices?.vip || 0) }}
               </div>
-              <div class="text-xs text-purple-600 font-medium">
-                +{{ getMarginFromPrice(displayKgPrices?.vip || 0, currentCost / product.unitWeight) }}%
+              <div class="flex flex-col items-start" style="font-size: 10px; line-height: 1.2;">
+                <div class="text-blue-600 font-medium">
+                  vs Costo/kg: +{{ getMarginFromPrice(displayKgPrices?.vip || 0, parseFloat(costPerKg)) }}%
+                </div>
+                <div class="text-green-600 font-medium">
+                  vs Efectivo/kg: +{{ getMarginFromPrice(displayKgPrices?.vip || 0, parseFloat(cashPerKg)) }}%
+                </div>
               </div>
             </div>
           </div>
@@ -383,6 +398,13 @@ const currentThreePlusMarkup = computed(() => {
 const costPerKg = computed(() => {
   if (props.product.trackingType === 'dual' && props.product.unitWeight && currentCost.value) {
     return (currentCost.value / props.product.unitWeight).toFixed(2);
+  }
+  return '0.00';
+});
+
+const cashPerKg = computed(() => {
+  if (props.product.trackingType === 'dual' && props.product.unitWeight > 0) {
+    return (displayPrices.value.cash / props.product.unitWeight).toFixed(2);
   }
   return '0.00';
 });
