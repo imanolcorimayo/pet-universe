@@ -71,9 +71,7 @@
             :has-dual-products="hasDualProducts"
             :editing-product="editingProduct"
             @update-cost="handleCostUpdate"
-            @update-margin="handleMarginUpdate"
-            @update-price="handlePriceUpdate"
-            @update-three-plus-discount="handleThreePlusDiscountUpdate"
+            @update-product="handleProductUpdate"
             @edit-product="setEditingProduct"
             @cancel-edit="cancelEdit"
             @save-changes="saveChanges"
@@ -91,9 +89,7 @@
         :inventory="getInventoryForProduct(product.id)"
         :editing-product="editingProduct"
         @update-cost="handleCostUpdate"
-        @update-margin="handleMarginUpdate"
-        @update-price="handlePriceUpdate"
-        @update-three-plus-discount="handleThreePlusDiscountUpdate"
+        @update-product="handleProductUpdate"
         @edit-product="setEditingProduct"
         @cancel-edit="cancelEdit"
         @save-changes="saveChanges"
@@ -129,9 +125,7 @@ const props = defineProps({
 // Emits
 const emit = defineEmits([
   "update-cost",
-  "update-margin",
-  "update-price",
-  "update-three-plus-discount",
+  "update-product",
 ]);
 
 // Reactive data
@@ -179,28 +173,25 @@ function handleCostUpdate(productId, cost) {
   });
 }
 
-// Handle margin update with confirmation
+// Handle product update with confirmation (unified method for all product fields)
+function handleProductUpdate(productId, updates) {
+  addToPendingActions({
+    type: "product",
+    data: { productId, updates },
+  });
+}
+
+// Legacy methods that now use the unified handleProductUpdate
 function handleMarginUpdate(productId, margin) {
-  addToPendingActions({
-    type: "margin",
-    data: { productId, margin },
-  });
+  handleProductUpdate(productId, { profitMarginPercentage: margin });
 }
 
-// Handle price update with confirmation
 function handlePriceUpdate(productId, pricing) {
-  addToPendingActions({
-    type: "price",
-    data: { productId, pricing },
-  });
+  handleProductUpdate(productId, { prices: pricing });
 }
 
-// Handle 3+ kg discount update with confirmation
 function handleThreePlusDiscountUpdate(productId, discountPercentage) {
-  addToPendingActions({
-    type: "three-plus-discount",
-    data: { productId, discountPercentage },
-  });
+  handleProductUpdate(productId, { threePlusMarkupPercentage: discountPercentage });
 }
 
 // Add action to pending list and show confirmation if needed
@@ -247,39 +238,31 @@ function getActionMessage(action) {
       return `¿Confirmar cambio de costo a $${
         data.cost ? data.cost.toFixed(2) : "0.00"
       }?`;
-    case "margin":
-      return `¿Confirmar cambio de margen a ${
-        data.margin ? data.margin.toFixed(1) : "0.0"
-      }%?`;
-    case "three-plus-discount":
-      return `¿Confirmar cambio de descuento 3+ kg a ${
-        data.discountPercentage ? data.discountPercentage.toFixed(1) : "0.0"
-      }%?`;
-    case "price":
-      const priceType = Object.keys(data.pricing)[0];
-      const priceValue = Object.values(data.pricing)[0];
-
-      // Handle nested kg pricing structure
-      if (priceType === "kg" && typeof priceValue === "object") {
-        const kgPriceType = Object.keys(priceValue)[0];
-        const kgPriceValue = Object.values(priceValue)[0];
-        const numericValue =
-          typeof kgPriceValue === "number"
-            ? kgPriceValue
-            : parseFloat(kgPriceValue) || 0;
-        return `¿Confirmar cambio de precio ${kgPriceType}/kg a $${numericValue.toFixed(
-          2
-        )}?`;
+    case "product":
+      const updates = data.updates;
+      const changes = [];
+      
+      if (updates.profitMarginPercentage !== undefined) {
+        changes.push(`margen: ${updates.profitMarginPercentage.toFixed(1)}%`);
       }
-
-      // Handle regular pricing structure
-      const numericValue =
-        typeof priceValue === "number"
-          ? priceValue
-          : parseFloat(priceValue) || 0;
-      return `¿Confirmar cambio de precio ${priceType} a $${numericValue.toFixed(
-        2
-      )}?`;
+      
+      if (updates.threePlusMarkupPercentage !== undefined) {
+        changes.push(`markup 3+kg: ${updates.threePlusMarkupPercentage.toFixed(1)}%`);
+      }
+      
+      if (updates.prices) {
+        if (updates.prices.cash !== undefined) changes.push(`efectivo: $${updates.prices.cash.toFixed(2)}`);
+        if (updates.prices.regular !== undefined) changes.push(`regular: $${updates.prices.regular.toFixed(2)}`);
+        if (updates.prices.vip !== undefined) changes.push(`VIP: $${updates.prices.vip.toFixed(2)}`);
+        if (updates.prices.bulk !== undefined) changes.push(`mayorista: $${updates.prices.bulk.toFixed(2)}`);
+        if (updates.prices.kg) {
+          if (updates.prices.kg.regular !== undefined) changes.push(`regular/kg: $${updates.prices.kg.regular.toFixed(2)}`);
+          if (updates.prices.kg.threePlusDiscount !== undefined) changes.push(`3+kg: $${updates.prices.kg.threePlusDiscount.toFixed(2)}`);
+          if (updates.prices.kg.vip !== undefined) changes.push(`VIP/kg: $${updates.prices.kg.vip.toFixed(2)}`);
+        }
+      }
+      
+      return `¿Confirmar cambios: ${changes.join(", ")}?`;
     default:
       return "¿Confirmar cambio?";
   }
@@ -293,18 +276,8 @@ function executeAllPendingActions() {
       case "cost":
         emit("update-cost", data.productId, data.cost);
         break;
-      case "margin":
-        emit("update-margin", data.productId, data.margin);
-        break;
-      case "price":
-        emit("update-price", data.productId, data.pricing);
-        break;
-      case "three-plus-discount":
-        emit(
-          "update-three-plus-discount",
-          data.productId,
-          data.discountPercentage
-        );
+      case "product":
+        emit("update-product", data.productId, data.updates);
         break;
     }
   });

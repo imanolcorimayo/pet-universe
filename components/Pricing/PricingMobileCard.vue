@@ -319,7 +319,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(['update-cost', 'update-margin', 'update-price', 'update-three-plus-markup', 'edit-product', 'cancel-edit', 'save-changes']);
+const emit = defineEmits(['update-cost', 'update-product', 'edit-product', 'cancel-edit', 'save-changes']);
 
 // Store composables
 const productStore = useProductStore();
@@ -631,17 +631,22 @@ function saveChanges() {
   // Preserve edit values during async operations to prevent "refresh" behavior
   preserveEditValues.value = true;
   
-  // Emit the individual update events based on changed values
+  // Handle cost updates separately (inventory store)
   if (Math.abs(costValue - currentCost.value) > 0.001) {
     emit('update-cost', props.product.id, costValue);
   }
   
+  // Build product updates object
+  const productUpdates = {};
+  
+  // Handle margin updates
   if (Math.abs(marginValue - currentMargin.value) > 0.001) {
-    emit('update-margin', props.product.id, marginValue);
+    productUpdates.profitMarginPercentage = marginValue;
   }
   
+  // Handle three plus markup updates
   if (Math.abs(threePlusMarkupValue - currentThreePlusMarkup.value) > 0.001) {
-    emit('update-three-plus-markup', props.product.id, threePlusMarkupValue);
+    productUpdates.threePlusMarkupPercentage = threePlusMarkupValue;
   }
   
   // Build pricing update object
@@ -665,7 +670,6 @@ function saveChanges() {
   if (props.product.trackingType === 'dual') {
     const currentRegularKg = currentPrices.kg?.regular || 0;
     const currentVipKg = currentPrices.kg?.vip || 0;
-    
     const currentThreePlusKg = currentPrices.kg?.threePlusDiscount || 0;
     
     if (Math.abs(regularKgValue - currentRegularKg) > 0.001 ||
@@ -684,9 +688,14 @@ function saveChanges() {
     }
   }
   
-  // Emit pricing update if there are changes
+  // Add pricing data to product updates if there are changes
   if (Object.keys(pricingData).length > 0) {
-    emit('update-price', props.product.id, pricingData);
+    productUpdates.prices = pricingData;
+  }
+  
+  // Emit single product update if there are changes
+  if (Object.keys(productUpdates).length > 0) {
+    emit('update-product', props.product.id, productUpdates);
   }
   
   emit('save-changes');
@@ -743,7 +752,7 @@ function refreshPrices() {
     };
   }
 
-  emit('update-price', props.product.id, newPrices);
+  emit('update-product', props.product.id, { prices: newPrices });
 }
 
 </script>

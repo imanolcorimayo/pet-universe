@@ -102,9 +102,7 @@
         :products="filteredProducts"
         :inventory-items="inventoryItems"
         @update-cost="handleUpdateCost"
-        @update-margin="handleUpdateMargin"
-        @update-price="handleUpdatePrice"
-        @update-three-plus-markup="handleUpdateThreePlusMarkup"
+        @update-product="handleUpdateProduct"
       />
     </div>
 
@@ -230,51 +228,17 @@ async function handleUpdateCost(productId, newCost) {
   }
 }
 
-async function handleUpdateMargin(productId, marginPercentage) {
+async function handleUpdateProduct(productId, updates) {
   isUpdating.value = true;
   
   try {
-    console.log('Updating margin:', { productId, marginPercentage });
-    const success = await productStore.updateProfitMargin(productId, marginPercentage);
+    console.log('Updating product:', { productId, updates });
+    const success = await productStore.updateProduct(productId, updates);
     if (success) {
-      useToast(ToastEvents.success, 'Margen de ganancia actualizado correctamente');
+      useToast(ToastEvents.success, 'Producto actualizado correctamente');
     } else {
-      console.error('Failed to update margin');
-      useToast(ToastEvents.error, 'Error al actualizar el margen de ganancia');
-    }
-  } finally {
-    isUpdating.value = false;
-  }
-}
-
-async function handleUpdatePrice(productId, pricingData) {
-  isUpdating.value = true;
-  
-  try {
-    console.log('Updating price:', { productId, pricingData });
-    const success = await productStore.updateProductPricing(productId, pricingData);
-    if (success) {
-      useToast(ToastEvents.success, 'Precios actualizados correctamente');
-    } else {
-      console.error('Failed to update price');
-      useToast(ToastEvents.error, 'Error al actualizar los precios');
-    }
-  } finally {
-    isUpdating.value = false;
-  }
-}
-
-async function handleUpdateThreePlusMarkup(productId, markupPercentage) {
-  isUpdating.value = true;
-  
-  try {
-    console.log('Updating 3+ kg markup:', { productId, markupPercentage });
-    const success = await productStore.updateThreePlusMarkupPercentage(productId, markupPercentage);
-    if (success) {
-      useToast(ToastEvents.success, 'Markup 3+ kg actualizado correctamente');
-    } else {
-      console.error('Failed to update 3+ kg markup');
-      useToast(ToastEvents.error, 'Error al actualizar el markup 3+ kg');
+      console.error('Failed to update product');
+      useToast(ToastEvents.error, 'Error al actualizar el producto');
     }
   } finally {
     isUpdating.value = false;
@@ -299,20 +263,20 @@ async function handleBulkUpdate(productIds, updateData) {
       await Promise.all(costPromises);
     }
     
-    // Handle margin updates
-    if (updateData.margin !== undefined) {
-      const marginPromises = productIds.map(id => 
-        productStore.updateProfitMargin(id, updateData.margin)
-      );
-      await Promise.all(marginPromises);
-    }
-    
-    // Handle threePlusMarkupPercentage updates
-    if (updateData.threePlusMarkupPercentage !== undefined) {
-      const markupPromises = productIds.map(id => 
-        productStore.updateThreePlusMarkupPercentage(id, updateData.threePlusMarkupPercentage)
-      );
-      await Promise.all(markupPromises);
+    // Handle product updates (margin and markup)
+    const productUpdatePromises = [];
+    if (updateData.margin !== undefined || updateData.threePlusMarkupPercentage !== undefined) {
+      productIds.forEach(id => {
+        const productUpdates = {};
+        if (updateData.margin !== undefined) {
+          productUpdates.profitMarginPercentage = updateData.margin;
+        }
+        if (updateData.threePlusMarkupPercentage !== undefined) {
+          productUpdates.threePlusMarkupPercentage = updateData.threePlusMarkupPercentage;
+        }
+        productUpdatePromises.push(productStore.updateProduct(id, productUpdates));
+      });
+      await Promise.all(productUpdatePromises);
     }
     
     // Recalculate and update prices for all affected products
@@ -388,7 +352,7 @@ async function handleBulkUpdate(productIds, updateData) {
         };
       }
       
-      return await productStore.updateProductPricing(id, newPrices);
+      return await productStore.updateProduct(id, { prices: newPrices });
     });
     
     await Promise.all(pricePromises);

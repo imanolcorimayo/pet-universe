@@ -583,27 +583,59 @@ export const useProductStore = defineStore("product", {
     },
 
     // Update an existing product
-    async updateProduct(productId: string, formData: ProductFormData): Promise<boolean> {
+    async updateProduct(productId: string, updates: Partial<Product>): Promise<boolean> {
       try {
         this.isLoading = true;
         
+        // Prepare updates object, filtering out undefined values
+        const productUpdates: any = {};
+        
+        // Handle basic product fields
+        if (updates.name !== undefined) productUpdates.name = updates.name;
+        if (updates.productCode !== undefined) productUpdates.productCode = updates.productCode;
+        if (updates.description !== undefined) productUpdates.description = updates.description;
+        if (updates.category !== undefined) productUpdates.category = updates.category;
+        if (updates.subcategory !== undefined) productUpdates.subcategory = updates.subcategory;
+        if (updates.brand !== undefined) productUpdates.brand = updates.brand;
+        
+        if (updates.trackingType !== undefined) {
+          productUpdates.trackingType = updates.trackingType;
+          productUpdates.allowsLooseSales = updates.trackingType === 'dual';
+        }
+        if (updates.unitType !== undefined) productUpdates.unitType = updates.unitType;
+        if (updates.unitWeight !== undefined) productUpdates.unitWeight = updates.unitWeight;
+        
+        if (updates.minimumStock !== undefined) productUpdates.minimumStock = updates.minimumStock;
+        if (updates.supplierIds !== undefined) productUpdates.supplierIds = updates.supplierIds;
+        
+        // Handle pricing fields
+        if (updates.profitMarginPercentage !== undefined) {
+          productUpdates.profitMarginPercentage = updates.profitMarginPercentage;
+        }
+        if (updates.threePlusMarkupPercentage !== undefined) {
+          productUpdates.threePlusMarkupPercentage = updates.threePlusMarkupPercentage;
+        }
+        if (updates.prices !== undefined) {
+          // Merge with existing prices to avoid overwriting entire object
+          const currentProduct = this.getProductById(productId);
+          if (currentProduct) {
+            productUpdates.prices = {
+              ...currentProduct.prices,
+              ...updates.prices,
+            };
+          } else {
+            productUpdates.prices = updates.prices;
+          }
+        }
+        
+        // Only proceed if there are updates to make
+        if (Object.keys(productUpdates).length === 0) {
+          this.isLoading = false;
+          return true;
+        }
+        
         const productSchema = this._getProductSchema();
-        const result = await productSchema.update(productId, {
-          name: formData.name,
-          productCode: formData.productCode || '',
-          description: formData.description || '',
-          category: formData.category,
-          subcategory: formData.subcategory || '',
-          brand: formData.brand || '',
-          
-          trackingType: formData.trackingType,
-          unitType: formData.unitType,
-          unitWeight: formData.unitWeight || 0,
-          allowsLooseSales: formData.trackingType === 'dual',
-          
-          minimumStock: formData.minimumStock || 0,
-          supplierIds: formData.supplierIds || [],
-        });
+        const result = await productSchema.update(productId, productUpdates);
         
         if (!result.success) {
           useToast(ToastEvents.error, result.error || "Hubo un error al actualizar el producto");
@@ -713,156 +745,8 @@ export const useProductStore = defineStore("product", {
       this.selectedProduct = this.products.find(p => p.id === productId) || null;
     },
 
-    // Update product pricing
-    async updateProductPricing(productId: string, pricingData: {
-      regular?: number;
-      cash?: number;
-      vip?: number;
-      bulk?: number;
-      unit?: {
-        regular?: number;
-        cash?: number;
-        vip?: number;
-        bulk?: number;
-      };
-      kg?: {
-        regular?: number;
-        threePlusDiscount?: number;
-        vip?: number;
-      };
-    }): Promise<boolean> {
-      try {
-        this.isLoading = true;
-        
-        // Get current product to merge pricing
-        const currentProduct = this.getProductById(productId);
-        if (!currentProduct) {
-          useToast(ToastEvents.error, "Producto no encontrado");
-          this.isLoading = false;
-          return false;
-        }
 
-        const updatedPrices = {
-          ...currentProduct.prices,
-          ...pricingData,
-        };
 
-        console.log("Updated Prices:", updatedPrices);
-
-        const productSchema = this._getProductSchema();
-        const result = await productSchema.update(productId, {
-          prices: updatedPrices
-        });
-
-        if (!result.success) {
-          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar los precios del producto");
-          this.isLoading = false;
-          return false;
-        }
-
-        // Update local state
-        const productIndex = this.products.findIndex(p => p.id === productId);
-        if (productIndex >= 0) {
-          const updatedProduct: Product = result.data as Product;
-          this.products[productIndex] = updatedProduct;
-          this.productsByIdMap.set(productId, updatedProduct);
-
-          // Update selected product if applicable
-          if (this.selectedProduct && this.selectedProduct.id === productId) {
-            this.selectedProduct = updatedProduct;
-          }
-        }
-        
-        this.isLoading = false;
-        return true;
-      } catch (error) {
-        console.error("Error updating product pricing:", error);
-        useToast(ToastEvents.error, "Hubo un error al actualizar los precios del producto");
-        this.isLoading = false;
-        return false;
-      }
-    },
-
-    // Update profit margin percentage for a product
-    async updateProfitMargin(productId: string, marginPercentage: number): Promise<boolean> {
-      try {
-        this.isLoading = true;
-        
-        const productSchema = this._getProductSchema();
-        const result = await productSchema.update(productId, {
-          profitMarginPercentage: marginPercentage
-        });
-        
-        if (!result.success) {
-          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar el margen de ganancia");
-          this.isLoading = false;
-          return false;
-        }
-
-        // Update local state
-        const productIndex = this.products.findIndex(p => p.id === productId);
-        if (productIndex >= 0) {
-          const updatedProduct: Product = result.data as Product;
-          this.products[productIndex] = updatedProduct;
-          this.productsByIdMap.set(productId, updatedProduct);
-
-          // Update selected product if applicable
-          if (this.selectedProduct && this.selectedProduct.id === productId) {
-            this.selectedProduct = updatedProduct;
-          }
-        }
-        
-        this.isLoading = false;
-        return true;
-      } catch (error) {
-        console.error("Error updating profit margin:", error);
-        useToast(ToastEvents.error, "Hubo un error al actualizar el margen de ganancia");
-        this.isLoading = false;
-        return false;
-      }
-    },
-
-    // Update 3+ kg markup percentage for a product
-    async updateThreePlusMarkupPercentage(productId: string, markupPercentage: number): Promise<boolean> {
-      try {
-        this.isLoading = true;
-        
-
-        console.log("Updating 3+ kg markup to:", markupPercentage);
-
-        const productSchema = this._getProductSchema();
-        const result = await productSchema.update(productId, {
-          threePlusMarkupPercentage: markupPercentage
-        });
-        
-        if (!result.success) {
-          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar el markup 3+ kg");
-          this.isLoading = false;
-          return false;
-        }
-
-        // Update local state
-        const productIndex = this.products.findIndex(p => p.id === productId);
-        if (productIndex >= 0) {
-          const updatedProduct: Product = result.data as Product;
-          this.products[productIndex] = updatedProduct;
-          this.productsByIdMap.set(productId, updatedProduct);
-
-          // Update selected product if applicable
-          if (this.selectedProduct && this.selectedProduct.id === productId) {
-            this.selectedProduct = updatedProduct;
-          }
-        }
-        
-        this.isLoading = false;
-        return true;
-      } catch (error) {
-        console.error("Error updating 3+ kg markup percentage:", error);
-        useToast(ToastEvents.error, "Hubo un error al actualizar el markup 3+ kg");
-        this.isLoading = false;
-        return false;
-      }
-    },
 
     // Calculate pricing based on cost and margin
     calculatePricing(cost: number, marginPercentage: number, unitWeight?: number, threePlusMarkupPercentage: number = 8) {
@@ -906,6 +790,7 @@ export const useProductStore = defineStore("product", {
     calculateMarginFromPrice(price: number, cost: number): number {
       if (cost <= 0) return 0;
       return Math.round(((price - cost) / cost) * 100 * 100) / 100;
-    }
+    },
+
   }
 });

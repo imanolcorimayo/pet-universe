@@ -353,16 +353,27 @@ async function saveProduct() {
   try {
     let success = false;
     
-    // Prepare the data to save
-    const productToSave = {
-      ...formData.value,
-    };
-
     if (props.editMode && props.productData) {
-      // Update existing product
-      success = await productStore.updateProduct(props.productData.id, productToSave);
+      // Update existing product - map formData to Product fields
+      const productUpdates = {
+        name: formData.value.name,
+        productCode: formData.value.productCode || '',
+        description: formData.value.description || '',
+        category: formData.value.category,
+        subcategory: formData.value.subcategory || '',
+        brand: formData.value.brand || '',
+        trackingType: formData.value.trackingType,
+        unitType: formData.value.unitType,
+        unitWeight: formData.value.unitWeight || 0,
+        minimumStock: formData.value.minimumStock || 0,
+        supplierIds: formData.value.supplierIds || [],
+      };
+      success = await productStore.updateProduct(props.productData.id, productUpdates);
     } else {
-      // Create new product
+      // Create new product - still uses ProductFormData
+      const productToSave = {
+        ...formData.value,
+      };
       success = await productStore.createProduct(productToSave);
     }
 
