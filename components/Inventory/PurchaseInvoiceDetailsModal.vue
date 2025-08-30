@@ -4,6 +4,7 @@
     title="Detalles de Factura de Compra"
     modal-class="max-w-4xl"
     modal-namespace="purchase-invoice-details"
+    :click-propagation-filter="['purchase-invoice-edit']"
   >
     <template #default>
       <div v-if="loading" class="flex justify-center items-center py-8">

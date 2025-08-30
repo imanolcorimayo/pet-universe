@@ -1,15 +1,3 @@
-import {
-  addDoc,
-  collection,
-  doc,
-  getDocs,
-  query,
-  updateDoc,
-  where,
-  orderBy,
-  serverTimestamp,
-  Timestamp,
-} from "firebase/firestore";
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
 import { SupplierSchema } from "~/utils/odm/schemas/supplierSchema";
@@ -152,7 +140,7 @@ export const useSupplierStore = defineStore("supplier", {
           ...supplier,
           category: supplier.category || "servicios", // Default for existing records
           originalArchivedAt: supplier.originalArchivedAt
-        })) || [];
+        })) as Supplier[];
         
         this.suppliersLoaded = true;
         this.isLoading = false;
@@ -193,7 +181,7 @@ export const useSupplierStore = defineStore("supplier", {
           this.suppliers.push({
             ...result.data,
             originalArchivedAt: result.data.originalArchivedAt
-          });
+          } as Supplier);
         }
 
         this.suppliersLoaded = true;
@@ -240,7 +228,7 @@ export const useSupplierStore = defineStore("supplier", {
           this.suppliers[idx] = {
             ...result.data,
             originalArchivedAt: result.data.originalArchivedAt
-          };
+          } as Supplier;
 
           // Update local state for selected supplier if applicable
           if (this.selectedSupplier && this.selectedSupplier.id === supplierId) {
@@ -281,7 +269,7 @@ export const useSupplierStore = defineStore("supplier", {
           this.suppliers[idx] = {
             ...result.data,
             originalArchivedAt: result.data.originalArchivedAt
-          };
+          } as Supplier;
         }
 
         this.isLoading = false;
@@ -317,7 +305,7 @@ export const useSupplierStore = defineStore("supplier", {
           this.suppliers[idx] = {
             ...result.data,
             originalArchivedAt: result.data.originalArchivedAt
-          };
+          } as Supplier;
         }
 
         this.isLoading = false;

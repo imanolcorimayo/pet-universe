@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
+import { PurchaseInvoiceSchema } from "~/utils/odm/schemas/purchaseInvoiceSchema";
 
 // PurchaseInvoice interface
 interface PurchaseInvoice {
@@ -89,7 +90,7 @@ export const usePurchaseInvoiceStore = defineStore("purchaseInvoice", {
   getters: {
     // Filter invoices based on search query and date range
     filteredInvoices: (state) => {
-      let filtered = [...state.invoices];
+      let filtered: PurchaseInvoice[] = [...state.invoices];
       
       // Apply search filter
       if (state.searchQuery) {
@@ -104,12 +105,20 @@ export const usePurchaseInvoiceStore = defineStore("purchaseInvoice", {
       // Apply date range filter
       if (state.dateRange.start) {
         filtered = filtered.filter((invoice) => {
+
+          // Check if dateRange.start is not null
+          if (!state.dateRange.start) return true;
+
           return invoice.invoiceDate >= state.dateRange.start;
         });
       }
       
       if (state.dateRange.end) {
         filtered = filtered.filter((invoice) => {
+
+          // Check if dateRange.end is not null
+          if (!state.dateRange.end) return true;
+
           return invoice.invoiceDate <= state.dateRange.end;
         });
       }
@@ -124,6 +133,11 @@ export const usePurchaseInvoiceStore = defineStore("purchaseInvoice", {
   },
 
   actions: {
+
+    // Get the schema instance
+    _getPurchaseInvoiceSchema() {
+      return new PurchaseInvoiceSchema();
+    },
     // Set search query
     setSearchQuery(query: string) {
       this.searchQuery = query;
@@ -147,55 +161,30 @@ export const usePurchaseInvoiceStore = defineStore("purchaseInvoice", {
         return true;
       }
 
-      const db = useFirestore();
       const user = useCurrentUser();
-      const { $dayjs } = useNuxtApp();
-      
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
 
       try {
         this.isLoading = true;
         
-        // Get all purchase invoices for this business
-        const invoicesQuery = query(
-          collection(db, 'purchaseInvoice'),
-          where('businessId', '==', currentBusinessId.value),
-          orderBy('invoiceDate', 'desc')
-        );
-        
-        const invoicesSnapshot = await getDocs(invoicesQuery);
-        
-        // Transform documents to invoice objects
-        const invoices = invoicesSnapshot.docs.map(doc => {
-          const data = doc.data();
-          
-          return {
-            id: doc.id,
-            businessId: data.businessId,
-            supplierId: data.supplierId,
-            supplierName: data.supplierName,
-            invoiceNumber: data.invoiceNumber || '',
-            invoiceDate: data.invoiceDate ? $dayjs(data.invoiceDate.toDate()).format('YYYY-MM-DD') : '',
-            invoiceType: data.invoiceType || '',
-            notes: data.notes || '',
-            additionalCharges: data.additionalCharges || 0,
-            totalSpent: data.totalSpent || 0,
-            products: data.products || [],
-            createdBy: data.createdBy,
-            createdByName: data.createdByName,
-            createdAt: $dayjs(data.createdAt.toDate()).format('DD/MM/YYYY'),
-            updatedAt: $dayjs(data.updatedAt.toDate()).format('DD/MM/YYYY'),
-            originalInvoiceDate: data.invoiceDate,
-            originalCreatedAt: data.createdAt,
-            originalUpdatedAt: data.updatedAt,
-          };
+        // Use schema to fetch invoices
+        const schema = this._getPurchaseInvoiceSchema();
+        const result = await schema.find({
+          orderBy: [{ field: 'invoiceDate', direction: 'desc' }]
         });
         
-        this.invoices = invoices;
-        this.invoicesLoaded = true;
-        this.isLoading = false;
-        return true;
+        if (result.success && result.data) {
+          this.invoices = result.data as PurchaseInvoice[];
+          this.invoicesLoaded = true;
+          this.isLoading = false;
+          return true;
+        } else {
+          console.error("Error fetching purchase invoices:", result.error);
+          useToast(ToastEvents.error, "Hubo un error al cargar las facturas. Por favor intenta nuevamente.");
+          this.isLoading = false;
+          return false;
+        }
       } catch (error) {
         console.error("Error fetching purchase invoices:", error);
         useToast(ToastEvents.error, "Hubo un error al cargar las facturas. Por favor intenta nuevamente.");
@@ -206,61 +195,45 @@ export const usePurchaseInvoiceStore = defineStore("purchaseInvoice", {
 
     // Create a new purchase invoice
     async createInvoice(formData: PurchaseInvoiceFormData): Promise<boolean> {
-      const db = useFirestore();
       const user = useCurrentUser();
-      
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
 
       try {
         this.isLoading = true;
         
-        // Create invoice data object
+        // Prepare invoice data for schema
         const invoiceData = {
-          businessId: currentBusinessId.value,
           supplierId: formData.supplierId,
           supplierName: formData.supplierName,
           invoiceNumber: formData.invoiceNumber,
-          invoiceDate: Timestamp.fromDate(formData.invoiceDate),
+          invoiceDate: formData.invoiceDate, // Schema will handle date conversion
           invoiceType: formData.invoiceType,
           notes: formData.notes,
           additionalCharges: formData.additionalCharges,
           totalSpent: formData.totalSpent,
           products: formData.products,
-          createdBy: user.value.uid,
           createdByName: user.value.displayName || user.value.email || 'Usuario',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         };
         
-        const docRef = await addDoc(collection(db, 'purchaseInvoice'), invoiceData);
+        // Use schema to create invoice
+        const schema = this._getPurchaseInvoiceSchema();
+        const result = await schema.create(invoiceData);
         
-        // Add to cache immediately (optimistic update)
-        const { $dayjs } = useNuxtApp();
-        const newInvoice: PurchaseInvoice = {
-          id: docRef.id,
-          businessId: currentBusinessId.value,
-          supplierId: formData.supplierId,
-          supplierName: formData.supplierName,
-          invoiceNumber: formData.invoiceNumber,
-          invoiceDate: $dayjs(formData.invoiceDate).format('YYYY-MM-DD'),
-          invoiceType: formData.invoiceType,
-          notes: formData.notes,
-          additionalCharges: formData.additionalCharges,
-          totalSpent: formData.totalSpent,
-          products: formData.products,
-          createdBy: user.value.uid,
-          createdByName: user.value.displayName || user.value.email || 'Usuario',
-          createdAt: $dayjs().format('DD/MM/YYYY'),
-          updatedAt: $dayjs().format('DD/MM/YYYY'),
-        };
-
-        this.invoices.unshift(newInvoice);
-        this.invoicesLoaded = true;
-        this.isLoading = false;
-        
-        useToast(ToastEvents.success, "Factura de compra creada exitosamente");
-        return true;
+        if (result.success && result.data) {
+          // Add to cache immediately (optimistic update)
+          this.invoices.unshift(result.data as PurchaseInvoice);
+          this.invoicesLoaded = true;
+          this.isLoading = false;
+          
+          useToast(ToastEvents.success, "Factura de compra creada exitosamente");
+          return true;
+        } else {
+          console.error("Error creating purchase invoice:", result.error);
+          useToast(ToastEvents.error, result.error || "Hubo un error al crear la factura. Por favor intenta nuevamente.");
+          this.isLoading = false;
+          return false;
+        }
       } catch (error) {
         console.error("Error creating purchase invoice:", error);
         useToast(ToastEvents.error, "Hubo un error al crear la factura. Por favor intenta nuevamente.");
@@ -271,53 +244,95 @@ export const usePurchaseInvoiceStore = defineStore("purchaseInvoice", {
 
     // Update an existing purchase invoice
     async updateInvoice(invoiceId: string, formData: Partial<PurchaseInvoiceFormData>): Promise<boolean> {
-      const db = useFirestore();
       const user = useCurrentUser();
-      
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value || !invoiceId) return false;
 
       try {
         this.isLoading = true;
         
-        // Prepare update data
-        const updateData: any = {
-          updatedAt: serverTimestamp(),
-        };
+        // Prepare update data (only include fields that are being updated)
+        const updateData: any = {};
 
         if (formData.invoiceNumber !== undefined) updateData.invoiceNumber = formData.invoiceNumber;
-        if (formData.invoiceDate !== undefined) updateData.invoiceDate = Timestamp.fromDate(formData.invoiceDate);
+        if (formData.invoiceDate !== undefined) updateData.invoiceDate = formData.invoiceDate;
         if (formData.invoiceType !== undefined) updateData.invoiceType = formData.invoiceType;
         if (formData.notes !== undefined) updateData.notes = formData.notes;
         if (formData.additionalCharges !== undefined) updateData.additionalCharges = formData.additionalCharges;
+        if (formData.totalSpent !== undefined) updateData.totalSpent = formData.totalSpent;
+        if (formData.products !== undefined) updateData.products = formData.products;
+        if (formData.supplierName !== undefined) updateData.supplierName = formData.supplierName;
         
-        // Update invoice document
-        await updateDoc(doc(db, 'purchaseInvoice', invoiceId), updateData);
+        // Use schema to update invoice
+        const schema = this._getPurchaseInvoiceSchema();
+        const result = await schema.update(invoiceId, updateData);
         
-        // Update cache
-        const { $dayjs } = useNuxtApp();
-        const idx = this.invoices.findIndex(inv => inv.id === invoiceId);
-        if (idx !== -1) {
-          if (formData.invoiceNumber !== undefined) this.invoices[idx].invoiceNumber = formData.invoiceNumber;
-          if (formData.invoiceDate !== undefined) this.invoices[idx].invoiceDate = $dayjs(formData.invoiceDate).format('YYYY-MM-DD');
-          if (formData.invoiceType !== undefined) this.invoices[idx].invoiceType = formData.invoiceType;
-          if (formData.notes !== undefined) this.invoices[idx].notes = formData.notes;
-          if (formData.additionalCharges !== undefined) this.invoices[idx].additionalCharges = formData.additionalCharges;
-          
-          this.invoices[idx].updatedAt = $dayjs().format('DD/MM/YYYY');
-        }
+        if (result.success && result.data) {
+          // Update cache
+          const idx = this.invoices.findIndex(inv => inv.id === invoiceId);
+          if (idx !== -1) {
+            this.invoices[idx] = result.data as PurchaseInvoice;
+          }
 
-        // Update local state for selected invoice if applicable
-        if (this.selectedInvoice && this.selectedInvoice.id === invoiceId) {
-          this.selectedInvoice = this.invoices[idx];
-        }
+          // Update local state for selected invoice if applicable
+          if (this.selectedInvoice && this.selectedInvoice.id === invoiceId) {
+            this.selectedInvoice = result.data as PurchaseInvoice;
+          }
 
-        this.isLoading = false;
-        useToast(ToastEvents.success, "Factura actualizada exitosamente");
-        return true;
+          this.isLoading = false;
+          useToast(ToastEvents.success, "Factura actualizada exitosamente");
+          return true;
+        } else {
+          console.error("Error updating purchase invoice:", result.error);
+          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar la factura. Por favor intenta nuevamente.");
+          this.isLoading = false;
+          return false;
+        }
       } catch (error) {
         console.error("Error updating purchase invoice:", error);
         useToast(ToastEvents.error, "Hubo un error al actualizar la factura. Por favor intenta nuevamente.");
+        this.isLoading = false;
+        return false;
+      }
+    },
+
+    // Delete an invoice
+    async deleteInvoice(invoiceId: string): Promise<boolean> {
+      const user = useCurrentUser();
+      const currentBusinessId = useLocalStorage('cBId', null);
+      if (!user.value?.uid || !currentBusinessId.value || !invoiceId) return false;
+
+      try {
+        this.isLoading = true;
+        
+        // Use schema to delete invoice
+        const schema = this._getPurchaseInvoiceSchema();
+        const result = await schema.delete(invoiceId);
+        
+        if (result.success) {
+          // Remove from cache
+          const idx = this.invoices.findIndex(inv => inv.id === invoiceId);
+          if (idx !== -1) {
+            this.invoices.splice(idx, 1);
+          }
+
+          // Clear selected invoice if it was deleted
+          if (this.selectedInvoice && this.selectedInvoice.id === invoiceId) {
+            this.selectedInvoice = null;
+          }
+
+          this.isLoading = false;
+          useToast(ToastEvents.success, "Factura eliminada exitosamente");
+          return true;
+        } else {
+          console.error("Error deleting purchase invoice:", result.error);
+          useToast(ToastEvents.error, result.error || "Hubo un error al eliminar la factura. Por favor intenta nuevamente.");
+          this.isLoading = false;
+          return false;
+        }
+      } catch (error) {
+        console.error("Error deleting purchase invoice:", error);
+        useToast(ToastEvents.error, "Hubo un error al eliminar la factura. Por favor intenta nuevamente.");
         this.isLoading = false;
         return false;
       }

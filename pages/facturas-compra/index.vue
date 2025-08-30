@@ -128,7 +128,7 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="text-sm text-gray-900">
-                    {{ formatDate(invoice.invoiceDate) }}
+                    {{ invoice.invoiceDate }}
                   </div>
                   <div v-if="invoice.invoiceType" class="text-xs text-gray-500">
                     Tipo {{ invoice.invoiceType }}
@@ -224,12 +224,6 @@ function formatCurrency(value) {
     currency: "ARS",
     minimumFractionDigits: 2,
   }).format(value || 0);
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '—';
-  const { $dayjs } = useNuxtApp();
-  return $dayjs(dateString).format('DD/MM/YYYY');
 }
 
 function clearFilters() {

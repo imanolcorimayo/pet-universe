@@ -119,6 +119,9 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(['invoice-updated']);
 
+// Nuxt app
+const { $dayjs } = useNuxtApp();
+
 // Refs
 const mainModal = ref(null);
 const purchaseInvoiceStore = usePurchaseInvoiceStore();
@@ -153,9 +156,10 @@ function resetForm() {
 function populateForm() {
   if (!props.invoice) return;
   
+  // Convert the schema's formatted date (DD/MM/YYYY) to the input format (YYYY-MM-DD)
   formData.value = {
     invoiceNumber: props.invoice.invoiceNumber || '',
-    invoiceDate: props.invoice.invoiceDate || '',
+    invoiceDate: props.invoice.invoiceDate ? $dayjs(props.invoice.invoiceDate, 'DD/MM/YYYY').format('YYYY-MM-DD') : '',
     invoiceType: props.invoice.invoiceType || '',
     additionalCharges: props.invoice.additionalCharges || 0,
     notes: props.invoice.notes || ''
@@ -168,13 +172,32 @@ async function saveInvoice() {
   isSubmitting.value = true;
   
   try {
+    const { $dayjs } = useNuxtApp();
+    
+    // Prepare update data with proper date conversion
     const updateData = {
       invoiceNumber: formData.value.invoiceNumber,
-      invoiceDate: formData.value.invoiceDate ? new Date(formData.value.invoiceDate) : undefined,
       invoiceType: formData.value.invoiceType,
       additionalCharges: formData.value.additionalCharges,
       notes: formData.value.notes
     };
+
+    // Only include invoiceDate if it was changed and is valid
+    if (formData.value.invoiceDate) {
+      // Convert the original date to YYYY-MM-DD format for comparison
+      const originalDateFormatted = props.invoice.invoiceDate ? $dayjs(props.invoice.invoiceDate, 'DD/MM/YYYY').format('YYYY-MM-DD') : '';
+      
+      if (formData.value.invoiceDate !== originalDateFormatted) {
+        try {
+          // Convert the date input (YYYY-MM-DD) to a Date object for the schema
+          updateData.invoiceDate = $dayjs(formData.value.invoiceDate).toDate();
+        } catch (error) {
+          console.error('Error parsing invoice date:', error);
+          useToast(ToastEvents.error, 'Fecha de factura inválida');
+          return;
+        }
+      }
+    }
 
     const success = await purchaseInvoiceStore.updateInvoice(props.invoice.id, updateData);
     
