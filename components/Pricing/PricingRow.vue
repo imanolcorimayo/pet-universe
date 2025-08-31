@@ -1,10 +1,10 @@
 <template>
   <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100">
     <!-- Product Info (Sticky) -->
-    <td class="sticky left-0 bg-white px-4 py-4 border-r border-gray-200 z-10 max-w-[300px]">
+    <td class="sticky left-0 bg-white px-4 py-4 border-r border-gray-200 z-10 max-w-[300px] min-w-[250px]">
       <div class="flex items-center justify-between max-w-full">
         <div class="flex flex-col max-w-full min-w-0">
-          <div class="font-medium text-gray-900 text-sm truncate min-w-0">
+          <div class="font-medium text-gray-900 text-sm min-w-0 w-full">
             {{ displayName }}
           </div>
           <div class="flex items-center gap-2 mt-1">
@@ -451,10 +451,10 @@ const displayPrices = computed(() => {
   // Use stored product prices, fallback to freshly calculated if not available
   const storedPrices = props.product.prices || {};
   return {
-    cash: storedPrices.cash || freshlyCalculatedPrices.value.cash,
-    regular: storedPrices.regular || freshlyCalculatedPrices.value.regular,
-    vip: storedPrices.vip || freshlyCalculatedPrices.value.vip,
-    bulk: storedPrices.bulk || freshlyCalculatedPrices.value.bulk,
+    cash: storedPrices.cash || storedPrices.unit?.cash || freshlyCalculatedPrices.value.cash,
+    regular: storedPrices.regular || storedPrices.unit?.regular || freshlyCalculatedPrices.value.regular,
+    vip: storedPrices.vip || storedPrices.unit?.vip || freshlyCalculatedPrices.value.vip,
+    bulk: storedPrices.bulk || storedPrices.unit?.bulk  || freshlyCalculatedPrices.value.bulk,
   };
 });
 
