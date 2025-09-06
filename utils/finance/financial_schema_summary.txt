@@ -1,0 +1,247 @@
+// ----------- SALES -------------
+- Should contain items sold
+- Reference to debts so we keep track of debts and when they happened
+- Reference to daily cash to understand who made the sale
+- BusinessRule: If updated and cash method chosen, then check with "dailyCashTransaction" collection in case it needs to be updated (deleted if cash type is removed and amount updated in case it increase or decreases)
+
+sale/{saleId}
+  businessId
+  clientId                  // Reference to "client" collection
+  dailyCashSnapshotId       // Reference to "dailyCashSnapshot" collection
+  cashRegisterId            // Reference to "cashRegister" collection
+  cashRegisterName          // For display
+  debtId (optional)         // Reference to "debt" collection (when debt exists)
+  settlementId (optional)   // Reference to "settlement" collection (when postnet payment exists)
+  clientName
+  amountTotal               // Final total
+  discountTotal (optional)  // Final discount
+  surcharge (optional)      // For credit payments with recharges in final total. This does NOT apply per product    
+  products[]                // Product items (Product item will contain item details, price, price type and discounts)
+  wallets[]                 // Wallet transfers (When debt and many payments needed, we save many wallet transfers)
+  createdAt
+  createdBy
+
+
+// ----------- WALLET -------------
+- Will contain all transactions made in the business
+- All balances will come from movements here
+- Same structure will be received from all fronts of the web. Either adding a sale and receiving partial money or paying to provider, a wallet transaction will be performed
+- This wallets directly impact in global cash based on the "createdAt" date. This is why we don't store "settlement" nor "debt" (pending) wallet transfers 
+- When wallet is cancelled, it does not impact on balance at all but is kept for debugging/report purposes
+
+wallet/{walletId}
+  businessId
+  type: Income|Outcome            // This will be used on the balances calculations to determine if should add or subtract the amount
+
+  globalCashId                    // Ref to "globalCash" to reference the global cash snapshot        
+  saleId (optional)               // Ref to "sale" in case it comes from there
+  debtId (optional)               // Reference to "debt" when debt exists
+  settlementId (optional)         // Reference to "settlement" when exists 
+  purchaseInvoiceId (Optional)    // Reference to "purchaseInvoice" when it exists
+  supplierId (Optional)           // In case a supplier is referenced
+
+  paymentTypeId                   // Reference to "paymentType" (cash, posnet-credit, posnet-debit, transfer, mp, naranja) (configurable)
+  paymentTypeName                 // Name for display
+  paymentMethodId                 // Reference to "paymentMethod"  (master, visa, mp, amex, naranja) (configurable)
+  paymentMethodName               // For display
+  accountTypeId                   // Reference to the "accountType" which is the account where received the money (cash, santander, mp, naranja, etc)
+  accountTypeName                 // For display
+
+  amount
+  status: paid | cancelled        // Only in order to be able to cancel transactions and create new ones
+  isRegistered: true/false
+  createdAt
+  updatedAt
+  createdBy
+  updatedBy
+
+// ----------- DEBT -------------
+- Collection to keep track of the debts generated
+- It can be a client debt, when purchasing a sale to a client who asks to pay later
+- It can be a supplier debt, when owner assumes a debt to a inventory purchase
+- It can be cancelled for X reason and will be deactivated and usually have a lost
+- Will appear on daily cash transactions so we understand how many debts had been generated for that daily cash register
+- BusinessRule: If updated and cash method chosen, then check with "dailyCashTransaction" collection in case it needs to be updated (deleted if cash type is removed and amount updated in case it increases or decreases)
+
+debt/{debtId}
+  businessId
+  type: Customer|Supplier
+
+  clientId (optional)           // Reference to the "client" collection in case it's a client's debt 
+  supplierId (optional)         // Reference to the "supplier" collection in case it's a supplier's debt
+  invoicePurchaseId (optional)  // Reference to the "invoicePurchase" collection
+  saleId (optional)             // Reference to the "sale" collection
+  
+  dailyCashSnapshotId           // Reference to "dailyCashSnapshot" collection
+  cashRegisterId                // Reference to "cashRegister" collection
+  cashRegisterName              // For display
+
+  entityName                    // Full entity name (client or supplier) for display purposes
+  originalAmount
+  paidAmount
+  remainingAmount
+  originType: Sale, Purchase Invoice
+  description
+  status: active|paid|cancelled
+  dueDate
+  createdBy
+  createdByName
+  createdAt
+  updatedAt
+  paidAt
+
+  cancelledAt
+  cancelledBy
+  cancelReason
+
+
+// ----------- SETTLEMENT -------------
+- Exists to keep track of postnet payment providers
+- Will appear on daily cash transactions so we understand how many posnet payment has been done for that daily cash register
+- It can be cancelled for X reason
+
+settlement/{settlementId}
+  businessId
+  saleId                              // Reference to "sale" from which this settlement has been created
+
+  dailyCashSnapshotId                 // Reference to "dailyCashSnapshot" collection
+  cashRegisterId                      // Reference to "cashRegister" collection
+  cashRegisterName                    // For display
+
+  walletId (optional)                 // Reference to "wallet" transaction. This is created when settlement is settled
+  paymentMethodId                     // Reference to "paymentMethod"  (master, visa, mp, amex, naranja) (configurable)
+  paymentMethodName                   // For display
+  status: pending|settled|cancelled
+  amountTotal
+  amountFee
+  percentageFee
+  paidDate
+  createdAt
+  createdBy
+  createdByName
+  updatedAt
+  updatedBy
+  updatedByName
+
+  cancelledAt
+  cancelledBy
+  cancelReason
+
+
+// ----------- PURCHASE INVOICE -------------
+- The goal is to keep tracking of purchases for specific suppliers
+- It can be "pending" when there is a debt for this purchase
+- It can be "cancelled" for X reason
+
+purchaseInvoice/{purchaseInvoiceId}
+  businessId
+  supplierId
+  supplierName
+
+  invoiceNumber
+  invoiceDate
+  invoiceType: 'A'|'B'|'C'|'X'      // (A - Responsable Inscripto, B - Responsable Inscripto a CF, C - Consumidor Final, X - Otros)
+
+  status: pending | paid | cancelled
+  amountTotal
+  amountAdditional
+  products []                       // Reference products and an inventory movement snapshot with costs for display
+  notes 
+
+  createdAt
+  createdBy
+  createdByName
+  updatedAt
+  updatedBy
+  updatedByName
+
+  cancelledAt
+  cancelledBy
+  cancelReason
+
+// ----------- GLOBAL CASH REGISTER -------------
+- Weekly snapshot for the general business
+- Main source of truth is the "wallet" collection 
+- All balances for the week in the dashboard will be calculated based on the previous snapshot and the wallet transactions that week
+
+globalCash/{globalCasId}
+  businessId
+
+  openingBalances[]                   // Array of {accountTypeId, accountTypeName, amount} 
+  closingBalances[]                   // Array of {accountTypeId, accountTypeName, amount}
+  differences[]                       // Array of assumed differences {accountTypeId, accountTypeName, difference, notes}
+
+  createdAt
+  createdBy
+  createdByName
+  openedAt
+  openedBy
+  openedByName
+  closedAt (optional)                 // Can be by system in case user did not performed the action
+  closedBy (optional)                 // Can be by system in case user did not performed the action
+  closedByName (optional)             // Can be by system in case user did not performed the action
+
+
+// ----------- DAILY CASH REGISTER -------------
+- Cash register definition (the physical/logical register)
+- One will be created per physical register. Then we keep track of this one based on this record
+- It can be deactivated
+
+cashRegister/{cashRegisterId}
+  businessId
+  name                    // "Main Counter", "Secondary Till", etc.
+  isActive: true|false
+  createdAt
+  createdBy
+  createdByName
+  deactivatedAt
+  deactivatedBy
+  deactivatedByName
+
+- Daily cash session (when someone opens a register for the day)
+- Snapshot of balances (opening and closing)
+- All 0 by default in opening balance except for cash
+- For cash, look at the previous (last closed) cash register snapshot for the same cashRegisterId and automatically use this
+- Add the ability to "inject" cash from "globalCash" to "dailyCashSnapshot" register (Output "wallet" transaction, Input "dailyCashTransaction" transaction)
+- Add the ability to "extract" cash from "dailyCashSnapshot" to "globalCash" (Output "dailyCashTransaction" transaction, Input "wallet" transaction)
+
+dailyCashSnapshot/{dailyCashSnapshotId}  
+  businessId
+  cashRegisterId          // Reference to the physical register
+  status: open|closed
+  notes
+
+  openingBalances[]       // Array of {accountTypeId, accountTypeName, amount} 
+  closingBalances[]       // Array of {accountTypeId, accountTypeName, amount}
+  differences[]           // Array of assumed differences {accountTypeId, accountTypeName, difference, notes}
+  
+  createdAt
+  createdBy
+  createdByName
+  openedAt
+  openedBy
+  openedByName
+  closedAt (optional)
+  closedBy (optional)
+  closedByName (optional)
+
+
+- ONLY for cash transactions
+- Can be done only due to sales or debt_payment
+- When transaction is created from "inject" or "extract", always wallet document is created first and then we add the walletId here
+- Updates on this transactions can only be done when a sale or debt payment are modified and cash amount changed
+
+dailyCashTransaction/{transactionId}
+  businessId
+  dailyCashSnapshotId                          // Reference to "dailyCashSnapshot" collection
+  cashRegisterId                               // Reference to "cashRegister" collection 
+  saleId (optional)                            // Reference to "sale" collection
+  debtId (optional)                            // Reference to "debt" collection
+  walletId (optional, required if extract|inject type)                          // Reference to "wallet" collection
+  cashRegisterName                             // For display
+  type: sale|debt_payment|extract|inject
+
+  amount
+  createdAt
+  createdBy
+  createdByName
