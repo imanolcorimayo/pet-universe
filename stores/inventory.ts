@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
-import { InventorySchema } from "~/utils/odm/schemas/inventorySchema";
-import { InventoryMovementSchema } from "~/utils/odm/schemas/inventoryMovementSchema";
+import { InventorySchema } from "~/utils/odm/schemas/InventorySchema";
+import { InventoryMovementSchema } from "~/utils/odm/schemas/InventoryMovementSchema";
 import { serverTimestamp } from "firebase/firestore";
 
 // Inventory interfaces

@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
-import { ProductSchema } from "~/utils/odm/schemas/productSchema";
-import { ProductCategorySchema } from "~/utils/odm/schemas/productCategorySchema";
+import { ProductSchema } from "~/utils/odm/schemas/ProductSchema";
+import { ProductCategorySchema } from "~/utils/odm/schemas/ProductCategorySchema";
 import { roundUpPrice } from "~/utils/index";
 
 // Product interfaces

@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
-import { SupplierSchema } from "~/utils/odm/schemas/supplierSchema";
+import { SupplierSchema } from "~/utils/odm/schemas/SupplierSchema";
 
 // Supplier interface
 interface Supplier {
