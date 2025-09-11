@@ -81,19 +81,41 @@ export class BusinessRulesEngine {
   }
 
   /**
-   * Process a complete sale with wallet transactions and daily cash updates
+   * Process a complete sale with multiple payment methods
+   * 
+   * VALIDATION PHASE:
+   * - Client exists if partial payment (debt creation requires customer)
+   * - Daily cash snapshot exists and is open
+   * 
+   * PROCESSING FLOW:
+   * 1. Create sale record in Firestore
+   * 2. Non-cash payments → Wallet transactions (bank transfers, digital payments)
+   * 3. Cash payments (EFECTIVO) → Daily cash transactions only (no wallet)
+   * 4. Card/Postnet payments → Settlement records (pending status, considered "paid")
+   * 5. Partial payments → Create customer debt record
+   * 
+   * PAYMENT METHOD ROUTING:
+   * - EFECTIVO: dailyCashTransaction only
+   * - Cards/Postnet: settlement record (wallet created when settled)
+   * - Other methods: direct wallet transaction
+   * - Multiple methods: all processed in single sale
    */
   async processSale(data: SaleProcessingData): Promise<BusinessRuleResult> {
     const warnings: string[] = [];
     
     try {
-      // 1. Validate daily cash snapshot is open
+      // 1. Pre-validation: Check client exists if partial payment expected
+      if (data.saleData.isPaidInFull === false && !data.saleData.clientId) {
+        return { success: false, error: 'Client is required for partial payments (debt creation)' };
+      }
+
+      // 2. Validate daily cash snapshot is open
       const snapshotValidation = await this.validateDailyCashSnapshotOpen(data.dailyCashSnapshotId);
       if (!snapshotValidation.success) {
         return { success: false, error: snapshotValidation.error };
       }
 
-      // 2. Create the sale
+      // 3. Create the sale
       const saleResult = await this.saleSchema.create(data.saleData);
       if (!saleResult.success) {
         return { success: false, error: `Sale creation failed: ${saleResult.error}` };
@@ -104,9 +126,13 @@ export class BusinessRulesEngine {
         return { success: false, error: 'Sale created but ID not returned' };
       }
 
-      // 3. Process wallet transactions
+      // 4. Process wallet transactions (non-cash only)
       const walletResults = [];
-      for (const walletTransfer of data.walletTransfers) {
+      const nonCashTransfers = data.walletTransfers.filter(wt => 
+        wt.paymentMethod !== 'EFECTIVO' && wt.paymentMethod !== 'cash' && !this.isPostnetPayment(wt.paymentMethod)
+      );
+
+      for (const walletTransfer of nonCashTransfers) {
         const walletResult = await this.walletSchema.create({
           ...walletTransfer,
           relatedEntityType: 'sale',
@@ -120,7 +146,7 @@ export class BusinessRulesEngine {
         }
       }
 
-      // 4. Process daily cash transactions (cash only)
+      // 5. Process daily cash transactions (cash only)
       const cashTransactions = data.walletTransfers.filter(wt => 
         wt.paymentMethod === 'EFECTIVO' || wt.paymentMethod === 'cash'
       );
@@ -145,7 +171,34 @@ export class BusinessRulesEngine {
         }
       }
 
-      // 5. Create debt if partial payment
+      // 6. Process settlements (posnet payments)
+      const settlementResults = [];
+      const postnetTransfers = data.walletTransfers.filter(wt => this.isPostnetPayment(wt.paymentMethod));
+
+      for (const postnetTx of postnetTransfers) {
+        const settlementResult = await this.settlementSchema.create({
+          saleId,
+          dailyCashSnapshotId: data.dailyCashSnapshotId,
+          cashRegisterId: data.cashRegisterId,
+          cashRegisterName: data.cashRegisterName,
+          amount: postnetTx.amount,
+          paymentMethodId: postnetTx.paymentMethod,
+          paymentMethodName: postnetTx.paymentMethod,
+          status: 'pending',
+          feeAmount: 0, // Calculate based on business config
+          percentageFee: 0, // Calculate based on business config
+          createdBy: data.userId,
+          createdByName: data.userName
+        });
+
+        if (!settlementResult.success) {
+          warnings.push(`Settlement creation failed: ${settlementResult.error}`);
+        } else {
+          settlementResults.push(settlementResult.data);
+        }
+      }
+
+      // 7. Create debt if partial payment
       if (data.saleData.isPaidInFull === false && data.saleData.clientId) {
         const remainingAmount = data.saleData.amountTotal - data.walletTransfers.reduce((sum, wt) => sum + wt.amount, 0);
         
@@ -168,6 +221,7 @@ export class BusinessRulesEngine {
         data: {
           saleId,
           walletTransactions: walletResults,
+          settlementTransactions: settlementResults,
           warnings
         },
         warnings
@@ -506,5 +560,13 @@ export class BusinessRulesEngine {
       valid: errors.length === 0,
       errors
     };
+  }
+
+  /**
+   * Helper method to identify postnet/card payments that require settlements
+   */
+  private isPostnetPayment(paymentMethod: string): boolean {
+    const postnetMethods = ['POSNET', 'VISA', 'MASTERCARD', 'AMEX', 'NARANJA'];
+    return postnetMethods.includes(paymentMethod.toUpperCase());
   }
 }
