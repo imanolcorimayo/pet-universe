@@ -164,7 +164,7 @@ purchaseInvoice/{purchaseInvoiceId}
 - Main source of truth is the "wallet" collection 
 - All balances for the week in the dashboard will be calculated based on the previous snapshot and the wallet transactions that week
 
-globalCash/{globalCasId}
+globalCash/{globalCashId}
   businessId
 
   openingBalances[]                   // Array of {accountTypeId, accountTypeName, amount} 

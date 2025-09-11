@@ -12,7 +12,7 @@ import {
 } from "firebase/firestore";
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
-import { PurchaseInvoiceSchema } from "~/utils/odm/schemas/purchaseInvoiceSchema";
+import { PurchaseInvoiceSchema } from "~/utils/odm/schemas/PurchaseInvoiceSchema";
 
 // PurchaseInvoice interface
 interface PurchaseInvoice {
