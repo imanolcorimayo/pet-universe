@@ -36,122 +36,6 @@
           </nav>
         </div>
 
-        <!-- Account Types Tab -->
-        <div v-if="activeTab === 'account-types'" class="p-6">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-medium">Tipos de Cuenta</h2>
-            <button
-              @click="showNewAccountTypeModal = true"
-              class="btn bg-primary text-white hover:bg-primary/90 text-sm"
-            >
-              <span class="flex items-center gap-1">
-                <IconParkOutlinePlus class="h-4 w-4" />
-                Nuevo Tipo
-              </span>
-            </button>
-          </div>
-
-          <div class="bg-gray-50 rounded-lg p-4">
-            <table class="min-w-full">
-              <thead>
-                <tr>
-                  <th
-                    class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Código
-                  </th>
-                  <th
-                    class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Nombre
-                  </th>
-                  <th
-                    class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Tipo
-                  </th>
-                  <th
-                    class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Estado
-                  </th>
-                  <th
-                    class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200">
-                <tr
-                  v-for="(accountType, code) in accountTypes"
-                  :key="code"
-                  class="text-sm"
-                >
-                  <td class="py-3 pr-3 font-medium">{{ code }}</td>
-                  <td class="py-3 pr-3">{{ accountType.name }}</td>
-                  <td class="py-3 pr-3">
-                    <span
-                      class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                      :class="{
-                        'bg-green-100 text-green-800': accountType.type === 'cash',
-                        'bg-blue-100 text-blue-800': accountType.type === 'bank',
-                        'bg-purple-100 text-purple-800': accountType.type === 'digital'
-                      }"
-                    >
-                      {{ accountType.type === 'cash' ? 'Efectivo' : accountType.type === 'bank' ? 'Banco' : 'Digital' }}
-                    </span>
-                  </td>
-                  <td class="py-3 pr-3">
-                    <div class="flex flex-col gap-1 items-center text-center">
-                      <span
-                        class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                        :class="
-                          accountType.active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        "
-                      >
-                        {{ accountType.active ? "Activo" : "Inactivo" }}
-                      </span>
-                      <span
-                        class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                        :class="
-                          accountType.isReported
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-orange-100 text-orange-800'
-                        "
-                      >
-                        {{ accountType.isReported ? "Reportado" : "No Reportado" }}
-                      </span>
-                    </div>
-                  </td>
-                  <td class="py-3 text-right">
-                    <div class="flex justify-end gap-2">
-                      <button
-                        @click="editAccountType(code, accountType)"
-                        class="text-indigo-600 hover:text-indigo-900 text-sm"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        @click="confirmDeleteAccountType(code, accountType.name)"
-                        class="text-red-600 hover:text-red-900 text-sm"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="Object.keys(accountTypes).length === 0">
-                  <td colspan="5" class="py-4 text-center text-gray-500">
-                    No hay tipos de cuenta configurados
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
 
         <!-- Categories Tab -->
         <div v-if="activeTab === 'categories'" class="p-6">
@@ -878,159 +762,6 @@
       </template>
     </ModalStructure>
 
-    <!-- New Account Type Modal -->
-    <ModalStructure ref="newAccountTypeModal" title="Nuevo Tipo de Cuenta">
-      <form @submit.prevent="addAccountType">
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Código</label>
-            <input
-              v-model="newAccountType.code"
-              @input="newAccountType.code = codifyCode(newAccountType.code)"
-              type="text"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              placeholder="EJ: CAJA_EFECTIVO, CUENTA_SANTANDER"
-              maxlength="20"
-            />
-            <p class="text-xs text-gray-500 mt-1">
-              Solo letras mayúsculas, números y guiones bajos
-            </p>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Nombre</label>
-            <input
-              v-model="newAccountType.name"
-              type="text"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              placeholder="Ej: Caja Efectivo, Cuenta Santander"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Tipo</label>
-            <select
-              v-model="newAccountType.type"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            >
-              <option value="cash">Efectivo</option>
-              <option value="bank">Banco</option>
-              <option value="digital">Digital</option>
-            </select>
-          </div>
-
-          <div class="flex items-center">
-            <input
-              v-model="newAccountType.active"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label class="ml-2 block text-sm text-gray-700">Activo</label>
-          </div>
-
-          <div class="flex items-center">
-            <input
-              v-model="newAccountType.isReported"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label class="ml-2 block text-sm text-gray-700">Reportado (Dinero en Blanco)</label>
-          </div>
-        </div>
-      </form>
-
-      <template #footer>
-        <button
-          type="button"
-          @click="closeNewAccountTypeModal"
-          class="btn btn-outline"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          @click="addAccountType"
-          class="btn bg-primary text-white hover:bg-primary/90"
-          :disabled="!canAddAccountType"
-        >
-          Guardar
-        </button>
-      </template>
-    </ModalStructure>
-
-    <!-- Edit Account Type Modal -->
-    <ModalStructure ref="editAccountTypeModal" title="Editar Tipo de Cuenta">
-      <form @submit.prevent="updateAccountType">
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Código</label>
-            <input
-              :value="editingAccountTypeCode"
-              type="text"
-              class="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm"
-              disabled
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Nombre</label>
-            <input
-              v-model="editingAccountType.name"
-              type="text"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Tipo</label>
-            <select
-              v-model="editingAccountType.type"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            >
-              <option value="cash">Efectivo</option>
-              <option value="bank">Banco</option>
-              <option value="digital">Digital</option>
-            </select>
-          </div>
-
-          <div class="flex items-center">
-            <input
-              v-model="editingAccountType.active"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label class="ml-2 block text-sm text-gray-700">Activo</label>
-          </div>
-
-          <div class="flex items-center">
-            <input
-              v-model="editingAccountType.isReported"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label class="ml-2 block text-sm text-gray-700">Reportado (Dinero en Blanco)</label>
-          </div>
-        </div>
-      </form>
-
-      <template #footer>
-        <button
-          type="button"
-          @click="closeEditAccountTypeModal"
-          class="btn btn-outline"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          @click="updateAccountType"
-          class="btn bg-primary text-white hover:bg-primary/90"
-          :disabled="!canUpdateAccountType"
-        >
-          Actualizar
-        </button>
-      </template>
-    </ModalStructure>
 
     <!-- Delete Confirmation Modal -->
     <ModalStructure ref="deleteConfirmationModal" :title="deleteModalTitle">
@@ -1078,17 +809,14 @@ const productStore = useProductStore();
 // Loading state
 const loading = ref(true);
 
-// Tabs - updated to remove payment methods
+// Tabs
 const tabs = [
-  { id: "account-types", name: "Tipos de Cuenta" },
   { id: "categories", name: "Categorías" },
   { id: "product-categories", name: "Categorías de Productos" },
 ];
-const activeTab = ref("account-types");
+const activeTab = ref("categories");
 
-// Modal references - updated to use ModalStructure
-const newAccountTypeModal = ref(null);
-const editAccountTypeModal = ref(null);
+// Modal references
 const newIncomeCategoryModal = ref(null);
 const newExpenseCategoryModal = ref(null);
 const editCategoryModal = ref(null);
@@ -1098,7 +826,6 @@ const editProductCategoryModal = ref(null);
 const productCategoryActionModal = ref(null);
 
 // Modal visibility states
-const showNewAccountTypeModal = ref(false);
 const showNewIncomeCategoryModal = ref(false);
 const showNewExpenseCategoryModal = ref(false);
 const showNewProductCategoryModal = ref(false);
@@ -1107,15 +834,6 @@ const deleteItemName = ref("");
 const deleteType = ref(""); // 'income-category', 'expense-category'
 const deleteItemCode = ref("");
 
-
-// New account type form
-const newAccountType = ref({
-  code: "",
-  name: "",
-  type: "cash",
-  active: true,
-  isReported: true,
-});
 
 // New category form
 const newCategory = ref({
@@ -1138,13 +856,6 @@ const editingProductCategory = ref({
 });
 
 // Editing states
-const editingAccountTypeCode = ref("");
-const editingAccountType = ref({
-  name: "",
-  type: "cash",
-  active: true,
-  isReported: true,
-});
 const editingCategoryType = ref("income");
 const editingCategoryCode = ref("");
 const editingCategory = ref({ name: "", active: true, isDefault: false });
@@ -1157,24 +868,6 @@ const productCategoryActionButtonText = ref("");
 const selectedProductCategoryForAction = ref(null);
 
 // Form validation
-
-const canAddAccountType = computed(() => {
-  return (
-    newAccountType.value.code &&
-    newAccountType.value.code.trim() !== "" &&
-    /^[A-Z0-9_]+$/.test(newAccountType.value.code) &&
-    newAccountType.value.name &&
-    newAccountType.value.name.trim() !== ""
-  );
-});
-
-const canUpdateAccountType = computed(() => {
-  return (
-    editingAccountType.value.name &&
-    editingAccountType.value.name.trim() !== ""
-  );
-});
-
 const canAddCategory = computed(() => {
   return (
     newCategory.value.code &&
@@ -1198,7 +891,6 @@ const canUpdateProductCategory = computed(() => {
 });
 
 // Data computed properties
-
 const incomeCategories = computed(() => {
   if (!indexStore.businessConfig) return {};
   return indexStore.businessConfig.incomeCategories || {};
@@ -1207,11 +899,6 @@ const incomeCategories = computed(() => {
 const expenseCategories = computed(() => {
   if (!indexStore.businessConfig) return {};
   return indexStore.businessConfig.expenseCategories || {};
-});
-
-const accountTypes = computed(() => {
-  if (!indexStore.businessConfig) return {};
-  return indexStore.businessConfig.accountTypes || {};
 });
 
 const activeProductCategories = computed(() => {
@@ -1230,14 +917,7 @@ const filteredProductCategories = computed(() => {
   }
 });
 
-// Modal watchers - updated for ModalStructure
-
-watch(showNewAccountTypeModal, (value) => {
-  if (value) {
-    newAccountTypeModal.value.showModal();
-  }
-});
-
+// Modal watchers
 watch(showNewIncomeCategoryModal, (value) => {
   if (value) {
     newIncomeCategoryModal.value.showModal();
@@ -1256,18 +936,7 @@ watch(showNewProductCategoryModal, (value) => {
   }
 });
 
-// Modal methods - updated for ModalStructure
-
-function closeNewAccountTypeModal() {
-  newAccountTypeModal.value.closeModal();
-  showNewAccountTypeModal.value = false;
-  resetNewAccountType();
-}
-
-function closeEditAccountTypeModal() {
-  editAccountTypeModal.value.closeModal();
-}
-
+// Modal methods
 function closeNewIncomeCategoryModal() {
   newIncomeCategoryModal.value.closeModal();
   showNewIncomeCategoryModal.value = false;
@@ -1296,16 +965,6 @@ function closeProductCategoryActionModal() {
 }
 
 
-function resetNewAccountType() {
-  newAccountType.value = {
-    code: "",
-    name: "",
-    type: "cash",
-    active: true,
-    isReported: true,
-  };
-}
-
 function resetNewCategory() {
   newCategory.value = {
     code: "",
@@ -1323,13 +982,6 @@ function resetNewProductCategory() {
 }
 
 // Edit methods
-
-function editAccountType(code, accountType) {
-  editingAccountTypeCode.value = code;
-  editingAccountType.value = { ...accountType };
-  editAccountTypeModal.value.showModal();
-}
-
 function editCategory(type, code, category) {
   editingCategoryType.value = type;
   editingCategoryCode.value = code;
@@ -1347,15 +999,6 @@ function editProductCategory(category) {
 }
 
 // Delete confirmation handlers
-
-function confirmDeleteAccountType(code, name) {
-  deleteModalTitle.value = "Eliminar Tipo de Cuenta";
-  deleteItemName.value = name;
-  deleteItemCode.value = code;
-  deleteType.value = "account-type";
-  deleteConfirmationModal.value.showModal();
-}
-
 function confirmDeleteCategory(type, code, name) {
   deleteModalTitle.value = `Eliminar Categoría de ${
     type === "income" ? "Ingreso" : "Egreso"
@@ -1398,32 +1041,11 @@ function closeDeleteConfirmationModal() {
 }
 
 // Utility functions
-function codifyCode(input) {
-  return input.toUpperCase().replace(/[^A-Z0-9_]/g, '');
-}
-
 function slugify(input) {
   return input.toLowerCase().replace(/[^a-z0-9_-]/g, '');
 }
 
 // Submit methods
-
-async function addAccountType() {
-  const success = await indexStore.addAccountType(
-    newAccountType.value.code,
-    {
-      name: newAccountType.value.name,
-      type: newAccountType.value.type,
-      active: newAccountType.value.active,
-      isReported: newAccountType.value.isReported,
-    }
-  );
-
-  if (success) {
-    closeNewAccountTypeModal();
-  }
-}
-
 async function addIncomeCategory() {
   const success = await indexStore.addCategory(
     "income",
@@ -1464,22 +1086,6 @@ async function addProductCategory() {
 }
 
 
-async function updateAccountType() {
-  const success = await indexStore.updateAccountType(
-    editingAccountTypeCode.value,
-    {
-      name: editingAccountType.value.name,
-      type: editingAccountType.value.type,
-      active: editingAccountType.value.active,
-      isReported: editingAccountType.value.isReported,
-    }
-  );
-
-  if (success) {
-    closeEditAccountTypeModal();
-  }
-}
-
 async function updateCategory() {
   const success = await indexStore.updateCategory(
     editingCategoryType.value,
@@ -1513,15 +1119,10 @@ async function executeDelete() {
   let success = false;
 
   try {
-    if (deleteType.value === "account-type") {
-      success = await indexStore.deleteAccountType(deleteItemCode.value);
-    } else if (deleteType.value === "income-category") {
+    if (deleteType.value === "income-category") {
       success = await indexStore.deleteCategory("income", deleteItemCode.value);
     } else if (deleteType.value === "expense-category") {
-      success = await indexStore.deleteCategory(
-        "expense",
-        deleteItemCode.value
-      );
+      success = await indexStore.deleteCategory("expense", deleteItemCode.value);
     }
 
     if (success) {
