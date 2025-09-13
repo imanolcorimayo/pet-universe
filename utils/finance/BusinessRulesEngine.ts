@@ -73,6 +73,23 @@ export interface GenericExpenseData {
   businessId: string;
 }
 
+export interface SettlementPaymentItem {
+  settlementId: string;
+  amountSettled: number;
+}
+
+export interface SettlementPaymentData {
+  totalAmountReceived: number;
+  settlementPayments: SettlementPaymentItem[];
+  paymentMethod: string;
+  accountTypeId: string;
+  accountTypeName: string;
+  userId: string;
+  userName: string;
+  businessId: string;
+  notes?: string;
+}
+
 /**
  * Central Business Rules Engine for coordinating financial operations
  * 
@@ -810,6 +827,212 @@ export class BusinessRulesEngine {
     return { walletResults, settlementResults, warnings };
   }
 
+
+  /**
+   * Process settlement payment from provider (Postnet, credit card processors, etc.)
+   * 
+   * SETTLEMENT PAYMENT PROCESSING FLOW:
+   * 1. Receive single payment from settlement provider covering multiple settlements
+   * 2. Create ONE wallet Income transaction for total amount received
+   * 3. Update multiple settlement records from 'pending' to 'settled'
+   * 4. Calculate fees based on amount received vs amount settled
+   * 5. Maintain audit trail and business context
+   * 
+   * PAYMENT ROUTING:
+   * - Creates wallet Income transaction in global cash register
+   * - Updates settlement status and fee calculations
+   * - Links wallet transaction to settlements for audit trail
+   */
+  async processSettlementPayment(data: SettlementPaymentData): Promise<BusinessRuleResult> {
+    const warnings: string[] = [];
+
+    try {
+      // 1. Validation phase
+      const validation = await this.validateSettlementPaymentData(data);
+      if (!validation.success) {
+        return { success: false, error: validation.error };
+      }
+
+      // 2. Load all settlements to be processed
+      const settlementsToProcess = [];
+      for (const payment of data.settlementPayments) {
+        const settlementResult = await this.settlementSchema.findById(payment.settlementId);
+        if (!settlementResult.success || !settlementResult.data) {
+          return { success: false, error: `Settlement ${payment.settlementId} not found` };
+        }
+        settlementsToProcess.push({
+          settlement: settlementResult.data,
+          amountSettled: payment.amountSettled
+        });
+      }
+
+      // 3. Calculate totals and validate amounts
+      const totalAmountSettled = data.settlementPayments.reduce((sum, p) => sum + p.amountSettled, 0);
+      const totalFees = data.totalAmountReceived - totalAmountSettled;
+
+      if (totalAmountSettled > data.totalAmountReceived + 0.01) {
+        return {
+          success: false,
+          error: `Total amount settled (${totalAmountSettled}) exceeds amount received (${data.totalAmountReceived})`
+        };
+      }
+
+      // 4. Create single wallet Income transaction
+      const walletTxData = {
+        type: 'Income' as const,
+        amount: data.totalAmountReceived,
+        description: `Settlement payment from ${data.paymentMethod} - ${data.settlementPayments.length} settlements`,
+        category: 'settlement_payment',
+        relatedEntityType: 'settlement_batch',
+        relatedEntityId: `batch_${Date.now()}`, // Generate unique batch ID
+        paymentMethod: data.paymentMethod,
+        accountTypeId: data.accountTypeId,
+        accountTypeName: data.accountTypeName,
+        userId: data.userId,
+        userName: data.userName,
+        businessId: data.businessId
+      };
+
+      const walletResult = await this.walletSchema.create(walletTxData);
+      if (!walletResult.success) {
+        return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
+      }
+
+      const walletTransactionId = walletResult.data?.id;
+      if (!walletTransactionId) {
+        return { success: false, error: 'Wallet transaction created but ID not returned' };
+      }
+
+      // 5. Update each settlement record
+      const updatedSettlements = [];
+      for (const { settlement, amountSettled } of settlementsToProcess) {
+        const amountFee = settlement.amountTotal - amountSettled;
+        const percentageFee = settlement.amountTotal > 0 ? (amountFee / settlement.amountTotal) * 100 : 0;
+
+        const settlementUpdate = {
+          status: 'settled',
+          amountFee: Math.max(0, amountFee), // Ensure non-negative
+          percentageFee: Math.max(0, percentageFee), // Ensure non-negative
+          paidDate: new Date(),
+          walletId: walletTransactionId,
+          updatedAt: new Date(),
+          updatedBy: data.userId,
+          updatedByName: data.userName
+        };
+
+        const updateResult = await this.settlementSchema.update(settlement.id, settlementUpdate);
+        if (!updateResult.success) {
+          warnings.push(`Failed to update settlement ${settlement.id}: ${updateResult.error}`);
+        } else {
+          updatedSettlements.push({
+            settlementId: settlement.id,
+            amountTotal: settlement.amountTotal,
+            amountSettled,
+            amountFee,
+            percentageFee
+          });
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          walletTransactionId,
+          updatedSettlements,
+          totalAmountReceived: data.totalAmountReceived,
+          totalAmountSettled,
+          totalFees,
+          warnings
+        },
+        warnings
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Settlement payment processing failed: ${error}`
+      };
+    }
+  }
+
+  /**
+   * Validate settlement payment data and business rules
+   */
+  private async validateSettlementPaymentData(data: SettlementPaymentData): Promise<BusinessRuleResult> {
+    const errors: string[] = [];
+
+    // Basic validation
+    if (!data.totalAmountReceived || data.totalAmountReceived <= 0) {
+      errors.push('Total amount received must be greater than zero');
+    }
+
+    if (!data.settlementPayments || data.settlementPayments.length === 0) {
+      errors.push('At least one settlement payment must be specified');
+    }
+
+    if (!data.paymentMethod?.trim()) {
+      errors.push('Payment method is required');
+    }
+
+    if (!data.accountTypeId?.trim()) {
+      errors.push('Account type ID is required');
+    }
+
+    if (!data.businessId?.trim()) {
+      errors.push('Business ID is required');
+    }
+
+    if (!data.userId?.trim()) {
+      errors.push('User ID is required');
+    }
+
+    if (!data.userName?.trim()) {
+      errors.push('User name is required');
+    }
+
+    // Validate settlement payments
+    for (const payment of data.settlementPayments || []) {
+      if (!payment.settlementId?.trim()) {
+        errors.push('All settlement payments must have valid settlement IDs');
+      }
+      if (!payment.amountSettled || payment.amountSettled <= 0) {
+        errors.push('All settlement payments must have positive amounts');
+      }
+    }
+
+    // Check for duplicate settlement IDs
+    const settlementIds = data.settlementPayments?.map(p => p.settlementId) || [];
+    const uniqueIds = new Set(settlementIds);
+    if (uniqueIds.size !== settlementIds.length) {
+      errors.push('Duplicate settlement IDs are not allowed');
+    }
+
+    // Validate settlements exist and are in pending status
+    for (const payment of data.settlementPayments || []) {
+      try {
+        const settlementResult = await this.settlementSchema.findById(payment.settlementId);
+        if (!settlementResult.success || !settlementResult.data) {
+          errors.push(`Settlement ${payment.settlementId} not found`);
+        } else {
+          const settlement = settlementResult.data;
+          if (settlement.status !== 'pending') {
+            errors.push(`Settlement ${payment.settlementId} is not in pending status (current: ${settlement.status})`);
+          }
+          if (settlement.businessId !== data.businessId) {
+            errors.push(`Settlement ${payment.settlementId} does not belong to the specified business`);
+          }
+        }
+      } catch (error) {
+        errors.push(`Failed to validate settlement ${payment.settlementId}: ${error}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      return { success: false, error: errors.join('; ') };
+    }
+
+    return { success: true };
+  }
 
   /**
    * Helper method to identify postnet/card payments that require settlements
