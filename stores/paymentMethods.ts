@@ -40,6 +40,9 @@ export const usePaymentMethodsStore = defineStore('paymentMethods', {
     getPaymentMethodByCode: (state) => (code: string) => 
       state.paymentMethods.find(pm => pm.code === code),
 
+    getPaymentMethodById: (state) => (id: string) => 
+      state.paymentMethods.find(pm => pm.id === id),
+
     getPaymentProviderByCode: (state) => (code: string) => 
       state.paymentProviders.find(pp => pp.code === code),
 

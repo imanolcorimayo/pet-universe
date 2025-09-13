@@ -7,6 +7,7 @@ import { DailyCashTransactionSchema } from '../odm/schemas/DailyCashTransactionS
 import { SettlementSchema } from '../odm/schemas/SettlementSchema';
 import { GlobalCashSchema } from '../odm/schemas/GlobalCashSchema';
 import type { ValidationResult } from '../odm/types';
+import type { usePaymentMethodsStore } from '../../stores/paymentMethods';
 
 export interface BusinessRuleResult {
   success: boolean;
@@ -29,8 +30,13 @@ export interface PaymentTransactionData {
   paymentMethodId: string;
   paymentMethodName: string;
   
-  // Account type will be determined automatically from payment method
-  // accountTypeId and accountTypeName are set by the business rules engine
+  // Payment provider (for card/digital payments that need settlement processing)
+  paymentProviderId?: string;
+  paymentProviderName?: string;
+  
+  // Owners account (where money is received/stored)
+  ownersAccountId: string;
+  ownersAccountName: string;
   
   userId: string;
   userName: string;
@@ -73,11 +79,6 @@ export interface GenericExpenseData {
   supplierName?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
-  
-  // User context
-  userId: string;
-  userName: string;
-  businessId: string;
 }
 
 export interface SettlementPaymentItem {
@@ -112,8 +113,9 @@ export class BusinessRulesEngine {
   private settlementSchema: SettlementSchema;
   private purchaseInvoiceSchema: PurchaseInvoiceSchema;
   private globalCashSchema: GlobalCashSchema;
+  private paymentMethodsStore: ReturnType<typeof usePaymentMethodsStore>;
 
-  constructor() {
+  constructor(paymentMethodsStore: ReturnType<typeof usePaymentMethodsStore>) {
     this.walletSchema = new WalletSchema();
     this.saleSchema = new SaleSchema();
     this.debtSchema = new DebtSchema();
@@ -122,6 +124,7 @@ export class BusinessRulesEngine {
     this.settlementSchema = new SettlementSchema();
     this.purchaseInvoiceSchema = new PurchaseInvoiceSchema();
     this.globalCashSchema = new GlobalCashSchema();
+    this.paymentMethodsStore = paymentMethodsStore;
   }
 
   /**
@@ -386,50 +389,17 @@ export class BusinessRulesEngine {
 
       // 3. Create single wallet transaction (Outcome)
       const walletResult = await this.walletSchema.create({
-        businessId: data.businessId,
         type: 'Outcome',
         globalCashId: globalCashId,
         supplierId: data.supplierId,
-        paymentTypeId: 'expense',
-        paymentTypeName: 'Business Expense',
-        paymentMethodId: 'expense',
-        paymentMethodName: 'Business Expense',
-        accountTypeId: data.accountTypeId,
-        accountTypeName: data.accountTypeName,
+        ownersAccountId: data.accountTypeId,
+        ownersAccountName: data.accountTypeName,
         amount: data.amount,
         status: 'paid',
         isRegistered: true,
-        createdBy: data.userId,
-        createdAt: new Date(),
-        updatedAt: new Date()
       });
       if (!walletResult.success) {
         return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
-      }
-
-      // 4. Create supplier debt if this expense is associated with a supplier
-      let debtResult = null;
-      if (data.supplierId) {
-        debtResult = await this.debtSchema.create({
-          businessId: data.businessId,
-          supplierId: data.supplierId,
-          supplierName: data.supplierName,
-          originalAmount: data.amount,
-          paidAmount: data.amount, // Fully paid through this expense
-          remainingAmount: 0,
-          originType: 'manual',
-          originId: expenseReferenceId,
-          originDescription: data.description,
-          status: 'paid', // Immediately paid through this expense
-          notes: data.notes || '',
-          createdBy: data.userId,
-          createdByName: data.userName,
-          paidAt: new Date()
-        });
-
-        if (!debtResult.success) {
-          warnings.push(`Supplier debt record creation failed: ${debtResult.error}`);
-        }
       }
 
       return {
@@ -440,7 +410,6 @@ export class BusinessRulesEngine {
           amount: data.amount,
           accountTypeId: data.accountTypeId,
           accountTypeName: data.accountTypeName,
-          debtId: debtResult?.data?.id,
           supplierId: data.supplierId,
           category: data.category
         },
@@ -482,23 +451,15 @@ export class BusinessRulesEngine {
 
       // 3. Create wallet transaction (outcome)
       const walletResult = await this.walletSchema.create({
-        businessId: invoiceData.businessId,
         type: 'Outcome',
         globalCashId: globalCashId,
         purchaseInvoiceId: invoiceId,
         supplierId: invoiceData.supplierId,
-        paymentTypeId: invoiceData.paymentMethod || null,
-        paymentTypeName: invoiceData.paymentMethodName || null,
-        paymentMethodId: invoiceData.paymentMethod || null,
-        paymentMethodName: invoiceData.paymentMethodName || null,
-        accountTypeId: invoiceData.accountTypeId || invoiceData.paymentMethod || 'business',
-        accountTypeName: invoiceData.accountTypeName || invoiceData.paymentMethodName || 'Business Account',
+        ownersAccountId: invoiceData.ownersAccountId,
+        ownersAccountName: invoiceData.ownersAccountName,
         amount: invoiceData.amountTotal,
         status: 'paid',
         isRegistered: true,
-        createdBy: userId,
-        createdAt: new Date(),
-        updatedAt: new Date()
       });
       if (!walletResult.success) {
         warnings.push(`Wallet transaction failed: ${walletResult.error}`);
@@ -810,29 +771,6 @@ export class BusinessRulesEngine {
       });
     }
 
-    // Rule: Business ID must be provided
-    if (!expenseData.businessId?.trim()) {
-      errors.push({
-        field: 'businessId',
-        message: 'Business ID is required'
-      });
-    }
-
-    // Rule: User information is required for audit trail
-    if (!expenseData.userId?.trim()) {
-      errors.push({
-        field: 'userId',
-        message: 'User ID is required for audit trail'
-      });
-    }
-
-    if (!expenseData.userName?.trim()) {
-      errors.push({
-        field: 'userName',
-        message: 'User name is required for audit trail'
-      });
-    }
-
     return {
       valid: errors.length === 0,
       errors
@@ -862,6 +800,13 @@ export class BusinessRulesEngine {
     const settlementResults: any[] = [];
     const warnings: string[] = [];
 
+    // Validate payment transaction data first
+    const validationResult = this.validatePaymentTransactionData(paymentTransactions);
+    if (!validationResult.success) {
+      warnings.push(`Payment validation failed: ${validationResult.error}`);
+      return { walletResults, settlementResults, warnings };
+    }
+
     // Get the current global cash register ID for wallet transactions
     const globalCashIdResult = await this.getCurrentGlobalCashId();
     if (!globalCashIdResult.success) {
@@ -870,14 +815,21 @@ export class BusinessRulesEngine {
     }
     const globalCashId = globalCashIdResult.data;
 
-    // Process non-cash and non-postnet payments → Wallet transactions
+    // Process non-cash and non-settlement payments → Wallet transactions
     const walletTransactions = paymentTransactions.filter(pt => 
-      pt.paymentMethodId !== 'EFECTIVO' && !this.isPostnetPayment(pt.paymentMethodId)
+      pt.paymentMethodId !== 'EFECTIVO' && !this.requiresSettlement(pt.paymentMethodId)
     );
 
     for (const walletTx of walletTransactions) {
       // Get account information from payment method
       const accountInfo = this.getAccountFromPaymentMethod(walletTx.paymentMethodId);
+      if (!accountInfo) {
+        warnings.push(`Account information not found for payment method: ${walletTx.paymentMethodId}`);
+        continue;
+      }
+      
+      // Get provider information if available
+      const providerInfo = this.getPaymentProviderInfo(walletTx.paymentMethodId);
       
       const walletResult = await this.walletSchema.create({
         businessId: walletTx.businessId,
@@ -887,12 +839,12 @@ export class BusinessRulesEngine {
         debtId: walletTx.relatedEntityType === 'debt' ? relatedEntityId : undefined,
         purchaseInvoiceId: walletTx.relatedEntityType === 'purchaseInvoice' ? relatedEntityId : undefined,
         supplierId: walletTx.supplierId,
-        paymentTypeId: walletTx.paymentMethodId,
-        paymentTypeName: walletTx.paymentMethodName,
         paymentMethodId: walletTx.paymentMethodId,
         paymentMethodName: walletTx.paymentMethodName,
-        accountTypeId: accountInfo.accountTypeId,
-        accountTypeName: accountInfo.accountTypeName,
+        paymentProviderId: providerInfo?.paymentProviderId || null,
+        paymentProviderName: providerInfo?.paymentProviderName || null,
+        ownersAccountId: accountInfo.ownersAccountId,
+        ownersAccountName: accountInfo.ownersAccountName,
         amount: walletTx.amount,
         status: 'paid',
         isRegistered: true,
@@ -936,25 +888,34 @@ export class BusinessRulesEngine {
       warnings.push('Cash transactions found but daily cash snapshot information not provided');
     }
 
-    // Process postnet/card payments → Settlements
-    const postnetTransactions = paymentTransactions.filter(pt => this.isPostnetPayment(pt.paymentMethodId));
+    // Process payments that require settlement → Settlements
+    const settlementTransactions = paymentTransactions.filter(pt => this.requiresSettlement(pt.paymentMethodId));
 
-    if (postnetTransactions.length > 0 && dailyCashSnapshotId && cashRegisterId && cashRegisterName) {
-      for (const postnetTx of postnetTransactions) {
+    if (settlementTransactions.length > 0 && dailyCashSnapshotId && cashRegisterId && cashRegisterName) {
+      for (const settlementTx of settlementTransactions) {
+        // Get provider information for settlement
+        const providerInfo = this.getPaymentProviderInfo(settlementTx.paymentMethodId);
+        if (!providerInfo) {
+          warnings.push(`Payment provider not found for settlement payment method: ${settlementTx.paymentMethodId}`);
+          continue;
+        }
+
         const settlementResult = await this.settlementSchema.create({
-          businessId: postnetTx.businessId,
+          businessId: settlementTx.businessId,
           saleId: relatedEntityId, // This might need adjustment for non-sale entities
           dailyCashSnapshotId,
           cashRegisterId,
           cashRegisterName,
-          amountTotal: postnetTx.amount,
-          paymentMethodId: postnetTx.paymentMethodId,
-          paymentMethodName: postnetTx.paymentMethodName,
+          amountTotal: settlementTx.amount,
+          paymentMethodId: settlementTx.paymentMethodId,
+          paymentMethodName: settlementTx.paymentMethodName,
+          paymentProviderId: providerInfo.paymentProviderId,
+          paymentProviderName: providerInfo.paymentProviderName,
           status: 'pending',
-          amountFee: 0, // Calculate based on business config
-          percentageFee: 0, // Calculate based on business config
-          createdBy: postnetTx.userId,
-          createdByName: postnetTx.userName
+          amountFee: 0, // Will be calculated dynamically when settlement is processed
+          percentageFee: 0, // Will be calculated dynamically when settlement is processed
+          createdBy: settlementTx.userId,
+          createdByName: settlementTx.userName
         });
 
         if (!settlementResult.success) {
@@ -963,8 +924,8 @@ export class BusinessRulesEngine {
           settlementResults.push(settlementResult.data);
         }
       }
-    } else if (postnetTransactions.length > 0) {
-      warnings.push('Postnet transactions found but daily cash snapshot information not provided');
+    } else if (settlementTransactions.length > 0) {
+      warnings.push('Settlement transactions found but daily cash snapshot information not provided');
     }
 
     return { walletResults, settlementResults, warnings };
@@ -1034,12 +995,10 @@ export class BusinessRulesEngine {
         type: 'Income',
         globalCashId: globalCashId,
         settlementId: batchId, // Use batch ID for multiple settlements
-        paymentTypeId: data.paymentMethod,
-        paymentTypeName: data.paymentMethod,
         paymentMethodId: data.paymentMethod,
         paymentMethodName: data.paymentMethod,
-        accountTypeId: data.accountTypeId,
-        accountTypeName: data.accountTypeName,
+        ownersAccountId: data.accountTypeId,
+        ownersAccountName: data.accountTypeName,
         amount: data.totalAmountReceived,
         status: 'paid',
         isRegistered: true,
@@ -1188,33 +1147,182 @@ export class BusinessRulesEngine {
   }
 
   /**
-   * Helper method to identify postnet/card payments that require settlements
+   * Helper method to identify payments that require settlement processing
+   * Uses dynamic payment method configuration from store
    */
-  private isPostnetPayment(paymentMethod: string): boolean {
-    const postnetMethods = ['POSNET', 'VISA', 'MASTERCARD', 'AMEX', 'NARANJA', 'TDB', 'TCR'];
-    return postnetMethods.includes(paymentMethod.toUpperCase());
+  private requiresSettlement(paymentMethodId: string): boolean {
+    const paymentMethod = this.paymentMethodsStore.getPaymentMethodById(paymentMethodId);
+    return paymentMethod?.needsProvider || false;
   }
 
   /**
-   * Get account type information from payment method
-   * This method should ideally get business config, but for now we'll use defaults
+   * Get account information from payment method using dynamic store configuration
    */
-  private getAccountFromPaymentMethod(paymentMethodId: string): { accountTypeId: string; accountTypeName: string } {
-    // Default mapping - in production this should come from business config
-    const paymentToAccount: Record<string, { accountTypeId: string; accountTypeName: string }> = {
-      'EFECTIVO': { accountTypeId: 'CAJA_EFECTIVO', accountTypeName: 'Caja Efectivo' },
-      'SANTANDER': { accountTypeId: 'CUENTA_SANTANDER', accountTypeName: 'Cuenta Santander' },
-      'MACRO': { accountTypeId: 'CUENTA_MACRO', accountTypeName: 'Cuenta Macro' },
-      'UALA': { accountTypeId: 'CUENTA_UALA', accountTypeName: 'Cuenta Ualá' },
-      'MPG': { accountTypeId: 'CUENTA_MERCADO_PAGO', accountTypeName: 'Cuenta Mercado Pago' },
-      'VAT': { accountTypeId: 'CUENTA_NARANJA', accountTypeName: 'Cuenta Naranja X/Viumi' },
-      'TDB': { accountTypeId: 'CUENTA_SANTANDER', accountTypeName: 'Cuenta Santander' },
-      'TCR': { accountTypeId: 'CUENTA_SANTANDER', accountTypeName: 'Cuenta Santander' },
-    };
+  private getAccountFromPaymentMethod(paymentMethodId: string): { ownersAccountId: string; ownersAccountName: string } | null {
+    const paymentMethod = this.paymentMethodsStore.getPaymentMethodById(paymentMethodId);
+    if (!paymentMethod?.ownersAccountId) {
+      return null;
+    }
 
-    return paymentToAccount[paymentMethodId] || { 
-      accountTypeId: 'CAJA_EFECTIVO', 
-      accountTypeName: 'Caja Efectivo' 
+    const account = this.paymentMethodsStore.getOwnersAccountById(paymentMethod.ownersAccountId);
+    if (!account) {
+      return null;
+    }
+
+    return {
+      ownersAccountId: account.id!,
+      ownersAccountName: account.name
     };
+  }
+
+  /**
+   * Get payment provider information for methods that require settlement processing
+   */
+  private getPaymentProviderInfo(paymentMethodId: string): { paymentProviderId: string; paymentProviderName: string } | null {
+    const paymentMethod = this.paymentMethodsStore.getPaymentMethodById(paymentMethodId);
+    if (!paymentMethod?.paymentProviderId) {
+      return null;
+    }
+
+    const provider = this.paymentMethodsStore.getPaymentProviderById(paymentMethod.paymentProviderId);
+    if (!provider) {
+      return null;
+    }
+
+    return {
+      paymentProviderId: provider.id!,
+      paymentProviderName: provider.name
+    };
+  }
+
+  /**
+   * Validate that a payment method exists and is active
+   */
+  private validatePaymentMethod(paymentMethodId: string): BusinessRuleResult {
+    const paymentMethod = this.paymentMethodsStore.getPaymentMethodById(paymentMethodId);
+    
+    if (!paymentMethod) {
+      return {
+        success: false,
+        error: `Payment method '${paymentMethodId}' not found in system configuration`
+      };
+    }
+
+    if (!paymentMethod.isActive) {
+      return {
+        success: false,
+        error: `Payment method '${paymentMethodId}' is not active`
+      };
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Validate that required payment provider exists for methods that need settlement
+   */
+  private validatePaymentProvider(paymentMethodId: string): BusinessRuleResult {
+    const paymentMethod = this.paymentMethodsStore.getPaymentMethodById(paymentMethodId);
+    
+    if (!paymentMethod?.needsProvider) {
+      return { success: true }; // No provider needed
+    }
+
+    if (!paymentMethod.paymentProviderId) {
+      return {
+        success: false,
+        error: `Payment method '${paymentMethodId}' requires a provider but none is configured`
+      };
+    }
+
+    const provider = this.paymentMethodsStore.getPaymentProviderById(paymentMethod.paymentProviderId);
+    if (!provider) {
+      return {
+        success: false,
+        error: `Payment provider not found for method '${paymentMethodId}'`
+      };
+    }
+
+    if (!provider.isActive) {
+      return {
+        success: false,
+        error: `Payment provider '${provider.name}' for method '${paymentMethodId}' is not active`
+      };
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Validate that owners account exists for the payment method
+   */
+  private validateOwnersAccount(paymentMethodId: string): BusinessRuleResult {
+    const paymentMethod = this.paymentMethodsStore.getPaymentMethodById(paymentMethodId);
+    
+    if (!paymentMethod?.ownersAccountId) {
+      return {
+        success: false,
+        error: `Payment method '${paymentMethodId}' has no associated owners account`
+      };
+    }
+
+    const account = this.paymentMethodsStore.getOwnersAccountById(paymentMethod.ownersAccountId);
+    if (!account) {
+      return {
+        success: false,
+        error: `Owners account not found for payment method '${paymentMethodId}'`
+      };
+    }
+
+    if (!account.isActive) {
+      return {
+        success: false,
+        error: `Owners account '${account.name}' for method '${paymentMethodId}' is not active`
+      };
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Comprehensive validation of payment transaction data
+   */
+  private validatePaymentTransactionData(paymentTransactions: PaymentTransactionData[]): BusinessRuleResult {
+    const errors: string[] = [];
+
+    for (const pt of paymentTransactions) {
+      // Validate payment method exists and is active
+      const methodValidation = this.validatePaymentMethod(pt.paymentMethodId);
+      if (!methodValidation.success) {
+        errors.push(methodValidation.error!);
+        continue;
+      }
+
+      // Validate payment provider if required
+      const providerValidation = this.validatePaymentProvider(pt.paymentMethodId);
+      if (!providerValidation.success) {
+        errors.push(providerValidation.error!);
+      }
+
+      // Validate owners account
+      const accountValidation = this.validateOwnersAccount(pt.paymentMethodId);
+      if (!accountValidation.success) {
+        errors.push(accountValidation.error!);
+      }
+
+      // Validate amount is positive
+      if (pt.amount <= 0) {
+        errors.push(`Payment amount must be greater than zero for method '${pt.paymentMethodId}'`);
+      }
+    }
+
+    if (errors.length > 0) {
+      return {
+        success: false,
+        error: errors.join('; ')
+      };
+    }
+
+    return { success: true };
   }
 }
