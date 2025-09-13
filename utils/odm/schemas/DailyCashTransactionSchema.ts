@@ -116,7 +116,7 @@ export class DailyCashTransactionSchema extends Schema {
   /**
    * Validate daily cash transaction business rules
    */
-  private async validateTransactionData(data: any): Promise<ValidationResult> {
+  private async validateTransactionData(data: any, validateRefs = false): Promise<ValidationResult> {
     const errors: any[] = [];
 
     // Validate transaction type requirements

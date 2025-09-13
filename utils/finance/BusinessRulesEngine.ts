@@ -5,8 +5,6 @@ import { PurchaseInvoiceSchema } from '../odm/schemas/PurchaseInvoiceSchema';
 import { DailyCashSnapshotSchema } from '../odm/schemas/DailyCashSnapshotSchema';
 import { DailyCashTransactionSchema } from '../odm/schemas/DailyCashTransactionSchema';
 import { SettlementSchema } from '../odm/schemas/SettlementSchema';
-import { GlobalCashSchema } from '../odm/schemas/GlobalCashSchema';
-import { CashRegisterSchema } from '../odm/schemas/CashRegisterSchema';
 import type { ValidationResult } from '../odm/types';
 
 export interface BusinessRuleResult {
@@ -16,14 +14,14 @@ export interface BusinessRuleResult {
   warnings?: string[];
 }
 
-export interface WalletTransactionData {
+export interface PaymentTransactionData {
   type: 'Income' | 'Outcome';
   amount: number;
   description: string;
   category?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
-  paymentMethod?: string;
+  paymentMethod: string;
   userId: string;
   userName: string;
   businessId: string;
@@ -31,7 +29,7 @@ export interface WalletTransactionData {
 
 export interface SaleProcessingData {
   saleData: any;
-  walletTransfers: WalletTransactionData[];
+  paymentTransactions: PaymentTransactionData[];
   dailyCashSnapshotId: string;
   cashRegisterId: string;
   cashRegisterName: string;
@@ -41,14 +39,38 @@ export interface SaleProcessingData {
 
 export interface DebtPaymentData {
   debtId: string;
-  paymentAmount: number;
-  paymentMethod: string;
+  paymentTransactions: PaymentTransactionData[];
   dailyCashSnapshotId?: string;
   cashRegisterId?: string;
   cashRegisterName?: string;
   notes?: string;
   userId: string;
   userName: string;
+}
+
+export interface GenericExpenseData {
+  description: string;
+  category: string;
+  amount: number;
+  notes?: string;
+  
+  // Account information (where money comes from)
+  accountTypeId: string;
+  accountTypeName: string;
+  
+  // Entity associations (optional)
+  supplierId?: string;
+  supplierName?: string;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
+  
+  // Global cash context (for major business operations)
+  globalCashId?: string;
+  
+  // User context
+  userId: string;
+  userName: string;
+  businessId: string;
 }
 
 /**
@@ -64,8 +86,6 @@ export class BusinessRulesEngine {
   private dailyCashSnapshotSchema: DailyCashSnapshotSchema;
   private dailyCashTransactionSchema: DailyCashTransactionSchema;
   private settlementSchema: SettlementSchema;
-  private globalCashSchema: GlobalCashSchema;
-  private cashRegisterSchema: CashRegisterSchema;
   private purchaseInvoiceSchema: PurchaseInvoiceSchema;
 
   constructor() {
@@ -75,8 +95,6 @@ export class BusinessRulesEngine {
     this.dailyCashSnapshotSchema = new DailyCashSnapshotSchema();
     this.dailyCashTransactionSchema = new DailyCashTransactionSchema();
     this.settlementSchema = new SettlementSchema();
-    this.globalCashSchema = new GlobalCashSchema();
-    this.cashRegisterSchema = new CashRegisterSchema();
     this.purchaseInvoiceSchema = new PurchaseInvoiceSchema();
   }
 
@@ -126,81 +144,27 @@ export class BusinessRulesEngine {
         return { success: false, error: 'Sale created but ID not returned' };
       }
 
-      // 4. Process wallet transactions (non-cash only)
-      const walletResults = [];
-      const nonCashTransfers = data.walletTransfers.filter(wt => 
-        wt.paymentMethod !== 'EFECTIVO' && wt.paymentMethod !== 'cash' && !this.isPostnetPayment(wt.paymentMethod)
+      // 4. Prepare payment transactions with sale-specific context
+      const preparedPayments = data.paymentTransactions.map(pt => ({
+        ...pt,
+        relatedEntityType: 'sale',
+        description: `Sale #${data.saleData.saleNumber} - ${pt.description}`
+      }));
+
+      // 5. Process all payment transactions using generic method
+      const paymentResults = await this.processPaymentTransactions(
+        preparedPayments,
+        saleId,
+        data.dailyCashSnapshotId,
+        data.cashRegisterId,
+        data.cashRegisterName
       );
 
-      for (const walletTransfer of nonCashTransfers) {
-        const walletResult = await this.walletSchema.create({
-          ...walletTransfer,
-          relatedEntityType: 'sale',
-          relatedEntityId: saleId
-        });
+      warnings.push(...paymentResults.warnings);
 
-        if (!walletResult.success) {
-          warnings.push(`Wallet transaction failed: ${walletResult.error}`);
-        } else {
-          walletResults.push(walletResult.data);
-        }
-      }
-
-      // 5. Process daily cash transactions (cash only)
-      const cashTransactions = data.walletTransfers.filter(wt => 
-        wt.paymentMethod === 'EFECTIVO' || wt.paymentMethod === 'cash'
-      );
-
-      for (const cashTx of cashTransactions) {
-        const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
-          dailyCashSnapshotId: data.dailyCashSnapshotId,
-          cashRegisterId: data.cashRegisterId,
-          cashRegisterName: data.cashRegisterName,
-          type: 'sale',
-          amount: cashTx.amount,
-          description: `Sale #${data.saleData.saleNumber}`,
-          relatedEntityType: 'sale',
-          relatedEntityId: saleId,
-          notes: cashTx.description,
-          createdBy: data.userId,
-          createdByName: data.userName
-        });
-
-        if (!dailyCashTxResult.success) {
-          warnings.push(`Daily cash transaction failed: ${dailyCashTxResult.error}`);
-        }
-      }
-
-      // 6. Process settlements (posnet payments)
-      const settlementResults = [];
-      const postnetTransfers = data.walletTransfers.filter(wt => this.isPostnetPayment(wt.paymentMethod));
-
-      for (const postnetTx of postnetTransfers) {
-        const settlementResult = await this.settlementSchema.create({
-          saleId,
-          dailyCashSnapshotId: data.dailyCashSnapshotId,
-          cashRegisterId: data.cashRegisterId,
-          cashRegisterName: data.cashRegisterName,
-          amount: postnetTx.amount,
-          paymentMethodId: postnetTx.paymentMethod,
-          paymentMethodName: postnetTx.paymentMethod,
-          status: 'pending',
-          feeAmount: 0, // Calculate based on business config
-          percentageFee: 0, // Calculate based on business config
-          createdBy: data.userId,
-          createdByName: data.userName
-        });
-
-        if (!settlementResult.success) {
-          warnings.push(`Settlement creation failed: ${settlementResult.error}`);
-        } else {
-          settlementResults.push(settlementResult.data);
-        }
-      }
-
-      // 7. Create debt if partial payment
+      // 6. Create debt if partial payment
       if (data.saleData.isPaidInFull === false && data.saleData.clientId) {
-        const remainingAmount = data.saleData.amountTotal - data.walletTransfers.reduce((sum, wt) => sum + wt.amount, 0);
+        const remainingAmount = data.saleData.amountTotal - data.paymentTransactions.reduce((sum, pt) => sum + pt.amount, 0);
         
         if (remainingAmount > 0.01) {
           const debtResult = await this.debtSchema.createDebtFromSale(
@@ -220,8 +184,8 @@ export class BusinessRulesEngine {
         success: true,
         data: {
           saleId,
-          walletTransactions: walletResults,
-          settlementTransactions: settlementResults,
+          walletTransactions: paymentResults.walletResults,
+          settlementTransactions: paymentResults.settlementResults,
           warnings
         },
         warnings
@@ -236,7 +200,8 @@ export class BusinessRulesEngine {
   }
 
   /**
-   * Process a debt payment with wallet and daily cash updates
+   * Process a debt payment with multiple payment methods
+   * Supports cash, wallet transactions, and postnet payments with proper routing
    */
   async processDebtPayment(data: DebtPaymentData): Promise<BusinessRuleResult> {
     const warnings: string[] = [];
@@ -253,11 +218,12 @@ export class BusinessRulesEngine {
         return { success: false, error: 'Debt is not active' };
       }
 
-      // 2. Validate payment amount
-      if (data.paymentAmount > debt.remainingAmount + 0.01) {
+      // 2. Calculate total payment amount and validate
+      const totalPaymentAmount = data.paymentTransactions.reduce((sum, pt) => sum + pt.amount, 0);
+      if (totalPaymentAmount > debt.remainingAmount + 0.01) {
         return { 
           success: false, 
-          error: `Payment amount (${data.paymentAmount}) exceeds remaining debt (${debt.remainingAmount})` 
+          error: `Total payment amount (${totalPaymentAmount}) exceeds remaining debt (${debt.remainingAmount})` 
         };
       }
 
@@ -265,50 +231,39 @@ export class BusinessRulesEngine {
       const isCustomerDebt = !!debt.clientId;
       const targetRegister = isCustomerDebt ? 'daily' : 'global';
 
-      // 4. Create wallet transaction
-      const walletTxData: WalletTransactionData = {
-        type: 'Income',
-        amount: data.paymentAmount,
+      // 4. Prepare payment transactions with debt-specific context
+      const preparedPayments = data.paymentTransactions.map(pt => ({
+        ...pt,
+        type: 'Income' as const,
         description: `Debt payment - ${debt.originDescription}`,
         category: 'debt_payment',
         relatedEntityType: 'debt',
-        relatedEntityId: data.debtId,
-        paymentMethod: data.paymentMethod,
-        userId: data.userId,
-        userName: data.userName,
         businessId: debt.businessId
-      };
+      }));
 
-      const walletResult = await this.walletSchema.create(walletTxData);
-      if (!walletResult.success) {
-        return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
-      }
+      // 5. Process payments using generic method (only for customer debts with daily cash info)
+      const dailyCashInfo = isCustomerDebt && data.dailyCashSnapshotId && data.cashRegisterId && data.cashRegisterName
+        ? {
+            dailyCashSnapshotId: data.dailyCashSnapshotId,
+            cashRegisterId: data.cashRegisterId,
+            cashRegisterName: data.cashRegisterName
+          }
+        : undefined;
 
-      // 5. Create daily cash transaction if cash and customer debt
-      if (isCustomerDebt && (data.paymentMethod === 'EFECTIVO' || data.paymentMethod === 'cash') && data.dailyCashSnapshotId) {
-        const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
-          dailyCashSnapshotId: data.dailyCashSnapshotId,
-          cashRegisterId: data.cashRegisterId!,
-          cashRegisterName: data.cashRegisterName!,
-          type: 'debt_payment',
-          amount: data.paymentAmount,
-          description: `Debt payment - ${debt.clientName}`,
-          relatedEntityType: 'debt',
-          relatedEntityId: data.debtId,
-          notes: data.notes || '',
-          createdBy: data.userId,
-          createdByName: data.userName
-        });
+      const paymentResults = await this.processPaymentTransactions(
+        preparedPayments,
+        data.debtId,
+        dailyCashInfo?.dailyCashSnapshotId,
+        dailyCashInfo?.cashRegisterId,
+        dailyCashInfo?.cashRegisterName
+      );
 
-        if (!dailyCashTxResult.success) {
-          warnings.push(`Daily cash transaction failed: ${dailyCashTxResult.error}`);
-        }
-      }
+      warnings.push(...paymentResults.warnings);
 
       // 6. Update debt record
       const debtUpdateResult = await this.debtSchema.recordPayment(
         data.debtId,
-        data.paymentAmount,
+        totalPaymentAmount,
         data.dailyCashSnapshotId,
         data.cashRegisterId,
         data.cashRegisterName,
@@ -323,9 +278,11 @@ export class BusinessRulesEngine {
         success: true,
         data: {
           debtId: data.debtId,
-          walletTransactionId: walletResult.data?.id,
+          walletTransactions: paymentResults.walletResults,
+          settlementTransactions: paymentResults.settlementResults,
           targetRegister,
-          remainingDebt: debt.remainingAmount - data.paymentAmount
+          remainingDebt: debt.remainingAmount - totalPaymentAmount,
+          totalPaymentAmount
         },
         warnings
       };
@@ -334,6 +291,98 @@ export class BusinessRulesEngine {
       return {
         success: false,
         error: `Debt payment processing failed: ${error}`
+      };
+    }
+  }
+
+  /**
+   * Process generic business expense (single payment from specified account)
+   * 
+   * EXPENSE PROCESSING FLOW:
+   * 1. Generate unique reference ID for this expense
+   * 2. Create wallet transaction (Outcome) from specified account
+   * 3. Associate with supplier or other entities if provided
+   * 4. No payment method splitting - single account debit only
+   * 
+   * BUSINESS EXPENSE CHARACTERISTICS:
+   * - Single account debit (no split payments)
+   * - PaymentMethod is NULL (only relevant for income)
+   * - AccountType indicates where money comes from
+   * - All expenses go to global register (not daily cash)
+   */
+  async processGenericExpense(data: GenericExpenseData): Promise<BusinessRuleResult> {
+    const warnings: string[] = [];
+
+    try {
+      // 1. Generate a unique reference ID for this expense transaction
+      const expenseReferenceId = `expense_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // 2. Create single wallet transaction (Outcome)
+      const walletTxData = {
+        type: 'Outcome' as const,
+        amount: data.amount,
+        description: data.description,
+        category: data.category,
+        relatedEntityType: data.relatedEntityType || (data.supplierId ? 'supplier' : 'manual_expense'),
+        relatedEntityId: data.relatedEntityId || data.supplierId || expenseReferenceId,
+        paymentMethod: null, // Payment methods are for income only
+        accountTypeId: data.accountTypeId,
+        accountTypeName: data.accountTypeName,
+        globalCashId: data.globalCashId,
+        userId: data.userId,
+        userName: data.userName,
+        businessId: data.businessId
+      };
+
+      const walletResult = await this.walletSchema.create(walletTxData);
+      if (!walletResult.success) {
+        return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
+      }
+
+      // 3. Create supplier debt if this expense is associated with a supplier
+      let debtResult = null;
+      if (data.supplierId) {
+        debtResult = await this.debtSchema.create({
+          businessId: data.businessId,
+          supplierId: data.supplierId,
+          supplierName: data.supplierName,
+          originalAmount: data.amount,
+          paidAmount: data.amount, // Fully paid through this expense
+          remainingAmount: 0,
+          originType: 'manual',
+          originId: expenseReferenceId,
+          originDescription: data.description,
+          status: 'paid', // Immediately paid through this expense
+          notes: data.notes || '',
+          createdBy: data.userId,
+          createdByName: data.userName,
+          paidAt: new Date()
+        });
+
+        if (!debtResult.success) {
+          warnings.push(`Supplier debt record creation failed: ${debtResult.error}`);
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          expenseReferenceId,
+          walletTransactionId: walletResult.data?.id,
+          amount: data.amount,
+          accountTypeId: data.accountTypeId,
+          accountTypeName: data.accountTypeName,
+          debtId: debtResult?.data?.id,
+          supplierId: data.supplierId,
+          category: data.category
+        },
+        warnings
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Generic expense processing failed: ${error}`
       };
     }
   }
@@ -357,7 +406,7 @@ export class BusinessRulesEngine {
       }
 
       // 2. Create wallet transaction (outcome)
-      const walletTxData: WalletTransactionData = {
+      const walletTxData: PaymentTransactionData = {
         type: 'Outcome',
         amount: invoiceData.amountTotal,
         description: `Purchase Invoice #${invoiceData.invoiceNumber} - ${invoiceData.supplierName}`,
@@ -461,6 +510,14 @@ export class BusinessRulesEngine {
           errors.push(...snapshotValidation.errors);
         }
         break;
+
+      case 'genericExpense':
+        // Validate generic expense business rules
+        const expenseValidation = await this.validateGenericExpenseBusinessRules(entityData);
+        if (!expenseValidation.valid) {
+          errors.push(...expenseValidation.errors);
+        }
+        break;
     }
 
     return {
@@ -561,6 +618,198 @@ export class BusinessRulesEngine {
       errors
     };
   }
+
+  /**
+   * Validate generic expense business rules
+   */
+  private async validateGenericExpenseBusinessRules(expenseData: GenericExpenseData): Promise<ValidationResult> {
+    const errors: any[] = [];
+
+    // Rule: Amount must be positive
+    if (expenseData.amount <= 0) {
+      errors.push({
+        field: 'amount',
+        message: 'Expense amount must be greater than zero'
+      });
+    }
+
+    // Rule: Account type information is required
+    if (!expenseData.accountTypeId?.trim()) {
+      errors.push({
+        field: 'accountTypeId',
+        message: 'Account type ID is required for expense tracking'
+      });
+    }
+
+    if (!expenseData.accountTypeName?.trim()) {
+      errors.push({
+        field: 'accountTypeName',
+        message: 'Account type name is required for expense tracking'
+      });
+    }
+
+    // Rule: Supplier ID and name should be provided together
+    if (expenseData.supplierId && !expenseData.supplierName) {
+      errors.push({
+        field: 'supplierName',
+        message: 'Supplier name is required when supplier ID is provided'
+      });
+    }
+
+    if (expenseData.supplierName && !expenseData.supplierId) {
+      errors.push({
+        field: 'supplierId',
+        message: 'Supplier ID is required when supplier name is provided'
+      });
+    }
+
+    // Rule: Category and description are required for audit purposes
+    if (!expenseData.category?.trim()) {
+      errors.push({
+        field: 'category',
+        message: 'Category is required for expense tracking'
+      });
+    }
+
+    if (!expenseData.description?.trim()) {
+      errors.push({
+        field: 'description',
+        message: 'Description is required for expense documentation'
+      });
+    }
+
+    // Rule: Business ID must be provided
+    if (!expenseData.businessId?.trim()) {
+      errors.push({
+        field: 'businessId',
+        message: 'Business ID is required'
+      });
+    }
+
+    // Rule: User information is required for audit trail
+    if (!expenseData.userId?.trim()) {
+      errors.push({
+        field: 'userId',
+        message: 'User ID is required for audit trail'
+      });
+    }
+
+    if (!expenseData.userName?.trim()) {
+      errors.push({
+        field: 'userName',
+        message: 'User name is required for audit trail'
+      });
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Process payment transactions with proper routing based on payment method
+   * 
+   * PAYMENT METHOD ROUTING:
+   * - EFECTIVO: dailyCashTransaction only (no wallet)
+   * - Cards/Postnet: settlement record (wallet created when settled)
+   * - Other methods: direct wallet transaction
+   */
+  private async processPaymentTransactions(
+    paymentTransactions: PaymentTransactionData[],
+    relatedEntityId: string,
+    dailyCashSnapshotId?: string,
+    cashRegisterId?: string,
+    cashRegisterName?: string
+  ): Promise<{
+    walletResults: any[];
+    settlementResults: any[];
+    warnings: string[];
+  }> {
+    const walletResults = [];
+    const settlementResults = [];
+    const warnings: string[] = [];
+
+    // Process non-cash and non-postnet payments → Wallet transactions
+    const walletTransactions = paymentTransactions.filter(pt => 
+      pt.paymentMethod !== 'EFECTIVO' && pt.paymentMethod !== 'cash' && !this.isPostnetPayment(pt.paymentMethod)
+    );
+
+    for (const walletTx of walletTransactions) {
+      const walletResult = await this.walletSchema.create({
+        ...walletTx,
+        relatedEntityId
+      });
+
+      if (!walletResult.success) {
+        warnings.push(`Wallet transaction failed: ${walletResult.error}`);
+      } else {
+        walletResults.push(walletResult.data);
+      }
+    }
+
+    // Process cash payments → Daily cash transactions (if snapshot provided)
+    const cashTransactions = paymentTransactions.filter(pt => 
+      pt.paymentMethod === 'EFECTIVO' || pt.paymentMethod === 'cash'
+    );
+
+    if (cashTransactions.length > 0 && dailyCashSnapshotId && cashRegisterId && cashRegisterName) {
+      for (const cashTx of cashTransactions) {
+        const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
+          dailyCashSnapshotId,
+          cashRegisterId,
+          cashRegisterName,
+          type: cashTx.relatedEntityType === 'sale' ? 'sale' : cashTx.relatedEntityType === 'debt' ? 'debt_payment' : 'payment',
+          amount: cashTx.amount,
+          description: cashTx.description,
+          relatedEntityType: cashTx.relatedEntityType,
+          relatedEntityId,
+          notes: cashTx.description,
+          createdBy: cashTx.userId,
+          createdByName: cashTx.userName
+        });
+
+        if (!dailyCashTxResult.success) {
+          warnings.push(`Daily cash transaction failed: ${dailyCashTxResult.error}`);
+        }
+      }
+    } else if (cashTransactions.length > 0) {
+      warnings.push('Cash transactions found but daily cash snapshot information not provided');
+    }
+
+    // Process postnet/card payments → Settlements
+    const postnetTransactions = paymentTransactions.filter(pt => this.isPostnetPayment(pt.paymentMethod));
+
+    if (postnetTransactions.length > 0 && dailyCashSnapshotId && cashRegisterId && cashRegisterName) {
+      for (const postnetTx of postnetTransactions) {
+        const settlementResult = await this.settlementSchema.create({
+          saleId: relatedEntityId, // This might need adjustment for non-sale entities
+          dailyCashSnapshotId,
+          cashRegisterId,
+          cashRegisterName,
+          amount: postnetTx.amount,
+          paymentMethodId: postnetTx.paymentMethod,
+          paymentMethodName: postnetTx.paymentMethod,
+          status: 'pending',
+          feeAmount: 0, // Calculate based on business config
+          percentageFee: 0, // Calculate based on business config
+          createdBy: postnetTx.userId,
+          createdByName: postnetTx.userName
+        });
+
+        if (!settlementResult.success) {
+          warnings.push(`Settlement creation failed: ${settlementResult.error}`);
+        } else {
+          settlementResults.push(settlementResult.data);
+        }
+      }
+    } else if (postnetTransactions.length > 0) {
+      warnings.push('Postnet transactions found but daily cash snapshot information not provided');
+    }
+
+    return { walletResults, settlementResults, warnings };
+  }
+
 
   /**
    * Helper method to identify postnet/card payments that require settlements
