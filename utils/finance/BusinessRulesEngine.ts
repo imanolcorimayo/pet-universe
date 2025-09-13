@@ -5,6 +5,7 @@ import { PurchaseInvoiceSchema } from '../odm/schemas/PurchaseInvoiceSchema';
 import { DailyCashSnapshotSchema } from '../odm/schemas/DailyCashSnapshotSchema';
 import { DailyCashTransactionSchema } from '../odm/schemas/DailyCashTransactionSchema';
 import { SettlementSchema } from '../odm/schemas/SettlementSchema';
+import { GlobalCashSchema } from '../odm/schemas/GlobalCashSchema';
 import type { ValidationResult } from '../odm/types';
 
 export interface BusinessRuleResult {
@@ -21,7 +22,6 @@ export interface PaymentTransactionData {
   category?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
-  globalCashId?: string;
   supplierId?: string;
   supplierName?: string;
   
@@ -74,9 +74,6 @@ export interface GenericExpenseData {
   relatedEntityType?: string;
   relatedEntityId?: string;
   
-  // Global cash context (for major business operations)
-  globalCashId?: string;
-  
   // User context
   userId: string;
   userName: string;
@@ -114,6 +111,7 @@ export class BusinessRulesEngine {
   private dailyCashTransactionSchema: DailyCashTransactionSchema;
   private settlementSchema: SettlementSchema;
   private purchaseInvoiceSchema: PurchaseInvoiceSchema;
+  private globalCashSchema: GlobalCashSchema;
 
   constructor() {
     this.walletSchema = new WalletSchema();
@@ -123,6 +121,7 @@ export class BusinessRulesEngine {
     this.dailyCashTransactionSchema = new DailyCashTransactionSchema();
     this.settlementSchema = new SettlementSchema();
     this.purchaseInvoiceSchema = new PurchaseInvoiceSchema();
+    this.globalCashSchema = new GlobalCashSchema();
   }
 
   /**
@@ -375,14 +374,21 @@ export class BusinessRulesEngine {
     const warnings: string[] = [];
 
     try {
-      // 1. Generate a unique reference ID for this expense transaction
+      // 1. Get the current global cash register ID
+      const globalCashIdResult = await this.getCurrentGlobalCashId();
+      if (!globalCashIdResult.success) {
+        return { success: false, error: globalCashIdResult.error };
+      }
+      const globalCashId = globalCashIdResult.data;
+
+      // 2. Generate a unique reference ID for this expense transaction
       const expenseReferenceId = `expense_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // 2. Create single wallet transaction (Outcome)
+      // 3. Create single wallet transaction (Outcome)
       const walletResult = await this.walletSchema.create({
         businessId: data.businessId,
         type: 'Outcome',
-        globalCashId: data.globalCashId,
+        globalCashId: globalCashId,
         supplierId: data.supplierId,
         paymentTypeId: 'expense',
         paymentTypeName: 'Business Expense',
@@ -401,7 +407,7 @@ export class BusinessRulesEngine {
         return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
       }
 
-      // 3. Create supplier debt if this expense is associated with a supplier
+      // 4. Create supplier debt if this expense is associated with a supplier
       let debtResult = null;
       if (data.supplierId) {
         debtResult = await this.debtSchema.create({
@@ -456,7 +462,14 @@ export class BusinessRulesEngine {
     const warnings: string[] = [];
 
     try {
-      // 1. Create purchase invoice
+      // 1. Get the current global cash register ID
+      const globalCashIdResult = await this.getCurrentGlobalCashId();
+      if (!globalCashIdResult.success) {
+        return { success: false, error: globalCashIdResult.error };
+      }
+      const globalCashId = globalCashIdResult.data;
+
+      // 2. Create purchase invoice
       const invoiceResult = await this.purchaseInvoiceSchema.create(invoiceData);
       if (!invoiceResult.success) {
         return { success: false, error: `Purchase invoice creation failed: ${invoiceResult.error}` };
@@ -467,11 +480,11 @@ export class BusinessRulesEngine {
         return { success: false, error: 'Purchase invoice created but ID not returned' };
       }
 
-      // 2. Create wallet transaction (outcome)
+      // 3. Create wallet transaction (outcome)
       const walletResult = await this.walletSchema.create({
         businessId: invoiceData.businessId,
         type: 'Outcome',
-        globalCashId: invoiceData.globalCashId, // This should be provided
+        globalCashId: globalCashId,
         purchaseInvoiceId: invoiceId,
         supplierId: invoiceData.supplierId,
         paymentTypeId: invoiceData.paymentMethod || 'invoice',
@@ -491,7 +504,7 @@ export class BusinessRulesEngine {
         warnings.push(`Wallet transaction failed: ${walletResult.error}`);
       }
 
-      // 3. Create supplier debt if partial payment
+      // 4. Create supplier debt if partial payment
       if (invoiceData.isPaidInFull === false && invoiceData.supplierId) {
         const paidAmount = invoiceData.amountPaid || 0;
         const remainingAmount = invoiceData.amountTotal - paidAmount;
@@ -531,6 +544,50 @@ export class BusinessRulesEngine {
       return {
         success: false,
         error: `Purchase invoice processing failed: ${error}`
+      };
+    }
+  }
+
+  /**
+   * Get the currently active global cash register ID for the business
+   * 
+   * @returns The ID of the open global cash register or error if none found
+   */
+  private async getCurrentGlobalCashId(): Promise<BusinessRuleResult> {
+    try {
+      // Find the currently open global cash register (where closedAt is null)
+      const openGlobalCashResult = await this.globalCashSchema.find({
+        where: [
+          { field: 'closedAt', operator: '==', value: null }
+        ],
+        orderBy: [{ field: 'openedAt', direction: 'desc' }],
+        limit: 1
+      });
+
+      if (!openGlobalCashResult.success) {
+        return { 
+          success: false, 
+          error: `Failed to query global cash registers: ${openGlobalCashResult.error}` 
+        };
+      }
+
+      if (!openGlobalCashResult.data || openGlobalCashResult.data.length === 0) {
+        return { 
+          success: false, 
+          error: 'No open global cash register found. Please open a global cash register first.' 
+        };
+      }
+
+      const globalCash = openGlobalCashResult.data[0];
+      return { 
+        success: true, 
+        data: globalCash.id 
+      };
+
+    } catch (error) {
+      return { 
+        success: false, 
+        error: `Error determining global cash ID: ${error}` 
       };
     }
   }
@@ -805,6 +862,14 @@ export class BusinessRulesEngine {
     const settlementResults = [];
     const warnings: string[] = [];
 
+    // Get the current global cash register ID for wallet transactions
+    const globalCashIdResult = await this.getCurrentGlobalCashId();
+    if (!globalCashIdResult.success) {
+      warnings.push(`Could not determine global cash ID: ${globalCashIdResult.error}`);
+      return { walletResults, settlementResults, warnings };
+    }
+    const globalCashId = globalCashIdResult.data;
+
     // Process non-cash and non-postnet payments → Wallet transactions
     const walletTransactions = paymentTransactions.filter(pt => 
       pt.paymentMethodId !== 'EFECTIVO' && !this.isPostnetPayment(pt.paymentMethodId)
@@ -817,7 +882,7 @@ export class BusinessRulesEngine {
       const walletResult = await this.walletSchema.create({
         businessId: walletTx.businessId,
         type: walletTx.type,
-        globalCashId: walletTx.globalCashId,
+        globalCashId: globalCashId,
         saleId: walletTx.relatedEntityType === 'sale' ? relatedEntityId : undefined,
         debtId: walletTx.relatedEntityType === 'debt' ? relatedEntityId : undefined,
         purchaseInvoiceId: walletTx.relatedEntityType === 'purchaseInvoice' ? relatedEntityId : undefined,
@@ -955,12 +1020,19 @@ export class BusinessRulesEngine {
         };
       }
 
-      // 4. Create single wallet Income transaction
+      // 4. Get the current global cash register ID
+      const globalCashIdResult = await this.getCurrentGlobalCashId();
+      if (!globalCashIdResult.success) {
+        return { success: false, error: globalCashIdResult.error };
+      }
+      const globalCashId = globalCashIdResult.data;
+
+      // 5. Create single wallet Income transaction
       const batchId = `batch_${Date.now()}`;
       const walletResult = await this.walletSchema.create({
         businessId: data.businessId,
         type: 'Income',
-        globalCashId: data.globalCashId, // This should be provided
+        globalCashId: globalCashId,
         settlementId: batchId, // Use batch ID for multiple settlements
         paymentTypeId: data.paymentMethod,
         paymentTypeName: data.paymentMethod,
@@ -984,7 +1056,7 @@ export class BusinessRulesEngine {
         return { success: false, error: 'Wallet transaction created but ID not returned' };
       }
 
-      // 5. Update each settlement record
+      // 6. Update each settlement record
       const updatedSettlements = [];
       for (const { settlement, amountSettled } of settlementsToProcess) {
         const amountFee = settlement.amountTotal - amountSettled;
