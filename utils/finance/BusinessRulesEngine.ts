@@ -21,7 +21,17 @@ export interface PaymentTransactionData {
   category?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
-  paymentMethod: string;
+  globalCashId?: string;
+  supplierId?: string;
+  supplierName?: string;
+  
+  // Payment method (how customer pays)
+  paymentMethodId: string;
+  paymentMethodName: string;
+  
+  // Account type will be determined automatically from payment method
+  // accountTypeId and accountTypeName are set by the business rules engine
+  
   userId: string;
   userName: string;
   businessId: string;
@@ -184,12 +194,23 @@ export class BusinessRulesEngine {
         const remainingAmount = data.saleData.amountTotal - data.paymentTransactions.reduce((sum, pt) => sum + pt.amount, 0);
         
         if (remainingAmount > 0.01) {
-          const debtResult = await this.debtSchema.createDebtFromSale(
-            { ...data.saleData, id: saleId },
-            remainingAmount,
-            data.userId,
-            data.userName
-          );
+          const debtResult = await this.debtSchema.create({
+            clientId: data.saleData.clientId,
+            clientName: data.saleData.clientName,
+            originalAmount: remainingAmount,
+            remainingAmount: remainingAmount,
+            paidAmount: 0,
+            originType: 'sale',
+            originId: saleId,
+            originDescription: `Sale #${data.saleData.saleNumber} - Partial payment`,
+            dailyCashSnapshotId: data.dailyCashSnapshotId,
+            cashRegisterId: data.cashRegisterId,
+            cashRegisterName: data.cashRegisterName,
+            dueDate: data.saleData.dueDate || null,
+            notes: data.saleData.notes || '',
+            createdBy: data.userId,
+            createdByName: data.userName
+          });
 
           if (!debtResult.success) {
             warnings.push(`Debt creation failed: ${debtResult.error}`);
@@ -278,14 +299,37 @@ export class BusinessRulesEngine {
       warnings.push(...paymentResults.warnings);
 
       // 6. Update debt record
-      const debtUpdateResult = await this.debtSchema.recordPayment(
-        data.debtId,
-        totalPaymentAmount,
-        data.dailyCashSnapshotId,
-        data.cashRegisterId,
-        data.cashRegisterName,
-        data.notes
-      );
+      const newPaidAmount = debt.paidAmount + totalPaymentAmount;
+      const newRemainingAmount = debt.originalAmount - newPaidAmount;
+
+      // Validate payment doesn't exceed remaining amount
+      if (totalPaymentAmount > debt.remainingAmount + 0.01) {
+        return { 
+          success: false, 
+          error: `Payment amount (${totalPaymentAmount}) exceeds remaining debt (${debt.remainingAmount})` 
+        };
+      }
+
+      const updateData: any = {
+        paidAmount: newPaidAmount,
+        remainingAmount: Math.max(0, newRemainingAmount),
+        notes: data.notes ? `${debt.notes}${debt.notes ? '\n' : ''}Payment: ${data.notes}` : debt.notes
+      };
+
+      // Update daily cash snapshot references if provided (for customer debts)
+      if (debt.clientId && data.dailyCashSnapshotId) {
+        updateData.dailyCashSnapshotId = data.dailyCashSnapshotId;
+        updateData.cashRegisterId = data.cashRegisterId;
+        updateData.cashRegisterName = data.cashRegisterName;
+      }
+
+      // Mark as paid if fully paid
+      if (newRemainingAmount <= 0.01) {
+        updateData.status = 'paid';
+        updateData.paidAt = new Date();
+      }
+
+      const debtUpdateResult = await this.debtSchema.update(data.debtId, updateData);
 
       if (!debtUpdateResult.success) {
         return { success: false, error: `Debt update failed: ${debtUpdateResult.error}` };
@@ -335,23 +379,24 @@ export class BusinessRulesEngine {
       const expenseReferenceId = `expense_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       // 2. Create single wallet transaction (Outcome)
-      const walletTxData = {
-        type: 'Outcome' as const,
-        amount: data.amount,
-        description: data.description,
-        category: data.category,
-        relatedEntityType: data.relatedEntityType || (data.supplierId ? 'supplier' : 'manual_expense'),
-        relatedEntityId: data.relatedEntityId || data.supplierId || expenseReferenceId,
-        paymentMethod: null, // Payment methods are for income only
+      const walletResult = await this.walletSchema.create({
+        businessId: data.businessId,
+        type: 'Outcome',
+        globalCashId: data.globalCashId,
+        supplierId: data.supplierId,
+        paymentTypeId: 'expense',
+        paymentTypeName: 'Business Expense',
+        paymentMethodId: 'expense',
+        paymentMethodName: 'Business Expense',
         accountTypeId: data.accountTypeId,
         accountTypeName: data.accountTypeName,
-        globalCashId: data.globalCashId,
-        userId: data.userId,
-        userName: data.userName,
-        businessId: data.businessId
-      };
-
-      const walletResult = await this.walletSchema.create(walletTxData);
+        amount: data.amount,
+        status: 'paid',
+        isRegistered: true,
+        createdBy: data.userId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
       if (!walletResult.success) {
         return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
       }
@@ -423,20 +468,25 @@ export class BusinessRulesEngine {
       }
 
       // 2. Create wallet transaction (outcome)
-      const walletTxData: PaymentTransactionData = {
+      const walletResult = await this.walletSchema.create({
+        businessId: invoiceData.businessId,
         type: 'Outcome',
+        globalCashId: invoiceData.globalCashId, // This should be provided
+        purchaseInvoiceId: invoiceId,
+        supplierId: invoiceData.supplierId,
+        paymentTypeId: invoiceData.paymentMethod || 'invoice',
+        paymentTypeName: invoiceData.paymentMethodName || 'Invoice Payment',
+        paymentMethodId: invoiceData.paymentMethod || 'invoice',
+        paymentMethodName: invoiceData.paymentMethodName || 'Invoice Payment',
+        accountTypeId: invoiceData.accountTypeId || invoiceData.paymentMethod || 'business',
+        accountTypeName: invoiceData.accountTypeName || invoiceData.paymentMethodName || 'Business Account',
         amount: invoiceData.amountTotal,
-        description: `Purchase Invoice #${invoiceData.invoiceNumber} - ${invoiceData.supplierName}`,
-        category: 'purchase',
-        relatedEntityType: 'purchaseInvoice',
-        relatedEntityId: invoiceId,
-        paymentMethod: invoiceData.paymentMethod,
-        userId: userId,
-        userName: userName,
-        businessId: invoiceData.businessId
-      };
-
-      const walletResult = await this.walletSchema.create(walletTxData);
+        status: 'paid',
+        isRegistered: true,
+        createdBy: userId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
       if (!walletResult.success) {
         warnings.push(`Wallet transaction failed: ${walletResult.error}`);
       }
@@ -447,12 +497,20 @@ export class BusinessRulesEngine {
         const remainingAmount = invoiceData.amountTotal - paidAmount;
 
         if (remainingAmount > 0.01) {
-          const debtResult = await this.debtSchema.createDebtFromPurchaseInvoice(
-            { ...invoiceData, id: invoiceId },
-            remainingAmount,
-            userId,
-            userName
-          );
+          const debtResult = await this.debtSchema.create({
+            supplierId: invoiceData.supplierId,
+            supplierName: invoiceData.supplierName,
+            originalAmount: remainingAmount,
+            remainingAmount: remainingAmount,
+            paidAmount: 0,
+            originType: 'purchaseInvoice',
+            originId: invoiceId,
+            originDescription: `Purchase Invoice #${invoiceData.invoiceNumber} - Partial payment`,
+            dueDate: invoiceData.dueDate || null,
+            notes: invoiceData.notes || '',
+            createdBy: userId,
+            createdByName: userName
+          });
 
           if (!debtResult.success) {
             warnings.push(`Supplier debt creation failed: ${debtResult.error}`);
@@ -749,13 +807,33 @@ export class BusinessRulesEngine {
 
     // Process non-cash and non-postnet payments → Wallet transactions
     const walletTransactions = paymentTransactions.filter(pt => 
-      pt.paymentMethod !== 'EFECTIVO' && pt.paymentMethod !== 'cash' && !this.isPostnetPayment(pt.paymentMethod)
+      pt.paymentMethodId !== 'EFECTIVO' && !this.isPostnetPayment(pt.paymentMethodId)
     );
 
     for (const walletTx of walletTransactions) {
+      // Get account information from payment method
+      const accountInfo = this.getAccountFromPaymentMethod(walletTx.paymentMethodId);
+      
       const walletResult = await this.walletSchema.create({
-        ...walletTx,
-        relatedEntityId
+        businessId: walletTx.businessId,
+        type: walletTx.type,
+        globalCashId: walletTx.globalCashId,
+        saleId: walletTx.relatedEntityType === 'sale' ? relatedEntityId : undefined,
+        debtId: walletTx.relatedEntityType === 'debt' ? relatedEntityId : undefined,
+        purchaseInvoiceId: walletTx.relatedEntityType === 'purchaseInvoice' ? relatedEntityId : undefined,
+        supplierId: walletTx.supplierId,
+        paymentTypeId: walletTx.paymentMethodId,
+        paymentTypeName: walletTx.paymentMethodName,
+        paymentMethodId: walletTx.paymentMethodId,
+        paymentMethodName: walletTx.paymentMethodName,
+        accountTypeId: accountInfo.accountTypeId,
+        accountTypeName: accountInfo.accountTypeName,
+        amount: walletTx.amount,
+        status: 'paid',
+        isRegistered: true,
+        createdBy: walletTx.userId,
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
 
       if (!walletResult.success) {
@@ -767,21 +845,20 @@ export class BusinessRulesEngine {
 
     // Process cash payments → Daily cash transactions (if snapshot provided)
     const cashTransactions = paymentTransactions.filter(pt => 
-      pt.paymentMethod === 'EFECTIVO' || pt.paymentMethod === 'cash'
+      pt.paymentMethodId === 'EFECTIVO'
     );
 
     if (cashTransactions.length > 0 && dailyCashSnapshotId && cashRegisterId && cashRegisterName) {
       for (const cashTx of cashTransactions) {
         const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
+          businessId: cashTx.businessId,
           dailyCashSnapshotId,
           cashRegisterId,
           cashRegisterName,
-          type: cashTx.relatedEntityType === 'sale' ? 'sale' : cashTx.relatedEntityType === 'debt' ? 'debt_payment' : 'payment',
+          saleId: cashTx.relatedEntityType === 'sale' ? relatedEntityId : undefined,
+          debtId: cashTx.relatedEntityType === 'debt' ? relatedEntityId : undefined,
+          type: cashTx.relatedEntityType === 'sale' ? 'sale' : cashTx.relatedEntityType === 'debt' ? 'debt_payment' : 'extract',
           amount: cashTx.amount,
-          description: cashTx.description,
-          relatedEntityType: cashTx.relatedEntityType,
-          relatedEntityId,
-          notes: cashTx.description,
           createdBy: cashTx.userId,
           createdByName: cashTx.userName
         });
@@ -795,20 +872,21 @@ export class BusinessRulesEngine {
     }
 
     // Process postnet/card payments → Settlements
-    const postnetTransactions = paymentTransactions.filter(pt => this.isPostnetPayment(pt.paymentMethod));
+    const postnetTransactions = paymentTransactions.filter(pt => this.isPostnetPayment(pt.paymentMethodId));
 
     if (postnetTransactions.length > 0 && dailyCashSnapshotId && cashRegisterId && cashRegisterName) {
       for (const postnetTx of postnetTransactions) {
         const settlementResult = await this.settlementSchema.create({
+          businessId: postnetTx.businessId,
           saleId: relatedEntityId, // This might need adjustment for non-sale entities
           dailyCashSnapshotId,
           cashRegisterId,
           cashRegisterName,
-          amount: postnetTx.amount,
-          paymentMethodId: postnetTx.paymentMethod,
-          paymentMethodName: postnetTx.paymentMethod,
+          amountTotal: postnetTx.amount,
+          paymentMethodId: postnetTx.paymentMethodId,
+          paymentMethodName: postnetTx.paymentMethodName,
           status: 'pending',
-          feeAmount: 0, // Calculate based on business config
+          amountFee: 0, // Calculate based on business config
           percentageFee: 0, // Calculate based on business config
           createdBy: postnetTx.userId,
           createdByName: postnetTx.userName
@@ -878,22 +956,25 @@ export class BusinessRulesEngine {
       }
 
       // 4. Create single wallet Income transaction
-      const walletTxData = {
-        type: 'Income' as const,
-        amount: data.totalAmountReceived,
-        description: `Settlement payment from ${data.paymentMethod} - ${data.settlementPayments.length} settlements`,
-        category: 'settlement_payment',
-        relatedEntityType: 'settlement_batch',
-        relatedEntityId: `batch_${Date.now()}`, // Generate unique batch ID
-        paymentMethod: data.paymentMethod,
+      const batchId = `batch_${Date.now()}`;
+      const walletResult = await this.walletSchema.create({
+        businessId: data.businessId,
+        type: 'Income',
+        globalCashId: data.globalCashId, // This should be provided
+        settlementId: batchId, // Use batch ID for multiple settlements
+        paymentTypeId: data.paymentMethod,
+        paymentTypeName: data.paymentMethod,
+        paymentMethodId: data.paymentMethod,
+        paymentMethodName: data.paymentMethod,
         accountTypeId: data.accountTypeId,
         accountTypeName: data.accountTypeName,
-        userId: data.userId,
-        userName: data.userName,
-        businessId: data.businessId
-      };
-
-      const walletResult = await this.walletSchema.create(walletTxData);
+        amount: data.totalAmountReceived,
+        status: 'paid',
+        isRegistered: true,
+        createdBy: data.userId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
       if (!walletResult.success) {
         return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
       }
@@ -1038,7 +1119,30 @@ export class BusinessRulesEngine {
    * Helper method to identify postnet/card payments that require settlements
    */
   private isPostnetPayment(paymentMethod: string): boolean {
-    const postnetMethods = ['POSNET', 'VISA', 'MASTERCARD', 'AMEX', 'NARANJA'];
+    const postnetMethods = ['POSNET', 'VISA', 'MASTERCARD', 'AMEX', 'NARANJA', 'TDB', 'TCR'];
     return postnetMethods.includes(paymentMethod.toUpperCase());
+  }
+
+  /**
+   * Get account type information from payment method
+   * This method should ideally get business config, but for now we'll use defaults
+   */
+  private getAccountFromPaymentMethod(paymentMethodId: string): { accountTypeId: string; accountTypeName: string } {
+    // Default mapping - in production this should come from business config
+    const paymentToAccount: Record<string, { accountTypeId: string; accountTypeName: string }> = {
+      'EFECTIVO': { accountTypeId: 'CAJA_EFECTIVO', accountTypeName: 'Caja Efectivo' },
+      'SANTANDER': { accountTypeId: 'CUENTA_SANTANDER', accountTypeName: 'Cuenta Santander' },
+      'MACRO': { accountTypeId: 'CUENTA_MACRO', accountTypeName: 'Cuenta Macro' },
+      'UALA': { accountTypeId: 'CUENTA_UALA', accountTypeName: 'Cuenta Ualá' },
+      'MPG': { accountTypeId: 'CUENTA_MERCADO_PAGO', accountTypeName: 'Cuenta Mercado Pago' },
+      'VAT': { accountTypeId: 'CUENTA_NARANJA', accountTypeName: 'Cuenta Naranja X/Viumi' },
+      'TDB': { accountTypeId: 'CUENTA_SANTANDER', accountTypeName: 'Cuenta Santander' },
+      'TCR': { accountTypeId: 'CUENTA_SANTANDER', accountTypeName: 'Cuenta Santander' },
+    };
+
+    return paymentToAccount[paymentMethodId] || { 
+      accountTypeId: 'CAJA_EFECTIVO', 
+      accountTypeName: 'Caja Efectivo' 
+    };
   }
 }

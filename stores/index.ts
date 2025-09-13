@@ -109,6 +109,14 @@ interface PaymentMethod {
   type: 'cash' | 'transfer' | 'posnet';
   active: boolean;
   isDefault?: boolean;
+  targetAccountId: string; // Where this payment method routes money
+}
+
+interface AccountType {
+  name: string;
+  type: 'cash' | 'bank' | 'digital';
+  active: boolean;
+  isReported: boolean; // For white/black money tracking
 }
 
 interface Category {
@@ -121,6 +129,7 @@ interface BusinessConfig {
   id: string;
   businessId: string;
   paymentMethods: Record<string, PaymentMethod>;
+  accountTypes: Record<string, AccountType>;
   incomeCategories: Record<string, Category>;
   expenseCategories: Record<string, Category>;
   createdAt: any;
@@ -207,6 +216,25 @@ export const useIndexStore = defineStore("index", {
         }
       });
       return result;
+    },
+    getActiveAccountTypes: (state): Record<string, AccountType> => {
+      if (!state.businessConfig) return {};
+      
+      const result: Record<string, AccountType> = {};
+      Object.entries(state.businessConfig.accountTypes || {}).forEach(([code, accountType]) => {
+        if (accountType.active) {
+          result[code] = accountType;
+        }
+      });
+      return result;
+    },
+    getAccountTypeByPaymentMethod: (state) => (paymentMethodId: string): AccountType | null => {
+      if (!state.businessConfig?.paymentMethods || !state.businessConfig?.accountTypes) return null;
+      
+      const paymentMethod = state.businessConfig.paymentMethods[paymentMethodId];
+      if (!paymentMethod?.targetAccountId) return null;
+      
+      return state.businessConfig.accountTypes[paymentMethod.targetAccountId] || null;
     }
   },
   actions: {
@@ -1016,16 +1044,26 @@ export const useIndexStore = defineStore("index", {
       if (!isLoggedIn || !hasActiveBusiness || !user.value) return false;
       
       try {
-        // Default payment methods
+        // Default account types (where money goes)
+        const defaultAccountTypes: Record<string, AccountType> = {
+          "CAJA_EFECTIVO": { name: "Caja Efectivo", type: "cash", active: true, isReported: true },
+          "CUENTA_SANTANDER": { name: "Cuenta Santander", type: "bank", active: true, isReported: true },
+          "CUENTA_MACRO": { name: "Cuenta Macro", type: "bank", active: true, isReported: true },
+          "CUENTA_UALA": { name: "Cuenta Ualá", type: "digital", active: true, isReported: true },
+          "CUENTA_MERCADO_PAGO": { name: "Cuenta Mercado Pago", type: "digital", active: true, isReported: true },
+          "CUENTA_NARANJA": { name: "Cuenta Naranja X/Viumi", type: "digital", active: true, isReported: true },
+        };
+
+        // Default payment methods (how customers pay)
         const defaultPaymentMethods: Record<string, PaymentMethod> = {
-          "EFECTIVO": { name: "Efectivo", type: "cash", active: true, isDefault: true },
-          "SANTANDER": { name: "Santander", type: "transfer", active: true },
-          "MACRO": { name: "Macro", type: "transfer", active: true },
-          "UALA": { name: "Ualá", type: "transfer", active: true },
-          "MPG": { name: "Mercado Pago", type: "transfer", active: true },
-          "VAT": { name: "Naranja X/Viumi", type: "transfer", active: true },
-          "TDB": { name: "T. Débito", type: "posnet", active: true },
-          "TCR": { name: "T. Crédito", type: "posnet", active: true },
+          "EFECTIVO": { name: "Efectivo", type: "cash", active: true, isDefault: true, targetAccountId: "CAJA_EFECTIVO" },
+          "SANTANDER": { name: "Transferencia Santander", type: "transfer", active: true, targetAccountId: "CUENTA_SANTANDER" },
+          "MACRO": { name: "Transferencia Macro", type: "transfer", active: true, targetAccountId: "CUENTA_MACRO" },
+          "UALA": { name: "Transferencia Ualá", type: "transfer", active: true, targetAccountId: "CUENTA_UALA" },
+          "MPG": { name: "Mercado Pago", type: "transfer", active: true, targetAccountId: "CUENTA_MERCADO_PAGO" },
+          "VAT": { name: "Naranja X/Viumi", type: "transfer", active: true, targetAccountId: "CUENTA_NARANJA" },
+          "TDB": { name: "T. Débito", type: "posnet", active: true, targetAccountId: "CUENTA_SANTANDER" },
+          "TCR": { name: "T. Crédito", type: "posnet", active: true, targetAccountId: "CUENTA_SANTANDER" },
         };
         
         // Default income categories
@@ -1046,6 +1084,7 @@ export const useIndexStore = defineStore("index", {
         const configData = {
           businessId: currentBusinessId.value,
           paymentMethods: defaultPaymentMethods,
+          accountTypes: defaultAccountTypes,
           incomeCategories: defaultIncomeCategories,
           expenseCategories: defaultExpenseCategories,
           createdAt: serverTimestamp(),
@@ -1081,6 +1120,12 @@ export const useIndexStore = defineStore("index", {
       // TypeScript type assertion
       if (!user.value) {
         useToast(ToastEvents.error, 'No se encontró el usuario');
+        return false;
+      }
+      
+      // Validate targetAccountId exists
+      if (!this.businessConfig.accountTypes || !this.businessConfig.accountTypes[data.targetAccountId]) {
+        useToast(ToastEvents.error, 'El tipo de cuenta destino no existe');
         return false;
       }
       
@@ -1128,6 +1173,12 @@ export const useIndexStore = defineStore("index", {
       // Check if code already exists
       if (this.businessConfig.paymentMethods && this.businessConfig.paymentMethods[code]) {
         useToast(ToastEvents.error, 'Ya existe un método de pago con este código');
+        return false;
+      }
+      
+      // Validate targetAccountId exists
+      if (!this.businessConfig.accountTypes || !this.businessConfig.accountTypes[data.targetAccountId]) {
+        useToast(ToastEvents.error, 'El tipo de cuenta destino no existe');
         return false;
       }
       
@@ -1338,6 +1389,130 @@ export const useIndexStore = defineStore("index", {
       } catch (error) {
         console.error('Error deleting category:', error);
         useToast(ToastEvents.error, 'Error al eliminar la categoría');
+        return false;
+      }
+    },
+
+    // -------------- Account Type Management Methods --------------
+
+    async updateAccountType(code: string, data: AccountType): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const isLoggedIn = !!user.value?.uid;
+      
+      if (!isLoggedIn || !this.businessConfig) return false;
+      
+      if (!user.value) {
+        useToast(ToastEvents.error, 'No se encontró el usuario');
+        return false;
+      }
+      
+      try {
+        await updateDoc(doc(db, 'businessConfig', this.businessConfig.id), {
+          [`accountTypes.${code}`]: data,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.value.uid
+        });
+        
+        if (this.businessConfig.accountTypes) {
+          this.businessConfig.accountTypes[code] = data;
+        }
+        
+        useToast(ToastEvents.success, 'Tipo de cuenta actualizado correctamente');
+        return true;
+      } catch (error) {
+        console.error('Error updating account type:', error);
+        useToast(ToastEvents.error, 'Error al actualizar el tipo de cuenta');
+        return false;
+      }
+    },
+
+    async addAccountType(code: string, data: AccountType): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const isLoggedIn = !!user.value?.uid;
+      
+      if (!isLoggedIn || !this.businessConfig) return false;
+      
+      if (!user.value) {
+        useToast(ToastEvents.error, 'No se encontró el usuario');
+        return false;
+      }
+      
+      if (!/^[A-Z0-9_]+$/.test(code)) {
+        useToast(ToastEvents.error, 'El código debe contener solo letras mayúsculas, números y guiones bajos');
+        return false;
+      }
+      
+      if (this.businessConfig.accountTypes && this.businessConfig.accountTypes[code]) {
+        useToast(ToastEvents.error, 'Ya existe un tipo de cuenta con este código');
+        return false;
+      }
+      
+      try {
+        await updateDoc(doc(db, 'businessConfig', this.businessConfig.id), {
+          [`accountTypes.${code}`]: data,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.value.uid
+        });
+        
+        if (this.businessConfig.accountTypes) {
+          this.businessConfig.accountTypes[code] = data;
+        }
+        
+        useToast(ToastEvents.success, 'Tipo de cuenta añadido correctamente');
+        return true;
+      } catch (error) {
+        console.error('Error adding account type:', error);
+        useToast(ToastEvents.error, 'Error al añadir el tipo de cuenta');
+        return false;
+      }
+    },
+
+    async deleteAccountType(code: string): Promise<boolean> {
+      const db = useFirestore();
+      const user = useCurrentUser();
+      const isLoggedIn = !!user.value?.uid;
+      
+      if (!isLoggedIn || !this.businessConfig) return false;
+      
+      if (!user.value) {
+        useToast(ToastEvents.error, 'No se encontró el usuario');
+        return false;
+      }
+      
+      if (!this.businessConfig.accountTypes || !this.businessConfig.accountTypes[code]) {
+        useToast(ToastEvents.error, 'El tipo de cuenta no existe');
+        return false;
+      }
+      
+      // Check if any payment methods use this account type
+      const usedByPaymentMethods = Object.entries(this.businessConfig.paymentMethods || {})
+        .filter(([_, method]) => method.targetAccountId === code);
+        
+      if (usedByPaymentMethods.length > 0) {
+        useToast(ToastEvents.error, 'No se puede eliminar: este tipo de cuenta está siendo usado por métodos de pago');
+        return false;
+      }
+      
+      try {
+        const updateData = {
+          [`accountTypes.${code}`]: deleteField(),
+          updatedAt: serverTimestamp(),
+          updatedBy: user.value.uid
+        };
+        
+        await updateDoc(doc(db, 'businessConfig', this.businessConfig.id), updateData);
+        
+        if (this.businessConfig.accountTypes) {
+          delete this.businessConfig.accountTypes[code];
+        }
+        
+        useToast(ToastEvents.success, 'Tipo de cuenta eliminado correctamente');
+        return true;
+      } catch (error) {
+        console.error('Error deleting account type:', error);
+        useToast(ToastEvents.error, 'Error al eliminar el tipo de cuenta');
         return false;
       }
     }

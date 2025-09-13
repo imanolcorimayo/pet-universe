@@ -115,6 +115,16 @@ Pet shop management system with dual cash register approach: global business reg
 - `ProductCategorySchema` - Product categories with uniqueness validation
 - `InventorySchema` - Inventory levels with stock and cost validation
 - `InventoryMovementSchema` - Immutable inventory movement audit trail
+- `WalletSchema` - Financial wallet transactions with income/outcome tracking
+- `SaleSchema` - Sales transactions with inventory integration
+- `DebtSchema` - Customer and supplier debt management
+- `SettlementSchema` - Postnet payment settlement processing
+- `PurchaseInvoiceSchema` - Supplier invoice management
+- `GlobalCashSchema` - Weekly business-level cash register management
+- `DailyCashSnapshotSchema` - Daily cash register session management
+- `DailyCashTransactionSchema` - Immutable daily cash flow records
+- `CashRegisterSchema` - Physical cash register definitions
+- `SupplierSchema` - Supplier information and profiles
 
 **Schema Usage Patterns:**
 ```typescript
@@ -147,16 +157,19 @@ const products = await productSchema.find({
 ```
 
 **Custom Validation Examples:**
-- **Unique Constraints**: Category names, product-inventory relationships
-- **Business Rules**: Dual-tracking product requirements, cost validations
-- **Data Consistency**: Movement before/after snapshots, stock level calculations
-- **Reference Integrity**: Product category relationships, supplier references
+- **Unique Constraints**: Category names, product-inventory relationships, invoice numbers
+- **Business Rules**: Dual-tracking product requirements, wallet transaction types, status transitions
+- **Data Consistency**: Movement before/after snapshots, amount calculations, fee validations
+- **Reference Integrity**: Product category relationships, supplier references, sale-settlement links
+- **Financial Rules**: Payment method compatibility, cash flow validations, immutable transaction records
 
 **Store Integration:**
 - **Schema Instances**: `_getSchemaName()` methods in stores
 - **Error Handling**: Unified error responses from schema operations
 - **Cache Management**: Schema results integrated with store caching patterns
 - **Business Logic**: Complex operations using schema validation and store coordination
+- **Query Operations**: Use only the base `find()`, `findById()`, `create()`, `update()`, `delete()` methods
+- **No Custom Find Methods**: All specialized queries should use the base `find()` method with appropriate parameters
 
 #### Component Naming Conventions
 
