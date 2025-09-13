@@ -40,12 +40,12 @@ wallet/{walletId}
   purchaseInvoiceId (Optional)    // Reference to "purchaseInvoice" when it exists
   supplierId (Optional)           // In case a supplier is referenced
 
-  paymentTypeId                   // Reference to "paymentType" (cash, posnet-credit, posnet-debit, transfer, mp, naranja) (configurable)
-  paymentTypeName                 // Name for display
-  paymentMethodId                 // Reference to "paymentMethod"  (master, visa, mp, amex, naranja) (configurable)
-  paymentMethodName               // For display
-  accountTypeId                   // Reference to the "accountType" which is the account where received the money (cash, santander, mp, naranja, etc)
-  accountTypeName                 // For display
+  paymentMethodId                 // Reference to "paymentMethod" (cash, posnet, transfer, QR, etc) (configurable)
+  paymentMethodName               // Name for display
+  paymentProviderId               // Reference to "paymentProvider"  (master, visa, mp, amex, naranja) (configurable)
+  paymentProviderName             // For display
+  ownersAccountId                 // Reference to the "ownersAccount" which is the account where received the money (cash, santander, mp, naranja, etc)
+  ownersAccountName               // For display
 
   amount
   status: paid | cancelled        // Only in order to be able to cancel transactions and create new ones
@@ -109,8 +109,8 @@ settlement/{settlementId}
   cashRegisterName                    // For display
 
   walletId (optional)                 // Reference to "wallet" transaction. This is created when settlement is settled
-  paymentMethodId                     // Reference to "paymentMethod"  (master, visa, mp, amex, naranja) (configurable)
-  paymentMethodName                   // For display
+  paymentProviderId                     // Reference to "paymentProvider"  (master, visa, mp, amex, naranja) (configurable)
+  paymentProviderName                   // For display
   status: pending|settled|cancelled
   amountTotal
   amountFee
@@ -167,9 +167,9 @@ purchaseInvoice/{purchaseInvoiceId}
 globalCash/{globalCashId}
   businessId
 
-  openingBalances[]                   // Array of {accountTypeId, accountTypeName, amount} 
-  closingBalances[]                   // Array of {accountTypeId, accountTypeName, amount}
-  differences[]                       // Array of assumed differences {accountTypeId, accountTypeName, difference, notes}
+  openingBalances[]                   // Array of {ownersAccountId, ownersAccountName, amount} 
+  closingBalances[]                   // Array of {ownersAccountId, ownersAccountName, amount}
+  differences[]                       // Array of assumed differences {ownersAccountId, ownersAccountName, difference, notes}
 
   createdAt
   createdBy
@@ -211,9 +211,9 @@ dailyCashSnapshot/{dailyCashSnapshotId}
   status: open|closed
   notes
 
-  openingBalances[]       // Array of {accountTypeId, accountTypeName, amount} 
-  closingBalances[]       // Array of {accountTypeId, accountTypeName, amount}
-  differences[]           // Array of assumed differences {accountTypeId, accountTypeName, difference, notes}
+  openingBalances[]       // Array of {ownersAccountId, ownersAccountName, amount} 
+  closingBalances[]       // Array of {ownersAccountId, ownersAccountName, amount}
+  differences[]           // Array of assumed differences {ownersAccountId, ownersAccountName, difference, notes}
   
   createdAt
   createdBy

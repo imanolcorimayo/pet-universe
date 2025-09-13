@@ -487,10 +487,10 @@ export class BusinessRulesEngine {
         globalCashId: globalCashId,
         purchaseInvoiceId: invoiceId,
         supplierId: invoiceData.supplierId,
-        paymentTypeId: invoiceData.paymentMethod || 'invoice',
-        paymentTypeName: invoiceData.paymentMethodName || 'Invoice Payment',
-        paymentMethodId: invoiceData.paymentMethod || 'invoice',
-        paymentMethodName: invoiceData.paymentMethodName || 'Invoice Payment',
+        paymentTypeId: invoiceData.paymentMethod || null,
+        paymentTypeName: invoiceData.paymentMethodName || null,
+        paymentMethodId: invoiceData.paymentMethod || null,
+        paymentMethodName: invoiceData.paymentMethodName || null,
         accountTypeId: invoiceData.accountTypeId || invoiceData.paymentMethod || 'business',
         accountTypeName: invoiceData.accountTypeName || invoiceData.paymentMethodName || 'Business Account',
         amount: invoiceData.amountTotal,
@@ -858,8 +858,8 @@ export class BusinessRulesEngine {
     settlementResults: any[];
     warnings: string[];
   }> {
-    const walletResults = [];
-    const settlementResults = [];
+    const walletResults: any[] = [];
+    const settlementResults: any[] = [];
     const warnings: string[] = [];
 
     // Get the current global cash register ID for wallet transactions
