@@ -1,5 +1,6 @@
 import { Schema } from '../schema';
 import type { SchemaDefinition, ValidationResult } from '../types';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export class GlobalCashSchema extends Schema {
   protected collectionName = 'globalCash';
@@ -148,7 +149,7 @@ export class GlobalCashSchema extends Schema {
     // Validate that opening balances include main account types
     if (data.openingBalances && Array.isArray(data.openingBalances)) {
       const requiredAccountTypes = ['EFECTIVO']; // At minimum, must have cash
-      const presentAccountTypes = data.openingBalances.map((balance: any) => balance.accountTypeId);
+      const presentAccountTypes = data.openingBalances.map((balance: any) => balance.ownersAccountId);
       
       for (const requiredType of requiredAccountTypes) {
         if (!presentAccountTypes.includes(requiredType)) {
@@ -188,7 +189,7 @@ export class GlobalCashSchema extends Schema {
     const prefix = `${arrayName}[${index}]:`;
 
     // Required fields
-    const requiredFields = ['accountTypeId', 'accountTypeName', 'amount'];
+    const requiredFields = ['ownersAccountId', 'ownersAccountName', 'amount'];
     for (const field of requiredFields) {
       if (!balance[field] && balance[field] !== 0) {
         errors.push({
@@ -206,11 +207,11 @@ export class GlobalCashSchema extends Schema {
       });
     }
 
-    // Validate accountTypeId format
-    if (balance.accountTypeId && typeof balance.accountTypeId !== 'string') {
+    // Validate ownersAccountId format
+    if (balance.ownersAccountId && typeof balance.ownersAccountId !== 'string') {
       errors.push({
-        field: `${arrayName}[${index}].accountTypeId`,
-        message: `${prefix} Account type ID must be a string`
+        field: `${arrayName}[${index}].ownersAccountId`,
+        message: `${prefix} Owners account ID must be a string`
       });
     }
 
@@ -280,7 +281,7 @@ export class GlobalCashSchema extends Schema {
     const prefix = `differences[${index}]:`;
 
     // Required fields for difference entries
-    const requiredFields = ['accountTypeId', 'accountTypeName', 'difference'];
+    const requiredFields = ['ownersAccountId', 'ownersAccountName', 'difference'];
     for (const field of requiredFields) {
       if (!difference[field] && difference[field] !== 0) {
         errors.push({

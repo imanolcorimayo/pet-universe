@@ -176,8 +176,8 @@ export class DailyCashSnapshotSchema extends Schema {
 
     // Validate opening balances have at least cash account
     if (data.openingBalances && Array.isArray(data.openingBalances)) {
-      const hasCash = data.openingBalances.some(balance => 
-        balance.accountTypeName && balance.accountTypeName.toLowerCase().includes('efectivo')
+      const hasCash = data.openingBalances.some((balance: any) =>
+        balance.ownersAccountName && balance.ownersAccountName.toLowerCase().includes('efectivo')
       );
       if (!hasCash) {
         errors.push({
@@ -215,7 +215,7 @@ export class DailyCashSnapshotSchema extends Schema {
     const prefix = `${arrayName}[${index}]:`;
 
     // Required fields
-    const requiredFields = ['accountTypeId', 'accountTypeName', 'amount'];
+    const requiredFields = ['ownersAccountId', 'ownersAccountName', 'amount'];
     for (const field of requiredFields) {
       if (!balance[field] && balance[field] !== 0) {
         errors.push({
@@ -233,11 +233,11 @@ export class DailyCashSnapshotSchema extends Schema {
       });
     }
 
-    // Validate accountTypeId format
-    if (balance.accountTypeId && typeof balance.accountTypeId !== 'string') {
+    // Validate ownersAccountId format
+    if (balance.ownersAccountId && typeof balance.ownersAccountId !== 'string') {
       errors.push({
-        field: `${arrayName}[${index}].accountTypeId`,
-        message: `${prefix} Account type ID must be a string`
+        field: `${arrayName}[${index}].ownersAccountId`,
+        message: `${prefix} Owners account ID must be a string`
       });
     }
 
@@ -307,7 +307,7 @@ export class DailyCashSnapshotSchema extends Schema {
     const prefix = `differences[${index}]:`;
 
     // Required fields for difference entries
-    const requiredFields = ['accountTypeId', 'accountTypeName', 'difference'];
+    const requiredFields = ['ownersAccountId', 'ownersAccountName', 'difference'];
     for (const field of requiredFields) {
       if (!difference[field] && difference[field] !== 0) {
         errors.push({
@@ -322,6 +322,14 @@ export class DailyCashSnapshotSchema extends Schema {
       errors.push({
         field: `differences[${index}].difference`,
         message: `${prefix} Difference must be a number`
+      });
+    }
+
+    // Optional notes field validation
+    if (difference.notes && typeof difference.notes !== 'string') {
+      errors.push({
+        field: `differences[${index}].notes`,
+        message: `${prefix} Notes must be a string`
       });
     }
 
@@ -540,8 +548,8 @@ export class DailyCashSnapshotSchema extends Schema {
       return {
         success: true,
         data: [{
-          accountTypeId: 'EFECTIVO',
-          accountTypeName: 'Efectivo',
+          ownersAccountId: 'EFECTIVO',
+          ownersAccountName: 'Efectivo',
           amount: 0
         }]
       };
@@ -551,7 +559,7 @@ export class DailyCashSnapshotSchema extends Schema {
     
     // Use closing balances from last snapshot, but only for cash (efectivo)
     const cashBalances = lastSnapshot.closingBalances?.filter((balance: any) =>
-      balance.accountTypeName && balance.accountTypeName.toLowerCase().includes('efectivo')
+      balance.ownersAccountName && balance.ownersAccountName.toLowerCase().includes('efectivo')
     ) || [];
 
     // Reset non-cash balances to 0 (they don't carry over)
