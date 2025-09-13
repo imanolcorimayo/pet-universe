@@ -82,9 +82,21 @@ export abstract class Schema {
 
     const schemaFields = this.schema;
 
-    // For new documents
+    // For new documents. Automatically add createdAt, createdBy, createdByName if missing and required
+    if (user.value?.displayName && !updatedData.createdByName && schemaFields.createdByName?.required) {
+      updatedData.createdByName = user.value.displayName;
+    }
     if (user.value?.uid && !updatedData.createdBy && schemaFields.createdBy?.required) {
       updatedData.createdBy = user.value.uid;
+    }
+    if (user.value?.uid && !updatedData.createdBy && schemaFields.createdBy?.required) {
+      updatedData.createdBy = user.value.uid;
+    }
+    if (user.value?.uid && !updatedData.updatedBy && schemaFields.updatedBy?.required) {
+      updatedData.updatedBy = user.value.uid;
+    }
+    if (user.value?.displayName && !updatedData.updatedByName && schemaFields.updatedByName?.required) {
+      updatedData.updatedByName = user.value.displayName;
     }
 
     // These fields will always be required

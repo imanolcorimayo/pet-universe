@@ -36,295 +36,6 @@
           </nav>
         </div>
 
-        <!-- Payment Methods Tab -->
-        <div v-if="activeTab === 'payment-methods'" class="p-6">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-medium">Métodos de Pago</h2>
-            <button
-              @click="showNewPaymentMethodModal = true"
-              class="btn bg-primary text-white hover:bg-primary/90 text-sm"
-            >
-              <span class="flex items-center gap-1">
-                <IconParkOutlinePlus class="h-4 w-4" />
-                Nuevo Método
-              </span>
-            </button>
-          </div>
-
-          <!-- Payment Methods by Type -->
-          <div class="space-y-8">
-            <!-- Cash Section -->
-            <div>
-              <h3 class="text-md font-medium mb-3 flex items-center">
-                <LucideBanknote class="h-5 w-5 mr-2 text-green-600" />
-                Efectivo
-              </h3>
-              <div class="bg-gray-50 rounded-lg p-4">
-                <table class="min-w-full">
-                  <thead>
-                    <tr>
-                      <th
-                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Código
-                      </th>
-                      <th
-                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Nombre
-                      </th>
-                      <th
-                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Estado
-                      </th>
-                      <th
-                        class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-gray-200">
-                    <tr
-                      v-for="(method, code) in cashMethods"
-                      :key="code"
-                      class="text-sm"
-                    >
-                      <td class="py-3 pr-3 font-medium">{{ code }}</td>
-                      <td class="py-3 pr-3">{{ method.name }}</td>
-                      <td class="py-3 pr-3">
-                        <div
-                          class="flex flex-col gap-1 items-center text-center"
-                        >
-                          <span
-                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                            :class="
-                              method.active
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
-                            "
-                          >
-                            {{ method.active ? "Activo" : "Inactivo" }}
-                          </span>
-                          <span
-                            v-if="method.isDefault"
-                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"
-                            >Predeterminado</span
-                          >
-                        </div>
-                      </td>
-                      <td class="py-3 text-right">
-                        <div class="flex justify-end gap-2">
-                          <button
-                            @click="editPaymentMethod(code, method)"
-                            class="text-indigo-600 hover:text-indigo-900 text-sm"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            @click="
-                              confirmDeletePaymentMethod(code, method.name)
-                            "
-                            class="text-red-600 hover:text-red-900 text-sm"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr v-if="Object.keys(cashMethods).length === 0">
-                      <td colspan="4" class="py-4 text-center text-gray-500">
-                        No hay métodos de pago configurados en esta categoría
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Transfer Section -->
-            <div>
-              <h3 class="text-md font-medium mb-3 flex items-center">
-                <IconParkOutlineGlobe class="h-5 w-5 mr-2 text-blue-600" />
-                Transferencias
-              </h3>
-              <div class="bg-gray-50 rounded-lg p-4">
-                <table class="min-w-full">
-                  <thead>
-                    <tr>
-                      <th
-                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Código
-                      </th>
-                      <th
-                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Nombre
-                      </th>
-                      <th
-                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Estado
-                      </th>
-                      <th
-                        class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-gray-200">
-                    <tr
-                      v-for="(method, code) in transferMethods"
-                      :key="code"
-                      class="text-sm"
-                    >
-                      <td class="py-3 pr-3 font-medium">{{ code }}</td>
-                      <td class="py-3 pr-3">{{ method.name }}</td>
-                      <td class="py-3 pr-3">
-                        <div
-                          class="flex flex-col gap-1 items-center text-center"
-                        >
-                          <span
-                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                            :class="
-                              method.active
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
-                            "
-                          >
-                            {{ method.active ? "Activo" : "Inactivo" }}
-                          </span>
-                          <span
-                            v-if="method.isDefault"
-                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"
-                            >Predeterminado</span
-                          >
-                        </div>
-                      </td>
-                      <td class="py-3 text-right">
-                        <div class="flex justify-end gap-2">
-                          <button
-                            @click="editPaymentMethod(code, method)"
-                            class="text-indigo-600 hover:text-indigo-900 text-sm"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            @click="
-                              confirmDeletePaymentMethod(code, method.name)
-                            "
-                            class="text-red-600 hover:text-red-900 text-sm"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr v-if="Object.keys(transferMethods).length === 0">
-                      <td colspan="4" class="py-4 text-center text-gray-500">
-                        No hay métodos de pago configurados en esta categoría
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Posnet Section -->
-            <div>
-              <h3 class="text-md font-medium mb-3 flex items-center">
-                <QuillCreditcard class="h-5 w-5 mr-2 text-purple-600" />
-                Posnet
-              </h3>
-              <div class="bg-gray-50 rounded-lg p-4">
-                <table class="min-w-full">
-                  <thead>
-                    <tr>
-                      <th
-                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Código
-                      </th>
-                      <th
-                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Nombre
-                      </th>
-                      <th
-                        class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Estado
-                      </th>
-                      <th
-                        class="text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-gray-200">
-                    <tr
-                      v-for="(method, code) in posnetMethods"
-                      :key="code"
-                      class="text-sm"
-                    >
-                      <td class="py-3 pr-3 font-medium">{{ code }}</td>
-                      <td class="py-3 pr-3">{{ method.name }}</td>
-                      <td class="py-3 pr-3">
-                        <div
-                          class="flex flex-col gap-1 items-center text-center"
-                        >
-                          <span
-                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                            :class="
-                              method.active
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
-                            "
-                          >
-                            {{ method.active ? "Activo" : "Inactivo" }}
-                          </span>
-                          <span
-                            v-if="method.isDefault"
-                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"
-                            >Predeterminado</span
-                          >
-                        </div>
-                      </td>
-                      <td class="py-3 text-right">
-                        <div class="flex justify-end gap-2">
-                          <button
-                            @click="editPaymentMethod(code, method)"
-                            class="text-indigo-600 hover:text-indigo-900 text-sm"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            @click="
-                              confirmDeletePaymentMethod(code, method.name)
-                            "
-                            class="text-red-600 hover:text-red-900 text-sm"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr v-if="Object.keys(posnetMethods).length === 0">
-                      <td colspan="4" class="py-4 text-center text-gray-500">
-                        No hay métodos de pago configurados en esta categoría
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Account Types Tab -->
         <div v-if="activeTab === 'account-types'" class="p-6">
           <div class="flex justify-between items-center mb-6">
@@ -794,214 +505,6 @@
       </div>
     </div>
 
-    <!-- New Payment Method Modal -->
-    <ModalStructure ref="newPaymentMethodModal" title="Nuevo Método de Pago">
-      <form @submit.prevent="addPaymentMethod">
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700"
-              >Código</label
-            >
-            <input
-              v-model="newPaymentMethod.code"
-              @input="newPaymentMethod.code = codifyCode(newPaymentMethod.code)"
-              type="text"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              placeholder="EJ: EFECTIVO, SANTANDER"
-              maxlength="10"
-            />
-            <p class="text-xs text-gray-500 mt-1">
-              Solo letras mayúsculas, números y guiones bajos
-            </p>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700"
-              >Nombre</label
-            >
-            <input
-              v-model="newPaymentMethod.name"
-              type="text"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              placeholder="Ej: Efectivo, Santander"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Tipo</label>
-            <select
-              v-model="newPaymentMethod.type"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            >
-              <option value="cash">Efectivo</option>
-              <option value="transfer">Transferencia</option>
-              <option value="posnet">Posnet</option>
-            </select>
-          </div>
-
-          <div class="flex items-center">
-            <input
-              v-model="newPaymentMethod.active"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label class="ml-2 block text-sm text-gray-700">Activo</label>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Cuenta Destino</label>
-            <select
-              v-model="newPaymentMethod.targetAccountId"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            >
-              <option value="">Selecciona una cuenta destino</option>
-              <option
-                v-for="(accountType, code) in accountTypes"
-                :key="code"
-                :value="code"
-              >
-                {{ accountType.name }} ({{ code }})
-              </option>
-            </select>
-          </div>
-
-          <div class="flex items-center">
-            <input
-              v-model="newPaymentMethod.active"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label class="ml-2 block text-sm text-gray-700">Activo</label>
-          </div>
-
-          <div class="flex items-center">
-            <input
-              v-model="newPaymentMethod.isDefault"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label class="ml-2 block text-sm text-gray-700"
-              >Predeterminado</label
-            >
-          </div>
-        </div>
-      </form>
-
-      <template #footer>
-        <button
-          type="button"
-          @click="closeNewPaymentMethodModal"
-          class="btn btn-outline"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          @click="addPaymentMethod"
-          class="btn bg-primary text-white hover:bg-primary/90"
-          :disabled="!canAddPaymentMethod"
-        >
-          Guardar
-        </button>
-      </template>
-    </ModalStructure>
-
-    <!-- Edit Payment Method Modal -->
-    <ModalStructure ref="editPaymentMethodModal" title="Editar Método de Pago">
-      <form @submit.prevent="updatePaymentMethod">
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700"
-              >Código</label
-            >
-            <input
-              :value="editingPaymentMethodCode"
-              type="text"
-              class="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm"
-              disabled
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700"
-              >Nombre</label
-            >
-            <input
-              v-model="editingPaymentMethod.name"
-              type="text"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Tipo</label>
-            <select
-              v-model="editingPaymentMethod.type"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            >
-              <option value="cash">Efectivo</option>
-              <option value="transfer">Transferencia</option>
-              <option value="posnet">Posnet</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Cuenta Destino</label>
-            <select
-              v-model="editingPaymentMethod.targetAccountId"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            >
-              <option value="">Selecciona una cuenta destino</option>
-              <option
-                v-for="(accountType, code) in accountTypes"
-                :key="code"
-                :value="code"
-              >
-                {{ accountType.name }} ({{ code }})
-              </option>
-            </select>
-          </div>
-
-          <div class="flex items-center">
-            <input
-              v-model="editingPaymentMethod.active"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label class="ml-2 block text-gray-700">Activo</label>
-          </div>
-
-          <div class="flex items-center">
-            <input
-              v-model="editingPaymentMethod.isDefault"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label class="ml-2 block text-sm text-gray-700"
-              >Predeterminado</label
-            >
-          </div>
-        </div>
-      </form>
-
-      <template #footer>
-        <button
-          type="button"
-          @click="closeEditPaymentMethodModal"
-          class="btn btn-outline"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          @click="updatePaymentMethod"
-          class="btn bg-primary text-white hover:bg-primary/90"
-          :disabled="!canUpdatePaymentMethod"
-        >
-          Actualizar
-        </button>
-      </template>
-    </ModalStructure>
 
     <!-- New Income Category Modal -->
     <ModalStructure
@@ -1567,9 +1070,6 @@
 <script setup>
 import { ToastEvents } from "~/interfaces";
 import IconParkOutlinePlus from "~icons/icon-park-outline/plus";
-import LucideBanknote from "~icons/lucide/banknote";
-import IconParkOutlineGlobe from "~icons/icon-park-outline/globe";
-import QuillCreditcard from "~icons/quill/creditcard";
 
 // Stores
 const indexStore = useIndexStore();
@@ -1578,18 +1078,15 @@ const productStore = useProductStore();
 // Loading state
 const loading = ref(true);
 
-// Tabs - updated to include account types and product categories
+// Tabs - updated to remove payment methods
 const tabs = [
-  { id: "payment-methods", name: "Métodos de Pago" },
   { id: "account-types", name: "Tipos de Cuenta" },
   { id: "categories", name: "Categorías" },
   { id: "product-categories", name: "Categorías de Productos" },
 ];
-const activeTab = ref("payment-methods");
+const activeTab = ref("account-types");
 
 // Modal references - updated to use ModalStructure
-const newPaymentMethodModal = ref(null);
-const editPaymentMethodModal = ref(null);
 const newAccountTypeModal = ref(null);
 const editAccountTypeModal = ref(null);
 const newIncomeCategoryModal = ref(null);
@@ -1601,25 +1098,15 @@ const editProductCategoryModal = ref(null);
 const productCategoryActionModal = ref(null);
 
 // Modal visibility states
-const showNewPaymentMethodModal = ref(false);
 const showNewAccountTypeModal = ref(false);
 const showNewIncomeCategoryModal = ref(false);
 const showNewExpenseCategoryModal = ref(false);
 const showNewProductCategoryModal = ref(false);
 const deleteModalTitle = ref("");
 const deleteItemName = ref("");
-const deleteType = ref(""); // 'payment-method', 'income-category', 'expense-category'
+const deleteType = ref(""); // 'income-category', 'expense-category'
 const deleteItemCode = ref("");
 
-// New payment method form
-const newPaymentMethod = ref({
-  code: "",
-  name: "",
-  type: "cash",
-  active: true,
-  isDefault: false,
-  targetAccountId: "",
-});
 
 // New account type form
 const newAccountType = ref({
@@ -1651,14 +1138,6 @@ const editingProductCategory = ref({
 });
 
 // Editing states
-const editingPaymentMethodCode = ref("");
-const editingPaymentMethod = ref({
-  name: "",
-  type: "cash",
-  active: true,
-  isDefault: false,
-  targetAccountId: "",
-});
 const editingAccountTypeCode = ref("");
 const editingAccountType = ref({
   name: "",
@@ -1678,26 +1157,6 @@ const productCategoryActionButtonText = ref("");
 const selectedProductCategoryForAction = ref(null);
 
 // Form validation
-const canAddPaymentMethod = computed(() => {
-  return (
-    newPaymentMethod.value.code &&
-    newPaymentMethod.value.code.trim() !== "" &&
-    /^[A-Z0-9_]+$/.test(newPaymentMethod.value.code) &&
-    newPaymentMethod.value.name &&
-    newPaymentMethod.value.name.trim() !== "" &&
-    newPaymentMethod.value.targetAccountId &&
-    newPaymentMethod.value.targetAccountId.trim() !== ""
-  );
-});
-
-const canUpdatePaymentMethod = computed(() => {
-  return (
-    editingPaymentMethod.value.name &&
-    editingPaymentMethod.value.name.trim() !== "" &&
-    editingPaymentMethod.value.targetAccountId &&
-    editingPaymentMethod.value.targetAccountId.trim() !== ""
-  );
-});
 
 const canAddAccountType = computed(() => {
   return (
@@ -1739,20 +1198,6 @@ const canUpdateProductCategory = computed(() => {
 });
 
 // Data computed properties
-const cashMethods = computed(() => {
-  if (!indexStore.businessConfig) return {};
-  return indexStore.getPaymentMethodsByType("cash");
-});
-
-const transferMethods = computed(() => {
-  if (!indexStore.businessConfig) return {};
-  return indexStore.getPaymentMethodsByType("transfer");
-});
-
-const posnetMethods = computed(() => {
-  if (!indexStore.businessConfig) return {};
-  return indexStore.getPaymentMethodsByType("posnet");
-});
 
 const incomeCategories = computed(() => {
   if (!indexStore.businessConfig) return {};
@@ -1786,11 +1231,6 @@ const filteredProductCategories = computed(() => {
 });
 
 // Modal watchers - updated for ModalStructure
-watch(showNewPaymentMethodModal, (value) => {
-  if (value) {
-    newPaymentMethodModal.value.showModal();
-  }
-});
 
 watch(showNewAccountTypeModal, (value) => {
   if (value) {
@@ -1817,15 +1257,6 @@ watch(showNewProductCategoryModal, (value) => {
 });
 
 // Modal methods - updated for ModalStructure
-function closeNewPaymentMethodModal() {
-  newPaymentMethodModal.value.closeModal();
-  showNewPaymentMethodModal.value = false;
-  resetNewPaymentMethod();
-}
-
-function closeEditPaymentMethodModal() {
-  editPaymentMethodModal.value.closeModal();
-}
 
 function closeNewAccountTypeModal() {
   newAccountTypeModal.value.closeModal();
@@ -1864,16 +1295,6 @@ function closeProductCategoryActionModal() {
   selectedProductCategoryForAction.value = null;
 }
 
-function resetNewPaymentMethod() {
-  newPaymentMethod.value = {
-    code: "",
-    name: "",
-    type: "cash",
-    active: true,
-    isDefault: false,
-    targetAccountId: "",
-  };
-}
 
 function resetNewAccountType() {
   newAccountType.value = {
@@ -1902,11 +1323,6 @@ function resetNewProductCategory() {
 }
 
 // Edit methods
-function editPaymentMethod(code, method) {
-  editingPaymentMethodCode.value = code;
-  editingPaymentMethod.value = { ...method };
-  editPaymentMethodModal.value.showModal();
-}
 
 function editAccountType(code, accountType) {
   editingAccountTypeCode.value = code;
@@ -1931,13 +1347,6 @@ function editProductCategory(category) {
 }
 
 // Delete confirmation handlers
-function confirmDeletePaymentMethod(code, name) {
-  deleteModalTitle.value = "Eliminar Método de Pago";
-  deleteItemName.value = name;
-  deleteItemCode.value = code;
-  deleteType.value = "payment-method";
-  deleteConfirmationModal.value.showModal();
-}
 
 function confirmDeleteAccountType(code, name) {
   deleteModalTitle.value = "Eliminar Tipo de Cuenta";
@@ -1998,22 +1407,6 @@ function slugify(input) {
 }
 
 // Submit methods
-async function addPaymentMethod() {
-  const success = await indexStore.addPaymentMethod(
-    newPaymentMethod.value.code,
-    {
-      name: newPaymentMethod.value.name,
-      type: newPaymentMethod.value.type,
-      active: newPaymentMethod.value.active,
-      isDefault: newPaymentMethod.value.isDefault,
-      targetAccountId: newPaymentMethod.value.targetAccountId,
-    }
-  );
-
-  if (success) {
-    closeNewPaymentMethodModal();
-  }
-}
 
 async function addAccountType() {
   const success = await indexStore.addAccountType(
@@ -2070,22 +1463,6 @@ async function addProductCategory() {
   }
 }
 
-async function updatePaymentMethod() {
-  const success = await indexStore.updatePaymentMethod(
-    editingPaymentMethodCode.value,
-    {
-      name: editingPaymentMethod.value.name,
-      type: editingPaymentMethod.value.type,
-      active: editingPaymentMethod.value.active,
-      isDefault: editingPaymentMethod.value.isDefault || false,
-      targetAccountId: editingPaymentMethod.value.targetAccountId,
-    }
-  );
-
-  if (success) {
-    closeEditPaymentMethodModal();
-  }
-}
 
 async function updateAccountType() {
   const success = await indexStore.updateAccountType(
@@ -2136,9 +1513,7 @@ async function executeDelete() {
   let success = false;
 
   try {
-    if (deleteType.value === "payment-method") {
-      success = await indexStore.deletePaymentMethod(deleteItemCode.value);
-    } else if (deleteType.value === "account-type") {
+    if (deleteType.value === "account-type") {
       success = await indexStore.deleteAccountType(deleteItemCode.value);
     } else if (deleteType.value === "income-category") {
       success = await indexStore.deleteCategory("income", deleteItemCode.value);

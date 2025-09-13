@@ -84,13 +84,15 @@ Pet shop management system with dual cash register approach: global business reg
 - **Trade-off**: Manual refresh needed after page reload (acceptable)
 
 #### Business Configuration Rules
-- **MANDATORY**: All payment methods and categories MUST be dynamic from `businessConfig`
-- **Payment Methods**: Use `indexStore.getActivePaymentMethods` or `indexStore.businessConfig.paymentMethods`
+- **MANDATORY**: All payment methods and categories MUST be dynamic from their respective stores
+- **Payment Methods**: Use `paymentMethodsStore.activePaymentMethods` and related getters
+- **Payment Providers**: Use `paymentMethodsStore.activePaymentProviders` for posnet/card providers
+- **Owners Accounts**: Use `paymentMethodsStore.activeOwnersAccounts` for money destination accounts
 - **Income Categories**: Use `indexStore.getActiveIncomeCategories` or `indexStore.businessConfig.incomeCategories`
 - **Expense Categories**: Use `indexStore.getActiveExpenseCategories` or `indexStore.businessConfig.expenseCategories`
-- **Never hardcode**: Payment methods, categories, or any business configuration values
+- **Never hardcode**: Payment methods, providers, accounts, categories, or any business configuration values
 - **Access Pattern**: Always filter by `active: true` when displaying options to users
-- **Management**: Configuration managed through `index.ts` store methods (`addPaymentMethod`, `updateCategory`, etc.)
+- **Management**: Payment system managed through `paymentMethods.ts` store, categories through `index.ts` store methods
 
 #### Pricing Management Configuration Rules
 - **MANDATORY**: Profit margin percentage is stored in the `product` collection, NOT in `inventory`
@@ -259,7 +261,24 @@ const products = await productSchema.find({
 - **Data**: Debt records, payment history, status tracking (active/paid/cancelled)
 - **Store**: `debt.ts` | **Collections**: `debt`, `debtPayment`
 
-#### 7. Pricing Management System
+#### 7. Payment Methods System
+- **Architecture**: Schema-driven system with ODM patterns for data validation and business rules
+- **Collections**: `paymentMethod`, `paymentProvider`, `ownersAccount` with dedicated schemas
+- **Access**: Centralized management page at `/metodos-de-pago/index.vue`
+- **Components**:
+  - **Payment Methods**: How customers pay (cash, transfers, cards, etc.)
+  - **Payment Providers**: External processors for cards (Visa, Mastercard, Amex, etc.)
+  - **Owners Accounts**: Where money is received (cash register, bank accounts, digital wallets)
+- **Business Logic**:
+  - **needsProvider**: Boolean flag for methods requiring settlement processing (posnet)
+  - **Default Protection**: Cash method and cash register account cannot be modified/deleted
+  - **Reference Validation**: Prevents deletion of accounts/providers in use
+  - **Automatic Creation**: Default cash setup created when new business is registered
+- **Financial Integration**: Links to wallet transactions in financial schema for money flow tracking
+- **Store**: `paymentMethods.ts` with CRUD operations, cache management, and validation
+- **ODM Schemas**: `PaymentMethodSchema`, `PaymentProviderSchema`, `OwnersAccountSchema`
+
+#### 8. Pricing Management System
 - **Access**: Centralized pricing management page at `/precios/index.vue`
 - **Features**: 
   - Mass pricing updates based on cost and profit margins
@@ -294,7 +313,8 @@ All pages use modal-based entity management:
 - **Clientes**: `/clientes/index.vue` - Client directory with pet management
 - **Proveedores**: `/proveedores/index.vue` - Supplier directory
 - **Deudas**: `/deudas/index.vue` - Debt management and payment recording
-- **Configuración**: `/configuracion/index.vue` + `/empleados.vue` - Settings
+- **Métodos de Pago**: `/metodos-de-pago/index.vue` - Payment methods, providers, and accounts configuration
+- **Configuración**: `/configuracion/index.vue` + `/empleados.vue` - General settings (categories, account types, product categories)
 
 ## Feature Development System (FDS)
 

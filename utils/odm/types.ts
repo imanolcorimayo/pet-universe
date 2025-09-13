@@ -1,6 +1,6 @@
 // ODM Types and Interfaces
 
-export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'array' | 'object' | 'reference';
+export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'array' | 'object' | 'reference' | 'enum';
 
 export interface FieldDefinition {
   type: FieldType;
@@ -13,6 +13,8 @@ export interface FieldDefinition {
   default?: any;
   arrayOf?: FieldType;
   referenceTo?: string; // Collection name for reference validation
+  enum?: string[]; // Array of allowed values for enum type
+  description?: string; // Description of the field
 }
 
 export interface SchemaDefinition {

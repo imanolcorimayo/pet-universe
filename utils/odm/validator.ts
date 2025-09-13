@@ -13,8 +13,18 @@ export class Validator {
   ): ValidationError[] {
     const errors: ValidationError[] = [];
 
-    // Check required
-    if (definition.required && (value === null || value === undefined || value === '')) {
+    // Check if required and field is missing and it has no default
+    if (definition.required && (value === undefined) && !Object.hasOwn(definition, "default")) {
+      errors.push({
+        field: fieldName,
+        message: `${fieldName} is required`,
+        value
+      });
+      return errors; // If required and missing, skip other validations
+    }
+
+    // Check required and provide an empty value
+    if (definition.required && (value === null || value === '')) {
       errors.push({
         field: fieldName,
         message: `${fieldName} is required`,
@@ -25,6 +35,11 @@ export class Validator {
 
     // If not required and empty, skip validations
     if (!definition.required && (value === null || value === undefined || value === '')) {
+      return errors;
+    }
+
+    // If value is still undefined here but has a default, skip validations
+    if (value === undefined && Object.hasOwn(definition, "default")) {
       return errors;
     }
 
@@ -159,6 +174,25 @@ export class Validator {
           errors.push({
             field: fieldName,
             message: `${fieldName} must be a valid reference ID`,
+            value
+          });
+        }
+        break;
+
+      case 'enum':
+        if (!definition.enum || definition.enum.length === 0) {
+          errors.push({
+            field: fieldName,
+            message: `${fieldName} enum definition is missing or empty`,
+            value
+          });
+          break;
+        }
+        
+        if (!definition.enum.includes(value)) {
+          errors.push({
+            field: fieldName,
+            message: `${fieldName} must be one of: ${definition.enum.join(', ')}`,
             value
           });
         }

@@ -463,6 +463,15 @@ export const useIndexStore = defineStore("index", {
           archivedAt: null
         });
 
+        // Create default payment method and owners account
+        const paymentMethodsStore = usePaymentMethodsStore();
+        const defaultPaymentSetup = await paymentMethodsStore.createDefaultPaymentMethodAndAccount();
+        
+        if (!defaultPaymentSetup) {
+          console.warn('Failed to create default payment method and account for new business');
+          // Continue anyway - this is not a critical failure
+        }
+
         // Create the owner role in userRole
         await addDoc(collection(db, "userRole"), {
           userUid: user.value.uid,

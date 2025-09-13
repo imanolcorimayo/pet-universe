@@ -238,6 +238,12 @@
                 <GravityUiGear class="text-gray-500" /> General
               </NuxtLink>
               <NuxtLink
+                to="/metodos-de-pago"
+                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              >
+                <PhCreditCardFill class="text-gray-500" /> Métodos de Pago
+              </NuxtLink>
+              <NuxtLink
                 to="/configuracion/empleados"
                 class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
               >
