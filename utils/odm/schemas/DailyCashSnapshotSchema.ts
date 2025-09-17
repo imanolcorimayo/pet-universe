@@ -539,35 +539,42 @@ export class DailyCashSnapshotSchema extends Schema {
 
   /**
    * Calculate automatic opening balances from previous snapshot
+   * Only CASH account carries over previous balance, all other accounts start at 0
    */
   async calculateAutomaticOpeningBalances(cashRegisterId: string) {
-    const lastClosedResult = await this.findLastClosedSnapshot(cashRegisterId);
-    
-    if (!lastClosedResult.success || !lastClosedResult.data || lastClosedResult.data.length === 0) {
-      // No previous snapshot, return default cash balance
+    try {
+      let cashPreviousBalance = 0;
+
+      // Get previous cash balance from last closed snapshot (only for cash account)
+      const lastClosedResult = await this.findLastClosedSnapshot(cashRegisterId);
+      
+      if (lastClosedResult.success && lastClosedResult.data && lastClosedResult.data.length > 0) {
+        const lastSnapshot = lastClosedResult.data[0];
+        
+        // Find cash account balance from previous snapshot
+        if (lastSnapshot.closingBalances && Array.isArray(lastSnapshot.closingBalances)) {
+          const cashBalance = lastSnapshot.closingBalances.find((balance: any) =>
+            balance.ownersAccountName && balance.ownersAccountName.toLowerCase().includes('efectivo')
+          );
+          
+          if (cashBalance && typeof cashBalance.amount === 'number') {
+            cashPreviousBalance = cashBalance.amount;
+          }
+        }
+      }
+
       return {
         success: true,
-        data: [{
-          ownersAccountId: 'EFECTIVO',
-          ownersAccountName: 'Efectivo',
-          amount: 0
-        }]
+        data: {
+          cashPreviousBalance
+        }
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to calculate automatic opening balances: ${error}`
       };
     }
-
-    const lastSnapshot = lastClosedResult.data[0];
-    
-    // Use closing balances from last snapshot, but only for cash (efectivo)
-    const cashBalances = lastSnapshot.closingBalances?.filter((balance: any) =>
-      balance.ownersAccountName && balance.ownersAccountName.toLowerCase().includes('efectivo')
-    ) || [];
-
-    // Reset non-cash balances to 0 (they don't carry over)
-    const automaticBalances = [
-      ...cashBalances,
-      // Add other default accounts with 0 balance if needed
-    ];
-
-    return { success: true, data: automaticBalances };
   }
 }

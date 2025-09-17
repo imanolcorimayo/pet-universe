@@ -815,6 +815,22 @@ watch(total, (newTotal) => {
   updatePaymentMethodsWithNewTotal(newTotal);
 });
 
+// Props
+const props = defineProps({
+  dailyCashSnapshotId: {
+    type: String,
+    required: true
+  },
+  cashRegisterId: {
+    type: String,
+    default: null
+  },
+  cashRegisterName: {
+    type: String,
+    default: null
+  }
+});
+
 // Event emitter
 const emit = defineEmits(['sale-completed']);
 

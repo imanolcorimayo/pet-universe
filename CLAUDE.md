@@ -12,6 +12,8 @@ Pet shop management system with dual cash register approach: global business reg
 - Use English for all identifiers to maintain code consistency and international standards
 - **MANDATORY**: Always use `~icons/pack-name/icon-name` imports instead of custom SVG code in templates
 - Icon usage: `import IconName from '~icons/lucide/icon-name'` then use `<IconName class="w-4 h-4" />`
+- **MANDATORY**: Always use `$dayjs` for date operations instead of `new Date()` - retrieve it with `const { $dayjs } = useNuxtApp()`
+- **MANDATORY**: When working with dates from ODM schemas, use format `'DD/MM/YYYY'` since schemas auto-format dates: `$dayjs(dateValue, 'DD/MM/YYYY')`
 
 ## Code Architecture
 
@@ -347,6 +349,7 @@ All database operations must use the ODM schemas which provide:
 - **System Fields**: BusinessId, timestamps, user tracking
 - **Custom Logic**: Schema-specific validation and calculations
 - **Error Handling**: Consistent error responses
+- **Date Formatting**: Automatic conversion to `'DD/MM/YYYY'` format for date fields (see line 251 in `utils/odm/schema.ts`)
 
 ## Business Management
 

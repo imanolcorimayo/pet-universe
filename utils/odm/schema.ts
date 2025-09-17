@@ -357,8 +357,6 @@ export abstract class Schema {
       // Prepare document for saving
       const prepared = this.prepareForSave(completeData, true);
 
-      console.log("Prepared for Update:", prepared);
-
       // Update in Firestore
       await updateDoc(docRef, prepared);
 

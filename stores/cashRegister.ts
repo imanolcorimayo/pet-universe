@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { CashRegisterSchema } from "~/utils/odm/schemas/CashRegisterSchema";
 import { DailyCashSnapshotSchema } from "~/utils/odm/schemas/DailyCashSnapshotSchema";
 import { DailyCashTransactionSchema } from "~/utils/odm/schemas/DailyCashTransactionSchema";
+import { SaleSchema } from "~/utils/odm/schemas/SaleSchema";
 import { useLocalStorage } from "@vueuse/core";
 
 // --- Interfaces ---
@@ -70,11 +71,14 @@ interface DailyCashTransaction {
 interface CashRegisterState {
   // Cash Register Management
   registers: CashRegister[];
-  activeRegister: CashRegister | null;
+  // Display-only register selection for UI context (header, modals)
+  // NOT used for actual operations - operations are determined by URL snapshotId
+  selectedRegisterForDisplay: CashRegister | null;
 
   // Daily Cash Snapshots
   currentSnapshot: DailyCashSnapshot | null;
   snapshots: DailyCashSnapshot[];
+  registerSnapshots: Map<string, DailyCashSnapshot | null>;
 
   // Daily Cash Transactions
   transactions: DailyCashTransaction[];
@@ -88,9 +92,10 @@ interface CashRegisterState {
 export const useCashRegisterStore = defineStore("cashRegister", {
   state: (): CashRegisterState => ({
     registers: [],
-    activeRegister: null,
+    selectedRegisterForDisplay: null,
     currentSnapshot: null,
     snapshots: [],
+    registerSnapshots: new Map(),
     transactions: [],
     isLoading: false,
     isSnapshotLoading: false,
@@ -113,6 +118,9 @@ export const useCashRegisterStore = defineStore("cashRegister", {
             (t) => t.dailyCashSnapshotId === state.currentSnapshot!.id
           )
         : [],
+
+    getRegisterSnapshot: (state) => (registerId: string) =>
+      state.registerSnapshots.get(registerId),
 
     currentSnapshotBalance: (state) => {
       if (!state.currentSnapshot) return 0;
@@ -141,6 +149,11 @@ export const useCashRegisterStore = defineStore("cashRegister", {
 
       return openingBalance + transactionBalance;
     },
+
+    // Schema access getters
+    dailyCashSnapshotSchema: () => new DailyCashSnapshotSchema(),
+    dailyCashTransactionSchema: () => new DailyCashTransactionSchema(),
+    saleSchema: () => new SaleSchema(),
   },
 
   actions: {
@@ -149,9 +162,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       this.isLoading = true;
       try {
         const schema = new CashRegisterSchema();
-        const result = await schema.find({
-          orderBy: [{ field: "createdAt", direction: "desc" }],
-        });
+        const result = await schema.find();
 
         if (result.success) {
           this.registers = result.data as CashRegister[];
@@ -166,7 +177,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       }
     },
 
-    async createRegister(data: { name: string; notes?: string }) {
+    async createRegister(data: { name: string }) {
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage("cBId", null);
 
@@ -254,8 +265,23 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       }
     },
 
-    setActiveRegister(register: CashRegister) {
-      this.activeRegister = register;
+    /**
+     * Sets the register for display purposes only (header, modal context)
+     * 
+     * IMPORTANT: This does NOT determine which register operations affect.
+     * Actual cash register operations are determined by:
+     * 1. URL snapshotId in pages like /ventas/caja/[snapshotId] 
+     * 2. The cashRegisterId field within the snapshot data
+     * 
+     * This variable is ONLY used for:
+     * - Showing register name in layout header
+     * - Providing context when opening new snapshots via modal
+     * - UI display purposes
+     * 
+     * @param register - The register to display in UI context
+     */
+    setSelectedRegisterForDisplay(register: CashRegister) {
+      this.selectedRegisterForDisplay = register;
     },
 
     // --- DAILY CASH SNAPSHOT MANAGEMENT ---
@@ -269,18 +295,19 @@ export const useCashRegisterStore = defineStore("cashRegister", {
             { field: "cashRegisterId", operator: "==", value: registerId },
             { field: "status", operator: "==", value: "open" },
           ],
-          orderBy: [{ field: "openedAt", direction: "desc" }],
           limit: 1,
         });
 
-        if (result.success && result.data) {
-          this.currentSnapshot = result.data[0] as DailyCashSnapshot;
-        } else {
-          this.currentSnapshot = null;
-        }
+        const snapshot = result.success && result.data ? result.data[0] as DailyCashSnapshot : null;
+        
+        // Update both currentSnapshot and registerSnapshots Map
+        this.currentSnapshot = snapshot;
+        this.registerSnapshots.set(registerId, snapshot);
+        
       } catch (error) {
         console.error("Error loading snapshot:", error);
         this.currentSnapshot = null;
+        this.registerSnapshots.set(registerId, null);
       } finally {
         this.isSnapshotLoading = false;
       }
@@ -300,14 +327,38 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       try {
         const schema = new DailyCashSnapshotSchema();
 
-        // Get automatic opening balances or use custom ones
-        let openingBalances = data.customOpeningBalances;
-        if (!openingBalances) {
-          const balanceResult = await schema.calculateAutomaticOpeningBalances(
-            registerId
-          );
-          if (balanceResult.success) {
-            openingBalances = balanceResult.data;
+        // Always use automatic opening balances calculation
+        // Only cash account carries over previous balance, all others start at 0
+        let openingBalances;
+        if (data.customOpeningBalances && data.customOpeningBalances.length > 0) {
+          // If balances are provided (from UI calculation), use them
+          openingBalances = data.customOpeningBalances;
+        } else {
+          // Calculate automatic balances and build full structure
+          const balanceResult = await schema.calculateAutomaticOpeningBalances(registerId);
+          if (balanceResult.success && balanceResult.data) {
+            const { cashPreviousBalance } = balanceResult.data;
+            
+            // Get all owners accounts from payment methods store
+            const paymentMethodsStore = usePaymentMethodsStore();
+            
+            // Load payment methods data if not already loaded
+            if (paymentMethodsStore.needsCacheRefresh) {
+              await paymentMethodsStore.loadAllData();
+            }
+            
+            // Build opening balances from active accounts
+            openingBalances = paymentMethodsStore.activeOwnersAccounts.map((account: any) => {
+              const isCashAccount = account.name.toLowerCase().includes('efectivo') || 
+                                   account.code.toLowerCase().includes('efectivo') ||
+                                   account.type === 'cash';
+              
+              return {
+                ownersAccountId: account.id,
+                ownersAccountName: account.name,
+                amount: isCashAccount ? cashPreviousBalance : 0
+              };
+            });
           } else {
             throw new Error("Error calculating opening balances");
           }
@@ -329,6 +380,10 @@ export const useCashRegisterStore = defineStore("cashRegister", {
             id: (result.data as DailyCashSnapshot).id,
             ...result.data,
           } as DailyCashSnapshot;
+          
+          // Update the registerSnapshots Map
+          this.registerSnapshots.set(registerId, this.currentSnapshot);
+          
           return this.currentSnapshot;
         } else {
           throw new Error(result.error);
@@ -382,6 +437,10 @@ export const useCashRegisterStore = defineStore("cashRegister", {
           this.currentSnapshot.closedBy = user.value.uid;
           this.currentSnapshot.closedByName =
             user.value.displayName || user.value.email || "Usuario";
+          
+          // Update the registerSnapshots Map (snapshot is now closed, so set to null)
+          this.registerSnapshots.set(this.currentSnapshot.cashRegisterId, null);
+          
           return true;
         } else {
           throw new Error(result.error);
@@ -455,8 +514,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
               operator: "==",
               value: targetSnapshotId,
             },
-          ],
-          orderBy: [{ field: "createdAt", direction: "desc" }],
+          ]
         });
 
         if (result.success) {
@@ -474,16 +532,46 @@ export const useCashRegisterStore = defineStore("cashRegister", {
 
     // --- UTILITY METHODS ---
 
+    async loadAllRegisterSnapshots() {
+      if (this.registers.length === 0) return;
+      
+      this.isSnapshotLoading = true;
+      try {
+        const promises = this.registers.map(register => 
+          this.loadSnapshotForRegister(register.id)
+        );
+        await Promise.all(promises);
+      } catch (error) {
+        console.error("Error loading all register snapshots:", error);
+      } finally {
+        this.isSnapshotLoading = false;
+      }
+    },
+
     clearState() {
       this.currentSnapshot = null;
       this.transactions = [];
-      this.activeRegister = null;
+      this.selectedRegisterForDisplay = null;
+      this.registerSnapshots.clear();
     },
 
     refreshCurrentSnapshot() {
-      if (this.activeRegister) {
-        this.loadSnapshotForRegister(this.activeRegister.id);
+      if (this.selectedRegisterForDisplay) {
+        this.loadSnapshotForRegister(this.selectedRegisterForDisplay.id);
       }
+    },
+
+    // --- SCHEMA ACCESS METHODS ---
+    _getCashRegisterSchema() {
+      return new CashRegisterSchema();
+    },
+
+    _getDailyCashSnapshotSchema() {
+      return new DailyCashSnapshotSchema();
+    },
+
+    _getDailyCashTransactionSchema() {
+      return new DailyCashTransactionSchema();
     },
   },
 });

@@ -130,20 +130,47 @@
             </NuxtLink>
           </li>
           <li>
-            <NuxtLink
-              to="/ventas"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+            <button
+              @click="toggleDailyCash"
+              class="w-full flex items-center justify-between text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
             >
-              <PhMoneyFill class="text-gray-500" /> Ventas (Caja Diaria)
-            </NuxtLink>
-          </li>
-          <li>
-            <NuxtLink
-              to="/ventas/historico"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
-            >
-              <PhClockCounterClockwiseFill class="text-gray-500" /> Historial Cajas Diarias
-            </NuxtLink>
+              <div class="flex items-center gap-2">
+                <PhMoneyFill class="text-gray-500" /> Cajas Diarias
+              </div>
+              <MaterialSymbolsKeyboardArrowDown
+                class="text-gray-600 transition-transform"
+                :class="{ 'rotate-180': dailyCashExpanded }"
+              />
+            </button>
+            <div v-if="dailyCashExpanded" class="pl-6 ml-1 border-l border-gray-300 mt-1 space-y-2">
+              <NuxtLink
+                to="/ventas/cajas"
+                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              >
+                <PhMoneyFill class="text-gray-500" /> Gestión de Cajas
+              </NuxtLink>
+              
+              <!-- Dynamic Open Snapshots Links -->
+              <div v-for="(snapshot, registerId) in openSnapshots" :key="registerId" class="space-y-1">
+                <NuxtLink
+                  :to="`/ventas/caja/${snapshot.id}`"
+                  class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold bg-green-50 border border-green-200"
+                >
+                  <PhShoppingCartFill class="text-green-600" /> 
+                  <div class="flex flex-col items-start">
+                    <span class="text-green-800 font-medium">Caja Abierta</span>
+                    <span class="text-xs text-green-600">{{ getRegisterName(registerId) }}</span>
+                  </div>
+                </NuxtLink>
+              </div>
+              
+              <NuxtLink
+                to="/ventas/historico"
+                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              >
+                <PhClockCounterClockwiseFill class="text-gray-500" /> Historial
+              </NuxtLink>
+            </div>
           </li>
           <li>
             <button
@@ -284,6 +311,7 @@ import PhMoneyFill from "~icons/ph/money-fill";
 import PhClockCounterClockwiseFill from "~icons/ph/clock-counter-clockwise-fill";
 import PhCreditCardFill from "~icons/ph/credit-card-fill";
 import PhCurrencyDollarFill from "~icons/ph/currency-dollar-fill";
+import PhShoppingCartFill from "~icons/ph/shopping-cart-fill";
 import GravityUiGear from "~icons/gravity-ui/gear";
 import IconParkOutlineCheckOne from "~icons/icon-park-outline/check-one";
 import SiSignOutFill from "~icons/si/sign-out-fill";
@@ -297,13 +325,36 @@ const auth = useFirebaseAuth();
 
 // ------ Define Pinia Vars --------
 const indexStore = useIndexStore();
+const cashRegisterStore = useCashRegisterStore();
 indexStore.fetchBusinesses();
+
+// Import cash register state for dynamic navigation
+// NOTE: We use registerSnapshots to show ALL open registers, not just a selected one
+// This provides accurate navigation to any open cash register session
+const { registerSnapshots, registers } = storeToRefs(cashRegisterStore);
 
 // ------ Define Vars --------
 const showSideBar = ref(false);
 const menu = ref(null);
 const configExpanded = ref(false);
 const productsExpanded = ref(false);
+const dailyCashExpanded = ref(false);
+
+// Computed properties for dynamic navigation
+const openSnapshots = computed(() => {
+  const snapshots = {};
+  registerSnapshots.value.forEach((snapshot, registerId) => {
+    if (snapshot && snapshot.status === 'open') {
+      snapshots[registerId] = snapshot;
+    }
+  });
+  return snapshots;
+});
+
+const getRegisterName = (registerId) => {
+  const register = registers.value.find(r => r.id === registerId);
+  return register?.name || 'Sin nombre';
+};
 
 // If clicking outside the menu, and screen is smaller than 768px, close it
 onClickOutside(menu, () => {
@@ -315,8 +366,17 @@ onClickOutside(menu, () => {
 // Refs removed - no longer needed
 
 // ------ Define Hooks --------
-onMounted(() => {
+onMounted(async () => {
   if (width.value > 768) showSideBar.value = true;
+  
+  // Load cash register data for dynamic navigation
+  try {
+    await cashRegisterStore.loadRegisters();
+    // Load snapshots for all registers to show current status
+    await cashRegisterStore.loadAllRegisterSnapshots();
+  } catch (error) {
+    console.error('Error loading cash register data for navigation:', error);
+  }
 });
 
 // ------ Define Methods --------
@@ -346,12 +406,23 @@ function toggleProducts() {
   productsExpanded.value = !productsExpanded.value;
 }
 
+function toggleDailyCash() {
+  dailyCashExpanded.value = !dailyCashExpanded.value;
+}
+
 // ------ Define Watchers --------
 watch([width, () => route.path], () => {
   if (width.value > 768) return (showSideBar.value = true);
 
   showSideBar.value = false;
 });
+
+// Auto-expand daily cash section when on related routes
+watch(() => route.path, (newPath) => {
+  if (newPath.startsWith('/ventas')) {
+    dailyCashExpanded.value = true;
+  }
+}, { immediate: true });
 </script>
 
 <style scoped>

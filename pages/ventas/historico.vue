@@ -8,7 +8,7 @@
       </div>
 
       <div class="flex gap-2">
-        <NuxtLink to="/ventas" class="btn bg-primary text-white hover:bg-primary/90">
+        <NuxtLink to="/ventas/cajas" class="btn bg-primary text-white hover:bg-primary/90">
           <span class="flex items-center gap-1">
             <PhMoneyFill class="h-4 w-4" />
             Caja Actual
