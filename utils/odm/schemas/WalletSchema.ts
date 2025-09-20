@@ -12,9 +12,9 @@ export class WalletSchema extends Schema {
       referenceTo: 'userBusiness'
     },
     type: {
-      type: 'string',
+      type: 'enum',
       required: true,
-      pattern: /^(Income|Outcome)$/
+      enum: ['Income', 'Outcome']
     },
     globalCashId: {
       type: 'reference',
@@ -88,9 +88,9 @@ export class WalletSchema extends Schema {
       min: 0.01
     },
     status: {
-      type: 'string',
+      type: 'enum',
       required: true,
-      pattern: /^(paid|cancelled)$/,
+      enum: ['paid', 'cancelled'],
       default: 'paid'
     },
     isRegistered: {
@@ -113,6 +113,24 @@ export class WalletSchema extends Schema {
     updatedBy: {
       type: 'string',
       required: false
+    },
+    notes: {
+      type: 'string',
+      required: false,
+      minLength: 0,
+      maxLength: 500
+    },
+    categoryCode: {
+      type: 'string',
+      required: false,
+      minLength: 1,
+      maxLength: 50
+    },
+    categoryName: {
+      type: 'string',
+      required: false,
+      minLength: 1,
+      maxLength: 100
     }
   };
 
@@ -145,17 +163,17 @@ export class WalletSchema extends Schema {
 
   /**
    * Wallet transactions should generally not be updatable (immutable ledger)
-   * Only allow status changes (paid → cancelled)
+   * Only allow status changes (paid → cancelled) and minimal metadata updates
    */
-  override async update(id: string, data: any, validateRefs = true) {
-    const allowedUpdates = ['status', 'updatedAt', 'updatedBy'];
+  override async update(id: string, data: any) {
+    const allowedUpdates = ['status', 'updatedAt', 'updatedBy', 'notes', 'categoryCode', 'categoryName'];
     const updates = Object.keys(data);
     const invalidUpdates = updates.filter(key => !allowedUpdates.includes(key));
 
     if (invalidUpdates.length > 0) {
       return {
         success: false,
-        error: `Invalid wallet update. Only these fields can be updated: ${allowedUpdates.join(', ')}. Attempted to update: ${invalidUpdates.join(', ')}`
+        error: `Invalid wallet update. Only these fields can be updated: ${allowedUpdates.join(', ')}. To modify other fields like amount or payment details, you must cancel this transaction and create a new one.`
       };
     }
 

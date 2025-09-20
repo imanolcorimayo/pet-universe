@@ -50,6 +50,9 @@ wallet/{walletId}
   amount
   status: paid | cancelled        // Only in order to be able to cancel transactions and create new ones
   isRegistered: true/false
+  notes (optional)                // Additional notes about the transaction
+  categoryCode (optional)         // Reference to business category configuration (e.g., "compras", "ventas")
+  categoryName (optional)         // Category display name for reference (e.g., "Compras", "Ventas")
   createdAt
   updatedAt
   createdBy

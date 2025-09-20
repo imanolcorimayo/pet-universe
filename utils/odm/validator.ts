@@ -71,15 +71,6 @@ export class Validator {
             value
           });
         }
-        
-        // Pattern validation
-        if (definition.pattern && !definition.pattern.test(value)) {
-          errors.push({
-            field: fieldName,
-            message: `${fieldName} format is invalid`,
-            value
-          });
-        }
         break;
 
       case 'number':

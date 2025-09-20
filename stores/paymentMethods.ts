@@ -323,7 +323,13 @@ export const usePaymentMethodsStore = defineStore('paymentMethods', {
         }
 
         // Add to cache
-        this.ownersAccounts.push({ id: result.id, ...result.data });
+        // Result.data already contains "id"
+        const newAccount = { ...result.data };
+        this.ownersAccounts.push(newAccount);
+        
+        // Sync with current global cash register if one is open
+        await this._syncNewAccountWithGlobalCash(newAccount);
+        
         useToast(ToastEvents.success, 'Cuenta creada exitosamente');
         return true;
       } catch (error) {
@@ -458,6 +464,56 @@ export const usePaymentMethodsStore = defineStore('paymentMethods', {
       } catch (error) {
         console.error('Error creating default payment method and account:', error);
         return null;
+      }
+    },
+
+    // Helper method to sync new owner account with current global cash register
+    async _syncNewAccountWithGlobalCash(newAccount: OwnersAccountData): Promise<void> {
+      try {
+        // Import global cash register store
+        const globalCashStore = useGlobalCashRegisterStore();
+        
+        // Check if there's an open global cash register
+        if (!globalCashStore.hasOpenGlobalCash || !globalCashStore.currentGlobalCash) {
+          return; // No open register to sync with
+        }
+        
+        const currentGlobalCash = globalCashStore.currentGlobalCash;
+        
+        // Check if account already exists in opening balances (shouldn't happen, but safety check)
+        const existingBalance = currentGlobalCash.openingBalances.find(
+          balance => balance.ownersAccountId === newAccount.id
+        );
+        
+        if (existingBalance) {
+          return; // Already exists, no need to sync
+        }
+        
+        // Add new account to opening balances with 0 amount
+        const updatedOpeningBalances = [
+          ...currentGlobalCash.openingBalances,
+          {
+            ownersAccountId: newAccount.id,
+            ownersAccountName: newAccount.name,
+            amount: 0
+          }
+        ];
+        
+        // Update the global cash register using the store's generic update method
+        const updateResult = await globalCashStore.updateCurrentGlobalCash({
+          openingBalances: updatedOpeningBalances,
+          isSystemUpdate: true // Special flag to bypass validation
+        });
+        
+        if (updateResult.success) {
+          console.log(`Successfully synced new account ${newAccount.name} with global cash register`);
+        } else {
+          console.error('Failed to sync new account with global cash register:', updateResult.error);
+        }
+        
+      } catch (error) {
+        console.error('Error syncing new account with global cash register:', error);
+        // Don't throw error - this is a non-critical operation
       }
     }
   }

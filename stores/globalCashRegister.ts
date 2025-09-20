@@ -35,27 +35,30 @@ interface GlobalCash {
 }
 
 interface WalletTransaction {
-  id: string;
-  businessId: string;
+  id?: string;
+  businessId?: string;
   type: 'Income' | 'Outcome';
   globalCashId: string;
   saleId?: string;
   debtId?: string;
   settlementId?: string;
   purchaseInvoiceId?: string;
-  supplierId?: string;
-  paymentMethodId: string;
-  paymentMethodName: string;
-  paymentProviderId: string;
-  paymentProviderName: string;
+  supplierId?: string|null;
+  paymentMethodId?: string;
+  paymentMethodName?: string;
+  paymentProviderId?: string|null;
+  paymentProviderName?: string|null;
   ownersAccountId: string;
   ownersAccountName: string;
   amount: number;
   status: 'paid' | 'cancelled';
+  notes?: string|null;
+  categoryName?: string|null;
+  categoryCode?: string|null;
   isRegistered: boolean;
-  createdAt: any;
-  createdBy: string;
-  updatedAt: any;
+  createdAt?: any;
+  createdBy?: string;
+  updatedAt?: any;
   updatedBy?: string;
 }
 
@@ -120,31 +123,40 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
 
     // Get current balances (opening + movements) for display
     currentBalances: (state) => {
-      const balances = {};
+      const balances: Record<string, {
+        ownersAccountId: string;
+        ownersAccountName: string;
+        openingAmount: number;
+        movementAmount: number;
+        currentAmount: number;
+      }> = {};
       
-      // Start with opening balances
+  
+      // Create a snapshot of calculated balances to avoid reactivity loops
+      const balancesSnapshot = { ...state.calculatedBalances };
+      
+      // Add opening balances from current global cash
       if (state.currentGlobalCash?.openingBalances) {
         state.currentGlobalCash.openingBalances.forEach(opening => {
           balances[opening.ownersAccountId] = {
             ownersAccountId: opening.ownersAccountId,
             ownersAccountName: opening.ownersAccountName,
             openingAmount: opening.amount,
-            movementAmount: state.calculatedBalances[opening.ownersAccountId] || 0,
-            currentAmount: opening.amount + (state.calculatedBalances[opening.ownersAccountId] || 0)
+            movementAmount: balancesSnapshot[opening.ownersAccountId] || 0,
+            currentAmount: opening.amount + (balancesSnapshot[opening.ownersAccountId] || 0)
           };
         });
       }
       
-      // Add any accounts that have movements but no opening balance
-      Object.keys(state.calculatedBalances).forEach(accountId => {
+      // Add accounts that have movements but no opening balance
+      Object.keys(balancesSnapshot).forEach(accountId => {
         if (!balances[accountId]) {
-          // This shouldn't happen normally but handle gracefully
           balances[accountId] = {
             ownersAccountId: accountId,
             ownersAccountName: 'Cuenta Desconocida',
             openingAmount: 0,
-            movementAmount: state.calculatedBalances[accountId],
-            currentAmount: state.calculatedBalances[accountId]
+            movementAmount: balancesSnapshot[accountId],
+            currentAmount: balancesSnapshot[accountId]
           };
         }
       });
@@ -331,6 +343,27 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       }
     },
 
+    async addWalletRecord(transaction: WalletTransaction) {
+
+      try {
+        const walletSchema = new WalletSchema(); 
+  
+        // Result comes with the ID in case it was successful
+        const result = await walletSchema.create(transaction);
+
+        if (result.success && result.data) {
+          this.addWalletTransactionToCache({ ...result.data } as WalletTransaction);
+          return { success: true, id: result.data.id, error: null };
+        } else {
+          return { success: false, id: null, error: result.error || 'Error al agregar el registro de cartera' };
+        }
+
+      } catch (error) {
+        console.error('Error adding wallet record:', error);
+        return { success: false, id: null, error: error instanceof Error ? error.message : 'Error al agregar el registro de cartera' };
+      }
+    },
+
     // --- CALCULATION METHODS ---
     calculateBalances() {
       // Reset all calculations
@@ -343,7 +376,7 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       const paidTransactions = this.walletTransactions.filter(t => t.status === 'paid');
       
       paidTransactions.forEach(transaction => {
-        const accountId = transaction.ownersAccountId;
+        const accountId = transaction.ownersAccountId as string;
         const amount = transaction.amount;
         
         // Initialize account balance if not exists
@@ -364,7 +397,6 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     },
 
     // --- HISTORY AND NAVIGATION ---
-    
     async loadGlobalCashHistory(limit?: number) {
       this.isLoading = true;
       try {
@@ -603,26 +635,14 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
 
         // Register exists but is unclosed
         const shouldWarn = daysSinceMonday <= 2; // Show warning within 2 days of Monday
-        const shouldAutoClose = daysSinceMonday > 2; // Auto-close after 2 days
 
         let result = {
           exists: true,
           register,
           shouldWarn,
-          shouldAutoClose,
           daysSinceMonday,
           weekStartDate: currentWeekStart
         };
-
-        // Auto-close if needed
-        if (shouldAutoClose) {
-          const autoCloseResult = await this.autoClosePreviousRegister(register);
-          result.autoClosed = autoCloseResult.success;
-          if (autoCloseResult.success) {
-            result.register = autoCloseResult.register;
-            result.shouldWarn = false;
-          }
-        }
 
         return result;
       } catch (error) {
@@ -631,66 +651,27 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       }
     },
 
-    /**
-     * Auto-close a register with calculated balances
-     */
-    async autoClosePreviousRegister(register) {
+    async updateCurrentGlobalCash(updateData: any): Promise<{ success: boolean; error?: string }> {
       try {
-        const { $dayjs } = useNuxtApp();
-        
-        // Calculate closing balances from wallet transactions
-        const walletSchema = new WalletSchema();
-        const walletTransactions = await walletSchema.find({
-          where: [{ field: 'globalCashId', operator: '==', value: register.id }]
-        });
-
-        let calculatedBalances = {};
-        if (walletTransactions.success && walletTransactions.data) {
-          walletTransactions.data.forEach(transaction => {
-            const accountId = transaction.ownersAccountId;
-            if (!calculatedBalances[accountId]) {
-              calculatedBalances[accountId] = 0;
-            }
-            
-            if (transaction.type === 'Income') {
-              calculatedBalances[accountId] += transaction.amount;
-            } else if (transaction.type === 'Outcome') {
-              calculatedBalances[accountId] -= transaction.amount;
-            }
-          });
+        if (!this.currentGlobalCash) {
+          return { success: false, error: 'No hay una caja global actual para actualizar' };
         }
 
-        // Calculate closing balances
-        const closingBalances = register.openingBalances.map(opening => ({
-          ownersAccountId: opening.ownersAccountId,
-          ownersAccountName: opening.ownersAccountName,
-          amount: opening.amount + (calculatedBalances[opening.ownersAccountId] || 0)
-        }));
-
-        // Close register
-        const user = useCurrentUser();
         const schema = new GlobalCashSchema();
-        const result = await schema.update(register.id, {
-          closingBalances,
-          differences: [], // No differences since we're using calculated balances
-          closedAt: $dayjs().toDate(),
-          closedBy: user.value?.uid || 'system',
-          closedByName: 'Sistema (Cierre Automático)'
-        });
+        const result = await schema.update(this.currentGlobalCash.id, updateData);
 
         if (result.success) {
-          return {
-            success: true,
-            register: { ...register, closingBalances, closedAt: $dayjs().toDate() }
-          };
+          // Update local cache
+          this.currentGlobalCash = { ...this.currentGlobalCash, ...updateData };
+          return { success: true };
         } else {
-          throw new Error(result.error);
+          return { success: false, error: result.error };
         }
       } catch (error) {
-        console.error('Error auto-closing register:', error);
+        console.error('Error updating current global cash:', error);
         return { 
           success: false, 
-          error: error instanceof Error ? error.message : 'Unknown error' 
+          error: error instanceof Error ? error.message : 'Error al actualizar la caja global' 
         };
       }
     }

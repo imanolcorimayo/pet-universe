@@ -5,7 +5,6 @@ import { PurchaseInvoiceSchema } from '../odm/schemas/PurchaseInvoiceSchema';
 import { DailyCashSnapshotSchema } from '../odm/schemas/DailyCashSnapshotSchema';
 import { DailyCashTransactionSchema } from '../odm/schemas/DailyCashTransactionSchema';
 import { SettlementSchema } from '../odm/schemas/SettlementSchema';
-import { GlobalCashSchema } from '../odm/schemas/GlobalCashSchema';
 import type { ValidationResult } from '../odm/types';
 import type { usePaymentMethodsStore } from '../../stores/paymentMethods';
 
@@ -21,10 +20,13 @@ export interface PaymentTransactionData {
   amount: number;
   description: string;
   category?: string;
+  categoryCode?: string;
+  categoryName?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
   supplierId?: string;
   supplierName?: string;
+  notes?: string;
   
   // Payment method (how customer pays)
   paymentMethodId: string;
@@ -65,8 +67,9 @@ export interface DebtPaymentData {
 }
 
 export interface GenericExpenseData {
-  description: string;
   category: string;
+  categoryCode?: string;
+  categoryName?: string;
   amount: number;
   notes?: string;
   
@@ -79,6 +82,26 @@ export interface GenericExpenseData {
   supplierName?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
+}
+
+export interface GenericIncomeData {
+  category: string;
+  categoryCode?: string;
+  categoryName?: string;
+  amount: number;
+  notes?: string;
+
+  paymentMethodId: string;
+  paymentMethodName: string;
+  paymentProviderId?: string;
+  paymentProviderName?: string;
+
+  // Entity associations (optional)
+  supplierId?: string;
+  supplierName?: string;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
+  isRegistered: boolean;
 }
 
 export interface SettlementPaymentItem {
@@ -96,6 +119,8 @@ export interface SettlementPaymentData {
   userName: string;
   businessId: string;
   notes?: string;
+  categoryCode?: string;
+  categoryName?: string;
 }
 
 /**
@@ -112,7 +137,6 @@ export class BusinessRulesEngine {
   private dailyCashTransactionSchema: DailyCashTransactionSchema;
   private settlementSchema: SettlementSchema;
   private purchaseInvoiceSchema: PurchaseInvoiceSchema;
-  private globalCashSchema: GlobalCashSchema;
   private paymentMethodsStore: ReturnType<typeof usePaymentMethodsStore>;
 
   constructor(paymentMethodsStore: ReturnType<typeof usePaymentMethodsStore>) {
@@ -123,7 +147,6 @@ export class BusinessRulesEngine {
     this.dailyCashTransactionSchema = new DailyCashTransactionSchema();
     this.settlementSchema = new SettlementSchema();
     this.purchaseInvoiceSchema = new PurchaseInvoiceSchema();
-    this.globalCashSchema = new GlobalCashSchema();
     this.paymentMethodsStore = paymentMethodsStore;
   }
 
@@ -375,6 +398,7 @@ export class BusinessRulesEngine {
    */
   async processGenericExpense(data: GenericExpenseData & { globalCashId?: string }): Promise<BusinessRuleResult> {
     const warnings: string[] = [];
+    const globalCashRegister = useGlobalCashRegisterStore();
 
     try {
       // 1. Use provided globalCashId or get the current global cash register ID
@@ -387,20 +411,21 @@ export class BusinessRulesEngine {
         globalCashId = globalCashIdResult.data;
       }
 
-      // 2. Generate a unique reference ID for this expense transaction
-      const expenseReferenceId = `expense_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      // 3. Create single wallet transaction (Outcome)
-      const walletResult = await this.walletSchema.create({
+      // 2. Create single wallet transaction (Outcome)
+      const walletResult = await globalCashRegister.addWalletRecord({
         type: 'Outcome',
-        globalCashId: globalCashId,
+        globalCashId: globalCashId as string,
         supplierId: data.supplierId,
         ownersAccountId: data.accountTypeId,
         ownersAccountName: data.accountTypeName,
         amount: data.amount,
         status: 'paid',
         isRegistered: true,
-      });
+        notes: data.notes || null,
+        categoryCode: data.categoryCode || null,
+        categoryName: data.categoryName || null,
+      })
+
       if (!walletResult.success) {
         return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
       }
@@ -408,8 +433,7 @@ export class BusinessRulesEngine {
       return {
         success: true,
         data: {
-          expenseReferenceId,
-          walletTransactionId: walletResult.data?.id,
+          walletTransactionId: walletResult.id,
           amount: data.amount,
           accountTypeId: data.accountTypeId,
           accountTypeName: data.accountTypeName,
@@ -423,6 +447,91 @@ export class BusinessRulesEngine {
       return {
         success: false,
         error: `Generic expense processing failed: ${error}`
+      };
+    }
+  }
+
+  async processGenericIncome(data: GenericIncomeData & { globalCashId?: string }): Promise<BusinessRuleResult> {
+    const warnings: string[] = [];
+    const globalCashRegister = useGlobalCashRegisterStore();
+
+    try {
+      // 1. Use provided globalCashId or get the current global cash register ID
+      let globalCashId = data.globalCashId;
+      if (!globalCashId) {
+        const globalCashIdResult = await this.getCurrentGlobalCashId();
+        if (!globalCashIdResult.success) {
+          return { success: false, error: globalCashIdResult.error };
+        }
+        globalCashId = globalCashIdResult.data;
+      }
+
+      // 2. Validate payment method exists and is active
+      const paymentMethod = this.paymentMethodsStore.getPaymentMethodById(data.paymentMethodId);
+      if (!paymentMethod) {
+        return { success: false, error: `Payment method '${data.paymentMethodId}' not found` };
+      }
+
+      if (!paymentMethod.isActive) {
+        return { success: false, error: `Payment method '${data.paymentMethodId}' is not active` };
+      }
+
+      // 3. Get account info from payment method
+      const account = this.paymentMethodsStore.getOwnersAccountById(paymentMethod.ownersAccountId);
+      if (!account || !account.id) {
+        return { success: false, error: 'No se encontro cuenta para el metodo de pago. Contacta a soporte.' };
+      }
+
+      if (!account.isActive) {
+        return { success: false, error: `Account '${account.name}' is not active` };
+      }
+
+      // 4. Get payment provider info if needed (for reference only, no settlement for generic income)
+      const provider = paymentMethod.paymentProviderId 
+        ? this.paymentMethodsStore.getPaymentProviderById(paymentMethod.paymentProviderId)
+        : null;
+
+      // 5. Create single wallet transaction (Income) - NO settlement logic for generic income
+      const walletResult = await globalCashRegister.addWalletRecord({
+        type: 'Income',
+        globalCashId: globalCashId as string,
+        supplierId: data.supplierId || null,
+        paymentMethodId: data.paymentMethodId,
+        paymentMethodName: paymentMethod.name,
+        paymentProviderId: provider?.id || null,
+        paymentProviderName: provider?.name || null,
+        ownersAccountId: account.id,
+        ownersAccountName: account.name,
+        amount: data.amount,
+        status: 'paid',
+        isRegistered: data.isRegistered,
+        notes: data.notes?.trim() || null,
+        categoryCode: data.categoryCode,
+        categoryName: data.categoryName,
+      });
+
+      if (!walletResult.success) {
+        return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
+      }
+
+      return {
+        success: true,
+        data: {
+          id: walletResult.id,
+          walletTransactionId: walletResult.id,
+          amount: data.amount,
+          accountTypeId: account.id,
+          accountTypeName: account.name,
+          supplierId: data.supplierId,
+          category: data.categoryCode || data.category
+        },
+        warnings
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Generic income processing failed: ${error}`
       };
     }
   }
@@ -463,6 +572,9 @@ export class BusinessRulesEngine {
         amount: invoiceData.amountTotal,
         status: 'paid',
         isRegistered: true,
+        notes: invoiceData.notes || null,
+        categoryCode: invoiceData.categoryCode || null,
+        categoryName: invoiceData.categoryName || null,
       });
       if (!walletResult.success) {
         warnings.push(`Wallet transaction failed: ${walletResult.error}`);
@@ -519,30 +631,23 @@ export class BusinessRulesEngine {
    */
   private async getCurrentGlobalCashId(): Promise<BusinessRuleResult> {
     try {
-      // Find the currently open global cash register (where closedAt is null)
-      const openGlobalCashResult = await this.globalCashSchema.find({
-        orderBy: [{ field: 'openedAt', direction: 'desc' }],
-        limit: 1
-      });
-
-      if (!openGlobalCashResult.success) {
-        return { 
-          success: false, 
-          error: `Failed to query global cash registers: ${openGlobalCashResult.error}` 
-        };
+      const globalCashStore = useGlobalCashRegisterStore();
+      
+      // Load current global cash if not already loaded
+      if (!globalCashStore.currentGlobalCash) {
+        await globalCashStore.loadCurrentGlobalCash();
       }
 
-      if (!openGlobalCashResult.data || openGlobalCashResult.data.length === 0) {
+      if (!globalCashStore.currentGlobalCash) {
         return { 
           success: false, 
           error: 'No open global cash register found. Please open a global cash register first.' 
         };
       }
 
-      const globalCash = openGlobalCashResult.data[0];
       return { 
         success: true, 
-        data: globalCash.id 
+        data: globalCashStore.currentGlobalCash.id 
       };
 
     } catch (error) {
@@ -571,210 +676,6 @@ export class BusinessRulesEngine {
     }
 
     return { success: true };
-  }
-
-  /**
-   * Validate business rules across multiple entities
-   */
-  async validateCrossEntityRules(entityType: string, entityData: any): Promise<ValidationResult> {
-    const errors: any[] = [];
-
-    switch (entityType) {
-      case 'sale':
-        // Validate sale business rules
-        const saleValidation = await this.validateSaleBusinessRules(entityData);
-        if (!saleValidation.valid) {
-          errors.push(...saleValidation.errors);
-        }
-        break;
-
-      case 'debt':
-        // Validate debt business rules
-        const debtValidation = await this.validateDebtBusinessRules(entityData);
-        if (!debtValidation.valid) {
-          errors.push(...debtValidation.errors);
-        }
-        break;
-
-      case 'dailyCashSnapshot':
-        // Validate daily cash snapshot business rules
-        const snapshotValidation = await this.validateDailyCashSnapshotBusinessRules(entityData);
-        if (!snapshotValidation.valid) {
-          errors.push(...snapshotValidation.errors);
-        }
-        break;
-
-      case 'genericExpense':
-        // Validate generic expense business rules
-        const expenseValidation = await this.validateGenericExpenseBusinessRules(entityData);
-        if (!expenseValidation.valid) {
-          errors.push(...expenseValidation.errors);
-        }
-        break;
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors
-    };
-  }
-
-  /**
-   * Validate sale-specific business rules
-   */
-  private async validateSaleBusinessRules(saleData: any): Promise<ValidationResult> {
-    const errors: any[] = [];
-
-    // Rule: Sales must have valid daily cash snapshot
-    if (saleData.dailyCashSnapshotId) {
-      const snapshotValidation = await this.validateDailyCashSnapshotOpen(saleData.dailyCashSnapshotId);
-      if (!snapshotValidation.success) {
-        errors.push({
-          field: 'dailyCashSnapshotId',
-          message: snapshotValidation.error
-        });
-      }
-    }
-
-    // Rule: Wallet transfers must sum to paid amount
-    if (saleData.wallets && Array.isArray(saleData.wallets)) {
-      const walletTotal = saleData.wallets.reduce((sum: number, wallet: any) => sum + (wallet.amount || 0), 0);
-      const expectedPaid = saleData.amountTotal - (saleData.debtAmount || 0);
-      
-      if (Math.abs(walletTotal - expectedPaid) > 0.01) {
-        errors.push({
-          field: 'wallets',
-          message: `Wallet transfers total (${walletTotal}) does not match expected paid amount (${expectedPaid})`
-        });
-      }
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors
-    };
-  }
-
-  /**
-   * Validate debt-specific business rules
-   */
-  private async validateDebtBusinessRules(debtData: any): Promise<ValidationResult> {
-    const errors: any[] = [];
-
-    // Rule: Customer debts should reference daily cash snapshot
-    if (debtData.clientId && !debtData.dailyCashSnapshotId) {
-      errors.push({
-        field: 'dailyCashSnapshotId',
-        message: 'Customer debts should reference a daily cash snapshot'
-      });
-    }
-
-    // Rule: Supplier debts should not reference daily cash snapshot
-    if (debtData.supplierId && debtData.dailyCashSnapshotId) {
-      errors.push({
-        field: 'dailyCashSnapshotId',
-        message: 'Supplier debts should not reference daily cash snapshots'
-      });
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors
-    };
-  }
-
-  /**
-   * Validate daily cash snapshot business rules
-   */
-  private async validateDailyCashSnapshotBusinessRules(snapshotData: any): Promise<ValidationResult> {
-    const errors: any[] = [];
-
-    // Rule: Only one open snapshot per cash register per day
-    if (snapshotData.status === 'open' && snapshotData.cashRegisterId) {
-      const existingOpenSnapshots = await this.dailyCashSnapshotSchema.find({
-        where: [
-          { field: 'cashRegisterId', operator: '==', value: snapshotData.cashRegisterId },
-          { field: 'status', operator: '==', value: 'open' }
-        ]
-      });
-
-      if (existingOpenSnapshots.success && existingOpenSnapshots.data && existingOpenSnapshots.data.length > 0) {
-        errors.push({
-          field: 'status',
-          message: 'Cash register already has an open daily snapshot'
-        });
-      }
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors
-    };
-  }
-
-  /**
-   * Validate generic expense business rules
-   */
-  private async validateGenericExpenseBusinessRules(expenseData: GenericExpenseData): Promise<ValidationResult> {
-    const errors: any[] = [];
-
-    // Rule: Amount must be positive
-    if (expenseData.amount <= 0) {
-      errors.push({
-        field: 'amount',
-        message: 'Expense amount must be greater than zero'
-      });
-    }
-
-    // Rule: Account type information is required
-    if (!expenseData.accountTypeId?.trim()) {
-      errors.push({
-        field: 'accountTypeId',
-        message: 'Account type ID is required for expense tracking'
-      });
-    }
-
-    if (!expenseData.accountTypeName?.trim()) {
-      errors.push({
-        field: 'accountTypeName',
-        message: 'Account type name is required for expense tracking'
-      });
-    }
-
-    // Rule: Supplier ID and name should be provided together
-    if (expenseData.supplierId && !expenseData.supplierName) {
-      errors.push({
-        field: 'supplierName',
-        message: 'Supplier name is required when supplier ID is provided'
-      });
-    }
-
-    if (expenseData.supplierName && !expenseData.supplierId) {
-      errors.push({
-        field: 'supplierId',
-        message: 'Supplier ID is required when supplier name is provided'
-      });
-    }
-
-    // Rule: Category and description are required for audit purposes
-    if (!expenseData.category?.trim()) {
-      errors.push({
-        field: 'category',
-        message: 'Category is required for expense tracking'
-      });
-    }
-
-    if (!expenseData.description?.trim()) {
-      errors.push({
-        field: 'description',
-        message: 'Description is required for expense documentation'
-      });
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors
-    };
   }
 
   /**
@@ -848,6 +749,9 @@ export class BusinessRulesEngine {
         amount: walletTx.amount,
         status: 'paid',
         isRegistered: true,
+        notes: walletTx.notes || null,
+        categoryCode: walletTx.categoryCode || null,
+        categoryName: walletTx.categoryName || null,
         createdBy: walletTx.userId,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -1002,6 +906,9 @@ export class BusinessRulesEngine {
         amount: data.totalAmountReceived,
         status: 'paid',
         isRegistered: true,
+        notes: data.notes || null,
+        categoryCode: data.categoryCode || null,
+        categoryName: data.categoryName || null,
         createdBy: data.userId,
         createdAt: new Date(),
         updatedAt: new Date()

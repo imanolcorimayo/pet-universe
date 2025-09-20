@@ -378,8 +378,13 @@ export class GlobalCashSchema extends Schema {
         });
       }
 
-      // Cannot change fundamental global cash properties
-      const protectedFields = ['businessId', 'openedAt', 'openedBy', 'openingBalances'];
+      // Cannot change fundamental global cash properties (except for system updates)
+      const protectedFields = ['businessId', 'openedAt', 'openedBy'];
+      // Allow openingBalances to be updated by system updates (for new account synchronization)
+      if (!data.isSystemUpdate) {
+        protectedFields.push('openingBalances');
+      }
+      
       for (const field of protectedFields) {
         if (data[field] !== undefined && JSON.stringify(data[field]) !== JSON.stringify(globalCash[field])) {
           errors.push({

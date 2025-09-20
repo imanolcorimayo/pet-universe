@@ -22,7 +22,7 @@
         <button
           v-if="globalCashStore.hasOpenGlobalCash && !isLoading"
           @click="openTransactionModal"
-          class="btn bg-primary text-white hover:bg-primary/90"
+          class="btn bg-primary text-white hover:bg-primary/90 flex items-center"
         >
           <LucidePlus class="h-4 w-4 mr-1" />
           Nueva Transacción
@@ -32,7 +32,7 @@
         <button
           v-if="globalCashStore.hasOpenGlobalCash && !isLoading"
           @click="showCloseCashModal = true"
-          class="btn bg-orange-600 text-white hover:bg-orange-700"
+          class="btn bg-orange-600 text-white hover:bg-orange-700 flex items-center"
         >
           <LucideLock class="h-4 w-4 mr-1" />
           Cerrar Caja Semanal
@@ -56,12 +56,6 @@
             aún no ha sido cerrada. Se cerrará automáticamente después de 2 días desde el lunes.
           </p>
         </div>
-        <button
-          @click="closePreviousWeekManually"
-          class="ml-3 text-sm bg-amber-100 text-amber-800 px-3 py-1 rounded hover:bg-amber-200"
-        >
-          Cerrar Ahora
-        </button>
       </div>
     </div>
     
@@ -160,7 +154,8 @@
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notas</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cuenta</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
@@ -168,7 +163,16 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="transaction in globalCashStore.walletTransactions" :key="transaction.id" class="hover:bg-gray-50 transition-colors">
+            <tr 
+              v-for="transaction in globalCashStore.walletTransactions" 
+              :key="transaction.id" 
+              :class="[
+                'transition-colors',
+                transaction.status === 'cancelled' 
+                  ? 'bg-red-50 hover:bg-red-100' 
+                  : 'hover:bg-gray-50'
+              ]"
+            >
               <!-- Date -->
               <td class="px-4 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">
@@ -188,13 +192,19 @@
                   {{ transaction.type === 'Income' ? 'Ingreso' : 'Egreso' }}
                 </span>
               </td>
-              <!-- Description -->
+              <!-- Category -->
+              <td class="px-4 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ transaction.categoryName || 'Sin categoría' }}
+                </div>
+                <div v-if="transaction.categoryCode" class="text-xs text-gray-500">
+                  {{ transaction.categoryCode }}
+                </div>
+              </td>
+              <!-- Notes -->
               <td class="px-4 py-4 max-w-xs">
                 <div class="text-sm text-gray-900">
-                  {{ transaction.description || 'Sin descripción' }}
-                </div>
-                <div v-if="transaction.notes" class="text-xs text-gray-500 mt-1 truncate">
-                  {{ transaction.notes }}
+                  {{ transaction.notes || 'Sin notas' }}
                 </div>
                 <div v-if="transaction.supplierId" class="text-xs text-blue-600 mt-1">
                   Proveedor: {{ getSupplierName(transaction.supplierId) }}
@@ -220,27 +230,52 @@
               </td>
               <!-- Status -->
               <td class="px-4 py-4 whitespace-nowrap">
-                <span 
-                  class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full"
-                  :class="transaction.isRegistered ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'"
-                >
+                <div class="flex flex-col gap-1">
+                  <!-- Transaction Status (paid/cancelled) -->
                   <span 
-                    class="w-1.5 h-1.5 rounded-full mr-1.5"
-                    :class="transaction.isRegistered ? 'bg-blue-400' : 'bg-amber-400'"
-                  ></span>
-                  {{ transaction.isRegistered ? 'Declarado' : 'No declarado' }}
-                </span>
+                    class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full"
+                    :class="transaction.status === 'cancelled' 
+                      ? 'bg-red-100 text-red-800' 
+                      : 'bg-green-100 text-green-800'"
+                  >
+                    <span 
+                      class="w-1.5 h-1.5 rounded-full mr-1.5"
+                      :class="transaction.status === 'cancelled' ? 'bg-red-400' : 'bg-green-400'"
+                    ></span>
+                    {{ transaction.status === 'cancelled' ? 'Cancelado' : 'Pagado' }}
+                  </span>
+                  
+                  <!-- Registration Status -->
+                  <span 
+                    class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full"
+                    :class="transaction.isRegistered ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'"
+                  >
+                    <span 
+                      class="w-1.5 h-1.5 rounded-full mr-1.5"
+                      :class="transaction.isRegistered ? 'bg-blue-400' : 'bg-amber-400'"
+                    ></span>
+                    {{ transaction.isRegistered ? 'Declarado' : 'No declarado' }}
+                  </span>
+                </div>
               </td>
               <!-- Actions -->
               <td class="px-4 py-4 whitespace-nowrap text-right">
                 <button 
+                  v-if="transaction.status !== 'cancelled'"
                   @click="editTransaction(transaction)"
                   class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
-                  :disabled="false"
                 >
                   <LucideEdit class="w-3 h-3 mr-1" />
                   Editar
                 </button>
+                <span 
+                  v-else
+                  class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 rounded-md cursor-not-allowed"
+                  title="No se puede editar una transacción cancelada"
+                >
+                  <LucideEdit class="w-3 h-3 mr-1" />
+                  Editar
+                </span>
               </td>
             </tr>
           </tbody>
@@ -284,7 +319,6 @@
     <GlobalCashTransactionModal 
       ref="transactionModal" 
       :transaction-to-edit="transactionToEdit"
-      @transaction-created="handleTransactionCreated"
       @transaction-updated="handleTransactionUpdated"
     />
 
@@ -380,36 +414,19 @@ const openTransactionModal = () => {
 };
 
 const editTransaction = (transaction) => {
+  if (transaction.status === 'cancelled') {
+    useToast(ToastEvents.warning, 'No se puede editar una transacción cancelada');
+    return;
+  }
+  
   transactionToEdit.value = { ...transaction };
   transactionModal.value?.showModal();
-};
-
-const handleTransactionCreated = (transaction) => {
-  // Transaction already added to cache by modal
-  useToast(ToastEvents.success, 'Transacción creada exitosamente');
 };
 
 const handleTransactionUpdated = (transaction) => {
   // Update transaction in cache
   globalCashStore.updateWalletTransactionInCache(transaction);
   useToast(ToastEvents.success, 'Transacción actualizada exitosamente');
-};
-
-const closePreviousWeekManually = async () => {
-  try {
-    if (previousWeekInfo.value.register) {
-      const result = await globalCashStore.autoClosePreviousRegister(previousWeekInfo.value.register);
-      if (result.success) {
-        useToast(ToastEvents.success, 'Caja anterior cerrada exitosamente');
-        previousWeekInfo.value.shouldWarn = false;
-        previousWeekInfo.value.register = result.register;
-      } else {
-        useToast(ToastEvents.error, result.error || 'No se pudo cerrar la caja anterior');
-      }
-    }
-  } catch (error) {
-    useToast(ToastEvents.error, 'Error al cerrar la caja anterior');
-  }
 };
 
 // Initialize page
