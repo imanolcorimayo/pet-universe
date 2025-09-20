@@ -193,6 +193,7 @@ const props = defineProps({
 // ----- Define Refs ---------
 const mainModal = ref(null);
 const globalCashRegisterStore = useGlobalCashRegisterStore();
+const paymentMethodsStore = usePaymentMethodsStore();
 const indexStore = useIndexStore();
 const submitting = ref(false);
 const loading = ref(true);
@@ -252,28 +253,22 @@ const getCategoriesByType = computed(() => {
 
 // Payment methods from configuration
 const paymentMethodsOptions = computed(() => {
-  if (!indexStore.businessConfig) return {};
-
   const methods = {};
-  Object.entries(indexStore.getActivePaymentMethods).forEach(
-    ([code, method]) => {
-      methods[code] = method.name;
-    }
-  );
+  paymentMethodsStore.activePaymentMethods.forEach((method) => {
+    methods[method.id] = method.name;
+  });
   return methods;
 });
 
 // Find default payment method
 const defaultPaymentMethod = computed(() => {
-  if (!indexStore.businessConfig) return "EFECTIVO";
-
-  const defaultMethod = Object.entries(indexStore.getActivePaymentMethods).find(
-    ([_, method]) => method.isDefault
+  const defaultMethod = paymentMethodsStore.activePaymentMethods.find(
+    (method) => method.isDefault
   );
 
   return defaultMethod
-    ? defaultMethod[0]
-    : Object.keys(indexStore.getActivePaymentMethods)[0] || "EFECTIVO";
+    ? defaultMethod.id
+    : paymentMethodsStore.activePaymentMethods[0]?.id || "EFECTIVO";
 });
 
 // ----- Define Data ---------

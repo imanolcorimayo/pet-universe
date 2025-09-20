@@ -4,68 +4,64 @@
     <div class="flex justify-between items-center">
       <div>
         <h1 class="text-2xl font-bold">Caja Global</h1>
-        <p class="text-gray-600 mt-1">Gestión de ingresos y egresos del negocio</p>
+        <p class="text-gray-600 mt-1">Gestión semanal de ingresos y egresos del negocio</p>
       </div>
       
       <div class="flex gap-2">
+        <!-- Open Global Cash Button -->
         <button
-          v-if="!isLoading"
-          @click="() => {transactionToEdit = null; transactionModal.showModal()}" 
+          v-if="!globalCashStore.hasOpenGlobalCash && !isLoading"
+          @click="showOpenCashModal = true"
+          class="btn bg-green-600 text-white hover:bg-green-700"
+        >
+          <LucidePlus class="h-4 w-4 mr-1" />
+          Abrir Caja Semanal
+        </button>
+        
+        <!-- New Transaction Button -->
+        <button
+          v-if="globalCashStore.hasOpenGlobalCash && !isLoading"
+          @click="openTransactionModal"
           class="btn bg-primary text-white hover:bg-primary/90"
         >
-          <span class="flex items-center gap-1">
-            <LucidePlus class="h-4 w-4" />
-            Nueva Transacción
-          </span>
+          <LucidePlus class="h-4 w-4 mr-1" />
+          Nueva Transacción
+        </button>
+        
+        <!-- Close Global Cash Button -->
+        <button
+          v-if="globalCashStore.hasOpenGlobalCash && !isLoading"
+          @click="showCloseCashModal = true"
+          class="btn bg-orange-600 text-white hover:bg-orange-700"
+        >
+          <LucideLock class="h-4 w-4 mr-1" />
+          Cerrar Caja Semanal
         </button>
       </div>
     </div>
-    
-    <!-- Week Navigation -->
-    <div class="bg-white rounded-lg shadow p-4">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <button
-            @click="goToPreviousWeek"
-            :disabled="isLoading"
-            class="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <LucideChevronLeft class="h-4 w-4" />
-            Semana Anterior
-          </button>
-          
-          <div class="text-center">
-            <div class="text-sm text-gray-500">Semana actual</div>
-            <div class="text-lg font-semibold">{{ getWeekDisplayText() }}</div>
-          </div>
-          
-          <button
-            @click="goToNextWeek"
-            :disabled="isLoading"
-            class="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Semana Siguiente
-            <LucideChevronRight class="h-4 w-4" />
-          </button>
+
+    <!-- Warning Banner for Unclosed Previous Week -->
+    <div
+      v-if="previousWeekInfo.shouldWarn"
+      class="bg-amber-50 border border-amber-200 rounded-lg p-4"
+    >
+      <div class="flex items-start">
+        <LucideAlertTriangle class="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" />
+        <div class="flex-grow">
+          <h3 class="text-sm font-medium text-amber-800">
+            Caja de semana anterior sin cerrar
+          </h3>
+          <p class="text-sm text-amber-700 mt-1">
+            La caja de la semana anterior ({{ previousWeekInfo.register?.openedAt }}) 
+            aún no ha sido cerrada. Se cerrará automáticamente después de 2 días desde el lunes.
+          </p>
         </div>
-        
-        <div class="flex items-center gap-2">
-          <button
-            @click="goToCurrentWeek"
-            :disabled="isLoading"
-            class="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Semana Actual
-          </button>
-          
-          <input
-            type="date"
-            :value="currentWeekStart"
-            @change="onDateChange"
-            :disabled="isLoading"
-            class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-        </div>
+        <button
+          @click="closePreviousWeekManually"
+          class="ml-3 text-sm bg-amber-100 text-amber-800 px-3 py-1 rounded hover:bg-amber-200"
+        >
+          Cerrar Ahora
+        </button>
       </div>
     </div>
     
@@ -75,15 +71,18 @@
     </div>
     
     <!-- Dashboard Cards -->
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div v-else-if="globalCashStore.hasOpenGlobalCash" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <!-- Total Balance -->
       <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-600">Balance Total</div>
         <div 
           class="text-2xl font-bold"
-          :class="totalBalance >= 0 ? 'text-green-700' : 'text-red-700'"
+          :class="globalCashStore.netBalance >= 0 ? 'text-green-700' : 'text-red-700'"
         >
-          {{ formatCurrency(totalBalance) }}
+          {{ formatCurrency(globalCashStore.netBalance) }}
+        </div>
+        <div class="text-xs text-gray-500 mt-1">
+          Saldo neto de la semana
         </div>
       </div>
       
@@ -91,7 +90,10 @@
       <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-600">Total Ingresos</div>
         <div class="text-2xl font-bold text-green-700">
-          {{ formatCurrency(totalIncome) }}
+          {{ formatCurrency(globalCashStore.totalIncome) }}
+        </div>
+        <div class="text-xs text-gray-500 mt-1">
+          {{ globalCashStore.incomeTransactions.length }} transacciones
         </div>
       </div>
       
@@ -99,7 +101,10 @@
       <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-600">Total Egresos</div>
         <div class="text-2xl font-bold text-red-700">
-          {{ formatCurrency(totalExpense) }}
+          {{ formatCurrency(globalCashStore.totalOutcome) }}
+        </div>
+        <div class="text-xs text-gray-500 mt-1">
+          {{ globalCashStore.outcomeTransactions.length }} transacciones
         </div>
       </div>
       
@@ -107,31 +112,46 @@
       <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-600">Transacciones</div>
         <div class="text-2xl font-bold text-blue-700">
-          {{ transactions.length }}
+          {{ globalCashStore.walletTransactions.length }}
+        </div>
+        <div class="text-xs text-gray-500 mt-1">
+          Total de movimientos
         </div>
       </div>
     </div>
     
-    <!-- Payment Method Balances -->
-    <div class="bg-white rounded-lg shadow p-4">
-      <h2 class="font-semibold text-lg mb-4">Balances por Método de Pago</h2>
+    <!-- Balances by Account -->
+    <div v-if="globalCashStore.hasOpenGlobalCash" class="bg-white rounded-lg shadow p-4">
+      <h2 class="font-semibold text-lg mb-4">Balances por Cuenta</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div v-for="(amount, method) in currentBalances" :key="method" class="p-3 border rounded-md">
-          <div class="text-sm text-gray-600">{{ getPaymentMethodName(method) }}</div>
+        <div 
+          v-for="balance in Object.values(globalCashStore.currentBalances)" 
+          :key="balance.ownersAccountId" 
+          class="p-3 border rounded-md"
+        >
+          <div class="text-sm text-gray-600">{{ balance.ownersAccountName }}</div>
           <div 
             class="text-lg font-bold"
-            :class="amount >= 0 ? 'text-green-700' : 'text-red-700'"
+            :class="balance.currentAmount >= 0 ? 'text-green-700' : 'text-red-700'"
           >
-            {{ formatCurrency(amount) }}
+            {{ formatCurrency(balance.currentAmount) }}
+          </div>
+          <div class="text-xs text-gray-500 mt-1 space-y-1">
+            <div>Inicial: {{ formatCurrency(balance.openingAmount) }}</div>
+            <div 
+              :class="balance.movementAmount >= 0 ? 'text-green-600' : 'text-red-600'"
+            >
+              Movimiento: {{ balance.movementAmount >= 0 ? '+' : '' }}{{ formatCurrency(balance.movementAmount) }}
+            </div>
           </div>
         </div>
       </div>
     </div>
     
     <!-- Transactions List -->
-    <div v-if="transactions.length > 0" class="bg-white rounded-lg shadow overflow-hidden">
+    <div v-if="globalCashStore.hasOpenGlobalCash && globalCashStore.walletTransactions.length > 0" class="bg-white rounded-lg shadow overflow-hidden">
       <div class="p-4 border-b">
-        <h2 class="font-semibold text-lg">Transacciones Recientes</h2>
+        <h2 class="font-semibold text-lg">Transacciones de la Semana</h2>
       </div>
       
       <div class="overflow-x-auto">
@@ -140,91 +160,75 @@
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cuenta</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="transaction in transactions" :key="transaction.id" class="hover:bg-gray-50 transition-colors">
+            <tr v-for="transaction in globalCashStore.walletTransactions" :key="transaction.id" class="hover:bg-gray-50 transition-colors">
               <!-- Date -->
               <td class="px-4 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">
-                  {{ formatDateTime(transaction.createdAt) }}
-                </div>
-                <div class="text-xs text-gray-500">
-                  {{ formatTime(transaction.createdAt) }}
+                  {{ transaction.createdAt }}
                 </div>
               </td>
               <!-- Type -->
               <td class="px-4 py-4 whitespace-nowrap">
                 <span 
                   class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full"
-                  :class="transaction.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                  :class="transaction.type === 'Income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
                 >
                   <span 
                     class="w-1.5 h-1.5 rounded-full mr-1.5"
-                    :class="transaction.type === 'income' ? 'bg-green-400' : 'bg-red-400'"
+                    :class="transaction.type === 'Income' ? 'bg-green-400' : 'bg-red-400'"
                   ></span>
-                  {{ transaction.type === 'income' ? 'Ingreso' : 'Egreso' }}
+                  {{ transaction.type === 'Income' ? 'Ingreso' : 'Egreso' }}
                 </span>
-              </td>
-              <!-- Category -->
-              <td class="px-4 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">
-                  {{ getCategoryName(transaction.category, transaction.type) }}
-                </div>
-                <div v-if="transaction.isAutomatic" class="text-xs text-blue-600 font-medium">
-                  Automático
-                </div>
               </td>
               <!-- Description -->
               <td class="px-4 py-4 max-w-xs">
                 <div class="text-sm text-gray-900">
-                  {{ getTransactionDescription(transaction.description) }}
+                  {{ transaction.description || 'Sin descripción' }}
                 </div>
                 <div v-if="transaction.notes" class="text-xs text-gray-500 mt-1 truncate">
                   {{ transaction.notes }}
                 </div>
-                <div v-if="transaction.category === 'VENTAS_DIARIAS' && transaction.sourceRegisterId" class="mt-1">
-                  <NuxtLink 
-                    :to="`/ventas/historico?register=${transaction.sourceRegisterId}`"
-                    class="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    <PhArrowSquareOut class="w-3 h-3 mr-1" />
-                    Ver caja diaria
-                  </NuxtLink>
+                <div v-if="transaction.supplierId" class="text-xs text-blue-600 mt-1">
+                  Proveedor: {{ getSupplierName(transaction.supplierId) }}
                 </div>
               </td>
               <!-- Amount -->
               <td class="px-4 py-4 whitespace-nowrap">
                 <div 
                   class="text-sm font-bold"
-                  :class="transaction.type === 'income' ? 'text-green-600' : 'text-red-600'"
+                  :class="transaction.type === 'Income' ? 'text-green-600' : 'text-red-600'"
                 >
-                  {{ transaction.type === 'income' ? '+' : '-' }}{{ formatCurrency(transaction.amount) }}
+                  {{ transaction.type === 'Income' ? '+' : '-' }}{{ formatCurrency(transaction.amount) }}
                 </div>
               </td>
-              <!-- Payment Method -->
+              <!-- Account -->
               <td class="px-4 py-4 whitespace-nowrap">
                 <span class="text-sm text-gray-900 font-medium">
-                  {{ getPaymentMethodName(transaction.paymentMethod) }}
+                  {{ transaction.ownersAccountName }}
                 </span>
+                <div v-if="transaction.paymentMethodName" class="text-xs text-gray-500">
+                  vía {{ transaction.paymentMethodName }}
+                </div>
               </td>
               <!-- Status -->
               <td class="px-4 py-4 whitespace-nowrap">
                 <span 
                   class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full"
-                  :class="transaction.isReported ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'"
+                  :class="transaction.isRegistered ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'"
                 >
                   <span 
                     class="w-1.5 h-1.5 rounded-full mr-1.5"
-                    :class="transaction.isReported ? 'bg-blue-400' : 'bg-amber-400'"
+                    :class="transaction.isRegistered ? 'bg-blue-400' : 'bg-amber-400'"
                   ></span>
-                  {{ transaction.isReported ? 'Declarado' : 'No declarado' }}
+                  {{ transaction.isRegistered ? 'Declarado' : 'No declarado' }}
                 </span>
               </td>
               <!-- Actions -->
@@ -232,11 +236,10 @@
                 <button 
                   @click="editTransaction(transaction)"
                   class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
-                  :disabled="transaction.isAutomatic"
-                  :class="transaction.isAutomatic ? 'opacity-50 cursor-not-allowed' : ''"
+                  :disabled="false"
                 >
                   <LucideEdit class="w-3 h-3 mr-1" />
-                  {{ transaction.isAutomatic ? 'Auto' : 'Editar' }}
+                  Editar
                 </button>
               </td>
             </tr>
@@ -245,22 +248,79 @@
       </div>
     </div>
     
+    <!-- Empty State -->
+    <div v-else-if="!globalCashStore.hasOpenGlobalCash" class="bg-white rounded-lg shadow p-6 text-center">
+      <div class="mb-4 flex justify-center">
+        <LucideFileText class="w-12 h-12 text-gray-400" />
+      </div>
+      <h2 class="text-xl font-semibold mb-2">No hay caja global abierta</h2>
+      <p class="text-gray-600 mb-4">
+        Abre una nueva caja global semanal para comenzar a registrar transacciones del negocio
+      </p>
+      <button 
+        @click="showOpenCashModal = true"
+        class="btn bg-primary text-white hover:bg-primary/90"
+      >
+        Abrir Caja Semanal
+      </button>
+    </div>
+
     <!-- Empty Transactions List -->
-    <div v-else-if="transactions.length === 0" class="bg-white rounded-lg shadow p-6 text-center">
+    <div v-else-if="globalCashStore.walletTransactions.length === 0" class="bg-white rounded-lg shadow p-6 text-center">
       <div class="mb-4 flex justify-center">
         <LucideFileText class="w-12 h-12 text-gray-400" />
       </div>
       <h2 class="text-xl font-semibold mb-2">No hay transacciones</h2>
-      <p class="text-gray-600 mb-4">No se han registrado transacciones en este negocio todavía</p>
+      <p class="text-gray-600 mb-4">No se han registrado transacciones en esta caja semanal todavía</p>
       <button 
-        @click="() => {transactionToEdit = null; transactionModal.showModal()}" 
+        @click="openTransactionModal"
         class="btn bg-primary text-white hover:bg-primary/90"
       >
         Registrar Transacción
       </button>
     </div>
     
-    <GlobalCashRegisterTransaction ref="transactionModal" :transaction-to-edit="transactionToEdit" />
+    <!-- Transaction Modal -->
+    <GlobalCashTransactionModal 
+      ref="transactionModal" 
+      :transaction-to-edit="transactionToEdit"
+      @transaction-created="handleTransactionCreated"
+      @transaction-updated="handleTransactionUpdated"
+    />
+
+    <!-- Open Cash Modal (placeholder for now) -->
+    <ModalStructure 
+      v-if="showOpenCashModal"
+      title="Abrir Caja Global Semanal"
+      @on-close="showOpenCashModal = false"
+    >
+      <p class="text-gray-600 mb-4">Funcionalidad de apertura de caja en desarrollo...</p>
+      <template #footer>
+        <button 
+          @click="showOpenCashModal = false"
+          class="btn bg-gray-200 text-gray-700 hover:bg-gray-300"
+        >
+          Cerrar
+        </button>
+      </template>
+    </ModalStructure>
+
+    <!-- Close Cash Modal (placeholder for now) -->
+    <ModalStructure 
+      v-if="showCloseCashModal"
+      title="Cerrar Caja Global Semanal"
+      @on-close="showCloseCashModal = false"
+    >
+      <p class="text-gray-600 mb-4">Funcionalidad de cierre de caja en desarrollo...</p>
+      <template #footer>
+        <button 
+          @click="showCloseCashModal = false"
+          class="btn bg-gray-200 text-gray-700 hover:bg-gray-300"
+        >
+          Cerrar
+        </button>
+      </template>
+    </ModalStructure>
   </div>
 </template>
 
@@ -270,17 +330,19 @@ import LucidePlus from '~icons/lucide/plus';
 import LucideLock from '~icons/lucide/lock';
 import LucideEdit from '~icons/lucide/edit';
 import LucideFileText from '~icons/lucide/file-text';
-import LucideChevronLeft from '~icons/lucide/chevron-left';
-import LucideChevronRight from '~icons/lucide/chevron-right';
-import PhArrowSquareOut from '~icons/ph/arrow-square-out';
+import LucideAlertTriangle from '~icons/lucide/alert-triangle';
+import LucideInfo from '~icons/lucide/info';
 
-// ----- Define Component Refs ---------
+// Refs
 const transactionModal = ref(null);
 const transactionToEdit = ref(null);
+const showOpenCashModal = ref(false);
+const showCloseCashModal = ref(false);
 
-// ----- Define Store ---------
-const globalCashRegisterStore = useGlobalCashRegisterStore();
+// Stores
+const globalCashStore = useGlobalCashRegisterStore();
 const indexStore = useIndexStore();
+const supplierStore = useSupplierStore();
 
 // Check permissions
 if (!indexStore.isOwner && indexStore.getUserRole !== 'administrador') {
@@ -290,168 +352,92 @@ if (!indexStore.isOwner && indexStore.getUserRole !== 'administrador') {
   });
 }
 
-globalCashRegisterStore.loadTransactionsForWeek();
+// State
+const isLoading = ref(true);
+const previousWeekInfo = ref({ exists: false, shouldWarn: false });
 
-// ----- Import Store State ---------
-const { 
-  transactions,
-  isLoading,
-  currentBalances,
-  totalBalance,
-  currentWeekStart,
-  currentWeekEnd
-} = storeToRefs(globalCashRegisterStore);
+// Reactive state from store
+const { $dayjs } = useNuxtApp();
 
-// ----- Define Computed Values ---------
-const totalIncome = computed(() => {
-  return transactions.value
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-});
+// Methods
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2
+  }).format(amount);
+};
 
-const totalExpense = computed(() => {
-  return transactions.value
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
-});
 
-// ----- Define Methods ---------
+const getSupplierName = (supplierId) => {
+  const supplier = supplierStore.suppliers.find(s => s.id === supplierId);
+  return supplier?.name || 'Proveedor desconocido';
+};
 
-function formatDate(timestamp) {
-  if (!timestamp) return '';
-  
-  const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  }).format(date);
-}
+const openTransactionModal = () => {
+  transactionToEdit.value = null;
+  transactionModal.value?.showModal();
+};
 
-function formatDateTime(timestamp) {
-  if (!timestamp) return 'N/A';
-  
-  const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  }).format(date);
-}
-
-function formatTime(timestamp) {
-  if (!timestamp) return '';
-  
-  const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
-  return new Intl.DateTimeFormat('es-AR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).format(date);
-}
-
-function getCategoryName(category, type) {
-  // First try to get from business configuration
-  if (indexStore.businessConfig) {
-    const categoriesObject = type === 'income' 
-      ? indexStore.businessConfig.incomeCategories 
-      : indexStore.businessConfig.expenseCategories;
-    
-    if (categoriesObject && categoriesObject[category]) {
-      return categoriesObject[category].name;
-    }
-  }
-  
-  // Fallback to hardcoded mappings
-  const categoryMap = {
-    income: {
-      VENTAS: 'Ventas',
-      VENTAS_DIARIAS: 'Ventas Diarias',
-      OTROS_INGRESOS: 'Otros Ingresos',
-      sales: 'Ventas',
-      other_income: 'Otros ingresos'
-    },
-    expense: {
-      COMPRAS: 'Compras',
-      SUELDOS: 'Sueldos',
-      SERVICIOS: 'Servicios',
-      IMPUESTOS: 'Impuestos',
-      GASTOS_VARIOS: 'Gastos Varios',
-      purchases: 'Compras',
-      services: 'Servicios',
-      maintenance: 'Mantenimiento',
-      salaries: 'Sueldos',
-      misc_expenses: 'Gastos varios'
-    }
-  };
-  
-  return categoryMap[type]?.[category] || category || 'Sin categoría';
-}
-
-function getTransactionDescription(description) {
-  if (!description || description.trim() === '') {
-    return 'Sin descripción';
-  }
-  return description;
-}
-
-function getPaymentMethodName(code) {
-  // First try to get from business configuration
-  if (indexStore.businessConfig && indexStore.businessConfig.paymentMethods) {
-    const method = indexStore.businessConfig.paymentMethods[code];
-    if (method) {
-      return method.name;
-    }
-  }
-  
-  // Fallback to hardcoded mappings
-  const methodMap = {
-    "EFECTIVO": "Efectivo",
-    "SANTANDER": "Santander",
-    "MACRO": "Macro",
-    "UALA": "Ualá",
-    "MPG": "Mercado Pago",
-    "VAT": "Naranja X/Viumi",
-    "TDB": "T. Débito",
-    "TCR": "T. Crédito",
-    "TRA": "Transferencia"
-  };
-  
-  return methodMap[code] || code;
-}
-
-function editTransaction(transaction) {
+const editTransaction = (transaction) => {
   transactionToEdit.value = { ...transaction };
-  transactionModal.value.showModal();
-}
+  transactionModal.value?.showModal();
+};
 
-// ----- Week Navigation Methods ---------
-function goToPreviousWeek() {
-  globalCashRegisterStore.goToPreviousWeek();
-  globalCashRegisterStore.loadTransactionsForWeek();
-}
+const handleTransactionCreated = (transaction) => {
+  // Transaction already added to cache by modal
+  useToast(ToastEvents.success, 'Transacción creada exitosamente');
+};
 
-function goToNextWeek() {
-  globalCashRegisterStore.goToNextWeek();
-  globalCashRegisterStore.loadTransactionsForWeek();
-}
+const handleTransactionUpdated = (transaction) => {
+  // Update transaction in cache
+  globalCashStore.updateWalletTransactionInCache(transaction);
+  useToast(ToastEvents.success, 'Transacción actualizada exitosamente');
+};
 
-function goToCurrentWeek() {
-  globalCashRegisterStore.initializeCurrentWeek();
-  globalCashRegisterStore.loadTransactionsForWeek();
-}
+const closePreviousWeekManually = async () => {
+  try {
+    if (previousWeekInfo.value.register) {
+      const result = await globalCashStore.autoClosePreviousRegister(previousWeekInfo.value.register);
+      if (result.success) {
+        useToast(ToastEvents.success, 'Caja anterior cerrada exitosamente');
+        previousWeekInfo.value.shouldWarn = false;
+        previousWeekInfo.value.register = result.register;
+      } else {
+        useToast(ToastEvents.error, result.error || 'No se pudo cerrar la caja anterior');
+      }
+    }
+  } catch (error) {
+    useToast(ToastEvents.error, 'Error al cerrar la caja anterior');
+  }
+};
 
-function onDateChange(event) {
-  const selectedDate = event.target.value;
-  globalCashRegisterStore.setWeekByDate(selectedDate);
-  globalCashRegisterStore.loadTransactionsForWeek();
-}
+// Initialize page
+const initializePage = async () => {
+  try {
+    isLoading.value = true;
+    
+    // Ensure current week register exists (create if needed)
+    await globalCashStore.ensureCurrentWeekRegister();
+    
+    // Load current global cash (should be current week now)
+    await globalCashStore.loadCurrentGlobalCash();
+    
+    // Check previous week status (warnings, auto-close)
+    previousWeekInfo.value = await globalCashStore.checkPreviousWeekStatus();
+    
+    // Load suppliers for display
+    await supplierStore.fetchSuppliers();
+    
+  } catch (error) {
+    console.error('Error initializing page:', error);
+    useToast(ToastEvents.error, 'Error al cargar la caja global: ' + error.message);
+  } finally {
+    isLoading.value = false;
+  }
+};
 
-function getWeekDisplayText() {
-  return globalCashRegisterStore.getWeekDisplayText();
-}
-
-// ----- Define Lifecycle Hooks ---------
+// Lifecycle
 onMounted(async () => {
   try {
     // Double check permissions on mount
@@ -461,9 +447,9 @@ onMounted(async () => {
       return;
     }
     
-    await globalCashRegisterStore.loadTransactionsForWeek();
+    await initializePage();
   } catch (error) {
-    useToast(ToastEvents.error,'Error al cargar la caja: ' + error.message);
+    useToast(ToastEvents.error, 'Error al cargar la caja: ' + error.message);
   }
 });
 </script>

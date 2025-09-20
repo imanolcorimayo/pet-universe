@@ -185,9 +185,9 @@
                 </span>
               </td>
               <td class="px-4 py-3 text-center">
-                <div class="text-sm text-gray-900">{{ formatDate(debt.createdAt) }}</div>
+                <div class="text-sm text-gray-900">{{ debt.createdAt }}</div>
                 <div v-if="debt.dueDate" class="text-xs text-gray-500">
-                  Vence: {{ formatDate(debt.dueDate) }}
+                  Vence: {{ debt.dueDate }}
                 </div>
               </td>
               <td class="px-4 py-3 text-center">
@@ -372,11 +372,6 @@ function formatNumber(value) {
   return Number(value || 0).toFixed(2);
 }
 
-function formatDate(date) {
-  if (!date) return 'N/A';
-  const { $dayjs } = useNuxtApp();
-  return $dayjs(date.toDate ? date.toDate() : date).format('DD/MM/YYYY');
-}
 
 function formatRelativeDate(date) {
   if (!date) return 'N/A';

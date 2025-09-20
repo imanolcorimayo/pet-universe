@@ -373,16 +373,19 @@ export class BusinessRulesEngine {
    * - AccountType indicates where money comes from
    * - All expenses go to global register (not daily cash)
    */
-  async processGenericExpense(data: GenericExpenseData): Promise<BusinessRuleResult> {
+  async processGenericExpense(data: GenericExpenseData & { globalCashId?: string }): Promise<BusinessRuleResult> {
     const warnings: string[] = [];
 
     try {
-      // 1. Get the current global cash register ID
-      const globalCashIdResult = await this.getCurrentGlobalCashId();
-      if (!globalCashIdResult.success) {
-        return { success: false, error: globalCashIdResult.error };
+      // 1. Use provided globalCashId or get the current global cash register ID
+      let globalCashId = data.globalCashId;
+      if (!globalCashId) {
+        const globalCashIdResult = await this.getCurrentGlobalCashId();
+        if (!globalCashIdResult.success) {
+          return { success: false, error: globalCashIdResult.error };
+        }
+        globalCashId = globalCashIdResult.data;
       }
-      const globalCashId = globalCashIdResult.data;
 
       // 2. Generate a unique reference ID for this expense transaction
       const expenseReferenceId = `expense_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -518,9 +521,6 @@ export class BusinessRulesEngine {
     try {
       // Find the currently open global cash register (where closedAt is null)
       const openGlobalCashResult = await this.globalCashSchema.find({
-        where: [
-          { field: 'closedAt', operator: '==', value: null }
-        ],
         orderBy: [{ field: 'openedAt', direction: 'desc' }],
         limit: 1
       });

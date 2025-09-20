@@ -9,7 +9,7 @@
         <div class="mb-6">
           <div class="flex justify-between items-start">
             <div>
-              <h2 class="text-lg font-medium">Caja del {{ formatDate(register.openingDate) }}</h2>
+              <h2 class="text-lg font-medium">Caja del {{ register.openingDate }}</h2>
               <p class="text-sm text-gray-500 mt-1">
                 <span>Abierta por {{ register.openedByName }}</span>
                 <span v-if="register.closedAt"> • Cerrada por {{ register.closedByName }}</span>
@@ -299,18 +299,6 @@ const activeTab = ref('summary');
 const transactions = ref([]);
 
 // ----- Define Methods ---------
-function formatDate(timestamp) {
-  if (!timestamp) return '';
-  
-  const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date);
-}
 
 function getPaymentMethodName(code) {
   return indexStore.businessConfig?.paymentMethods?.[code]?.name || code;

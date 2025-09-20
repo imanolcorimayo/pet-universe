@@ -30,7 +30,7 @@
                   <strong>Tipo:</strong> {{ getInvoiceTypeLabel(invoice.invoiceType) }}
                 </p>
                 <p v-if="invoice.invoiceDate" class="text-sm text-gray-600">
-                  <strong>Fecha:</strong> {{ formatDate(invoice.invoiceDate) }}
+                  <strong>Fecha:</strong> {{ invoice.invoiceDate }}
                 </p>
               </div>
             </div>
@@ -200,11 +200,6 @@ function formatCurrency(value) {
   }).format(value || 0);
 }
 
-function formatDate(dateString) {
-  if (!dateString) return '';
-  const { $dayjs } = useNuxtApp();
-  return $dayjs(dateString).format('DD/MM/YYYY');
-}
 
 function getInvoiceTypeLabel(type) {
   const types = {

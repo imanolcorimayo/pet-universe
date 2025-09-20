@@ -149,10 +149,10 @@ export class GlobalCashSchema extends Schema {
     // Validate that opening balances include main account types
     if (data.openingBalances && Array.isArray(data.openingBalances)) {
       const requiredAccountTypes = ['EFECTIVO']; // At minimum, must have cash
-      const presentAccountTypes = data.openingBalances.map((balance: any) => balance.ownersAccountId);
+      const presentAccountTypes = data.openingBalances.map((balance: any) => balance.ownersAccountName);
       
       for (const requiredType of requiredAccountTypes) {
-        if (!presentAccountTypes.includes(requiredType)) {
+        if (!presentAccountTypes.includes(requiredType.toLowerCase())) {
           errors.push({
             field: 'openingBalances',
             message: `Opening balances must include ${requiredType} account`

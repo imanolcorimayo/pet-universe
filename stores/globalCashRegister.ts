@@ -116,7 +116,41 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
           ownersAccountName: opening.ownersAccountName,
           amount: opening.amount + (state.calculatedBalances[opening.ownersAccountId] || 0)
         })) : []
-    })
+    }),
+
+    // Get current balances (opening + movements) for display
+    currentBalances: (state) => {
+      const balances = {};
+      
+      // Start with opening balances
+      if (state.currentGlobalCash?.openingBalances) {
+        state.currentGlobalCash.openingBalances.forEach(opening => {
+          balances[opening.ownersAccountId] = {
+            ownersAccountId: opening.ownersAccountId,
+            ownersAccountName: opening.ownersAccountName,
+            openingAmount: opening.amount,
+            movementAmount: state.calculatedBalances[opening.ownersAccountId] || 0,
+            currentAmount: opening.amount + (state.calculatedBalances[opening.ownersAccountId] || 0)
+          };
+        });
+      }
+      
+      // Add any accounts that have movements but no opening balance
+      Object.keys(state.calculatedBalances).forEach(accountId => {
+        if (!balances[accountId]) {
+          // This shouldn't happen normally but handle gracefully
+          balances[accountId] = {
+            ownersAccountId: accountId,
+            ownersAccountName: 'Cuenta Desconocida',
+            openingAmount: 0,
+            movementAmount: state.calculatedBalances[accountId],
+            currentAmount: state.calculatedBalances[accountId]
+          };
+        }
+      });
+      
+      return balances;
+    }
   },
 
   actions: {
@@ -125,10 +159,16 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     async loadCurrentGlobalCash() {
       this.isLoading = true;
       try {
+        const currentWeekStart = this.getCurrentWeekStartDate();
+        const { $dayjs } = useNuxtApp();
         const schema = new GlobalCashSchema();
+        
+        // Look for current week's register specifically
         const result = await schema.find({
-          where: [{ field: 'closedAt', operator: '==', value: null }],
-          orderBy: [{ field: 'openedAt', direction: 'desc' }],
+          where: [
+            { field: 'openedAt', operator: '>=', value: $dayjs(currentWeekStart).startOf('day').toDate() },
+            { field: 'openedAt', operator: '<', value: $dayjs(currentWeekStart).add(7, 'day').startOf('day').toDate() }
+          ],
           limit: 1
         });
         
@@ -413,6 +453,246 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         walletTransactions: this.walletTransactions,
         isOpen: this.hasOpenGlobalCash
       };
+    },
+
+    // --- SIMPLIFIED WEEKLY REGISTER MANAGEMENT ---
+
+    /**
+     * Get the start date of current week (Monday)
+     */
+    getCurrentWeekStartDate(date = new Date()) {
+      const { $dayjs } = useNuxtApp();
+      const dayOfWeek = $dayjs(date).day(); // 0 = Sunday, 1 = Monday, etc.
+      const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Get Monday
+      return $dayjs(date).subtract(daysToSubtract, 'day').startOf('day').toDate();
+    },
+
+    /**
+     * Get the start date of previous week (Monday)
+     */
+    getPreviousWeekStartDate(date = new Date()) {
+      const { $dayjs } = useNuxtApp();
+      const currentWeekStart = this.getCurrentWeekStartDate(date);
+      return $dayjs(currentWeekStart).subtract(7, 'day').toDate();
+    },
+
+    /**
+     * Ensure current week register exists, create if needed
+     */
+    async ensureCurrentWeekRegister() {
+      try {
+        const currentWeekStart = this.getCurrentWeekStartDate();
+        const { $dayjs } = useNuxtApp();
+        
+        // Check if current week register exists
+        const schema = new GlobalCashSchema();
+        const currentRegister = await schema.find({
+          where: [
+            { field: 'openedAt', operator: '>=', value: $dayjs(currentWeekStart).startOf('day').toDate() },
+            { field: 'openedAt', operator: '<', value: $dayjs(currentWeekStart).add(7, 'day').startOf('day').toDate() }
+          ],
+          limit: 1
+        });
+
+        if (currentRegister.success && currentRegister.data && currentRegister.data.length > 0) {
+          return { exists: true, register: currentRegister.data[0] };
+        }
+
+        // Get opening balances from previous week's closing (or 0 if none)
+        const previousWeekStart = this.getPreviousWeekStartDate();
+        const previousRegister = await schema.find({
+          where: [
+            { field: 'openedAt', operator: '>=', value: $dayjs(previousWeekStart).startOf('day').toDate() },
+            { field: 'openedAt', operator: '<', value: $dayjs(previousWeekStart).add(7, 'day').startOf('day').toDate() }
+          ],
+          limit: 1
+        });
+
+        let openingBalances = [];
+        if (previousRegister.success && previousRegister.data && previousRegister.data.length > 0) {
+          const prevReg = previousRegister.data[0];
+          if (prevReg.closingBalances) {
+            // Use previous week's closing balances
+            openingBalances = prevReg.closingBalances;
+          } else {
+            // Previous week not closed, use opening balances
+            openingBalances = prevReg.openingBalances || [];
+          }
+        } else {
+          // No previous register, start with 0 balances for all active accounts
+          const paymentMethodsStore = usePaymentMethodsStore();
+          await paymentMethodsStore.loadAllData();
+          const activeOwnersAccounts = paymentMethodsStore.activeOwnersAccounts;
+
+          if (activeOwnersAccounts) {
+            openingBalances = activeOwnersAccounts.map(account => ({
+              ownersAccountId: account.id,
+              ownersAccountName: account.name,
+              amount: 0
+            }));
+          }
+        }
+
+        // Create current week register
+        const user = useCurrentUser();
+        if (!user.value?.uid) {
+          throw new Error('User not authenticated');
+        }
+
+        const result = await schema.create({
+          openingBalances,
+          createdAt: currentWeekStart,
+          createdBy: user.value.uid,
+          createdByName: 'Sistema (Automático)',
+          openedAt: currentWeekStart,
+          openedBy: user.value.uid,
+          openedByName: 'Sistema (Automático)'
+        });
+
+        if (result.success) {
+          return { 
+            exists: false, 
+            created: true, 
+            register: { id: result.data?.id, ...result.data } 
+          };
+        } else {
+          throw new Error(result.error);
+        }
+
+      } catch (error) {
+        console.error('Error ensuring current week register:', error);
+        return { 
+          exists: false, 
+          created: false, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        };
+      }
+    },
+
+    /**
+     * Check previous week register status and handle warnings/auto-close
+     */
+    async checkPreviousWeekStatus() {
+      try {
+        const { $dayjs } = useNuxtApp();
+        const now = $dayjs();
+        const currentWeekStart = this.getCurrentWeekStartDate();
+        const previousWeekStart = this.getPreviousWeekStartDate();
+        const daysSinceMonday = now.diff($dayjs(currentWeekStart), 'day');
+
+        // Get previous week register
+        const schema = new GlobalCashSchema();
+        const previousRegister = await schema.find({
+          where: [
+            { field: 'openedAt', operator: '>=', value: $dayjs(previousWeekStart).startOf('day').toDate() },
+            { field: 'openedAt', operator: '<', value: $dayjs(previousWeekStart).add(7, 'day').startOf('day').toDate() }
+          ],
+          limit: 1
+        });
+
+        if (!previousRegister.success || !previousRegister.data || previousRegister.data.length === 0) {
+          return { exists: false, shouldWarn: false, shouldAutoClose: false };
+        }
+
+        const register = previousRegister.data[0];
+        const isUnclosed = !register.closedAt;
+
+        if (!isUnclosed) {
+          return { exists: true, register, shouldWarn: false, shouldAutoClose: false };
+        }
+
+        // Register exists but is unclosed
+        const shouldWarn = daysSinceMonday <= 2; // Show warning within 2 days of Monday
+        const shouldAutoClose = daysSinceMonday > 2; // Auto-close after 2 days
+
+        let result = {
+          exists: true,
+          register,
+          shouldWarn,
+          shouldAutoClose,
+          daysSinceMonday,
+          weekStartDate: currentWeekStart
+        };
+
+        // Auto-close if needed
+        if (shouldAutoClose) {
+          const autoCloseResult = await this.autoClosePreviousRegister(register);
+          result.autoClosed = autoCloseResult.success;
+          if (autoCloseResult.success) {
+            result.register = autoCloseResult.register;
+            result.shouldWarn = false;
+          }
+        }
+
+        return result;
+      } catch (error) {
+        console.error('Error checking previous week status:', error);
+        return { exists: false, shouldWarn: false, shouldAutoClose: false, error: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    },
+
+    /**
+     * Auto-close a register with calculated balances
+     */
+    async autoClosePreviousRegister(register) {
+      try {
+        const { $dayjs } = useNuxtApp();
+        
+        // Calculate closing balances from wallet transactions
+        const walletSchema = new WalletSchema();
+        const walletTransactions = await walletSchema.find({
+          where: [{ field: 'globalCashId', operator: '==', value: register.id }]
+        });
+
+        let calculatedBalances = {};
+        if (walletTransactions.success && walletTransactions.data) {
+          walletTransactions.data.forEach(transaction => {
+            const accountId = transaction.ownersAccountId;
+            if (!calculatedBalances[accountId]) {
+              calculatedBalances[accountId] = 0;
+            }
+            
+            if (transaction.type === 'Income') {
+              calculatedBalances[accountId] += transaction.amount;
+            } else if (transaction.type === 'Outcome') {
+              calculatedBalances[accountId] -= transaction.amount;
+            }
+          });
+        }
+
+        // Calculate closing balances
+        const closingBalances = register.openingBalances.map(opening => ({
+          ownersAccountId: opening.ownersAccountId,
+          ownersAccountName: opening.ownersAccountName,
+          amount: opening.amount + (calculatedBalances[opening.ownersAccountId] || 0)
+        }));
+
+        // Close register
+        const user = useCurrentUser();
+        const schema = new GlobalCashSchema();
+        const result = await schema.update(register.id, {
+          closingBalances,
+          differences: [], // No differences since we're using calculated balances
+          closedAt: $dayjs().toDate(),
+          closedBy: user.value?.uid || 'system',
+          closedByName: 'Sistema (Cierre Automático)'
+        });
+
+        if (result.success) {
+          return {
+            success: true,
+            register: { ...register, closingBalances, closedAt: $dayjs().toDate() }
+          };
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (error) {
+        console.error('Error auto-closing register:', error);
+        return { 
+          success: false, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        };
+      }
     }
   }
 });

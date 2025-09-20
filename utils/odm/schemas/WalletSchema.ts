@@ -46,37 +46,37 @@ export class WalletSchema extends Schema {
       required: false,
       referenceTo: 'supplier'
     },
-    paymentTypeId: {
-      type: 'string',
-      required: true,
-      minLength: 1,
-      maxLength: 50
-    },
-    paymentTypeName: {
-      type: 'string',
-      required: true,
-      minLength: 1,
-      maxLength: 100
-    },
     paymentMethodId: {
       type: 'string',
-      required: true,
+      required: false,
       minLength: 1,
       maxLength: 50
     },
     paymentMethodName: {
       type: 'string',
-      required: true,
+      required: false,
       minLength: 1,
       maxLength: 100
     },
-    accountTypeId: {
+    paymentProviderId: {
+      type: 'string',
+      required: false,
+      minLength: 1,
+      maxLength: 50
+    },
+    paymentProviderName: {
+      type: 'string',
+      required: false,
+      minLength: 1,
+      maxLength: 100
+    },
+    ownersAccountId: {
       type: 'string',
       required: true,
       minLength: 1,
       maxLength: 50
     },
-    accountTypeName: {
+    ownersAccountName: {
       type: 'string',
       required: true,
       minLength: 1,
@@ -189,41 +189,22 @@ export class WalletSchema extends Schema {
   private validateWalletData(data: any): ValidationResult {
     const errors: any[] = [];
 
-    // Validate that at least one reference exists (sale, debt, settlement, or purchaseInvoice)
-    const references = [data.saleId, data.debtId, data.settlementId, data.purchaseInvoiceId];
-    const hasReference = references.some(ref => ref && ref.trim() !== '');
-    
-    if (!hasReference) {
-      errors.push({
-        field: 'references',
-        message: 'Wallet transaction must reference at least one entity (sale, debt, settlement, or purchase invoice)'
-      });
+    // Validate payment method consistency
+    const paymentMethodValidation = this.validatePaymentMethod(data);
+    if (!paymentMethodValidation.valid) {
+      errors.push(...paymentMethodValidation.errors);
     }
 
-    // Validate payment type consistency
-    const paymentTypeValidation = this.validatePaymentTypes(data);
-    if (!paymentTypeValidation.valid) {
-      errors.push(...paymentTypeValidation.errors);
+    // Validate owners account consistency
+    const ownersAccountValidation = this.validateOwnersAccount(data);
+    if (!ownersAccountValidation.valid) {
+      errors.push(...ownersAccountValidation.errors);
     }
 
-    // Business rule: Income types should come from sales or debt payments
-    if (data.type === 'Income') {
-      if (!data.saleId && !data.debtId) {
-        errors.push({
-          field: 'type',
-          message: 'Income transactions must be associated with a sale or debt payment'
-        });
-      }
-    }
-
-    // Business rule: Outcome types should come from purchases or supplier debts
-    if (data.type === 'Outcome') {
-      if (!data.purchaseInvoiceId && !data.supplierId) {
-        errors.push({
-          field: 'type',
-          message: 'Outcome transactions must be associated with a purchase invoice or supplier'
-        });
-      }
+    // Validate payment provider consistency
+    const providerValidation = this.validatePaymentProvider(data);
+    if (!providerValidation.valid) {
+      errors.push(...providerValidation.errors);
     }
 
     return {
@@ -233,39 +214,141 @@ export class WalletSchema extends Schema {
   }
 
   /**
-   * Validate payment method consistency
+   * Validate payment method consistency (only when payment method is provided)
    */
-  private validatePaymentTypes(data: any): ValidationResult {
+  private validatePaymentMethod(data: any): ValidationResult {
+    const errors: any[] = [];
+
+    // Payment method validation is only required for Income transactions or when explicitly provided
+    if (!data.paymentMethodId && data.type === 'Outcome') {
+      return { valid: true, errors: [] };
+    }
+
+    // If payment method ID is provided, validate it
+    if (data.paymentMethodId) {
+      try {
+        const paymentMethodStore = usePaymentMethodsStore();
+        const method = paymentMethodStore.getPaymentMethodById(data.paymentMethodId);
+
+        if (!method) {
+          errors.push({
+            field: 'paymentMethodId',
+            message: `Payment method '${data.paymentMethodId}' not found`
+          });
+        } else if (!method.isActive) {
+          errors.push({
+            field: 'paymentMethodId',
+            message: `Payment method '${method.name}' is not currently active`
+          });
+        }
+
+        // Validate that payment method name matches
+        if (method && data.paymentMethodName !== method.name) {
+          errors.push({
+            field: 'paymentMethodName',
+            message: `Payment method name mismatch. Expected: ${method.name}, Got: ${data.paymentMethodName}`
+          });
+        }
+      } catch (error) {
+        errors.push({
+          field: 'paymentMethod',
+          message: `Failed to validate payment method: ${error}`
+        });
+      }
+    } else if (data.type === 'Income') {
+      // For Income transactions, payment method is required
+      errors.push({
+        field: 'paymentMethodId',
+        message: 'Payment method is required for Income transactions'
+      });
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Validate owners account consistency
+   */
+  private validateOwnersAccount(data: any): ValidationResult {
     const errors: any[] = [];
 
     try {
-      const indexStore = useIndexStore();
-      const paymentMethods = indexStore.getActivePaymentMethods;
-      const method = paymentMethods[data.paymentMethodId];
+      const paymentMethodsStore = usePaymentMethodsStore();
+      const account = paymentMethodsStore.getOwnersAccountById(data.ownersAccountId);
 
-      if (!method) {
+      if (!account) {
         errors.push({
-          field: 'paymentMethodId',
-          message: `Payment method '${data.paymentMethodId}' not found`
+          field: 'ownersAccountId',
+          message: `Owners account '${data.ownersAccountId}' not found`
         });
-      } else if (!method.active) {
+      } else if (!account.isActive) {
         errors.push({
-          field: 'paymentMethodId',
-          message: `Payment method '${method.name}' is not currently active`
+          field: 'ownersAccountId',
+          message: `Owners account '${account.name}' is not currently active`
         });
       }
 
-      // Validate that payment method name matches
-      if (method && data.paymentMethodName !== method.name) {
+      // Validate that owners account name matches
+      if (account && data.ownersAccountName !== account.name) {
         errors.push({
-          field: 'paymentMethodName',
-          message: `Payment method name mismatch. Expected: ${method.name}, Got: ${data.paymentMethodName}`
+          field: 'ownersAccountName',
+          message: `Owners account name mismatch. Expected: ${account.name}, Got: ${data.ownersAccountName}`
         });
       }
     } catch (error) {
       errors.push({
-        field: 'paymentMethod',
-        message: `Failed to validate payment method: ${error}`
+        field: 'ownersAccount',
+        message: `Failed to validate owners account: ${error}`
+      });
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Validate payment provider consistency (optional field)
+   */
+  private validatePaymentProvider(data: any): ValidationResult {
+    const errors: any[] = [];
+
+    // Payment provider is optional
+    if (!data.paymentProviderId) {
+      return { valid: true, errors: [] };
+    }
+
+    try {
+      const paymentMethodsStore = usePaymentMethodsStore();
+      const provider = paymentMethodsStore.getPaymentProviderById(data.paymentProviderId);
+
+      if (!provider) {
+        errors.push({
+          field: 'paymentProviderId',
+          message: `Payment provider '${data.paymentProviderId}' not found`
+        });
+      } else if (!provider.isActive) {
+        errors.push({
+          field: 'paymentProviderId',
+          message: `Payment provider '${provider.name}' is not currently active`
+        });
+      }
+
+      // Validate that payment provider name matches
+      if (provider && data.paymentProviderName !== provider.name) {
+        errors.push({
+          field: 'paymentProviderName',
+          message: `Payment provider name mismatch. Expected: ${provider.name}, Got: ${data.paymentProviderName}`
+        });
+      }
+    } catch (error) {
+      errors.push({
+        field: 'paymentProvider',
+        message: `Failed to validate payment provider: ${error}`
       });
     }
 

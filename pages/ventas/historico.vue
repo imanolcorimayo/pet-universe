@@ -75,7 +75,7 @@
             <tr v-for="register in registerHistory" :key="register.id" class="hover:bg-gray-50 transition-colors">
               <td class="px-4 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">
-                  {{ formatDate(register.openingDate) }}
+                  {{ register.openingDate }}
                 </div>
                 <div v-if="register.closedAt" class="text-xs text-gray-500">
                   Cerrada: {{ formatTime(register.closedAt) }}
@@ -197,16 +197,6 @@ const filters = ref({
 });
 
 // ----- Define Methods ---------
-function formatDate(timestamp) {
-  if (!timestamp) return '';
-  
-  const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  }).format(date);
-}
 
 function formatTime(timestamp) {
   if (!timestamp) return '';

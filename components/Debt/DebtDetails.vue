@@ -31,7 +31,7 @@
           </div>
           <div>
             <p class="text-sm text-gray-600">Fecha de creación</p>
-            <p class="font-medium">{{ formatDate(debt.createdAt) }}</p>
+            <p class="font-medium">{{ debt.createdAt }}</p>
           </div>
           <div>
             <p class="text-sm text-gray-600">Monto original</p>
@@ -50,7 +50,7 @@
           </div>
           <div v-if="debt.dueDate">
             <p class="text-sm text-gray-600">Fecha de vencimiento</p>
-            <p class="font-medium">{{ formatDate(debt.dueDate) }}</p>
+            <p class="font-medium">{{ debt.dueDate }}</p>
           </div>
           <div>
             <p class="text-sm text-gray-600">Creado por</p>
@@ -58,7 +58,7 @@
           </div>
           <div v-if="debt.paidAt">
             <p class="text-sm text-gray-600">Fecha de pago completo</p>
-            <p class="font-medium">{{ formatDate(debt.paidAt) }}</p>
+            <p class="font-medium">{{ debt.paidAt }}</p>
           </div>
         </div>
         
@@ -70,7 +70,7 @@
         <div v-if="debt.status === 'cancelled'" class="mt-4 p-3 bg-red-50 rounded border border-red-200">
           <p class="text-sm font-medium text-red-800">Deuda Cancelada</p>
           <p class="text-sm text-red-600">Motivo: {{ debt.cancelReason }}</p>
-          <p class="text-xs text-red-500">Cancelada el {{ formatDate(debt.cancelledAt) }}</p>
+          <p class="text-xs text-red-500">Cancelada el {{ debt.cancelledAt }}</p>
         </div>
       </div>
 
@@ -123,7 +123,7 @@
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="payment in payments" :key="payment.id" class="hover:bg-gray-50">
                 <td class="px-4 py-3 text-sm text-gray-900">
-                  {{ formatDate(payment.createdAt) }}
+                  {{ payment.createdAt }}
                 </td>
                 <td class="px-4 py-3 text-sm font-medium text-green-600 text-right">
                   ${{ formatNumber(payment.amount) }}
@@ -309,11 +309,6 @@ function formatNumber(value) {
   return Number(value || 0).toFixed(2);
 }
 
-function formatDate(date) {
-  if (!date) return 'N/A';
-  const { $dayjs } = useNuxtApp();
-  return $dayjs(date.toDate ? date.toDate() : date).format('DD/MM/YYYY HH:mm');
-}
 
 function formatSalesRegisterId(salesRegisterId) {
   return salesRegisterId.substring(0, 8);

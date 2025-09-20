@@ -104,15 +104,6 @@ interface EmployeeInfo {
 
 // -------------- Configuration Interfaces --------------
 
-interface PaymentMethod {
-  name: string;
-  type: 'cash' | 'transfer' | 'posnet';
-  active: boolean;
-  isDefault?: boolean;
-  targetAccountId: string; // Where this payment method routes money
-}
-
-
 interface Category {
   name: string;
   active: boolean;
@@ -122,7 +113,6 @@ interface Category {
 interface BusinessConfig {
   id: string;
   businessId: string;
-  paymentMethods: Record<string, PaymentMethod>;
   incomeCategories: Record<string, Category>;
   expenseCategories: Record<string, Category>;
   createdAt: any;
@@ -166,28 +156,6 @@ export const useIndexStore = defineStore("index", {
 
     // ----------- Configuration Getters
     getBusinessConfig: (state): BusinessConfig | null => state.businessConfig,
-    getActivePaymentMethods: (state): Record<string, PaymentMethod> => {
-      if (!state.businessConfig) return {};
-      
-      const result: Record<string, PaymentMethod> = {};
-      Object.entries(state.businessConfig.paymentMethods).forEach(([code, method]) => {
-        if (method.active) {
-          result[code] = method;
-        }
-      });
-      return result;
-    },
-    getPaymentMethodsByType: (state) => (type: 'cash' | 'transfer' | 'posnet') => {
-      if (!state.businessConfig) return {};
-      
-      const result: Record<string, PaymentMethod> = {};
-      Object.entries(state.businessConfig.paymentMethods).forEach(([code, method]) => {
-        if (method.active && method.type === type) {
-          result[code] = method;
-        }
-      });
-      return result;
-    },
     getActiveIncomeCategories: (state): Record<string, Category> => {
       if (!state.businessConfig) return {};
       
@@ -1027,9 +995,6 @@ export const useIndexStore = defineStore("index", {
       if (!isLoggedIn || !hasActiveBusiness || !user.value) return false;
       
       try {
-        // Default payment methods (deprecated - now managed by paymentMethodsStore)
-        const defaultPaymentMethods: Record<string, PaymentMethod> = {};
-        
         // Default income categories
         const defaultIncomeCategories: Record<string, Category> = {
           "ventas": { name: "Ventas", active: true, isDefault: true },
@@ -1047,7 +1012,6 @@ export const useIndexStore = defineStore("index", {
         
         const configData = {
           businessId: currentBusinessId.value,
-          paymentMethods: defaultPaymentMethods,
           incomeCategories: defaultIncomeCategories,
           expenseCategories: defaultExpenseCategories,
           createdAt: serverTimestamp(),
@@ -1072,9 +1036,6 @@ export const useIndexStore = defineStore("index", {
         return false;
       }
     },
-    
-    // Payment methods are now managed by paymentMethodsStore
-    
     
     async updateCategory(type: 'income' | 'expense', code: string, data: Category): Promise<boolean> {
       const db = useFirestore();
@@ -1220,8 +1181,6 @@ export const useIndexStore = defineStore("index", {
         useToast(ToastEvents.error, 'Error al eliminar la categoría');
         return false;
       }
-    },
-
-    // Account types are now managed by paymentMethodsStore (as ownersAccounts)
+    }
   }
 });

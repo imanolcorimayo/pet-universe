@@ -227,24 +227,22 @@ export class SettlementSchema extends Schema {
     const errors: any[] = [];
 
     try {
-      const indexStore = useIndexStore();
-      const paymentMethods = indexStore.getActivePaymentMethods;
-      const method = paymentMethods[paymentMethodId];
+      const paymentMethodsStore = usePaymentMethodsStore();
+      const method = paymentMethodsStore.getPaymentMethodById(paymentMethodId);
 
       if (!method) {
         errors.push({
           field: 'paymentMethodId',
           message: `Payment method '${paymentMethodId}' not found`
         });
-      } else if (!method.active) {
+      } else if (!method.isActive) {
         errors.push({
           field: 'paymentMethodId',
           message: `Payment method '${method.name}' is not currently active`
         });
       } else {
-        // Check if payment method is postnet-compatible (card-based)
-        const postnetMethods = ['TDB', 'TCR', 'VAT', 'MPG']; // Debit, Credit, Naranja, MercadoPago
-        if (!postnetMethods.includes(paymentMethodId)) {
+        // Check if payment method requires settlement processing (uses needsProvider flag)
+        if (!method.needsProvider) {
           errors.push({
             field: 'paymentMethodId',
             message: `Payment method '${method.name}' is not compatible with settlement processing`

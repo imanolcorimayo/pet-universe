@@ -234,6 +234,7 @@ function populateForm() {
   foodPreferencesInput.value = formData.value.foodPreferences.join(', ');
 }
 
+// TODO: Remove this function once PetSchema is implemented in the 'pet' collection
 function formatDateForInput(date) {
   if (!date) return '';
   if (date instanceof Date) {

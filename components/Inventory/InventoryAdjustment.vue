@@ -409,9 +409,9 @@
                 -- Seleccione un método de pago --
               </option>
               <option 
-                v-for="(method, code) in indexStore.getActivePaymentMethods" 
-                :key="code" 
-                :value="code"
+                v-for="method in paymentMethodsStore.activePaymentMethods" 
+                :key="method.id" 
+                :value="method.id"
               >
                 {{ method.name }}
               </option>
@@ -642,6 +642,7 @@ const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 const suppliersStore = useSupplierStore();
 const globalCashRegisterStore = useGlobalCashRegisterStore();
+const paymentMethodsStore = usePaymentMethodsStore();
 const indexStore = useIndexStore();
 const loading = ref(false);
 const isSubmitting = ref(false);

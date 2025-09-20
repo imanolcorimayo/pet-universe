@@ -14,7 +14,7 @@
         <div>
           <h3 class="font-medium text-lg">Venta #{{ sale.saleNumber }}</h3>
           <p class="text-gray-600 text-sm">
-            {{ formatDate(sale.createdAt) }}
+            {{ sale.createdAt }}
           </p>
         </div>
         <div class="flex flex-col items-end">
@@ -136,18 +136,6 @@ const modalRef = ref(null);
 const indexStore = useIndexStore();
 
 // Methods
-function formatDate(timestamp) {
-  if (!timestamp) return '';
-  
-  const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date);
-}
 
 function getPaymentMethodName(code) {
   return indexStore.businessConfig?.paymentMethods?.[code]?.name || code;

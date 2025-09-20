@@ -361,9 +361,9 @@
                 -- Seleccione un método de pago --
               </option>
               <option 
-                v-for="(method, code) in indexStore.getActivePaymentMethods" 
-                :key="code" 
-                :value="code"
+                v-for="method in paymentMethodsStore.activePaymentMethods" 
+                :key="method.id" 
+                :value="method.id"
               >
                 {{ method.name }}
               </option>
@@ -511,6 +511,7 @@ const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 const suppliersStore = useSupplierStore();
 const globalCashRegisterStore = useGlobalCashRegisterStore();
+const paymentMethodsStore = usePaymentMethodsStore();
 const indexStore = useIndexStore();
 const purchaseInvoiceStore = usePurchaseInvoiceStore();
 const loading = ref(false);
@@ -542,7 +543,7 @@ const additionalCharges = ref(0);
 // Watch for payment method changes to automatically set isReported
 watch(paymentMethod, (newPaymentMethod) => {
   if (newPaymentMethod) {
-    const paymentMethodData = indexStore.getActivePaymentMethods[newPaymentMethod];
+    const paymentMethodData = paymentMethodsStore.getPaymentMethodById(newPaymentMethod);
     if (paymentMethodData) {
       // Set isReported to false if payment method is cash (EFECTIVO), true otherwise
       isReported.value = paymentMethodData.type !== 'cash';

@@ -509,6 +509,7 @@ function formatDateForInput(date) {
   return '';
 }
 
+// TODO: Remove this function once ClientSchema is implemented in the 'client' collection
 function formatDate(date) {
   if (!date) return '';
   return $dayjs(date).format('DD/MM/YYYY');

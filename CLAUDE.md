@@ -15,6 +15,14 @@ Pet shop management system with dual cash register approach: global business reg
 - **MANDATORY**: Always use `$dayjs` for date operations instead of `new Date()` - retrieve it with `const { $dayjs } = useNuxtApp()`
 - **MANDATORY**: When working with dates from ODM schemas, use format `'DD/MM/YYYY'` since schemas auto-format dates: `$dayjs(dateValue, 'DD/MM/YYYY')`
 
+## Date Formatting Guidelines
+- **Schema-backed Collections**: Never create custom `formatDate` functions for data from collections with ODM schemas
+- **ODM Schemas**: Automatically format dates to `'DD/MM/YYYY HH:mm'` format (see line 251 in `utils/odm/schema.ts`)
+- **Display**: Directly use date fields in templates: `{{ record.createdAt }}` instead of `{{ formatDate(record.createdAt) }}`
+- **Non-schema Collections**: Only use `formatDate` functions for collections without schema support
+- **Edge Case**: When schema has not been implemented, add comment: `// TODO: Remove this function once [Collection]Schema is implemented in the '[collection]' collection`
+- **Consistency**: This ensures consistent date formatting across the entire application
+
 ## Code Architecture
 
 #### Package JSON scripts and dependencies

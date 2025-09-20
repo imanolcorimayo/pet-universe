@@ -14,7 +14,7 @@
           <div class="bg-gray-50 rounded-lg p-4">
             <h3 class="font-semibold text-gray-900 mb-2">Información General</h3>
             <div class="space-y-2 text-sm">
-              <div><span class="font-medium">Fecha:</span> {{ formatDate(register.openingDate) }}</div>
+              <div><span class="font-medium">Fecha:</span> {{ register.openingDate }}</div>
               <div><span class="font-medium">Abierta por:</span> {{ register.openedByName }}</div>
               <div><span class="font-medium">Cerrada por:</span> {{ register.closedByName || 'No cerrada' }}</div>
               <div>
@@ -302,18 +302,6 @@ const expenses = ref([]);
 const indexStore = useIndexStore();
 
 // ----- Define Methods ---------
-function formatDate(timestamp) {
-  if (!timestamp) return '';
-  
-  const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date);
-}
 
 function formatTime(timestamp) {
   if (!timestamp) return '';
