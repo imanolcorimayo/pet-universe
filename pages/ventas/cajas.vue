@@ -104,16 +104,6 @@
                   </span>
                 </button>
                 
-                <button
-                  v-if="getRegisterSnapshot(register.id)"
-                  @click="closeSnapshotForRegister(getRegisterSnapshot(register.id))"
-                  class="btn btn-sm bg-danger text-white hover:bg-danger/90"
-                >
-                  <span class="flex items-center gap-1">
-                    <LucideLock class="h-3 w-3" />
-                    Cerrar Caja Diaria
-                  </span>
-                </button>
               </div>
             </div>
           </div>
@@ -134,7 +124,6 @@
     <SaleCashRegisterFormModal ref="createRegisterModal" />
     <SaleCashRegisterEditModal ref="editRegisterModal" />
     <SaleCashSnapshotOpening ref="openSnapshotModal" />
-    <SaleCashSnapshotClosing ref="closeSnapshotModal" />
   </div>
 </template>
 
@@ -151,7 +140,6 @@ import LucideEdit from '~icons/lucide/edit';
 const createRegisterModal = ref(null);
 const editRegisterModal = ref(null);
 const openSnapshotModal = ref(null);
-const closeSnapshotModal = ref(null);
 
 // ----- Store References ---------
 const cashRegisterStore = useCashRegisterStore();
@@ -192,11 +180,6 @@ function openSnapshotForRegister(register) {
   openSnapshotModal.value.showModal();
 }
 
-function closeSnapshotForRegister(snapshot) {
-  // Set the snapshot as current for the modal context
-  cashRegisterStore.currentSnapshot = snapshot;
-  closeSnapshotModal.value.showModal();
-}
 
 function navigateToSnapshot(snapshot) {
   if (snapshot?.id) {

@@ -295,7 +295,6 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['transaction-updated', 'transaction-deleted']);
 
 // Refs
 const modal = ref(null);
@@ -583,10 +582,6 @@ const handleCreate = async () => {
 };
 
 const handleUpdate = async () => {
-  const { WalletSchema } = await import('~/utils/odm/schemas/WalletSchema');
-  const walletSchema = new WalletSchema();
-  const user = useCurrentUser();
-  
   // Get category name from the selected category
   const categoryName = form.type === 'Income' 
     ? indexStore.getActiveIncomeCategories[form.category]?.name || null
@@ -596,25 +591,15 @@ const handleUpdate = async () => {
   const updateData = {
     notes: form.notes.trim() || null,
     categoryCode: form.category,
-    categoryName: categoryName,
-    updatedBy: user.value?.uid,
-    updatedAt: new Date()
+    categoryName: categoryName
   };
   
-  const result = await walletSchema.update(props.transactionToEdit.id, updateData);
+  const result = await globalCashStore.updateWalletTransaction(props.transactionToEdit.id, updateData);
   
   if (!result.success) {
     throw new Error(result.error);
   }
   
-  // Update cache with the updated transaction
-  const updatedTransaction = {
-    ...props.transactionToEdit,
-    ...updateData
-  };
-  
-  globalCashStore.updateWalletTransactionInCache(updatedTransaction);
-  emit('transaction-updated', updatedTransaction);
   useToast(ToastEvents.success, 'Transacción actualizada exitosamente');
 };
 
@@ -638,31 +623,12 @@ const handleDelete = async () => {
   isSubmitting.value = true;
   
   try {
-    const { WalletSchema } = await import('~/utils/odm/schemas/WalletSchema');
-    const walletSchema = new WalletSchema();
-    const user = useCurrentUser();
-    
-    // Cancel the transaction by updating status
-    const result = await walletSchema.update(props.transactionToEdit.id, {
-      status: 'cancelled',
-      updatedBy: user.value?.uid,
-      updatedAt: new Date()
-    });
+    const result = await globalCashStore.cancelWalletTransaction(props.transactionToEdit.id);
     
     if (!result.success) {
       throw new Error(result.error);
     }
     
-    // Update cache with cancelled status
-    const cancelledTransaction = {
-      ...props.transactionToEdit,
-      status: 'cancelled',
-      updatedBy: user.value?.uid,
-      updatedAt: new Date()
-    };
-    
-    globalCashStore.updateWalletTransactionInCache(cancelledTransaction);
-    emit('transaction-updated', cancelledTransaction);
     useToast(ToastEvents.success, 'Transacción cancelada exitosamente');
     
     handleClose();

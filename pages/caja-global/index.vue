@@ -319,7 +319,6 @@
     <GlobalCashTransactionModal 
       ref="transactionModal" 
       :transaction-to-edit="transactionToEdit"
-      @transaction-updated="handleTransactionUpdated"
     />
 
     <!-- Open Cash Modal (placeholder for now) -->
@@ -423,11 +422,6 @@ const editTransaction = (transaction) => {
   transactionModal.value?.showModal();
 };
 
-const handleTransactionUpdated = (transaction) => {
-  // Update transaction in cache
-  globalCashStore.updateWalletTransactionInCache(transaction);
-  useToast(ToastEvents.success, 'Transacción actualizada exitosamente');
-};
 
 // Initialize page
 const initializePage = async () => {

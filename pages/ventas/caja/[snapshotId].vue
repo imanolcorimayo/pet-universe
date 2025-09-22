@@ -54,6 +54,17 @@
             Inyectar Efectivo
           </span>
         </button>
+        
+        <button 
+          v-if="snapshotData?.status === 'open'"
+          @click="closeSnapshotModal.showModal()"
+          class="btn bg-red-500 text-white hover:bg-red-600"
+        >
+          <span class="flex items-center gap-1">
+            <LucideLock class="h-4 w-4" />
+            Cerrar Caja Diaria
+          </span>
+        </button>
       </div>
     </div>
     
@@ -236,6 +247,7 @@
     />
     <SaleCashExtractModal ref="extractCashModal" @extract-completed="reloadTransactions" />
     <SaleCashInjectModal ref="injectCashModal" @inject-completed="reloadTransactions" />
+    <SaleCashSnapshotClosing ref="closeSnapshotModal" @snapshot-closed="onSnapshotClosed" />
     <SaleDetails ref="saleDetailsModal" :sale="selectedSale" />
   </div>
 </template>
@@ -261,6 +273,7 @@ const snapshotId = route.params.snapshotId;
 const saleModal = ref(null);
 const extractCashModal = ref(null);
 const injectCashModal = ref(null);
+const closeSnapshotModal = ref(null);
 const saleDetailsModal = ref(null);
 const selectedSale = ref(null);
 const loadingSaleModal = ref(false);
@@ -425,6 +438,11 @@ async function viewSaleDetails(saleId) {
     console.error('Error loading sale details:', error);
     useToast(ToastEvents.error, 'Error al cargar los detalles de la venta: ' + error.message);
   }
+}
+
+async function onSnapshotClosed() {
+  // Navigate back to cash registers list
+  navigateTo('/ventas/cajas');
 }
 
 // Lifecycle

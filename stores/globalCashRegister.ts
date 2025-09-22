@@ -105,21 +105,6 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     
     // Balance calculations
     balancesByAccount: (state) => state.calculatedBalances,
-    
-    // Summary calculations
-    weekSummary: (state) => ({
-      totalIncome: state.totalIncome,
-      totalOutcome: state.totalOutcome,
-      netBalance: state.netBalance,
-      balancesByAccount: state.calculatedBalances,
-      openingBalances: state.currentGlobalCash?.openingBalances || [],
-      calculatedClosingBalances: state.currentGlobalCash ? 
-        state.currentGlobalCash.openingBalances.map(opening => ({
-          ownersAccountId: opening.ownersAccountId,
-          ownersAccountName: opening.ownersAccountName,
-          amount: opening.amount + (state.calculatedBalances[opening.ownersAccountId] || 0)
-        })) : []
-    }),
 
     // Get current balances (opening + movements) for display
     currentBalances: (state) => {
@@ -364,6 +349,61 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       }
     },
 
+    async updateWalletTransaction(transactionId: string, updateData: {
+      notes?: string;
+      categoryCode?: string;
+      categoryName?: string;
+    }) {
+      try {
+        const walletSchema = new WalletSchema();
+        const user = useCurrentUser();
+        
+        // Prepare update data with required system fields
+        const updates = {
+          ...updateData,
+          updatedBy: user.value?.uid,
+          updatedAt: new Date()
+        };
+        
+        const result = await walletSchema.update(transactionId, updates);
+        
+        if (result.success && result.data) {
+          this.updateWalletTransactionInCache({ ...result.data } as WalletTransaction);
+          return { success: true, data: result.data, error: null };
+        } else {
+          return { success: false, data: null, error: result.error || 'Error al actualizar la transacción' };
+        }
+        
+      } catch (error) {
+        console.error('Error updating wallet transaction:', error);
+        return { success: false, data: null, error: error instanceof Error ? error.message : 'Error al actualizar la transacción' };
+      }
+    },
+
+    async cancelWalletTransaction(transactionId: string) {
+      try {
+        const walletSchema = new WalletSchema();
+        const user = useCurrentUser();
+        
+        const result = await walletSchema.update(transactionId, {
+          status: 'cancelled',
+          updatedBy: user.value?.uid,
+          updatedAt: new Date()
+        });
+        
+        if (result.success && result.data) {
+          this.updateWalletTransactionInCache({ ...result.data } as WalletTransaction);
+          return { success: true, data: result.data, error: null };
+        } else {
+          return { success: false, data: null, error: result.error || 'Error al cancelar la transacción' };
+        }
+        
+      } catch (error) {
+        console.error('Error cancelling wallet transaction:', error);
+        return { success: false, data: null, error: error instanceof Error ? error.message : 'Error al cancelar la transacción' };
+      }
+    },
+
     // --- CALCULATION METHODS ---
     calculateBalances() {
       // Reset all calculations
@@ -464,27 +504,6 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
 
     async refreshFromFirebase() {
       await this.loadCurrentGlobalCash();
-    },
-
-    // Get dashboard summary for current global cash
-    async getDashboardSummary() {
-      if (!this.currentGlobalCash) {
-        await this.loadCurrentGlobalCash();
-      }
-      
-      return {
-        currentGlobalCash: this.currentGlobalCash,
-        totals: {
-          income: this.totalIncome,
-          outcome: this.totalOutcome,
-          balance: this.netBalance
-        },
-        balancesByAccount: this.calculatedBalances,
-        openingBalances: this.currentGlobalCash?.openingBalances || [],
-        calculatedClosingBalances: this.weekSummary.calculatedClosingBalances,
-        walletTransactions: this.walletTransactions,
-        isOpen: this.hasOpenGlobalCash
-      };
     },
 
     // --- SIMPLIFIED WEEKLY REGISTER MANAGEMENT ---

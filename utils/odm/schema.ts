@@ -62,10 +62,10 @@ export abstract class Schema {
     try {
       const { $dayjs } = useNuxtApp();
       if (timestamp && typeof timestamp.toDate === 'function') {
-        return $dayjs(timestamp.toDate()).format('DD/MM/YYYY');
+        return $dayjs(timestamp.toDate()).format('DD/MM/YYYY HH:mm');
       }
       if (timestamp instanceof Date) {
-        return $dayjs(timestamp).format('DD/MM/YYYY');
+        return $dayjs(timestamp).format('DD/MM/YYYY HH:mm');
       }
       return '';
     } catch {

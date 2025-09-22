@@ -693,6 +693,7 @@ const clientStore = useClientStore();
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 const debtStore = useDebtStore();
+const paymentMethodsStore = usePaymentMethodsStore();
 
 // Load product and client data
 const { clients } = storeToRefs(clientStore);
@@ -701,7 +702,7 @@ const { inventoryItems } = storeToRefs(inventoryStore);
 
 // Computed properties
 const availablePaymentMethods = computed(() => {
-  return indexStore.businessConfig?.paymentMethods || {};
+  return paymentMethodsStore.activePaymentMethodsForSelect || {};
 });
 
 const selectedProductIds = computed(() => {
@@ -1050,10 +1051,9 @@ function updatePaymentMethodsWithNewTotal(newTotal) {
 
 // Function to update isReported based on payment methods
 function updateIsReportedBasedOnPayment() {
-  // Check if any payment method is of type "cash"
+  // Check if any payment method is of type "cash" or is EFECTIVO
   const hasCashPayment = paymentDetails.value.some(payment => {
-    const method = availablePaymentMethods.value[payment.paymentMethod];
-    return method && method.type === 'cash';
+    return payment.paymentMethod === 'EFECTIVO';
   });
   
   // If any payment method is cash, set isReported to false, otherwise true
@@ -1224,6 +1224,19 @@ async function submitForm() {
   
   isLoading.value = true;
   try {
+    const user = useCurrentUser();
+    const currentBusinessId = useLocalStorage('cBId', null);
+    
+    if (!user.value?.uid || !currentBusinessId.value) {
+      useToast(ToastEvents.error, 'Debes iniciar sesión y seleccionar un negocio');
+      return;
+    }
+
+    // Load payment methods if needed
+    if (paymentMethodsStore.needsCacheRefresh) {
+      await paymentMethodsStore.loadAllData();
+    }
+
     // Get client information
     let clientName = null;
     if (selectedClientId.value) {
@@ -1233,8 +1246,12 @@ async function submitForm() {
       }
     }
     
-    // Prepare sale data with rounded values
+    // Generate unique sale number
+    const saleNumber = (saleStore.saleCounter + 1).toString().padStart(3, '0');
+    
+    // Prepare sale data using BusinessRulesEngine structure
     const saleData = {
+      saleNumber,
       clientId: selectedClientId.value || null,
       clientName,
       items: saleItems.value.map(item => ({
@@ -1249,51 +1266,64 @@ async function submitForm() {
         customDiscount: roundToTwo(item.customDiscount || 0),
         customDiscountType: item.customDiscountType || 'amount'
       })),
-      paymentDetails: paymentDetails.value.map(payment => ({
-        paymentMethod: payment.paymentMethod,
-        amount: roundToTwo(payment.amount)
-      })),
-      subtotal: roundToTwo(subtotal.value),
-      totalDiscount: roundToTwo(totalDiscount.value),
-      total: roundToTwo(total.value),
-      isReported: isReported.value,
-      notes: notes.value
+      amountTotal: roundToTwo(total.value),
+      isPaidInFull: paymentDifference.value <= 0.01,
+      dueDate: createDebtForDifference.value && debtDueDate.value ? new Date(debtDueDate.value) : null,
+      notes: notes.value || ''
     };
 
-    // Submit sale
-    const result = await saleStore.addSale(saleData);
+    // Prepare payment transactions for BusinessRulesEngine
+    const paymentTransactions = paymentDetails.value.map(payment => {
+      const paymentMethod = paymentMethodsStore.getPaymentMethodById(payment.paymentMethod);
+      const account = paymentMethod ? paymentMethodsStore.getOwnersAccountById(paymentMethod.ownersAccountId) : null;
+      const provider = paymentMethod?.paymentProviderId ? paymentMethodsStore.getPaymentProviderById(paymentMethod.paymentProviderId) : null;
+
+      return {
+        type: 'Income',
+        amount: roundToTwo(payment.amount),
+        description: `Sale #${saleNumber} - Payment via ${paymentMethod?.name || payment.paymentMethod}`,
+        paymentMethodId: payment.paymentMethod,
+        paymentMethodName: paymentMethod?.name || payment.paymentMethod,
+        paymentProviderId: provider?.id || null,
+        paymentProviderName: provider?.name || null,
+        ownersAccountId: account?.id || 'unknown',
+        ownersAccountName: account?.name || 'Unknown Account',
+        userId: user.value.uid,
+        userName: user.value.displayName || user.value.email || 'Usuario',
+        businessId: currentBusinessId.value
+      };
+    });
+
+    // Use BusinessRulesEngine to process the sale
+    const { BusinessRulesEngine } = await import('~/utils/finance/BusinessRulesEngine');
+    const businessEngine = new BusinessRulesEngine(paymentMethodsStore);
+
+    const saleProcessingData = {
+      saleData,
+      paymentTransactions,
+      dailyCashSnapshotId: props.dailyCashSnapshotId,
+      cashRegisterId: props.cashRegisterId,
+      cashRegisterName: props.cashRegisterName,
+      userId: user.value.uid,
+      userName: user.value.displayName || user.value.email || 'Usuario'
+    };
+
+    const result = await businessEngine.processSale(saleProcessingData);
     
-    if (result) {
-      // Create debt if there's an unpaid balance
-      if (paymentDifference.value > 0 && createDebtForDifference.value && selectedClientId.value) {
-        try {
-          const debtData = {
-            type: 'customer',
-            entityId: selectedClientId.value,
-            entityName: clientName || 'Cliente',
-            originalAmount: roundToTwo(paymentDifference.value),
-            originType: 'sale',
-            originId: result.id,
-            originDescription: `Venta #${saleStore.nextSaleNumber} - Saldo pendiente`,
-            dueDate: debtDueDate.value ? new Date(debtDueDate.value) : undefined,
-            notes: debtNotes.value || `Deuda generada por pago parcial en venta #${saleStore.nextSaleNumber}`
-          };
-          
-          const debtResult = await debtStore.createDebt(debtData);
-          if (debtResult) {
-            useToast(ToastEvents.success, `Venta registrada y deuda creada por $${formatNumber(paymentDifference.value)}`);
-          }
-        } catch (debtError) {
-          console.error('Error creating debt:', debtError);
-          useToast(ToastEvents.warning, 'Venta registrada, pero hubo un error al crear la deuda');
-        }
-      }
+    if (result.success) {
+      useToast(ToastEvents.success, 'Venta registrada exitosamente usando BusinessRulesEngine');
+      
+      // Update sale counter
+      saleStore.saleCounter += 1;
       
       emit('sale-completed');
       closeModal();
       initializeForm(); // Reset form
+    } else {
+      useToast(ToastEvents.error, `Error al procesar la venta: ${result.error}`);
     }
   } catch (error) {
+    console.error('Error processing sale:', error);
     useToast(ToastEvents.error, 'Error al registrar la venta: ' + error.message);
   } finally {
     isLoading.value = false;
@@ -1369,15 +1399,16 @@ async function showModal() {
     isLoading.value = true;
     
     // Load all necessary data in parallel
-    const [clientsResult, productsResult, categoriesResult, inventoryResult] = await Promise.all([
+    const [clientsResult, productsResult, categoriesResult, inventoryResult, paymentMethodsResult] = await Promise.all([
       clientStore.fetchClients(),
       productStore.fetchProducts(),
       productStore.fetchCategories(),
-      inventoryStore.fetchInventory()
+      inventoryStore.fetchInventory(),
+      paymentMethodsStore.needsCacheRefresh ? paymentMethodsStore.loadAllData() : Promise.resolve(true)
     ]);
     
     // Check if all data was loaded successfully
-    if (!clientsResult || !productsResult || !categoriesResult || !inventoryResult) {
+    if (!clientsResult || !productsResult || !categoriesResult || !inventoryResult || !paymentMethodsResult) {
       useToast(ToastEvents.error, "No se pudieron cargar todos los datos necesarios");
       return;
     }
