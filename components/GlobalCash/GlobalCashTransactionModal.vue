@@ -248,7 +248,7 @@
             type="button"
             @click="handleDelete"
             :disabled="isSubmitting"
-            class="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            class="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
           >
             <LucideX class="w-4 h-4" />
             Cancelar Transacción
@@ -270,7 +270,7 @@
             type="submit"
             @click="handleSubmit"
             :disabled="isSubmitting || !isFormValid"
-            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
           >
             <LucideLoader2 v-if="isSubmitting" class="w-4 h-4 animate-spin" />
             {{ isSubmitting ? 'Guardando...' : (editMode ? 'Actualizar' : 'Crear Transacción') }}

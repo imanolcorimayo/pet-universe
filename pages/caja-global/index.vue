@@ -8,35 +8,35 @@
       </div>
       
       <div class="flex gap-2">
+        <!-- Historical View Button -->
+        <button
+          @click="navigateTo('/caja-global/historico')"
+          class="btn bg-gray-200 text-gray-700 hover:bg-gray-300 flex items-center gap-1"
+        >
+          <LucideHistory class="h-4 w-4" />
+          Historial
+        </button>
+
         <!-- Open Global Cash Button -->
         <button
           v-if="!globalCashStore.hasOpenGlobalCash && !isLoading"
           @click="showOpenCashModal = true"
-          class="btn bg-green-600 text-white hover:bg-green-700"
+          class="btn bg-green-600 text-white hover:bg-green-700 flex items-center gap-1"
         >
-          <LucidePlus class="h-4 w-4 mr-1" />
+          <LucidePlus class="h-4 w-4" />
           Abrir Caja Semanal
         </button>
-        
+
         <!-- New Transaction Button -->
         <button
           v-if="globalCashStore.hasOpenGlobalCash && !isLoading"
           @click="openTransactionModal"
-          class="btn bg-primary text-white hover:bg-primary/90 flex items-center"
+          class="btn bg-primary text-white hover:bg-primary/90 flex items-center gap-1"
         >
-          <LucidePlus class="h-4 w-4 mr-1" />
+          <LucidePlus class="h-4 w-4" />
           Nueva Transacción
         </button>
-        
-        <!-- Close Global Cash Button -->
-        <button
-          v-if="globalCashStore.hasOpenGlobalCash && !isLoading"
-          @click="showCloseCashModal = true"
-          class="btn bg-orange-600 text-white hover:bg-orange-700 flex items-center"
-        >
-          <LucideLock class="h-4 w-4 mr-1" />
-          Cerrar Caja Semanal
-        </button>
+
       </div>
     </div>
 
@@ -52,9 +52,18 @@
             Caja de semana anterior sin cerrar
           </h3>
           <p class="text-sm text-amber-700 mt-1">
-            La caja de la semana anterior ({{ previousWeekInfo.register?.openedAt }}) 
+            La caja de la semana anterior ({{ previousWeekInfo.register?.openedAt }})
             aún no ha sido cerrada. Se cerrará automáticamente después de 2 días desde el lunes.
           </p>
+          <div class="mt-3">
+            <button
+              @click="navigateTo('/caja-global/historico')"
+              class="text-sm bg-amber-100 text-amber-800 px-3 py-1 rounded hover:bg-amber-200 flex items-center gap-1"
+            >
+              <LucideHistory class="h-3 w-3" />
+              Ir al Historial para Cerrar
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -260,20 +269,20 @@
               </td>
               <!-- Actions -->
               <td class="px-4 py-4 whitespace-nowrap text-right">
-                <button 
+                <button
                   v-if="transaction.status !== 'cancelled'"
                   @click="editTransaction(transaction)"
-                  class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
                 >
-                  <LucideEdit class="w-3 h-3 mr-1" />
+                  <LucideEdit class="w-3 h-3" />
                   Editar
                 </button>
-                <span 
+                <span
                   v-else
-                  class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 rounded-md cursor-not-allowed"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 rounded-md cursor-not-allowed"
                   title="No se puede editar una transacción cancelada"
                 >
-                  <LucideEdit class="w-3 h-3 mr-1" />
+                  <LucideEdit class="w-3 h-3" />
                   Editar
                 </span>
               </td>
@@ -292,10 +301,11 @@
       <p class="text-gray-600 mb-4">
         Abre una nueva caja global semanal para comenzar a registrar transacciones del negocio
       </p>
-      <button 
+      <button
         @click="showOpenCashModal = true"
-        class="btn bg-primary text-white hover:bg-primary/90"
+        class="btn bg-primary text-white hover:bg-primary/90 flex items-center gap-1"
       >
+        <LucidePlus class="h-4 w-4" />
         Abrir Caja Semanal
       </button>
     </div>
@@ -307,10 +317,11 @@
       </div>
       <h2 class="text-xl font-semibold mb-2">No hay transacciones</h2>
       <p class="text-gray-600 mb-4">No se han registrado transacciones en esta caja semanal todavía</p>
-      <button 
+      <button
         @click="openTransactionModal"
-        class="btn bg-primary text-white hover:bg-primary/90"
+        class="btn bg-primary text-white hover:bg-primary/90 flex items-center gap-1"
       >
+        <LucidePlus class="h-4 w-4" />
         Registrar Transacción
       </button>
     </div>
@@ -338,39 +349,22 @@
       </template>
     </ModalStructure>
 
-    <!-- Close Cash Modal (placeholder for now) -->
-    <ModalStructure 
-      v-if="showCloseCashModal"
-      title="Cerrar Caja Global Semanal"
-      @on-close="showCloseCashModal = false"
-    >
-      <p class="text-gray-600 mb-4">Funcionalidad de cierre de caja en desarrollo...</p>
-      <template #footer>
-        <button 
-          @click="showCloseCashModal = false"
-          class="btn bg-gray-200 text-gray-700 hover:bg-gray-300"
-        >
-          Cerrar
-        </button>
-      </template>
-    </ModalStructure>
   </div>
 </template>
 
 <script setup>
 import { ToastEvents } from '~/interfaces';
 import LucidePlus from '~icons/lucide/plus';
-import LucideLock from '~icons/lucide/lock';
 import LucideEdit from '~icons/lucide/edit';
 import LucideFileText from '~icons/lucide/file-text';
 import LucideAlertTriangle from '~icons/lucide/alert-triangle';
-import LucideInfo from '~icons/lucide/info';
+import LucideHistory from '~icons/lucide/history';
 
 // Refs
 const transactionModal = ref(null);
 const transactionToEdit = ref(null);
 const showOpenCashModal = ref(false);
-const showCloseCashModal = ref(false);
+
 
 // Stores
 const globalCashStore = useGlobalCashRegisterStore();
@@ -417,10 +411,11 @@ const editTransaction = (transaction) => {
     useToast(ToastEvents.warning, 'No se puede editar una transacción cancelada');
     return;
   }
-  
+
   transactionToEdit.value = { ...transaction };
   transactionModal.value?.showModal();
 };
+
 
 
 // Initialize page
