@@ -5,20 +5,6 @@
     @on-close="handleClose"
   >
     <div class="space-y-6">
-      <!-- Info Banner -->
-      <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-        <div class="flex items-start">
-          <LucideAlertTriangle class="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" />
-          <div>
-            <h3 class="text-sm font-medium text-amber-800">
-              Cierre de Caja Atrasada
-            </h3>
-            <p class="text-sm text-amber-700 mt-1">
-              Estás cerrando una caja de una semana anterior. Ingresa los saldos finales que tenías al final de esa semana.
-            </p>
-          </div>
-        </div>
-      </div>
 
       <!-- Week Info -->
       <div v-if="registerToClose">
@@ -299,76 +285,24 @@ const calculateHistoricalBalances = async () => {
   isLoadingHistoricalData.value = true;
 
   try {
-    const { $dayjs } = useNuxtApp();
-    const { WalletSchema } = await import('~/utils/odm/schemas/WalletSchema');
+    // Load wallet transactions using store method with caching
+    const transactions = await globalCashStore.getWalletTransactionsForRegister(props.registerToClose.id);
+    historicalWalletTransactions.value = transactions;
 
-    // Calculate the end of the week (Sunday 23:59:59)
-    const weekStart = $dayjs(props.registerToClose.openedAt, 'DD/MM/YYYY HH:mm');
-    const weekEnd = weekStart.add(6, 'day').endOf('day');
+    // Calculate balances using centralized store method
+    const openingBalances = props.registerToClose.openingBalances || [];
+    const calculatedBalances = globalCashStore.calculateBalancesFromTransactions(transactions, openingBalances);
 
-    // Load all wallet transactions for that week period
-    const walletSchema = new WalletSchema();
-    const result = await walletSchema.find({
-      where: [
-        { field: 'globalCashId', operator: '==', value: props.registerToClose.id },
-        { field: 'createdAt', operator: '<=', value: weekEnd.toDate() }
-      ],
-      orderBy: [{ field: 'createdAt', direction: 'desc' }]
+    historicalCalculatedBalances.value = Object.values(calculatedBalances);
+
+    // Initialize closing balances with calculated amounts
+    historicalCalculatedBalances.value.forEach(balance => {
+      closingBalances.value[balance.ownersAccountId] = {
+        ownersAccountId: balance.ownersAccountId,
+        ownersAccountName: balance.ownersAccountName,
+        amount: balance.currentAmount
+      };
     });
-
-    if (result.success) {
-      historicalWalletTransactions.value = result.data || [];
-
-      // Calculate balances based on opening amounts + movements
-      const calculatedBalances = {};
-      const openingBalances = props.registerToClose.openingBalances || [];
-
-      // Initialize with opening balances
-      openingBalances.forEach(opening => {
-        calculatedBalances[opening.ownersAccountId] = {
-          ownersAccountId: opening.ownersAccountId,
-          ownersAccountName: opening.ownersAccountName,
-          openingAmount: opening.amount,
-          movementAmount: 0,
-          currentAmount: opening.amount
-        };
-      });
-
-      // Apply movements from wallet transactions
-      const paidTransactions = historicalWalletTransactions.value.filter(t => t.status === 'paid');
-      paidTransactions.forEach(transaction => {
-        const accountId = transaction.ownersAccountId;
-        if (!calculatedBalances[accountId]) {
-          calculatedBalances[accountId] = {
-            ownersAccountId: accountId,
-            ownersAccountName: transaction.ownersAccountName,
-            openingAmount: 0,
-            movementAmount: 0,
-            currentAmount: 0
-          };
-        }
-
-        const amount = transaction.amount;
-        if (transaction.type === 'Income') {
-          calculatedBalances[accountId].movementAmount += amount;
-          calculatedBalances[accountId].currentAmount += amount;
-        } else if (transaction.type === 'Outcome') {
-          calculatedBalances[accountId].movementAmount -= amount;
-          calculatedBalances[accountId].currentAmount -= amount;
-        }
-      });
-
-      historicalCalculatedBalances.value = Object.values(calculatedBalances);
-
-      // Initialize closing balances with calculated amounts
-      historicalCalculatedBalances.value.forEach(balance => {
-        closingBalances.value[balance.ownersAccountId] = {
-          ownersAccountId: balance.ownersAccountId,
-          ownersAccountName: balance.ownersAccountName,
-          amount: balance.currentAmount
-        };
-      });
-    }
   } catch (error) {
     console.error('Error calculating historical balances:', error);
     useToast(ToastEvents.error, 'Error al calcular los saldos históricos');
@@ -408,6 +342,16 @@ const showModal = async () => {
 };
 
 const closeModal = () => {
+  // Clear state
+  isProcessing.value = false;
+  closingBalances.value = {};
+  differenceNotes.value = {};
+
+  // Clear transactions
+  historicalWalletTransactions.value = [];
+  historicalCalculatedBalances.value = [];
+  isLoadingHistoricalData.value = false;
+  
   modalRef.value?.closeModal();
 };
 
@@ -454,18 +398,17 @@ const processHistoricalClose = async () => {
     }
   });
 
-  // Use schema to close historical register
+  // Use store method to close historical register
   const user = useCurrentUser();
-  const { GlobalCashSchema } = await import('~/utils/odm/schemas/GlobalCashSchema');
-  const schema = new GlobalCashSchema();
-
-  const result = await schema.update(props.registerToClose.id, {
+  const updateData = {
     closingBalances: closingBalancesArray,
     differences: differences,
     closedAt: new Date(),
     closedBy: user.value?.uid,
     closedByName: user.value?.displayName || user.value?.email || 'Usuario'
-  });
+  };
+
+  const result = await globalCashStore.updateGlobalCashRegister(props.registerToClose.id, updateData);
 
   if (!result.success) {
     throw new Error(result.error);

@@ -66,16 +66,19 @@ interface GlobalCashState {
   // Current global cash snapshot (weekly)
   currentGlobalCash: GlobalCash | null;
   globalCashHistory: GlobalCash[];
-  
+
   // Wallet transactions for current period
   walletTransactions: WalletTransaction[];
-  
+
   // Calculated balances
   calculatedBalances: Record<string, number>; // By owners account
   totalIncome: number;
   totalOutcome: number;
   netBalance: number;
-  
+
+  // Transaction caching for optimization
+  walletTransactionCache: Map<string, WalletTransaction[]>; // Key: globalCashId
+
   // Loading states
   isLoading: boolean;
   isWalletLoading: boolean;
@@ -91,6 +94,7 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     totalIncome: 0,
     totalOutcome: 0,
     netBalance: 0,
+    walletTransactionCache: new Map(),
     isLoading: false,
     isWalletLoading: false
   }),
@@ -500,10 +504,154 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       this.totalIncome = 0;
       this.totalOutcome = 0;
       this.netBalance = 0;
+      this.walletTransactionCache.clear();
     },
 
     async refreshFromFirebase() {
       await this.loadCurrentGlobalCash();
+    },
+
+    // --- WALLET TRANSACTION METHODS ---
+
+    /**
+     * Get wallet transactions for a specific global cash register with caching
+     */
+    async getWalletTransactionsForRegister(globalCashId: string, forceRefresh = false): Promise<WalletTransaction[]> {
+      // Check cache first
+      if (!forceRefresh && this.walletTransactionCache.has(globalCashId)) {
+        return this.walletTransactionCache.get(globalCashId)!;
+      }
+
+      try {
+        const schema = new WalletSchema();
+        const result = await schema.find({
+          where: [{ field: 'globalCashId', operator: '==', value: globalCashId }],
+          orderBy: [{ field: 'createdAt', direction: 'desc' }]
+        });
+
+        if (result.success) {
+          const transactions = result.data as WalletTransaction[];
+          // Cache the results
+          this.walletTransactionCache.set(globalCashId, transactions);
+          return transactions;
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (error) {
+        console.error('Error loading wallet transactions:', error);
+        return [];
+      }
+    },
+
+    /**
+     * Get wallet transactions for current week register
+     */
+    async getCurrentWeekWalletTransactions(forceRefresh = false): Promise<WalletTransaction[]> {
+      if (!this.currentGlobalCash) {
+        return [];
+      }
+      return await this.getWalletTransactionsForRegister(this.currentGlobalCash.id, forceRefresh);
+    },
+
+    /**
+     * Get wallet transactions for previous week register
+     */
+    async getPreviousWeekWalletTransactions(forceRefresh = false): Promise<WalletTransaction[]> {
+      try {
+        const previousWeekStart = this.getPreviousWeekStartDate();
+        const { $dayjs } = useNuxtApp();
+        const schema = new GlobalCashSchema();
+
+        const previousRegister = await schema.find({
+          where: [
+            { field: 'openedAt', operator: '>=', value: $dayjs(previousWeekStart).startOf('day').toDate() },
+            { field: 'openedAt', operator: '<', value: $dayjs(previousWeekStart).add(7, 'day').startOf('day').toDate() }
+          ],
+          limit: 1
+        });
+
+        if (previousRegister.success && previousRegister.data && previousRegister.data.length > 0) {
+          const register = previousRegister.data[0];
+          return await this.getWalletTransactionsForRegister(register.id, forceRefresh);
+        }
+
+        return [];
+      } catch (error) {
+        console.error('Error loading previous week wallet transactions:', error);
+        return [];
+      }
+    },
+
+    /**
+     * Calculate balances from wallet transactions and opening balances
+     */
+    calculateBalancesFromTransactions(
+      transactions: WalletTransaction[],
+      openingBalances: Array<{ ownersAccountId: string; ownersAccountName: string; amount: number }>
+    ): Record<string, {
+      ownersAccountId: string;
+      ownersAccountName: string;
+      openingAmount: number;
+      movementAmount: number;
+      currentAmount: number;
+    }> {
+      const balances: Record<string, {
+        ownersAccountId: string;
+        ownersAccountName: string;
+        openingAmount: number;
+        movementAmount: number;
+        currentAmount: number;
+      }> = {};
+
+      // Initialize with opening balances
+      openingBalances.forEach(opening => {
+        balances[opening.ownersAccountId] = {
+          ownersAccountId: opening.ownersAccountId,
+          ownersAccountName: opening.ownersAccountName,
+          openingAmount: opening.amount,
+          movementAmount: 0,
+          currentAmount: opening.amount
+        };
+      });
+
+      // Apply movements from wallet transactions (only paid transactions)
+      const paidTransactions = transactions.filter(t => t.status === 'paid');
+      paidTransactions.forEach(transaction => {
+        const accountId = transaction.ownersAccountId;
+
+        // Initialize account if not exists
+        if (!balances[accountId]) {
+          balances[accountId] = {
+            ownersAccountId: accountId,
+            ownersAccountName: transaction.ownersAccountName,
+            openingAmount: 0,
+            movementAmount: 0,
+            currentAmount: 0
+          };
+        }
+
+        const amount = transaction.amount;
+        if (transaction.type === 'Income') {
+          balances[accountId].movementAmount += amount;
+          balances[accountId].currentAmount += amount;
+        } else if (transaction.type === 'Outcome') {
+          balances[accountId].movementAmount -= amount;
+          balances[accountId].currentAmount -= amount;
+        }
+      });
+
+      return balances;
+    },
+
+    /**
+     * Clear cached transactions for specific register
+     */
+    clearTransactionCache(globalCashId?: string) {
+      if (globalCashId) {
+        this.walletTransactionCache.delete(globalCashId);
+      } else {
+        this.walletTransactionCache.clear();
+      }
     },
 
     // --- SIMPLIFIED WEEKLY REGISTER MANAGEMENT ---
@@ -688,9 +836,36 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         }
       } catch (error) {
         console.error('Error updating current global cash:', error);
-        return { 
-          success: false, 
-          error: error instanceof Error ? error.message : 'Error al actualizar la caja global' 
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Error al actualizar la caja global'
+        };
+      }
+    },
+
+    async updateGlobalCashRegister(registerid: string, updateData: any): Promise<{ success: boolean; error?: string }> {
+      try {
+        const schema = new GlobalCashSchema();
+        const result = await schema.update(registerid, updateData);
+
+        if (result.success) {
+          // Clear cache for this register to force refresh on next access
+          this.clearTransactionCache(registerid);
+
+          // If this is the current register, update local cache
+          if (this.currentGlobalCash && this.currentGlobalCash.id === registerid) {
+            this.currentGlobalCash = { ...this.currentGlobalCash, ...updateData };
+          }
+
+          return { success: true };
+        } else {
+          return { success: false, error: result.error };
+        }
+      } catch (error) {
+        console.error('Error updating global cash register:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Error al actualizar la caja global'
         };
       }
     }
