@@ -1,6 +1,6 @@
 <template>
   <ModalStructure
-    title="Extraer Efectivo a Caja Global"
+    :title="`Extraer Efectivo a Caja Global desde Caja Diaria (${cashRegisterName})`"
     modalClass="max-w-md"
     @on-close="resetForm"
     ref="modalRef"
@@ -72,8 +72,25 @@
 import { ref, computed } from 'vue';
 import { ToastEvents } from '~/interfaces';
 import { formatCurrency } from '~/utils';
+import { BusinessRulesEngine } from '~/utils/finance/BusinessRulesEngine';
 
 import LucideInfo from '~icons/lucide/info';
+
+// Props
+const props = defineProps({
+  dailyCashSnapshotId: {
+    type: String,
+    required: true
+  },
+  cashRegisterId: {
+    type: String,
+    required: true
+  },
+  cashRegisterName: {
+    type: String,
+    required: true
+  }
+});
 
 // Refs to control modal visibility and state
 const modalRef = ref(null);
@@ -108,50 +125,87 @@ function resetForm() {
   amountError.value = '';
 }
 
-function validateAmount() {
+async function validateAmount() {
   amountError.value = '';
-  
+
   if (!amount.value || amount.value <= 0) {
     amountError.value = 'El monto debe ser mayor a 0';
     return false;
   }
-  
-  // TODO: Validate against available cash in daily register
-  if (amount.value > 10000) { // Placeholder validation
-    amountError.value = 'Monto muy alto para esta operación';
+
+  // Validate against available cash in daily register (EFECTIVO account specifically)
+  try {
+    const cashRegisterStore = useCashRegisterStore();
+
+    // Get EFECTIVO account balance specifically
+    const availableBalance = cashRegisterStore.cashAccountBalance;
+
+    if (amount.value > availableBalance) {
+      amountError.value = `Saldo insuficiente. Disponible: ${formatCurrency(availableBalance)}`;
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error validating available balance:", error);
+    amountError.value = 'Error validando el saldo disponible';
     return false;
   }
-  
-  return true;
 }
 
 async function submitForm() {
-  if (!validateAmount()) {
+  const isValid = await validateAmount();
+  if (!isValid) {
     return;
   }
-  
+
   isLoading.value = true;
   try {
-    // TODO: Implement cash extraction using BusinessRulesEngine
-    // This would create:
-    // 1. A dailyCashTransaction (extract type)
-    // 2. A wallet transaction (Income to global cash)
-    
+    // Get current user and business info
+    const paymentMethodsStore = usePaymentMethodsStore();
+
+    // Initialize Business Rules Engine
+    const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore);
+
+    // Prepare cash extraction data
+    const cashExtractionData = {
+      amount: amount.value,
+      dailyCashSnapshotId: props.dailyCashSnapshotId,
+      cashRegisterId: props.cashRegisterId,
+      cashRegisterName: props.cashRegisterName,
+      notes: notes.value.trim() || undefined,
+    };
+
+    // Process cash extraction using BusinessRulesEngine
+    const result = await businessRulesEngine.processCashExtraction(cashExtractionData);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Error al procesar la extracción de efectivo');
+    }
+
+    // Show warnings if any
+    if (result.warnings && result.warnings.length > 0) {
+      result.warnings.forEach(warning => {
+        useToast(ToastEvents.warning, warning);
+      });
+    }
+
     useToast(ToastEvents.success, `Extracción de ${formatCurrency(amount.value)} realizada exitosamente`);
     emit('extract-completed');
     closeModal();
+
   } catch (error) {
     console.error('Error extracting cash:', error);
-    useToast(ToastEvents.error, 'Error al extraer efectivo: ' + error.message);
+    useToast(ToastEvents.error, 'Error al extraer efectivo: ' + (error instanceof Error ? error.message : 'Error desconocido'));
   } finally {
     isLoading.value = false;
   }
 }
 
 // Watch for amount changes to validate in real time
-watch(() => amount.value, () => {
+watch(() => amount.value, async () => {
   if (amount.value > 0) {
-    validateAmount();
+    await validateAmount();
   } else {
     amountError.value = '';
   }

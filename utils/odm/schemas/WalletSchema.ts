@@ -273,13 +273,15 @@ export class WalletSchema extends Schema {
           message: `Failed to validate payment method: ${error}`
         });
       }
-    } else if (data.type === 'Income') {
+    } 
+    // It's actually not required due to "Extractions" from daily cash snapshots
+    /* else if (data.type === 'Income') {
       // For Income transactions, payment method is required
       errors.push({
         field: 'paymentMethodId',
         message: 'Payment method is required for Income transactions'
       });
-    }
+    } */
 
     return {
       valid: errors.length === 0,

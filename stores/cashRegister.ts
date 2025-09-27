@@ -130,32 +130,72 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       return snapshots.sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime());
     },
 
-    currentSnapshotBalance: (state) => {
-      if (!state.currentSnapshot) return 0;
+    currentAccountBalances: (state) => {
+      if (!state.currentSnapshot) return {};
 
-      const transactions = state.transactions.filter(
+      const balances: Record<string, {
+        ownersAccountId: string;
+        ownersAccountName: string;
+        openingAmount: number;
+        movementAmount: number;
+        currentAmount: number;
+      }> = {};
+
+      // Initialize with opening balances from snapshot
+      state.currentSnapshot.openingBalances.forEach(opening => {
+        balances[opening.ownersAccountId] = {
+          ownersAccountId: opening.ownersAccountId,
+          ownersAccountName: opening.ownersAccountName,
+          openingAmount: opening.amount,
+          movementAmount: 0,
+          currentAmount: opening.amount
+        };
+      });
+
+      // Get daily cash transactions for this snapshot
+      const snapshotTransactions = state.transactions.filter(
         (t) => t.dailyCashSnapshotId === state.currentSnapshot!.id
       );
 
-      const openingBalance = state.currentSnapshot.openingBalances.reduce(
-        (sum, balance) => sum + balance.amount,
-        0
+      // For EFECTIVO account: calculate movements from daily cash transactions
+      const cashAccount = Object.values(balances).find(account =>
+        account.ownersAccountName.toLowerCase().includes('efectivo') ||
+        account.ownersAccountName.toLowerCase().includes('cash')
       );
 
-      const transactionBalance = transactions.reduce((sum, t) => {
-        if (
-          t.type === "sale" ||
-          t.type === "debt_payment" ||
-          t.type === "inject"
-        ) {
-          return sum + t.amount;
-        } else if (t.type === "extract") {
-          return sum - t.amount;
-        }
-        return sum;
-      }, 0);
+      if (cashAccount) {
+        const cashMovements = snapshotTransactions.reduce((sum, t) => {
+          if (
+            t.type === "sale" ||
+            t.type === "debt_payment" ||
+            t.type === "inject"
+          ) {
+            return sum + t.amount; // Money coming in
+          } else if (t.type === "extract") {
+            return sum - t.amount; // Money going out
+          }
+          return sum;
+        }, 0);
 
-      return openingBalance + transactionBalance;
+        balances[cashAccount.ownersAccountId].movementAmount = cashMovements;
+        balances[cashAccount.ownersAccountId].currentAmount =
+          cashAccount.openingAmount + cashMovements;
+      }
+
+      // For other accounts: they start at 0 and movements would come from wallet transactions
+      // linked to this daily snapshot (this would require additional implementation)
+      // For now, they remain at opening amount (which is 0 for non-cash accounts)
+
+      return balances;
+    },
+
+    // Helper getter to get EFECTIVO account balance specifically
+    cashAccountBalance: (state: any): number => {
+      const balances = state.currentAccountBalances;
+      const cashAccount = Object.values(balances).find((account: any) =>
+        account.ownersAccountName.toLowerCase().includes('efectivo')
+      ) as any;
+      return cashAccount?.currentAmount || 0;
     },
 
     // Schema access getters
@@ -324,7 +364,6 @@ export const useCashRegisterStore = defineStore("cashRegister", {
         }
 
         // Update both currentSnapshot and registerSnapshots Map
-        this.currentSnapshot = snapshot;
         this.registerSnapshots.set(registerId, snapshot);
 
       } catch (error) {
@@ -569,6 +608,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
         }
 
         // Store in the Map for future reference
+        this.currentSnapshot = snapshot;
         this.registerSnapshots.set(snapshot.cashRegisterId, snapshot);
 
         return { success: true, data: snapshot };

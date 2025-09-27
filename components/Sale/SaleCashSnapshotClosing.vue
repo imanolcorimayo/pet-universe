@@ -38,11 +38,11 @@
           </div>
           <div>
             <div class="text-sm text-gray-600">Balance Calculado</div>
-            <div 
-              class="text-lg font-semibold" 
-              :class="currentSnapshotBalance >= 0 ? 'text-green-600' : 'text-red-600'"
+            <div
+              class="text-lg font-semibold"
+              :class="totalCalculatedBalance >= 0 ? 'text-green-600' : 'text-red-600'"
             >
-              {{ formatCurrency(currentSnapshotBalance) }}
+              {{ formatCurrency(totalCalculatedBalance) }}
             </div>
           </div>
         </div>
@@ -168,10 +168,10 @@ const notes = ref('');
 
 // Store access
 const cashRegisterStore = useCashRegisterStore();
-const { 
-  currentSnapshot, 
-  currentSnapshotTransactions, 
-  currentSnapshotBalance 
+const {
+  currentSnapshot,
+  currentSnapshotTransactions,
+  currentAccountBalances
 } = storeToRefs(cashRegisterStore);
 
 // Computed properties
@@ -189,6 +189,12 @@ const transactionsTotal = computed(() => {
     }
     return sum;
   }, 0);
+});
+
+const totalCalculatedBalance = computed(() => {
+  // Sum all account balances from the new currentAccountBalances getter
+  const accountBalances = currentAccountBalances.value;
+  return Object.values(accountBalances).reduce((sum, account) => sum + account.currentAmount, 0);
 });
 
 const nonZeroDifferences = computed(() => {
@@ -224,28 +230,15 @@ function getAccountName(accountId) {
 }
 
 function getCalculatedBalance(accountId, openingAmount) {
-  // For now, we'll use the current snapshot balance calculation
-  // In a real implementation, this would be calculated per account
-  const accountTransactions = currentSnapshotTransactions.value.filter(t => 
-    // This is simplified - in reality we'd need to track which account each transaction affects
-    true
-  );
-  
-  // For EFECTIVO (cash), add all cash transactions to opening balance
-  if (getAccountName(accountId).toLowerCase().includes('efectivo')) {
-    const cashTransactions = currentSnapshotTransactions.value.reduce((sum, t) => {
-      if (['sale', 'debt_payment', 'inject'].includes(t.type)) {
-        return sum + t.amount;
-      } else if (t.type === 'extract') {
-        return sum - t.amount;
-      }
-      return sum;
-    }, 0);
-    
-    return openingAmount + cashTransactions;
+  // Use the new account-specific balance from the store
+  const accountBalances = currentAccountBalances.value;
+  const accountBalance = accountBalances[accountId];
+
+  if (accountBalance) {
+    return accountBalance.currentAmount;
   }
-  
-  // For other accounts, opening balance remains the same unless there were specific transactions
+
+  // Fallback to opening amount if account not found
   return openingAmount;
 }
 

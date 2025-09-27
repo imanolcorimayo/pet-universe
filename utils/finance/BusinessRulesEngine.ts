@@ -131,6 +131,14 @@ export interface CashTransferData {
   notes?: string;
 }
 
+export interface CashExtractionData {
+  amount: number;
+  dailyCashSnapshotId: string;
+  cashRegisterId: string;
+  cashRegisterName: string;
+  notes?: string;
+}
+
 /**
  * Central Business Rules Engine for coordinating financial operations
  * 
@@ -1310,9 +1318,119 @@ export class BusinessRulesEngine {
   }
 
   /**
+   * Process cash extraction from daily cash register to global register
+   *
+   * CASH EXTRACTION FLOW:
+   * 1. Validate daily cash snapshot is open
+   * 2. Validate sufficient cash balance in daily cash register
+   * 3. Create wallet Income transaction (cash entering global register)
+   * 4. Create daily cash extract transaction (cash leaving daily register)
+   * 5. Maintain audit trail with proper business context
+   *
+   * BUSINESS LOGIC:
+   * - Moves money from daily cash register to global cash register
+   * - Opposite of cash injection (extract vs inject)
+   * - Only affects EFECTIVO (cash) accounts
+   * - Validates sufficient balance before processing
+   */
+  async processCashExtraction(data: CashExtractionData): Promise<BusinessRuleResult> {
+    const warnings: string[] = [];
+
+    try {
+      // 1. Validate daily cash snapshot is open
+      const snapshotValidation = await this.validateDailyCashSnapshotOpen(data.dailyCashSnapshotId);
+      if (!snapshotValidation.success) {
+        return { success: false, error: snapshotValidation.error };
+      }
+
+      // 2. Get the current global cash register ID
+      const globalCashIdResult = await this.getCurrentGlobalCashId();
+      if (!globalCashIdResult.success) {
+        return { success: false, error: globalCashIdResult.error };
+      }
+      const globalCashId = globalCashIdResult.data;
+
+      // 3. Get cash payment method and validate available balance in daily register
+      const cashValidation = await this.validateCashBalanceForTransfer(data.amount, 'extract', data.dailyCashSnapshotId);
+      if (!cashValidation.success) {
+        return { success: false, error: cashValidation.error };
+      }
+
+      // 4. Create wallet Income transaction (money entering global cash register)
+      const walletResult = await this.walletSchema.create({
+        type: 'Income',
+        globalCashId: globalCashId,
+        ownersAccountId: cashValidation.data.cashAccountId,
+        ownersAccountName: cashValidation.data.cashAccountName,
+        amount: data.amount,
+        status: 'paid',
+        isRegistered: false,
+        notes: data.notes ? `Extracción desde caja diaria "${data.cashRegisterName}": ${data.notes}` : `Extracción de efectivo desde caja diaria "${data.cashRegisterName}"`,
+      });
+
+      if (!walletResult.success) {
+        return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
+      }
+
+      const walletTransactionId = walletResult.data?.id;
+      if (!walletTransactionId) {
+        return { success: false, error: 'Wallet transaction created but ID not returned' };
+      }
+
+      // 5. Create daily cash extract transaction (money leaving daily register)
+      const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
+        dailyCashSnapshotId: data.dailyCashSnapshotId,
+        cashRegisterId: data.cashRegisterId,
+        cashRegisterName: data.cashRegisterName,
+        walletId: walletTransactionId,
+        type: 'extract',
+        amount: data.amount,
+      });
+
+      if (!dailyCashTxResult.success) {
+        warnings.push(`Daily cash transaction failed: ${dailyCashTxResult.error}`);
+
+        // Consider reversing the wallet transaction if daily cash transaction fails
+        try {
+          await this.walletSchema.update(walletTransactionId, {
+            status: 'cancelled',
+            notes: (walletResult.data?.notes || '') + ' - CANCELADO: Error en transacción de caja diaria'
+          });
+        } catch (reverseError) {
+          warnings.push(`Failed to reverse wallet transaction: ${reverseError}`);
+        }
+
+        return {
+          success: false,
+          error: `Cash extraction failed at daily transaction step: ${dailyCashTxResult.error}`,
+          warnings
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          walletTransactionId,
+          dailyCashTransactionId: dailyCashTxResult.data?.id,
+          amount: data.amount,
+          globalCashId,
+          dailyCashSnapshotId: data.dailyCashSnapshotId
+        },
+        warnings
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Cash extraction processing failed: ${error}`
+      };
+    }
+  }
+
+  /**
    * Validate cash balance for cash transfer operations (extract/inject)
    */
-  private async validateCashBalanceForTransfer(amount: number, operation: 'extract' | 'inject'): Promise<BusinessRuleResult> {
+  private async validateCashBalanceForTransfer(amount: number, operation: 'extract' | 'inject', dailyCashSnapshotId?: string): Promise<BusinessRuleResult> {
     try {
       // Get the cash payment method (EFECTIVO)
       const cashPaymentMethod = this.paymentMethodsStore.getPaymentMethodByCode('EFECTIVO') ||
@@ -1358,12 +1476,31 @@ export class BusinessRulesEngine {
         }
       }
 
+      // For extract operations, validate sufficient cash balance in daily register
+      if (operation === 'extract' && dailyCashSnapshotId) {
+        const cashRegisterStore = useCashRegisterStore();
+
+        // Get EFECTIVO account balance specifically from daily cash register
+        const dailyCashBalance = cashRegisterStore.cashAccountBalance;
+
+        if (dailyCashBalance < amount) {
+          return {
+            success: false,
+            error: `Saldo insuficiente en caja diaria. Disponible: $${dailyCashBalance.toFixed(2)}, Solicitado: $${amount.toFixed(2)}`
+          };
+        }
+      }
+
       return {
         success: true,
         data: {
           cashAccountId: cashAccount.id,
           cashAccountName: cashAccount.name,
-          currentBalance: operation === 'inject' ? (useGlobalCashRegisterStore().currentBalances[cashAccount.id || '']?.currentAmount || 0) : 0
+          currentBalance: operation === 'inject'
+            ? (useGlobalCashRegisterStore().currentBalances[cashAccount.id || '']?.currentAmount || 0)
+            : operation === 'extract' && dailyCashSnapshotId
+              ? useCashRegisterStore().cashAccountBalance
+              : 0
         }
       };
 

@@ -240,15 +240,19 @@
     <!-- Modals -->
     <SaleTransaction 
       ref="saleModal" 
-      :daily-cash-snapshot-id="snapshotId"
-      :cash-register-id="snapshotData?.cashRegisterId"
-      :cash-register-name="snapshotData?.cashRegisterName"
+      :dailyCashSnapshotId="snapshotId"
+      :cashRegisterId="snapshotData?.cashRegisterId"
+      :cashRegisterName="snapshotData?.cashRegisterName"
       @sale-completed="reloadTransactions" 
     />
-    <SaleCashExtractModal ref="extractCashModal" @extract-completed="reloadTransactions" />
+    <SaleCashExtractModal 
+      :dailyCashSnapshotId="snapshotId"
+      :cashRegisterId="snapshotData?.cashRegisterId"
+      :cashRegisterName="snapshotData?.cashRegisterName"
+      ref="extractCashModal" @extract-completed="reloadTransactions" />
     <SaleCashInjectModal
       ref="injectCashModal"
-      :daily-cash-snapshot-id="snapshotId"
+      :dailyCashSnapshotId="snapshotId"
       :cashRegisterId="snapshotData?.cashRegisterId"
       :cashRegisterName="snapshotData?.cashRegisterName"
       @inject-completed="reloadTransactions"
