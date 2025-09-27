@@ -23,6 +23,7 @@ interface DailyCashSnapshot {
   id?: string;
   businessId: string;
   cashRegisterId: string;
+  cashRegisterName?: string; // Optional - populated from registers array
   status: "open" | "closed";
   notes: string;
   openingBalances: Array<{
@@ -77,7 +78,6 @@ interface CashRegisterState {
 
   // Daily Cash Snapshots
   currentSnapshot: DailyCashSnapshot | null;
-  snapshots: DailyCashSnapshot[];
   registerSnapshots: Map<string, DailyCashSnapshot | null>;
 
   // Daily Cash Transactions
@@ -94,7 +94,6 @@ export const useCashRegisterStore = defineStore("cashRegister", {
     registers: [],
     selectedRegisterForDisplay: null,
     currentSnapshot: null,
-    snapshots: [],
     registerSnapshots: new Map(),
     transactions: [],
     isLoading: false,
@@ -106,8 +105,11 @@ export const useCashRegisterStore = defineStore("cashRegister", {
 
     hasOpenSnapshot: (state) => state.currentSnapshot?.status === "open",
 
-    snapshotsByRegister: (state) => (registerId: string) =>
-      state.snapshots.filter((s) => s.cashRegisterId === registerId),
+    snapshotsByRegister: (state) => (registerId: string) => {
+      // Convert Map to array and filter by registerId
+      const allSnapshots = Array.from(state.registerSnapshots.values()).filter(s => s !== null);
+      return allSnapshots.filter((s) => s.cashRegisterId === registerId);
+    },
 
     transactionsBySnapshot: (state) => (snapshotId: string) =>
       state.transactions.filter((t) => t.dailyCashSnapshotId === snapshotId),
@@ -121,6 +123,12 @@ export const useCashRegisterStore = defineStore("cashRegister", {
 
     getRegisterSnapshot: (state) => (registerId: string) =>
       state.registerSnapshots.get(registerId),
+
+    // Convert Map to array for UI display (sorted by openedAt descending)
+    allSnapshots: (state) => {
+      const snapshots = Array.from(state.registerSnapshots.values()).filter(s => s !== null) as DailyCashSnapshot[];
+      return snapshots.sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime());
+    },
 
     currentSnapshotBalance: (state) => {
       if (!state.currentSnapshot) return 0;
@@ -299,11 +307,26 @@ export const useCashRegisterStore = defineStore("cashRegister", {
         });
 
         const snapshot = result.success && result.data ? result.data[0] as DailyCashSnapshot : null;
-        
+
+        if (snapshot) {
+          // Add register name to snapshot
+          const register = this.registers.find(r => r.id === registerId);
+          if (!register && this.registers.length === 0) {
+            // Load registers if not already loaded
+            await this.loadRegisters();
+            const updatedRegister = this.registers.find(r => r.id === registerId);
+            if (updatedRegister) {
+              snapshot.cashRegisterName = updatedRegister.name;
+            }
+          } else if (register) {
+            snapshot.cashRegisterName = register.name;
+          }
+        }
+
         // Update both currentSnapshot and registerSnapshots Map
         this.currentSnapshot = snapshot;
         this.registerSnapshots.set(registerId, snapshot);
-        
+
       } catch (error) {
         console.error("Error loading snapshot:", error);
         this.currentSnapshot = null;
@@ -380,10 +403,16 @@ export const useCashRegisterStore = defineStore("cashRegister", {
             id: (result.data as DailyCashSnapshot).id,
             ...result.data,
           } as DailyCashSnapshot;
-          
+
+          // Add register name to the newly created snapshot
+          const register = this.registers.find(r => r.id === registerId);
+          if (register) {
+            this.currentSnapshot.cashRegisterName = register.name;
+          }
+
           // Update the registerSnapshots Map
           this.registerSnapshots.set(registerId, this.currentSnapshot);
-          
+
           return this.currentSnapshot;
         } else {
           throw new Error(result.error);
@@ -487,7 +516,22 @@ export const useCashRegisterStore = defineStore("cashRegister", {
         }
 
         if (result.success) {
-          this.snapshots = result.data as DailyCashSnapshot[];
+          const snapshots = result.data as DailyCashSnapshot[];
+
+          // Load register names and store in Map
+          if (this.registers.length === 0) {
+            await this.loadRegisters();
+          }
+
+          snapshots.forEach(snapshot => {
+            const register = this.registers.find(r => r.id === snapshot.cashRegisterId);
+            if (register) {
+              snapshot.cashRegisterName = register.name;
+            }
+
+            // Store in Map for future reference
+            this.registerSnapshots.set(snapshot.cashRegisterId, snapshot);
+          });
         } else {
           throw new Error(result.error);
         }
@@ -496,6 +540,47 @@ export const useCashRegisterStore = defineStore("cashRegister", {
         throw new Error("Error al cargar el historial de cajas");
       } finally {
         this.isLoading = false;
+      }
+    },
+
+    async loadSnapshotById(snapshotId: string) {
+      this.isSnapshotLoading = true;
+      try {
+        const schema = new DailyCashSnapshotSchema();
+        const result = await schema.findById(snapshotId);
+
+        if (!result.success || !result.data) {
+          return { success: false, error: 'Snapshot not found', data: null };
+        }
+
+        const snapshot = result.data as DailyCashSnapshot;
+
+        // Load the register information to get the name
+        const register = this.registers.find(r => r.id === snapshot.cashRegisterId);
+        if (!register && this.registers.length === 0) {
+          // Load registers if not already loaded
+          await this.loadRegisters();
+          const updatedRegister = this.registers.find(r => r.id === snapshot.cashRegisterId);
+          if (updatedRegister) {
+            snapshot.cashRegisterName = updatedRegister.name;
+          }
+        } else if (register) {
+          snapshot.cashRegisterName = register.name;
+        }
+
+        // Store in the Map for future reference
+        this.registerSnapshots.set(snapshot.cashRegisterId, snapshot);
+
+        return { success: true, data: snapshot };
+      } catch (error) {
+        console.error('Error loading snapshot by ID:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Error loading snapshot',
+          data: null
+        };
+      } finally {
+        this.isSnapshotLoading = false;
       }
     },
 

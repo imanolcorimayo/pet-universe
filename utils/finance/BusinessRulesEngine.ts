@@ -123,6 +123,14 @@ export interface SettlementPaymentData {
   categoryName?: string;
 }
 
+export interface CashTransferData {
+  amount: number;
+  dailyCashSnapshotId: string;
+  cashRegisterId: string;
+  cashRegisterName: string;
+  notes?: string;
+}
+
 /**
  * Central Business Rules Engine for coordinating financial operations
  * 
@@ -469,11 +477,11 @@ export class BusinessRulesEngine {
       // 2. Validate payment method exists and is active
       const paymentMethod = this.paymentMethodsStore.getPaymentMethodById(data.paymentMethodId);
       if (!paymentMethod) {
-        return { success: false, error: `Payment method '${data.paymentMethodId}' not found` };
+        return { success: false, error: `El método de pago '${data.paymentMethodId}' no fue encontrado` };
       }
 
       if (!paymentMethod.isActive) {
-        return { success: false, error: `Payment method '${data.paymentMethodId}' is not active` };
+        return { success: false, error: `El método de pago '${data.paymentMethodId}' no está activo` };
       }
 
       // 3. Get account info from payment method
@@ -837,6 +845,116 @@ export class BusinessRulesEngine {
 
 
   /**
+   * Process cash injection from global register to daily cash register
+   *
+   * CASH INJECTION FLOW:
+   * 1. Validate daily cash snapshot is open
+   * 2. Validate sufficient cash balance in global register
+   * 3. Create wallet Outcome transaction (cash leaving global register)
+   * 4. Create daily cash inject transaction (cash entering daily register)
+   * 5. Maintain audit trail with proper business context
+   *
+   * BUSINESS LOGIC:
+   * - Moves money from global cash register to daily cash register
+   * - Opposite of cash extraction (inject vs extract)
+   * - Only affects EFECTIVO (cash) accounts
+   * - Validates sufficient balance before processing
+   */
+  async processCashInjection(data: CashTransferData): Promise<BusinessRuleResult> {
+    const warnings: string[] = [];
+
+    try {
+      // 1. Validate daily cash snapshot is open
+      const snapshotValidation = await this.validateDailyCashSnapshotOpen(data.dailyCashSnapshotId);
+      if (!snapshotValidation.success) {
+        return { success: false, error: snapshotValidation.error };
+      }
+
+      // 2. Get the current global cash register ID and validate it has sufficient cash
+      const globalCashIdResult = await this.getCurrentGlobalCashId();
+      if (!globalCashIdResult.success) {
+        return { success: false, error: globalCashIdResult.error };
+      }
+      const globalCashId = globalCashIdResult.data;
+
+      // 3. Get cash payment method and validate available balance
+      const cashValidation = await this.validateCashBalanceForTransfer(data.amount, 'inject');
+      if (!cashValidation.success) {
+        return { success: false, error: cashValidation.error };
+      }
+
+      // 4. Create wallet Outcome transaction (money leaving global cash register)
+      const walletResult = await this.walletSchema.create({
+        type: 'Outcome',
+        globalCashId: globalCashId,
+        ownersAccountId: cashValidation.data.cashAccountId,
+        ownersAccountName: cashValidation.data.cashAccountName,
+        amount: data.amount,
+        status: 'paid',
+        isRegistered: false,
+        notes: data.notes ? `Inyección a caja diaria "${cashValidation.data.cashAccountName}": ${data.notes}` : `Inyección de efectivo a caja diaria "${cashValidation.data.cashAccountName}"`,
+      });
+
+      if (!walletResult.success) {
+        return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
+      }
+
+      const walletTransactionId = walletResult.data?.id;
+      if (!walletTransactionId) {
+        return { success: false, error: 'Wallet transaction created but ID not returned' };
+      }
+
+      // 5. Create daily cash inject transaction (money entering daily register)
+      const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
+        dailyCashSnapshotId: data.dailyCashSnapshotId,
+        cashRegisterId: data.cashRegisterId,
+        cashRegisterName: data.cashRegisterName,
+        walletId: walletTransactionId,
+        type: 'inject',
+        amount: data.amount,
+      });
+
+      if (!dailyCashTxResult.success) {
+        warnings.push(`Daily cash transaction failed: ${dailyCashTxResult.error}`);
+
+        // Consider reversing the wallet transaction if daily cash transaction fails
+        try {
+          await this.walletSchema.update(walletTransactionId, {
+            status: 'cancelled',
+            notes: (walletResult.data?.notes || '') + ' - CANCELADO: Error en transacción de caja diaria'
+          });
+        } catch (reverseError) {
+          warnings.push(`Failed to reverse wallet transaction: ${reverseError}`);
+        }
+
+        return {
+          success: false,
+          error: `Cash injection failed at daily transaction step: ${dailyCashTxResult.error}`,
+          warnings
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          walletTransactionId,
+          dailyCashTransactionId: dailyCashTxResult.data?.id,
+          amount: data.amount,
+          globalCashId,
+          dailyCashSnapshotId: data.dailyCashSnapshotId
+        },
+        warnings
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Cash injection processing failed: ${error}`
+      };
+    }
+  }
+
+  /**
    * Process settlement payment from provider (Postnet, credit card processors, etc.)
    * 
    * SETTLEMENT PAYMENT PROCESSING FLOW:
@@ -1189,6 +1307,72 @@ export class BusinessRulesEngine {
     }
 
     return { success: true };
+  }
+
+  /**
+   * Validate cash balance for cash transfer operations (extract/inject)
+   */
+  private async validateCashBalanceForTransfer(amount: number, operation: 'extract' | 'inject'): Promise<BusinessRuleResult> {
+    try {
+      // Get the cash payment method (EFECTIVO)
+      const cashPaymentMethod = this.paymentMethodsStore.getPaymentMethodByCode('EFECTIVO') ||
+                                this.paymentMethodsStore.getPaymentMethodByCode('CASH') ||
+                                this.paymentMethodsStore.defaultPaymentMethod;
+
+      if (!cashPaymentMethod) {
+        return {
+          success: false,
+          error: 'No se encontró método de pago en efectivo configurado'
+        };
+      }
+
+      // Get the cash account
+      const cashAccount = this.paymentMethodsStore.getOwnersAccountById(cashPaymentMethod.ownersAccountId);
+      if (!cashAccount) {
+        return {
+          success: false,
+          error: 'No se encontró cuenta de efectivo configurada'
+        };
+      }
+
+      // For inject operations, validate sufficient cash balance in global register
+      if (operation === 'inject') {
+        const globalCashStore = useGlobalCashRegisterStore();
+
+        if (!globalCashStore.hasOpenGlobalCash) {
+          return {
+            success: false,
+            error: 'No hay una caja global abierta. Debe abrir la caja global antes de inyectar efectivo.'
+          };
+        }
+
+        // Get current cash balance in global register
+        const currentBalances = globalCashStore.currentBalances;
+        const cashBalance = currentBalances[cashAccount.id || '']?.currentAmount || 0;
+
+        if (cashBalance < amount) {
+          return {
+            success: false,
+            error: `Saldo insuficiente en caja global. Disponible: $${cashBalance.toFixed(2)}, Solicitado: $${amount.toFixed(2)}`
+          };
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          cashAccountId: cashAccount.id,
+          cashAccountName: cashAccount.name,
+          currentBalance: operation === 'inject' ? (useGlobalCashRegisterStore().currentBalances[cashAccount.id || '']?.currentAmount || 0) : 0
+        }
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Error validating cash balance: ${error}`
+      };
+    }
   }
 
   /**

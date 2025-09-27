@@ -1,6 +1,6 @@
 <template>
   <ModalStructure
-    title="Inyectar Efectivo desde Caja Global"
+    :title="`Inyectar Efectivo desde Caja Global a Caja Diaria (${cashRegisterName})`"
     modalClass="max-w-md"
     @on-close="resetForm"
     ref="modalRef"
@@ -72,8 +72,25 @@
 import { ref, computed } from 'vue';
 import { ToastEvents } from '~/interfaces';
 import { formatCurrency } from '~/utils';
+import { BusinessRulesEngine } from '~/utils/finance/BusinessRulesEngine';
 
 import LucideInfo from '~icons/lucide/info';
+
+// Props
+const props = defineProps({
+  dailyCashSnapshotId: {
+    type: String,
+    required: true
+  },
+  cashRegisterId: {
+    type: String,
+    required: true
+  },
+  cashRegisterName: {
+    type: String,
+    required: true
+  }
+});
 
 // Refs to control modal visibility and state
 const modalRef = ref(null);
@@ -108,50 +125,107 @@ function resetForm() {
   amountError.value = '';
 }
 
-function validateAmount() {
+async function validateAmount() {
   amountError.value = '';
-  
+
   if (!amount.value || amount.value <= 0) {
     amountError.value = 'El monto debe ser mayor a 0';
     return false;
   }
-  
-  // TODO: Validate against available cash in global register
-  if (amount.value > 50000) { // Placeholder validation
-    amountError.value = 'Monto muy alto para esta operación';
+
+  // Validate against available cash in global register
+  try {
+    const paymentMethodsStore = usePaymentMethodsStore();
+    const globalCashStore = useGlobalCashRegisterStore();
+
+    if (!globalCashStore.hasOpenGlobalCash) {
+      amountError.value = 'No hay una caja global abierta para realizar la inyección';
+      return false;
+    }
+
+    // Get cash account
+    const cashPaymentMethod = paymentMethodsStore.getPaymentMethodByCode('EFECTIVO') || paymentMethodsStore.defaultPaymentMethod;
+
+    if (!cashPaymentMethod) {
+      amountError.value = 'No se encontró método de pago en efectivo configurado';
+      return false;
+    }
+
+    const cashAccount = paymentMethodsStore.getOwnersAccountById(cashPaymentMethod.ownersAccountId);
+    if (!cashAccount) {
+      amountError.value = 'No se encontró cuenta de efectivo configurada';
+      return false;
+    }
+
+    // Check available balance
+    const currentBalances = globalCashStore.currentBalances;
+    const availableBalance = currentBalances[cashAccount.id || '']?.currentAmount || 0;
+
+    if (amount.value > availableBalance) {
+      amountError.value = `Saldo insuficiente. Disponible: ${formatCurrency(availableBalance)}`;
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    amountError.value = 'Error validando el saldo disponible';
     return false;
   }
-  
-  return true;
 }
 
 async function submitForm() {
-  if (!validateAmount()) {
+  const isValid = await validateAmount();
+  if (!isValid) {
     return;
   }
-  
+
   isLoading.value = true;
   try {
-    // TODO: Implement cash injection using BusinessRulesEngine
-    // This would create:
-    // 1. A dailyCashTransaction (inject type)
-    // 2. A wallet transaction (Outcome from global cash)
-    
+    // Get current user and business info
+    const paymentMethodsStore = usePaymentMethodsStore();
+
+    // Initialize Business Rules Engine
+    const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore);
+
+    // Prepare cash injection data
+    const cashInjectionData = {
+      amount: amount.value,
+      dailyCashSnapshotId: props.dailyCashSnapshotId,
+      cashRegisterId: props.cashRegisterId,
+      cashRegisterName: props.cashRegisterName,
+      notes: notes.value.trim() || undefined,
+    };
+
+    // Process cash injection using BusinessRulesEngine
+    const result = await businessRulesEngine.processCashInjection(cashInjectionData);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Error al procesar la inyección de efectivo');
+    }
+
+    // Show warnings if any
+    if (result.warnings && result.warnings.length > 0) {
+      result.warnings.forEach(warning => {
+        useToast(ToastEvents.warning, warning);
+      });
+    }
+
     useToast(ToastEvents.success, `Inyección de ${formatCurrency(amount.value)} realizada exitosamente`);
     emit('inject-completed');
     closeModal();
+
   } catch (error) {
     console.error('Error injecting cash:', error);
-    useToast(ToastEvents.error, 'Error al inyectar efectivo: ' + error.message);
+    useToast(ToastEvents.error, 'Error al inyectar efectivo: ' + (error instanceof Error ? error.message : 'Error desconocido'));
   } finally {
     isLoading.value = false;
   }
 }
 
 // Watch for amount changes to validate in real time
-watch(() => amount.value, () => {
+watch(() => amount.value, async () => {
   if (amount.value > 0) {
-    validateAmount();
+    await validateAmount();
   } else {
     amountError.value = '';
   }

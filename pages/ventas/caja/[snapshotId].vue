@@ -246,7 +246,13 @@
       @sale-completed="reloadTransactions" 
     />
     <SaleCashExtractModal ref="extractCashModal" @extract-completed="reloadTransactions" />
-    <SaleCashInjectModal ref="injectCashModal" @inject-completed="reloadTransactions" />
+    <SaleCashInjectModal
+      ref="injectCashModal"
+      :daily-cash-snapshot-id="snapshotId"
+      :cashRegisterId="snapshotData?.cashRegisterId"
+      :cashRegisterName="snapshotData?.cashRegisterName"
+      @inject-completed="reloadTransactions"
+    />
     <SaleCashSnapshotClosing ref="closeSnapshotModal" @snapshot-closed="onSnapshotClosed" />
     <SaleDetails ref="saleDetailsModal" :sale="selectedSale" />
   </div>
@@ -367,18 +373,20 @@ function getTransactionDescription(transaction) {
 async function loadSnapshotData() {
   isLoading.value = true;
   try {
-    // Load the specific snapshot
-    const snapshotResult = await cashRegisterStore.dailyCashSnapshotSchema.findById(snapshotId);
-    
+    // Load the specific snapshot using store method (includes register name)
+    const snapshotResult = await cashRegisterStore.loadSnapshotById(snapshotId);
+
     if (!snapshotResult.success || !snapshotResult.data) {
       snapshotData.value = null;
       return;
     }
-    
+
     snapshotData.value = snapshotResult.data;
-    
-    // Load transactions for this snapshot
-    await loadTransactions();
+
+    // Load transactions for this snapshot using store method
+    await cashRegisterStore.loadTransactionsForSnapshot(snapshotId);
+    // Get transactions from store
+    transactions.value = cashRegisterStore.transactionsBySnapshot(snapshotId);
   } catch (error) {
     console.error('Error loading snapshot data:', error);
     useToast(ToastEvents.error, 'Error al cargar los datos de la caja: ' + error.message);
@@ -388,26 +396,9 @@ async function loadSnapshotData() {
   }
 }
 
-async function loadTransactions() {
-  try {
-    const result = await cashRegisterStore.dailyCashTransactionSchema.find({
-      where: [
-        { field: 'dailyCashSnapshotId', operator: '==', value: snapshotId }
-      ]
-    });
-    
-    if (result.success) {
-      transactions.value = result.data || [];
-    }
-  } catch (error) {
-    console.error('Error loading transactions:', error);
-    useToast(ToastEvents.error, 'Error al cargar las transacciones: ' + error.message);
-  }
-}
-
 async function reloadTransactions() {
-  await loadTransactions();
-  await loadSnapshotData(); // Reload to get updated balances
+  // Reload both snapshot data and transactions using store methods
+  await loadSnapshotData();
 }
 
 async function openSaleModal() {
@@ -448,6 +439,10 @@ async function onSnapshotClosed() {
 // Lifecycle
 onMounted(() => {
   loadSnapshotData();
+  usePaymentMethodsStore().loadAllData();
+
+  // Load global cash
+  useGlobalCashRegisterStore().loadCurrentGlobalCash();
 });
 
 // Head configuration

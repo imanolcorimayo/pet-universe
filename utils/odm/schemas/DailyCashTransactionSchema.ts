@@ -43,9 +43,9 @@ export class DailyCashTransactionSchema extends Schema {
       maxLength: 100
     },
     type: {
-      type: 'string',
+      type: 'enum',
       required: true,
-      pattern: /^(sale|debt_payment|extract|inject)$/
+      enum: ['sale', 'debt_payment', 'extract', 'inject']
     },
     amount: {
       type: 'number',
