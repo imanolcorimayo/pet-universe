@@ -93,12 +93,12 @@
       <!-- Summary Cards -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="p-4 bg-blue-50 rounded-lg">
-          <div class="text-sm text-blue-700">Balance Actual</div>
+          <div class="text-sm text-blue-700">Balance Total</div>
           <div class="text-2xl font-bold text-blue-700">
-            {{ formatCurrency(currentBalance) }}
+            {{ formatCurrency(totalCurrentBalance) }}
           </div>
         </div>
-        
+
         <div class="p-4 bg-green-50 rounded-lg">
           <div class="text-sm text-green-700">Total Ventas</div>
           <div class="text-2xl font-bold text-green-700">
@@ -106,18 +106,46 @@
           </div>
           <div class="text-xs text-green-600">{{ salesCount }} ventas</div>
         </div>
-        
+
         <div class="p-4 bg-purple-50 rounded-lg">
           <div class="text-sm text-purple-700">Balance Inicial</div>
           <div class="text-2xl font-bold text-purple-700">
             {{ formatCurrency(openingTotal) }}
           </div>
         </div>
-        
+
         <div class="p-4 bg-gray-50 rounded-lg">
           <div class="text-sm text-gray-700">Transacciones</div>
           <div class="text-2xl font-bold text-gray-700">
             {{ transactions.length }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Balances by Account -->
+      <div v-if="snapshotData?.status === 'open'" class="bg-white rounded-lg shadow p-4">
+        <h2 class="font-semibold text-lg mb-4">Balances por Cuenta</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            v-for="balance in accountBalances"
+            :key="balance.ownersAccountId"
+            class="p-3 border rounded-md"
+          >
+            <div class="text-sm text-gray-600">{{ balance.ownersAccountName }}</div>
+            <div
+              class="text-lg font-bold"
+              :class="balance.currentAmount >= 0 ? 'text-green-700' : 'text-red-700'"
+            >
+              {{ formatCurrency(balance.currentAmount) }}
+            </div>
+            <div class="text-xs text-gray-500 mt-1 space-y-1">
+              <div>Inicial: {{ formatCurrency(balance.openingAmount) }}</div>
+              <div
+                :class="balance.movementAmount >= 0 ? 'text-green-600' : 'text-red-600'"
+              >
+                Movimiento: {{ balance.movementAmount >= 0 ? '+' : '' }}{{ formatCurrency(balance.movementAmount) }}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -298,20 +326,23 @@ const transactionFilter = ref('all');
 const cashRegisterStore = useCashRegisterStore();
 
 // Computed properties
-const currentBalance = computed(() => {
-  if (!snapshotData.value) return 0;
-  
-  const openingTotal = snapshotData.value.openingBalances?.reduce((sum, balance) => sum + balance.amount, 0) || 0;
-  const transactionsTotal = transactions.value.reduce((sum, transaction) => {
-    if (['sale', 'debt_payment', 'inject'].includes(transaction.type)) {
-      return sum + transaction.amount;
-    } else if (transaction.type === 'extract') {
-      return sum - transaction.amount;
-    }
-    return sum;
-  }, 0);
-  
-  return openingTotal + transactionsTotal;
+const accountBalances = computed(() => {
+  if (!snapshotData.value || snapshotData.value.status !== 'open') {
+    return [];
+  }
+
+  // Load current snapshot into store for calculations
+  if (cashRegisterStore.currentSnapshot?.id !== snapshotId) {
+    // Ensure store has current snapshot and transactions for calculations
+    return [];
+  }
+
+  const balances = cashRegisterStore.currentAccountBalances;
+  return Object.values(balances);
+});
+
+const totalCurrentBalance = computed(() => {
+  return accountBalances.value.reduce((sum, account) => sum + account.currentAmount, 0);
 });
 
 const openingTotal = computed(() => {
@@ -386,6 +417,9 @@ async function loadSnapshotData() {
     }
 
     snapshotData.value = snapshotResult.data;
+
+    // Set this as the current snapshot in the store for balance calculations
+    cashRegisterStore.currentSnapshot = snapshotResult.data;
 
     // Load transactions for this snapshot using store method
     await cashRegisterStore.loadTransactionsForSnapshot(snapshotId);

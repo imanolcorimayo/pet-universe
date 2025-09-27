@@ -1,6 +1,6 @@
 import { Schema } from '../schema';
 import type { SchemaDefinition, ValidationResult } from '../types';
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { getDoc, doc } from 'firebase/firestore';
 
 export class SaleSchema extends Schema {
   protected collectionName = 'sale';
