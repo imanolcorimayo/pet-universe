@@ -119,11 +119,10 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         movementAmount: number;
         currentAmount: number;
       }> = {};
-      
-  
+
       // Create a snapshot of calculated balances to avoid reactivity loops
       const balancesSnapshot = { ...state.calculatedBalances };
-      
+
       // Add opening balances from current global cash
       if (state.currentGlobalCash?.openingBalances) {
         state.currentGlobalCash.openingBalances.forEach(opening => {
@@ -136,7 +135,7 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
           };
         });
       }
-      
+
       // Add accounts that have movements but no opening balance
       Object.keys(balancesSnapshot).forEach(accountId => {
         if (!balances[accountId]) {
@@ -149,7 +148,7 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
           };
         }
       });
-      
+
       return balances;
     }
   },
@@ -163,8 +162,8 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         const currentWeekStart = this.getCurrentWeekStartDate();
         const { $dayjs } = useNuxtApp();
         const schema = new GlobalCashSchema();
-        
-        // Look for current week's register specifically
+
+        // Look for current week's register specifically. Only 1 should exist - we don't look if it's closed or not
         const result = await schema.find({
           where: [
             { field: 'openedAt', operator: '>=', value: $dayjs(currentWeekStart).startOf('day').toDate() },
@@ -172,70 +171,26 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
           ],
           limit: 1
         });
-        
+
         if (result.success && result.data && result.data.length > 0) {
           this.currentGlobalCash = result.data[0] as GlobalCash;
+
+          // When first loading, it could have not absorbed previous week balances yet
+          // We make sure this was done
+          await this.ensureProperOpeningBalances();
+
           await this.loadWalletTransactionsForCurrentPeriod();
         } else {
           this.currentGlobalCash = null;
           this.walletTransactions = [];
         }
-        
+
         this.calculateBalances();
       } catch (error) {
         console.error('Error loading current global cash:', error);
         throw new Error('Error al cargar la caja global actual');
       } finally {
         this.isLoading = false;
-      }
-    },
-
-    async openGlobalCash(data: {
-      openingBalances: Array<{
-        ownersAccountId: string;
-        ownersAccountName: string;
-        amount: number;
-      }>;
-      notes?: string;
-    }) {
-      const user = useCurrentUser();
-      const currentBusinessId = useLocalStorage('cBId', null);
-      const indexStore = useIndexStore();
-      
-      if (!user.value?.uid || !currentBusinessId.value) {
-        throw new Error('Debes iniciar sesión y seleccionar un negocio');
-      }
-      
-      // Check permissions
-      if (!indexStore.isOwner && indexStore.getUserRole !== 'administrador') {
-        throw new Error('No tienes permisos para abrir la caja global');
-      }
-
-      try {
-        const schema = new GlobalCashSchema();
-        const now = new Date();
-        
-        const result = await schema.create({
-          openingBalances: data.openingBalances,
-          createdAt: now,
-          createdBy: user.value.uid,
-          createdByName: user.value.displayName || user.value.email || 'Usuario',
-          openedAt: now,
-          openedBy: user.value.uid,
-          openedByName: user.value.displayName || user.value.email || 'Usuario'
-        });
-        
-        if (result.success) {
-          this.currentGlobalCash = { id: (result.data as GlobalCash).id, ...result.data } as GlobalCash;
-          this.walletTransactions = [];
-          this.calculateBalances();
-          return this.currentGlobalCash;
-        } else {
-          throw new Error(result.error);
-        }
-      } catch (error) {
-        console.error('Error opening global cash:', error);
-        throw new Error(error instanceof Error ? error.message : 'Error al abrir la caja global');
       }
     },
 
@@ -657,6 +612,112 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     // --- SIMPLIFIED WEEKLY REGISTER MANAGEMENT ---
 
     /**
+     * Ensure current week register has proper opening balances from previous week
+     */
+    async ensureProperOpeningBalances() {
+      if (!this.currentGlobalCash) return;
+
+      try {
+        // Get proper opening balances from previous week
+        const properOpeningBalances = await this.getPreviousWeekClosingBalances();
+
+        // Check if current opening balances are different
+        const currentBalances = this.currentGlobalCash.openingBalances || [];
+        const needsUpdate = this.shouldUpdateOpeningBalances(currentBalances, properOpeningBalances);
+
+        if (needsUpdate && properOpeningBalances.length > 0) {
+          // Update the current register with proper opening balances
+          const updateResult = await this.updateCurrentGlobalCash({
+            openingBalances: properOpeningBalances
+          });
+
+          if (updateResult.success) {
+            console.log('Updated opening balances with previous week data');
+          }
+        }
+      } catch (error) {
+        console.error('Error ensuring proper opening balances:', error);
+      }
+    },
+
+    /**
+     * Check if opening balances need to be updated
+     */
+    shouldUpdateOpeningBalances(
+      current: Array<{ ownersAccountId: string; ownersAccountName: string; amount: number }>,
+      proper: Array<{ ownersAccountId: string; ownersAccountName: string; amount: number }>
+    ): boolean {
+      if (current.length !== proper.length) return true;
+
+      // Create maps for easier comparison
+      const currentMap = new Map(current.map(b => [b.ownersAccountId, b.amount]));
+      const properMap = new Map(proper.map(b => [b.ownersAccountId, b.amount]));
+
+      // Check if all accounts and amounts match
+      for (const [accountId, amount] of properMap) {
+        if (!currentMap.has(accountId) || currentMap.get(accountId) !== amount) {
+          return true;
+        }
+      }
+
+      return false;
+    },
+
+    /**
+     * Get proper opening balances for current week based on previous week data
+     */
+    async getPreviousWeekClosingBalances(): Promise<Array<{
+      ownersAccountId: string;
+      ownersAccountName: string;
+      amount: number;
+    }>> {
+      try {
+        const { $dayjs } = useNuxtApp();
+        const previousWeekStart = this.getPreviousWeekStartDate();
+        const schema = new GlobalCashSchema();
+
+        // Look for previous week register
+        const previousRegister = await schema.find({
+          where: [
+            { field: 'openedAt', operator: '>=', value: $dayjs(previousWeekStart).startOf('day').toDate() },
+            { field: 'openedAt', operator: '<', value: $dayjs(previousWeekStart).add(7, 'day').startOf('day').toDate() }
+          ],
+          limit: 1
+        });
+
+        if (!previousRegister.success || !previousRegister.data || previousRegister.data.length === 0) {
+          // No previous week register, return empty balances
+          return [];
+        }
+
+        const register = previousRegister.data[0] as GlobalCash;
+
+        // If previous week is closed, use closing balances
+        if (register.closedAt && register.closingBalances) {
+          return register.closingBalances;
+        }
+
+        // If not closed, calculate balances from transactions
+        const previousWeekTransactions = await this.getWalletTransactionsForRegister(register.id, true);
+        const calculatedBalances = this.calculateBalancesFromTransactions(
+          previousWeekTransactions,
+          register.openingBalances || []
+        );
+
+        // Convert calculated balances to the expected format
+        return Object.values(calculatedBalances).map(balance => ({
+          ownersAccountId: balance.ownersAccountId,
+          ownersAccountName: balance.ownersAccountName,
+          amount: balance.currentAmount
+        }));
+
+      } catch (error) {
+        console.error('Error getting previous week closing balances:', error);
+        return [];
+      }
+    },
+
+    /**
      * Get the start date of current week (Monday)
      */
     getCurrentWeekStartDate(date = new Date()) {
@@ -684,8 +745,8 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         const { $dayjs } = useNuxtApp();
         
         // Check if current week register exists
-        const schema = new GlobalCashSchema();
-        const currentRegister = await schema.find({
+        const globalCashSchema = new GlobalCashSchema();
+        const currentRegister = await globalCashSchema.find({
           where: [
             { field: 'openedAt', operator: '>=', value: $dayjs(currentWeekStart).startOf('day').toDate() },
             { field: 'openedAt', operator: '<', value: $dayjs(currentWeekStart).add(7, 'day').startOf('day').toDate() }
@@ -697,52 +758,31 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
           return { exists: true, register: currentRegister.data[0] };
         }
 
-        // Get opening balances from previous week's closing (or 0 if none)
-        const previousWeekStart = this.getPreviousWeekStartDate();
-        const previousRegister = await schema.find({
-          where: [
-            { field: 'openedAt', operator: '>=', value: $dayjs(previousWeekStart).startOf('day').toDate() },
-            { field: 'openedAt', operator: '<', value: $dayjs(previousWeekStart).add(7, 'day').startOf('day').toDate() }
-          ],
-          limit: 1
-        });
+        // Get proper opening balances from previous week
+        let openingBalances = await this.getPreviousWeekClosingBalances();
 
-        let openingBalances = [];
-        if (previousRegister.success && previousRegister.data && previousRegister.data.length > 0) {
-          const prevReg = previousRegister.data[0];
-          if (prevReg.closingBalances) {
-            // Use previous week's closing balances
-            openingBalances = prevReg.closingBalances;
-          } else {
-            // Previous week not closed, use opening balances
-            openingBalances = prevReg.openingBalances || [];
-          }
-        } else {
-          // No previous register, start with 0 balances for all active accounts
+        // If no previous week balances, start with 0 balances for all active accounts
+        if (openingBalances.length === 0) {
           const paymentMethodsStore = usePaymentMethodsStore();
           await paymentMethodsStore.loadAllData();
           const activeOwnersAccounts = paymentMethodsStore.activeOwnersAccounts;
 
           if (activeOwnersAccounts) {
             openingBalances = activeOwnersAccounts.map(account => ({
-              ownersAccountId: account.id,
-              ownersAccountName: account.name,
+              ownersAccountId: account.id || '', 
+              ownersAccountName: account.name || '',
               amount: 0
             }));
           }
         }
 
-        // Create current week register
         const user = useCurrentUser();
         if (!user.value?.uid) {
           throw new Error('User not authenticated');
         }
 
-        const result = await schema.create({
+        const result = await globalCashSchema.create({
           openingBalances,
-          createdAt: currentWeekStart,
-          createdBy: user.value.uid,
-          createdByName: 'Sistema (Automático)',
           openedAt: currentWeekStart,
           openedBy: user.value.uid,
           openedByName: 'Sistema (Automático)'
@@ -780,8 +820,8 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         const daysSinceMonday = now.diff($dayjs(currentWeekStart), 'day');
 
         // Get previous week register
-        const schema = new GlobalCashSchema();
-        const previousRegister = await schema.find({
+        const globalCashSchema = new GlobalCashSchema();
+        const previousRegister = await globalCashSchema.find({
           where: [
             { field: 'openedAt', operator: '>=', value: $dayjs(previousWeekStart).startOf('day').toDate() },
             { field: 'openedAt', operator: '<', value: $dayjs(previousWeekStart).add(7, 'day').startOf('day').toDate() }
@@ -824,8 +864,8 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
           return { success: false, error: 'No hay una caja global actual para actualizar' };
         }
 
-        const schema = new GlobalCashSchema();
-        const result = await schema.update(this.currentGlobalCash.id, updateData);
+        const globalCashSchema = new GlobalCashSchema();
+        const result = await globalCashSchema.update(this.currentGlobalCash.id, updateData);
 
         if (result.success) {
           // Update local cache
@@ -843,17 +883,17 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       }
     },
 
-    async updateGlobalCashRegister(registerid: string, updateData: any): Promise<{ success: boolean; error?: string }> {
+    async updateGlobalCashRegister(registerId: string, updateData: any): Promise<{ success: boolean; error?: string }> {
       try {
-        const schema = new GlobalCashSchema();
-        const result = await schema.update(registerid, updateData);
+        const globalCashSchema = new GlobalCashSchema();
+        const result = await globalCashSchema.update(registerId, updateData);
 
         if (result.success) {
           // Clear cache for this register to force refresh on next access
-          this.clearTransactionCache(registerid);
+          this.clearTransactionCache(registerId);
 
           // If this is the current register, update local cache
-          if (this.currentGlobalCash && this.currentGlobalCash.id === registerid) {
+          if (this.currentGlobalCash && this.currentGlobalCash.id === registerId) {
             this.currentGlobalCash = { ...this.currentGlobalCash, ...updateData };
           }
 

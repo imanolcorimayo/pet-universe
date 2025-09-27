@@ -89,9 +89,6 @@ export abstract class Schema {
     if (user.value?.uid && !updatedData.createdBy && schemaFields.createdBy?.required) {
       updatedData.createdBy = user.value.uid;
     }
-    if (user.value?.uid && !updatedData.createdBy && schemaFields.createdBy?.required) {
-      updatedData.createdBy = user.value.uid;
-    }
     if (user.value?.uid && !updatedData.updatedBy && schemaFields.updatedBy?.required) {
       updatedData.updatedBy = user.value.uid;
     }
@@ -173,28 +170,25 @@ export abstract class Schema {
   // Prepare document for saving (add timestamps, businessId, etc.)
   protected prepareForSave(data: any, isUpdate = false): any {
     const user = this.getCurrentUser();
-    const businessId = this.getCurrentBusinessId();
-
     let prepared = { ...data };
 
     // Apply defaults
     prepared = this.applyDefaults(prepared);
 
-    // Add business ID if not present
-    if (!prepared.businessId && businessId) {
-      prepared.businessId = businessId;
-    }
-
-    if (!isUpdate) {
-      // For new documents
+    // Update timestamp when exists in schema and it's updating
+    if (isUpdate && Object.hasOwn(this.schema, 'updatedAt')) {
       if (user.value?.uid) {
-        prepared.createdBy = user.value.uid;
+        prepared.updatedBy = user.value.uid;
+      } else {
+        prepared.updatedBy = 'Unknown';
       }
-      prepared.createdAt = serverTimestamp();
+      if (user.value?.displayName) {
+        prepared.updatedByName = user.value.displayName;
+      } else {
+        prepared.updatedByName = 'Unknown';
+      }
+      prepared.updatedAt = serverTimestamp();
     }
-
-    // Always update timestamp
-    prepared.updatedAt = serverTimestamp();
 
     // Ensure date fields are properly handled for Firestore
     // Convert any $dayjs or Date objects to Firestore timestamps or serverTimestamp
@@ -294,7 +288,7 @@ export abstract class Schema {
         }
       }
 
-      // Prepare document for saving
+      // Properly fixes date fields and updates the "Updated At" timestamp with correct values (when updating)
       const prepared = this.prepareForSave(data, false);
 
       // Save to Firestore
@@ -354,7 +348,7 @@ export abstract class Schema {
         }
       }
 
-      // Prepare document for saving
+      // Properly fixes date fields and updates the "Updated At" timestamp with correct values (when updating)
       const prepared = this.prepareForSave(completeData, true);
 
       // Update in Firestore

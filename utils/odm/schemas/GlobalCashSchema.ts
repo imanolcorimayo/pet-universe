@@ -370,20 +370,17 @@ export class GlobalCashSchema extends Schema {
 
       const globalCash = existingGlobalCash.data;
 
-      // Cannot update already closed global cash (except system updates)
-      if (globalCash.closedAt && !data.isSystemUpdate) {
+      // Cannot update already closed global cash
+      if (globalCash.closedAt) {
         errors.push({
           field: 'closedAt',
           message: 'Cannot update already closed global cash'
         });
       }
 
-      // Cannot change fundamental global cash properties (except for system updates)
+      // Cannot change fundamental global cash properties
+      // Note: openingBalances can be updated for account synchronization
       const protectedFields = ['businessId', 'openedAt', 'openedBy'];
-      // Allow openingBalances to be updated by system updates (for new account synchronization)
-      if (!data.isSystemUpdate) {
-        protectedFields.push('openingBalances');
-      }
       
       for (const field of protectedFields) {
         if (data[field] !== undefined && JSON.stringify(data[field]) !== JSON.stringify(globalCash[field])) {

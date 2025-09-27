@@ -501,8 +501,7 @@ export const usePaymentMethodsStore = defineStore('paymentMethods', {
         
         // Update the global cash register using the store's generic update method
         const updateResult = await globalCashStore.updateCurrentGlobalCash({
-          openingBalances: updatedOpeningBalances,
-          isSystemUpdate: true // Special flag to bypass validation
+          openingBalances: updatedOpeningBalances
         });
         
         if (updateResult.success) {

@@ -452,8 +452,8 @@ export class DailyCashSnapshotSchema extends Schema {
 
       const snapshot = existingSnapshot.data;
 
-      // Cannot update already closed snapshots (except system updates)
-      if (snapshot.status === 'closed' && !data.isSystemUpdate) {
+      // Cannot update already closed snapshots
+      if (snapshot.status === 'closed') {
         errors.push({
           field: 'status',
           message: 'Cannot update already closed snapshots'
