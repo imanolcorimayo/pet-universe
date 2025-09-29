@@ -252,14 +252,16 @@
                 ? 'No se han registrado transacciones en esta caja todavía'
                 : `No hay transacciones del tipo "${getTransactionTypeName(transactionFilter)}"` }}
           </p>
-          <button 
+          <button
             v-if="snapshotData?.status === 'open' && transactionFilter === 'all'"
             @click="openSaleModal"
             class="btn bg-primary text-white hover:bg-primary/90"
             :disabled="loadingSaleModal"
           >
-            <LucidePlus class="h-4 w-4 mr-1" />
-            {{ loadingSaleModal ? 'Cargando...' : 'Registrar Primera Venta' }}
+            <span class="flex items-center gap-1">
+              <LucidePlus class="h-4 w-4" />
+              {{ loadingSaleModal ? 'Cargando...' : 'Registrar Primera Venta' }}
+            </span>
           </button>
         </div>
       </div>
@@ -421,6 +423,10 @@ async function loadSnapshotData() {
     // Set this as the current snapshot in the store for balance calculations
     cashRegisterStore.currentSnapshot = snapshotResult.data;
 
+    // Update daily cash register store with current snapshot
+    const dailyCashStore = useDailyCashRegisterStore();
+    dailyCashStore.updateCurrentDailyCash(snapshotResult.data);
+
     // Load transactions for this snapshot using store method
     await cashRegisterStore.loadTransactionsForSnapshot(snapshotId);
     // Get transactions from store
@@ -481,6 +487,7 @@ onMounted(() => {
 
   // Load global cash
   useGlobalCashRegisterStore().loadCurrentGlobalCash();
+
 });
 
 // Head configuration

@@ -157,7 +157,7 @@ export const useInventoryStore = defineStore("inventory", {
     // Fetch all inventory for the current business
     async fetchInventory(forceFetch = false): Promise<boolean> {
       if (this.inventoryLoaded && !forceFetch) {
-        console.log("Inventory already loaded, skipping fetch.");
+        console.info("Inventory already loaded, skipping fetch.");
         return true;
       }
 

@@ -4,23 +4,12 @@ import { getDoc, doc } from 'firebase/firestore';
 
 export class SaleSchema extends Schema {
   protected collectionName = 'sale';
-  
+
   protected schema: SchemaDefinition = {
     businessId: {
       type: 'reference',
       required: true,
       referenceTo: 'userBusiness'
-    },
-    salesRegisterId: {
-      type: 'reference',
-      required: true,
-      referenceTo: 'salesRegister'
-    },
-    saleNumber: {
-      type: 'string',
-      required: true,
-      minLength: 1,
-      maxLength: 20
     },
     clientId: {
       type: 'reference',
@@ -32,31 +21,63 @@ export class SaleSchema extends Schema {
       required: false,
       maxLength: 200
     },
-    items: {
+    dailyCashSnapshotId: {
+      type: 'reference',
+      required: true,
+      referenceTo: 'dailyCashSnapshot'
+    },
+    cashRegisterId: {
+      type: 'reference',
+      required: true,
+      referenceTo: 'cashRegister'
+    },
+    cashRegisterName: {
+      type: 'string',
+      required: true,
+      maxLength: 100
+    },
+    debtId: {
+      type: 'reference',
+      required: false,
+      referenceTo: 'debt'
+    },
+    settlementId: {
+      type: 'reference',
+      required: false,
+      referenceTo: 'settlement'
+    },
+    saleNumber: {
+      type: 'string',
+      required: true,
+      minLength: 1,
+      maxLength: 20
+    },
+    products: {
       type: 'array',
       required: true,
       arrayOf: 'object'
     },
-    paymentDetails: {
+    wallets: {
       type: 'array',
       required: true,
       arrayOf: 'object'
     },
-    subtotal: {
+    amountTotal: {
       type: 'number',
       required: true,
       min: 0
     },
-    totalDiscount: {
+    discountTotal: {
       type: 'number',
-      required: true,
+      required: false,
       min: 0,
       default: 0
     },
-    total: {
+    surcharge: {
       type: 'number',
-      required: true,
-      min: 0
+      required: false,
+      min: 0,
+      default: 0
     },
     isReported: {
       type: 'boolean',
@@ -109,13 +130,13 @@ export class SaleSchema extends Schema {
       };
     }
 
-    // Validate that sales register is open
+    // Validate that daily cash snapshot is open
     if (validateRefs) {
-      const registerValidation = await this.validateSalesRegister(data.salesRegisterId);
-      if (!registerValidation.valid) {
+      const snapshotValidation = await this.validateDailyCashSnapshot(data.dailyCashSnapshotId);
+      if (!snapshotValidation.valid) {
         return {
           success: false,
-          error: `Sales register validation failed: ${registerValidation.errors.map(e => e.message).join(', ')}`
+          error: `Daily cash snapshot validation failed: ${snapshotValidation.errors.map(e => e.message).join(', ')}`
         };
       }
     }
@@ -158,31 +179,31 @@ export class SaleSchema extends Schema {
   private validateSaleData(data: any): ValidationResult {
     const errors: any[] = [];
 
-    // Validate items array
-    if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
+    // Validate products array
+    if (!data.products || !Array.isArray(data.products) || data.products.length === 0) {
       errors.push({
-        field: 'items',
-        message: 'Sale must contain at least one item'
+        field: 'products',
+        message: 'Sale must contain at least one product'
       });
     } else {
-      // Validate each item
-      for (let i = 0; i < data.items.length; i++) {
-        const itemErrors = this.validateSaleItem(data.items[i], i);
-        errors.push(...itemErrors);
+      // Validate each product
+      for (let i = 0; i < data.products.length; i++) {
+        const productErrors = this.validateSaleProduct(data.products[i], i);
+        errors.push(...productErrors);
       }
     }
 
-    // Validate payment details array
-    if (!data.paymentDetails || !Array.isArray(data.paymentDetails) || data.paymentDetails.length === 0) {
+    // Validate wallets array (wallet transfers for non-cash payments)
+    if (!data.wallets || !Array.isArray(data.wallets)) {
       errors.push({
-        field: 'paymentDetails',
-        message: 'Sale must contain at least one payment method'
+        field: 'wallets',
+        message: 'Sale must contain wallets array (even if empty for cash-only sales)'
       });
     } else {
-      // Validate each payment
-      for (let i = 0; i < data.paymentDetails.length; i++) {
-        const paymentErrors = this.validatePaymentDetail(data.paymentDetails[i], i);
-        errors.push(...paymentErrors);
+      // Validate each wallet transfer
+      for (let i = 0; i < data.wallets.length; i++) {
+        const walletErrors = this.validateWalletTransfer(data.wallets[i], i);
+        errors.push(...walletErrors);
       }
     }
 
@@ -206,6 +227,14 @@ export class SaleSchema extends Schema {
       });
     }
 
+    // Validate cash register data consistency
+    if (data.cashRegisterId && !data.cashRegisterName) {
+      errors.push({
+        field: 'cashRegisterName',
+        message: 'Cash register name is required when cash register ID is provided'
+      });
+    }
+
     return {
       valid: errors.length === 0,
       errors
@@ -213,75 +242,75 @@ export class SaleSchema extends Schema {
   }
 
   /**
-   * Validate individual sale item
+   * Validate individual sale product
    */
-  private validateSaleItem(item: any, index: number): any[] {
+  private validateSaleProduct(product: any, index: number): any[] {
     const errors: any[] = [];
-    const prefix = `Item ${index + 1}:`;
+    const prefix = `Product ${index + 1}:`;
 
-    // Required fields
+    // Required fields for financial schema
     const requiredFields = ['productId', 'productName', 'quantity', 'unitType', 'unitPrice', 'totalPrice', 'priceType'];
     for (const field of requiredFields) {
-      if (!item[field] && item[field] !== 0) {
+      if (!product[field] && product[field] !== 0) {
         errors.push({
-          field: `items[${index}].${field}`,
+          field: `products[${index}].${field}`,
           message: `${prefix} ${field} is required`
         });
       }
     }
 
     // Validate numeric fields
-    if (item.quantity && item.quantity <= 0) {
+    if (product.quantity && product.quantity <= 0) {
       errors.push({
-        field: `items[${index}].quantity`,
+        field: `products[${index}].quantity`,
         message: `${prefix} Quantity must be greater than 0`
       });
     }
 
-    if (item.unitPrice && item.unitPrice <= 0) {
+    if (product.unitPrice && product.unitPrice <= 0) {
       errors.push({
-        field: `items[${index}].unitPrice`,
+        field: `products[${index}].unitPrice`,
         message: `${prefix} Unit price must be greater than 0`
       });
     }
 
-    if (item.totalPrice && item.totalPrice <= 0) {
+    if (product.totalPrice && product.totalPrice <= 0) {
       errors.push({
-        field: `items[${index}].totalPrice`,
+        field: `products[${index}].totalPrice`,
         message: `${prefix} Total price must be greater than 0`
       });
     }
 
-    if (item.appliedDiscount < 0) {
+    if (product.appliedDiscount < 0) {
       errors.push({
-        field: `items[${index}].appliedDiscount`,
+        field: `products[${index}].appliedDiscount`,
         message: `${prefix} Applied discount cannot be negative`
       });
     }
 
     // Validate unit type
-    if (item.unitType && !['unit', 'kg'].includes(item.unitType)) {
+    if (product.unitType && !['unit', 'kg'].includes(product.unitType)) {
       errors.push({
-        field: `items[${index}].unitType`,
+        field: `products[${index}].unitType`,
         message: `${prefix} Unit type must be 'unit' or 'kg'`
       });
     }
 
     // Validate price type
-    if (item.priceType && !['regular', 'cash', 'vip', 'bulk', 'promotion'].includes(item.priceType)) {
+    if (product.priceType && !['regular', 'cash', 'vip', 'bulk', 'promotion'].includes(product.priceType)) {
       errors.push({
-        field: `items[${index}].priceType`,
-        message: `${prefix} Invalid price type: ${item.priceType}`
+        field: `products[${index}].priceType`,
+        message: `${prefix} Invalid price type: ${product.priceType}`
       });
     }
 
     // Validate price calculations
-    if (item.quantity && item.unitPrice && item.appliedDiscount !== undefined && item.totalPrice) {
-      const expectedTotal = (item.quantity * item.unitPrice) - item.appliedDiscount;
-      if (Math.abs(item.totalPrice - expectedTotal) > 0.01) {
+    if (product.quantity && product.unitPrice && product.appliedDiscount !== undefined && product.totalPrice) {
+      const expectedTotal = (product.quantity * product.unitPrice) - (product.appliedDiscount || 0);
+      if (Math.abs(product.totalPrice - expectedTotal) > 0.01) {
         errors.push({
-          field: `items[${index}].totalPrice`,
-          message: `${prefix} Price calculation error. Expected: ${expectedTotal.toFixed(2)}, Got: ${item.totalPrice.toFixed(2)}`
+          field: `products[${index}].totalPrice`,
+          message: `${prefix} Price calculation error. Expected: ${expectedTotal.toFixed(2)}, Got: ${product.totalPrice.toFixed(2)}`
         });
       }
     }
@@ -290,24 +319,36 @@ export class SaleSchema extends Schema {
   }
 
   /**
-   * Validate payment detail
+   * Validate wallet transfer (for non-cash payments)
    */
-  private validatePaymentDetail(payment: any, index: number): any[] {
+  private validateWalletTransfer(wallet: any, index: number): any[] {
     const errors: any[] = [];
-    const prefix = `Payment ${index + 1}:`;
+    const prefix = `Wallet ${index + 1}:`;
 
-    // Required fields
-    if (!payment.paymentMethod) {
+    // Required fields for wallet transfers
+    const requiredFields = ['paymentMethodId', 'paymentMethodName', 'amount', 'ownersAccountId', 'ownersAccountName'];
+    for (const field of requiredFields) {
+      if (!wallet[field] && wallet[field] !== 0) {
+        errors.push({
+          field: `wallets[${index}].${field}`,
+          message: `${prefix} ${field} is required`
+        });
+      }
+    }
+
+    // Validate amount
+    if (wallet.amount && wallet.amount <= 0) {
       errors.push({
-        field: `paymentDetails[${index}].paymentMethod`,
-        message: `${prefix} Payment method is required`
+        field: `wallets[${index}].amount`,
+        message: `${prefix} Amount must be greater than 0`
       });
     }
 
-    if (!payment.amount || payment.amount <= 0) {
+    // Validate payment method ID format
+    if (wallet.paymentMethodId && typeof wallet.paymentMethodId !== 'string') {
       errors.push({
-        field: `paymentDetails[${index}].amount`,
-        message: `${prefix} Payment amount must be greater than 0`
+        field: `wallets[${index}].paymentMethodId`,
+        message: `${prefix} Payment method ID must be a string`
       });
     }
 
@@ -315,57 +356,53 @@ export class SaleSchema extends Schema {
   }
 
   /**
-   * Validate amount calculations for the entire sale
+   * Validate amount calculations for the entire sale (new financial schema)
    */
   private validateAmountCalculations(data: any): any[] {
     const errors: any[] = [];
 
-    if (!data.items || !data.paymentDetails) {
+    if (!data.products) {
       return errors; // Already handled in main validation
     }
 
-    // Calculate expected subtotal from items
-    const calculatedSubtotal = data.items.reduce((sum: number, item: any) => {
-      return sum + ((item.quantity * item.unitPrice) || 0);
+    // Calculate expected total from products
+    const calculatedProductTotal = data.products.reduce((sum: number, product: any) => {
+      return sum + (product.totalPrice || 0);
     }, 0);
 
-    if (Math.abs(data.subtotal - calculatedSubtotal) > 0.01) {
+    // Calculate expected discount total from products
+    const calculatedDiscountTotal = data.products.reduce((sum: number, product: any) => {
+      return sum + (product.appliedDiscount || 0);
+    }, 0);
+
+    // Validate discount total if provided
+    if (data.discountTotal !== undefined && Math.abs(data.discountTotal - calculatedDiscountTotal) > 0.01) {
       errors.push({
-        field: 'subtotal',
-        message: `Subtotal calculation error. Expected: ${calculatedSubtotal.toFixed(2)}, Got: ${data.subtotal.toFixed(2)}`
+        field: 'discountTotal',
+        message: `Discount total calculation error. Expected: ${calculatedDiscountTotal.toFixed(2)}, Got: ${data.discountTotal.toFixed(2)}`
       });
     }
 
-    // Calculate expected total discount from items
-    const calculatedDiscount = data.items.reduce((sum: number, item: any) => {
-      return sum + (item.appliedDiscount || 0);
-    }, 0);
-
-    if (Math.abs(data.totalDiscount - calculatedDiscount) > 0.01) {
+    // Calculate expected amount total (products total + surcharge)
+    const expectedAmountTotal = calculatedProductTotal + (data.surcharge || 0);
+    if (Math.abs(data.amountTotal - expectedAmountTotal) > 0.01) {
       errors.push({
-        field: 'totalDiscount',
-        message: `Total discount calculation error. Expected: ${calculatedDiscount.toFixed(2)}, Got: ${data.totalDiscount.toFixed(2)}`
+        field: 'amountTotal',
+        message: `Amount total calculation error. Expected: ${expectedAmountTotal.toFixed(2)}, Got: ${data.amountTotal.toFixed(2)}`
       });
     }
 
-    // Validate final total
-    const expectedTotal = data.subtotal - data.totalDiscount;
-    if (Math.abs(data.total - expectedTotal) > 0.01) {
-      errors.push({
-        field: 'total',
-        message: `Total calculation error. Expected: ${expectedTotal.toFixed(2)}, Got: ${data.total.toFixed(2)}`
-      });
-    }
-
-    // Validate payment total matches sale total
-    const paymentTotal = data.paymentDetails.reduce((sum: number, payment: any) => {
-      return sum + (payment.amount || 0);
+    // Validate wallet transfers total (should match amount actually paid via wallet)
+    const walletTotal = data.wallets.reduce((sum: number, wallet: any) => {
+      return sum + (wallet.amount || 0);
     }, 0);
 
-    if (Math.abs(paymentTotal - data.total) > 0.01) {
+    // Note: Wallet total might be less than amount total if there's cash payment or debt creation
+    // This validation is handled by BusinessRulesEngine, not schema
+    if (walletTotal > data.amountTotal + 0.01) {
       errors.push({
-        field: 'paymentDetails',
-        message: `Payment total (${paymentTotal.toFixed(2)}) does not match sale total (${data.total.toFixed(2)})`
+        field: 'wallets',
+        message: `Wallet transfers total (${walletTotal.toFixed(2)}) cannot exceed sale total (${data.amountTotal.toFixed(2)})`
       });
     }
 
@@ -373,9 +410,9 @@ export class SaleSchema extends Schema {
   }
 
   /**
-   * Validate that sales register is open and available
+   * Validate that daily cash snapshot is open and available
    */
-  private async validateSalesRegister(salesRegisterId: string): Promise<ValidationResult> {
+  private async validateDailyCashSnapshot(dailyCashSnapshotId: string): Promise<ValidationResult> {
     const errors: any[] = [];
 
     try {
@@ -390,38 +427,38 @@ export class SaleSchema extends Schema {
         return { valid: false, errors };
       }
 
-      const registerDoc = await getDoc(doc(db, 'salesRegister', salesRegisterId));
+      const snapshotDoc = await getDoc(doc(db, 'dailyCashSnapshot', dailyCashSnapshotId));
 
-      if (!registerDoc.exists()) {
+      if (!snapshotDoc.exists()) {
         errors.push({
-          field: 'salesRegisterId',
-          message: `Sales register with ID ${salesRegisterId} not found`
+          field: 'dailyCashSnapshotId',
+          message: `Daily cash snapshot with ID ${dailyCashSnapshotId} not found`
         });
         return { valid: false, errors };
       }
 
-      const register = registerDoc.data();
+      const snapshot = snapshotDoc.data();
 
-      // Validate register belongs to current business
-      if (register.businessId !== businessId) {
+      // Validate snapshot belongs to current business
+      if (snapshot.businessId !== businessId) {
         errors.push({
-          field: 'salesRegisterId',
-          message: 'Sales register does not belong to current business'
+          field: 'dailyCashSnapshotId',
+          message: 'Daily cash snapshot does not belong to current business'
         });
       }
 
-      // Validate register is open (not closed)
-      if (register.closedAt) {
+      // Validate snapshot is open (not closed)
+      if (snapshot.status !== 'open') {
         errors.push({
-          field: 'salesRegisterId',
-          message: 'Cannot create sales in a closed register'
+          field: 'dailyCashSnapshotId',
+          message: `Cannot create sales in a ${snapshot.status} daily cash snapshot`
         });
       }
 
     } catch (error) {
       errors.push({
-        field: 'salesRegisterId',
-        message: `Failed to validate sales register: ${error}`
+        field: 'dailyCashSnapshotId',
+        message: `Failed to validate daily cash snapshot: ${error}`
       });
     }
 

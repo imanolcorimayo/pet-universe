@@ -9,35 +9,17 @@
     <div class="space-y-4">
       <!-- Client Selection -->
       <div class="bg-gray-50 p-4 rounded-lg">
-        <div class="flex-1">
-          <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-            <LucideUser class="h-4 w-4 text-gray-600" />
-            Cliente
-          </label>
-          <p class="text-sm text-gray-600 mb-2">Selecciona un cliente o deja en "Cliente Casual" para venta sin registro</p>
-          <div class="flex items-center gap-2">
-            <select
-              v-model="selectedClientId"
-              class="w-full !p-2 border rounded-md"
-              :disabled="isLoading"
-              ref="clientSelect"
-            >
-              <option value="">Cliente Casual</option>
-              <option v-for="client in clients" :key="client.id" :value="client.id">
-                {{ client.name }}
-              </option>
-            </select>
-            <button
-              class="p-2 border rounded-md hover:bg-gray-100"
-              title="Crear nuevo cliente"
-              @click="createNewClient"
-            >
-              <span class="flex items-center justify-center">
-                <LucidePlus class="w-5 h-5" />
-              </span>
-            </button>
-          </div>
+        <div class="flex items-center gap-2 mb-2">
+          <LucideUser class="h-4 w-4 text-gray-600" />
+          <span class="text-sm font-medium text-gray-700">Cliente</span>
         </div>
+        <FinanceClientSelector
+          v-model="selectedClientId"
+          description="Selecciona un cliente o deja en 'Cliente Casual' para venta sin registro"
+          :disabled="isLoading"
+          @change="handleClientChange"
+          @create-new="createNewClient"
+        />
       </div>
       
       <!-- Stock Alerts -->
@@ -497,47 +479,46 @@
       
       <!-- Payment Methods -->
       <div class="bg-gray-50 p-4 rounded-lg">
-        <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+        <div class="flex items-center gap-2 mb-1">
           <LucideCreditCard class="h-4 w-4 text-gray-600" />
-          Métodos de Pago
-        </label>
+          <span class="text-sm font-medium text-gray-700">Métodos de Pago</span>
+        </div>
         <p class="text-sm text-gray-600 mb-3">¿Cómo va a pagar el cliente? Puedes combinar varios métodos</p>
         <div class="border rounded-md p-3 space-y-3 bg-white">
-          <div v-for="(payment, index) in paymentDetails" :key="index" class="flex items-center gap-3">
+          <div v-for="(payment, index) in paymentDetails" :key="index" class="flex items-end gap-3">
             <div class="flex-1">
-              <select
+              <FinancePaymentMethodSelector
                 v-model="payment.paymentMethod"
-                class="w-full !p-2 border rounded-md"
                 :disabled="isLoading"
-              >
-                <option v-for="(method, code) in availablePaymentMethods" :key="code" :value="code">
-                  {{ method.name }}
-                </option>
-              </select>
+                placeholder="Selecciona método de pago"
+                @change="handlePaymentMethodChange(index, $event)"
+              />
             </div>
-            <div class="w-40">
-              <div class="relative">
-                <span class="absolute left-3 top-2 text-gray-500">$</span>
-                <input
-                  type="number"
-                  v-model.number="payment.amount"
-                  class="w-full !p-2 !pl-7 border rounded-md"
-                  :disabled="isLoading"
-                  min="0"
-                  step="0.01"
-                  @input="payment.amount = roundToTwo(payment.amount)"
-                />
+            <div class="flex items-center gap-3">
+              <div class="w-40">
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    v-model.number="payment.amount"
+                    class="w-full !pl-7 border rounded-md"
+                    :disabled="isLoading"
+                    min="0"
+                    step="0.01"
+                    @input="payment.amount = roundToTwo(payment.amount)"
+                  />
+                </div>
               </div>
-            </div>
-            <div>
-              <button
-                @click="removePaymentMethod(index)"
-                class="text-red-600 hover:text-red-900 p-1"
-                title="Eliminar método de pago"
-                :disabled="isLoading || paymentDetails.length <= 1"
-              >
-                <LucideX class="w-4 h-4" />
-              </button>
+              <div>
+                <button
+                  @click="removePaymentMethod(index)"
+                  class="text-red-600 hover:text-red-900 p-1"
+                  title="Eliminar método de pago"
+                  :disabled="isLoading || paymentDetails.length <= 1"
+                >
+                  <LucideX class="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
           
@@ -559,7 +540,51 @@
           </div>
         </div>
       </div>
-      
+
+      <!-- Fiscal Reporting Status -->
+      <div class="bg-gray-50 p-4 rounded-lg">
+        <div class="flex items-center gap-2 mb-2">
+          <LucideFileText class="h-4 w-4 text-gray-600" />
+          <span class="text-sm font-medium text-gray-700">Reporte Fiscal</span>
+        </div>
+        <p class="text-sm text-gray-600 mb-3">Marca si esta venta será reportada fiscalmente</p>
+
+        <div class="flex items-center justify-between">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              v-model="isReported"
+              :disabled="isLoading"
+              class="rounded"
+            />
+            <span class="text-sm font-medium text-gray-700">Transacción Reportada</span>
+          </label>
+          <span
+            :class="[
+              'px-2 py-1 text-xs font-medium rounded-full',
+              isReported
+                ? 'bg-blue-100 text-blue-800'
+                : 'bg-gray-100 text-gray-800'
+            ]"
+          >
+            {{ isReported ? 'Transacción en Blanco' : 'Transacción en Negro' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Client Required Banner (when payment is insufficient but no client selected) -->
+      <div v-if="!selectedClientId && paymentDifference > 0" class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+        <div class="flex items-start gap-3">
+          <LucideAlertTriangle class="h-5 w-5 text-orange-600 mt-0.5" />
+          <div class="flex-1">
+            <h3 class="font-medium text-orange-800 mb-1">Cliente Requerido</h3>
+            <p class="text-sm text-orange-700">
+              Falta pagar ${{ formatNumber(paymentDifference) }}. Si no se selecciona un cliente, no se podrá registrar la deuda.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Debt Configuration (only if client is selected and payment is insufficient) -->
       <div v-if="selectedClientId && paymentDifference > 0" class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
         <div class="flex items-start gap-3">
@@ -605,14 +630,6 @@
       <!-- Additional Options -->
       <div class="bg-gray-50 p-4 rounded-lg">
         <div class="flex flex-col w-full items-start gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Venta</label>
-            <label class="flex items-center cursor-pointer">
-              <input type="checkbox" v-model="isReported" class="mr-2 h-4 w-4" />
-              <span class="text-sm">Venta declarada (en blanco)</span>
-            </label>
-            <p class="text-xs text-gray-500 mt-1">¿Esta venta será reportada en la contabilidad oficial?</p>
-          </div>
           
           <div class="w-full">
             <label class="block text-sm font-medium text-gray-700 mb-1">Notas Adicionales</label>
@@ -662,18 +679,39 @@ import LucidePercent from '~icons/lucide/percent';
 import LucideDollarSign from '~icons/lucide/dollar-sign';
 import LucidePackage from '~icons/lucide/package';
 import LucideAlertTriangle from '~icons/lucide/alert-triangle';
+import LucideFileText from '~icons/lucide/file-text';
 
 import { ToastEvents } from '~/interfaces';
 import ProductSearchInput from '~/components/Product/ProductSearchInput.vue';
+import FinanceClientSelector from '~/components/Finance/ClientSelector.vue';
+import FinancePaymentMethodSelector from '~/components/Finance/PaymentMethodSelector.vue';
 
 // Refs to control modal visibility and state
 const modalRef = ref(null);
 const isLoading = ref(false);
 
+// Store access (needed early for helper functions)
+const paymentMethodsStore = usePaymentMethodsStore();
+
+// Helper function to get default payment method ID
+function getDefaultPaymentMethod() {
+  // Try to find 'efectivo' method first, otherwise use first available
+  const methods = paymentMethodsStore.activePaymentMethods || [];
+  if (methods.length === 0) {
+    return ''; // Will be set properly when store loads
+  }
+
+  const efectivoMethod = methods.find(m =>
+    m.name.toLowerCase().includes('efectivo') ||
+    m.code.toLowerCase().includes('efectivo')
+  );
+  return efectivoMethod ? efectivoMethod.id : methods[0].id;
+}
+
 // Form data
 const selectedClientId = ref('');
 const saleItems = ref([]);
-const paymentDetails = ref([{ paymentMethod: 'EFECTIVO', amount: 0 }]);
+const paymentDetails = ref([{ paymentMethod: getDefaultPaymentMethod(), amount: 0 }]);
 const isReported = ref(false);
 const notes = ref('');
 
@@ -688,12 +726,11 @@ const clientSelect = ref(null);
 
 // Store access
 const indexStore = useIndexStore();
-const saleStore = useSaleStore();
 const clientStore = useClientStore();
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 const debtStore = useDebtStore();
-const paymentMethodsStore = usePaymentMethodsStore();
+const dailyCashRegisterStore = useDailyCashRegisterStore();
 
 // Load product and client data
 const { clients } = storeToRefs(clientStore);
@@ -701,9 +738,6 @@ const { products, categories: productCategories } = storeToRefs(productStore);
 const { inventoryItems } = storeToRefs(inventoryStore);
 
 // Computed properties
-const availablePaymentMethods = computed(() => {
-  return paymentMethodsStore.activePaymentMethodsForSelect || {};
-});
 
 const selectedProductIds = computed(() => {
   return saleItems.value
@@ -839,7 +873,7 @@ const emit = defineEmits(['sale-completed']);
 function initializeForm() {
   selectedClientId.value = '';
   saleItems.value = [];
-  paymentDetails.value = [{ paymentMethod: 'EFECTIVO', amount: 0 }];
+  paymentDetails.value = [{ paymentMethod: getDefaultPaymentMethod(), amount: 0 }];
   isReported.value = false;
   notes.value = '';
   productSelectRefs.value = [];
@@ -1051,12 +1085,22 @@ function updatePaymentMethodsWithNewTotal(newTotal) {
 
 // Function to update isReported based on payment methods
 function updateIsReportedBasedOnPayment() {
-  // Check if any payment method is of type "cash" or is EFECTIVO
+  // Check if any payment method contains "efectivo" in name or code (mirrors GlobalCashTransactionModal logic)
   const hasCashPayment = paymentDetails.value.some(payment => {
-    return payment.paymentMethod === 'EFECTIVO';
+    if (!payment.paymentMethod) return false;
+
+    // Get the payment method details from store
+    const paymentMethod = paymentMethodsStore.getPaymentMethodById(payment.paymentMethod);
+    if (!paymentMethod) return false;
+
+    // Check if method name or code contains "efectivo" (case insensitive)
+    const isEfectivo = paymentMethod.name.toLowerCase().includes('efectivo') ||
+                      paymentMethod.code.toLowerCase().includes('efectivo');
+
+    return isEfectivo;
   });
-  
-  // If any payment method is cash, set isReported to false, otherwise true
+
+  // If any payment method is cash/efectivo, set isReported to false (black), otherwise true (white)
   isReported.value = !hasCashPayment;
 }
 
@@ -1064,17 +1108,18 @@ function updateIsReportedBasedOnPayment() {
 function addPaymentMethod() {
   // Determine the remaining amount (rounded)
   const remainingAmount = roundToTwo(Math.max(0, paymentDifference.value));
-  
+
   // Find a payment method not used yet
   const usedMethods = new Set(paymentDetails.value.map(p => p.paymentMethod));
-  const availableMethods = Object.keys(availablePaymentMethods.value);
-  const unusedMethod = availableMethods.find(m => !usedMethods.has(m)) || 'EFECTIVO';
-  
+  const availableMethods = paymentMethodsStore.activePaymentMethods || [];
+  const unusedMethod = availableMethods.find(m => !usedMethods.has(m.id));
+  const methodId = unusedMethod ? unusedMethod.id : (availableMethods[0]?.id || '');
+
   paymentDetails.value.push({
-    paymentMethod: unusedMethod,
+    paymentMethod: methodId,
     amount: remainingAmount
   });
-  
+
   // Update isReported when payment method is added
   updateIsReportedBasedOnPayment();
 }
@@ -1187,6 +1232,72 @@ function createNewClient() {
   useToast(ToastEvents.info, 'La creación de clientes está pendiente de implementación');
 }
 
+function handleClientChange(clientData) {
+  // clientData contains: { clientId, client, isCasual }
+  // The v-model already updates selectedClientId
+  // We can perform additional logic here if needed
+
+  // Update isReported based on client selection if needed
+  updateIsReportedBasedOnPayment();
+}
+
+function handlePaymentMethodChange(index, paymentData) {
+  // paymentData contains: { methodId, method }
+  if (paymentData && paymentData.methodId) {
+    // The v-model already updates payment.paymentMethod
+    // Update isReported based on new payment method selection
+    updateIsReportedBasedOnPayment();
+  }
+}
+
+// Update inventory after successful sale
+async function updateInventoryForSale() {
+  try {
+    for (const item of saleItems.value) {
+      if (!item.productId || item.quantity <= 0) continue;
+
+      const product = getProduct(item.productId);
+      if (!product) continue;
+
+      // Get current inventory for this product
+      const currentInventory = getProductStock(item.productId);
+      if (!currentInventory) {
+        console.warn(`No inventory found for product ${item.productId}`);
+        continue;
+      }
+
+      // Calculate inventory reduction based on unit type
+      let unitsChange = 0;
+      let weightChange = 0;
+
+      if (item.unitType === 'kg') {
+        // For kg sales, reduce open units weight
+        weightChange = -item.quantity;
+      } else {
+        // For unit sales, reduce units in stock
+        unitsChange = -item.quantity;
+      }
+
+      // Use the existing adjustInventory method to reduce stock
+      const adjustmentSuccess = await inventoryStore.adjustInventory({
+        productId: item.productId,
+        unitsChange: unitsChange,
+        weightChange: weightChange,
+        reason: 'sale',
+        notes: `Venta #${saleNumber} - ${item.quantity} ${item.unitType === 'kg' ? 'kg' : 'unidades'}`
+      });
+
+      if (!adjustmentSuccess) {
+        console.error(`Failed to adjust inventory for product ${item.productId}`);
+        useToast(ToastEvents.warning, `Error actualizando inventario para ${item.productName}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error updating inventory for sale:', error);
+    useToast(ToastEvents.warning, 'Venta procesada correctamente pero hubo un problema actualizando el inventario');
+  }
+}
+
 // Form submission
 async function submitForm() {
   // Detailed validation with specific error messages
@@ -1246,8 +1357,8 @@ async function submitForm() {
       }
     }
     
-    // Generate unique sale number
-    const saleNumber = (saleStore.saleCounter + 1).toString().padStart(3, '0');
+    // Generate unique sale number for this daily cash snapshot
+    const saleNumber = dailyCashRegisterStore.generateNextSaleNumber();
     
     // Prepare sale data using BusinessRulesEngine structure
     const saleData = {
@@ -1311,11 +1422,14 @@ async function submitForm() {
     const result = await businessEngine.processSale(saleProcessingData);
     
     if (result.success) {
-      useToast(ToastEvents.success, 'Venta registrada exitosamente usando BusinessRulesEngine');
-      
-      // Update sale counter
-      saleStore.saleCounter += 1;
-      
+      useToast(ToastEvents.success, 'Venta registrada exitosamente');
+
+      // Increment sale counter after successful sale
+      dailyCashRegisterStore.incrementSaleCounter();
+
+      // Update inventory for each sold item
+      await updateInventoryForSale();
+
       emit('sale-completed');
       closeModal();
       initializeForm(); // Reset form
@@ -1406,13 +1520,33 @@ async function showModal() {
       inventoryStore.fetchInventory(),
       paymentMethodsStore.needsCacheRefresh ? paymentMethodsStore.loadAllData() : Promise.resolve(true)
     ]);
-    
+
+    // Load current daily cash separately (it doesn't return a result)
+    await dailyCashRegisterStore.loadCurrentDailyCash();
+
     // Check if all data was loaded successfully
     if (!clientsResult || !productsResult || !categoriesResult || !inventoryResult || !paymentMethodsResult) {
       useToast(ToastEvents.error, "No se pudieron cargar todos los datos necesarios");
       return;
     }
-    
+
+    // Check if a daily cash register is open
+    if (!dailyCashRegisterStore.hasOpenDailyCash) {
+      useToast(ToastEvents.error, "No hay una caja diaria abierta. Debes abrir una caja antes de procesar ventas.");
+      return;
+    }
+
+    // Initialize payment method if it wasn't set properly
+    if (!paymentDetails.value[0]?.paymentMethod) {
+      const defaultMethod = getDefaultPaymentMethod();
+      if (defaultMethod) {
+        paymentDetails.value[0].paymentMethod = defaultMethod;
+      }
+    }
+
+    // Update isReported based on initial payment method
+    updateIsReportedBasedOnPayment();
+
     // Show the modal after data is loaded
     modalRef.value?.showModal();
     // Focus the client select input

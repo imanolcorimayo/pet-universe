@@ -889,7 +889,7 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         const result = await globalCashSchema.update(registerId, updateData);
 
         if (result.success) {
-          // Clear cache for this register to force refresh on next access
+          // Clear wallet cache for this register to force refresh on next access
           this.clearTransactionCache(registerId);
 
           // If this is the current register, update local cache

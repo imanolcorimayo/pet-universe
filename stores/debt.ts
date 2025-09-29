@@ -46,7 +46,7 @@ interface DebtPayment {
   id: string;
   businessId: string;
   debtId: string;
-  salesRegisterId: string;
+  salesRegisterId: string; // TODO: Replace with dailyCashSnapshotId in new financial system
   amount: number;
   paymentMethod: string;
   isReported: boolean;
@@ -280,7 +280,8 @@ export const useDebtStore = defineStore('debt', {
       const db = useFirestore();
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
-      const saleStore = useSaleStore();
+      // TODO: Update to use BusinessRulesEngine.processDebtPayment() instead of direct store operations
+      // const saleStore = useSaleStore(); // REMOVED - Sale store no longer exists
       const globalCashRegisterStore = useGlobalCashRegisterStore();
       
       if (!user.value?.uid || !currentBusinessId.value) {
@@ -302,28 +303,24 @@ export const useDebtStore = defineStore('debt', {
       try {
         let salesRegisterId = null;
         
-        // Customer debts go to sales register, supplier debts go to global register
+        // TODO: Replace with BusinessRulesEngine.processDebtPayment()
+        // Customer debts go to daily cash register, supplier debts go to global register
         if (debt.type === 'customer') {
-          // Customer debt payment - record in sales register
-          if (!saleStore.isRegisterOpen || !saleStore.getCurrentRegister) {
-            useToast(ToastEvents.error, 'No hay una caja de ventas abierta para registrar pagos de clientes');
+          // TEMPORARILY DISABLED - Customer debt payment processing
+          // This should be handled by BusinessRulesEngine.processDebtPayment()
+          useToast(ToastEvents.error, 'Customer debt payments are temporarily disabled. Please use the new financial system.');
+          return false;
+
+          /*
+          // Customer debt payment - record in daily cash register
+          const dailyCashStore = useDailyCashRegisterStore();
+          if (!dailyCashStore.hasOpenDailyCash) {
+            useToast(ToastEvents.error, 'No hay una caja diaria abierta para registrar pagos de clientes');
             return false;
           }
+          */
 
-          const salesRegisterResult = await saleStore.addDebtPayment({
-            debtId: data.debtId,
-            entityName: debt.entityName,
-            amount: data.amount,
-            paymentMethod: data.paymentMethod,
-            isReported: data.isReported,
-            notes: data.notes
-          });
-
-          if (!salesRegisterResult) {
-            throw new Error('Failed to record payment in sales register');
-          }
-          
-          salesRegisterId = saleStore.getCurrentRegister.id;
+          salesRegisterId = null; // Will be provided by BusinessRulesEngine
         } else {
           // Supplier debt payment - record in global register
           await globalCashRegisterStore.addTransaction({
