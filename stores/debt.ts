@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { useLocalStorage } from '@vueuse/core';
 import { ToastEvents } from '~/interfaces';
+import { DebtSchema } from '~/utils/odm/schemas/DebtSchema';
 
 // --- Interfaces ---
 interface Debt {
@@ -61,6 +62,11 @@ interface DebtState {
   payments: DebtPayment[];
   isLoading: boolean;
   loadingPayments: boolean;
+
+  // Cache management by snapshot ID
+  snapshotDebts: Map<string, Debt[]>;
+  lastCacheUpdate: number;
+  cacheValidityMs: number;
 }
 
 // --- Store ---
@@ -69,10 +75,27 @@ export const useDebtStore = defineStore('debt', {
     debts: [],
     payments: [],
     isLoading: false,
-    loadingPayments: false
+    loadingPayments: false,
+
+    // Cache management
+    snapshotDebts: new Map(),
+    lastCacheUpdate: 0,
+    cacheValidityMs: 5 * 60 * 1000, // 5 minutes
   }),
 
   getters: {
+    debtSchema: () => new DebtSchema(),
+
+    needsCacheRefresh(): boolean {
+      return Date.now() - this.lastCacheUpdate > this.cacheValidityMs;
+    },
+
+    getDebtsForSnapshot(): (snapshotId: string) => Debt[] {
+      return (snapshotId: string) => {
+        return this.snapshotDebts.get(snapshotId) || [];
+      };
+    },
+
     // Get all active debts
     activeDebts: (state) => state.debts.filter(debt => debt.status === 'active'),
     
@@ -126,6 +149,51 @@ export const useDebtStore = defineStore('debt', {
   },
 
   actions: {
+    // --- Cache Management ---
+    clearCache() {
+      this.debts = [];
+      this.payments = [];
+      this.snapshotDebts.clear();
+      this.lastCacheUpdate = 0;
+    },
+
+    clearSnapshotCache(snapshotId: string) {
+      this.snapshotDebts.delete(snapshotId);
+    },
+
+    // --- New Schema-Based Methods ---
+    async loadDebtsForSnapshot(snapshotId: string) {
+      try {
+        // Check if we already have cached data for this snapshot
+        if (this.snapshotDebts.has(snapshotId)) {
+          return {
+            success: true,
+            data: this.snapshotDebts.get(snapshotId),
+            fromCache: true
+          };
+        }
+
+        const result = await this.debtSchema.find({
+          where: [
+            { field: 'dailyCashSnapshotId', operator: '==', value: snapshotId }
+          ],
+          orderBy: [{ field: 'createdAt', direction: 'desc' }]
+        });
+
+        if (result.success && result.data) {
+          // Cache the results
+          this.snapshotDebts.set(snapshotId, result.data as Debt[]);
+          return { success: true, data: result.data, fromCache: false };
+        } else {
+          console.error('Failed to load debts for snapshot:', result.error);
+          return { success: false, error: result.error || 'Failed to load debts for snapshot' };
+        }
+      } catch (error: any) {
+        console.error('Error loading debts for snapshot:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
     // Load all debts for the current business
     async loadDebts() {
       const db = useFirestore();
@@ -526,11 +594,5 @@ export const useDebtStore = defineStore('debt', {
         }, null as Debt | null)
       };
     },
-
-    // Clear local cache
-    clearCache() {
-      this.debts = [];
-      this.payments = [];
-    }
   }
 });

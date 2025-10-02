@@ -21,6 +21,11 @@ export class WalletSchema extends Schema {
       required: true,
       referenceTo: 'globalCash'
     },
+    dailyCashSnapshotId: {
+      type: 'reference',
+      required: false,
+      referenceTo: 'dailyCashSnapshot'
+    },
     saleId: {
       type: 'reference',
       required: false,

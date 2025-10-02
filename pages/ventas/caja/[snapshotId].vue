@@ -161,108 +161,371 @@
         </div>
       </div>
       
-      <!-- Transactions List -->
+      <!-- Data Tables -->
       <div class="bg-white rounded-lg shadow">
-        <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-          <h2 class="font-semibold">Transacciones</h2>
-          <div class="flex gap-2">
-            <select 
-              v-model="transactionFilter"
-              class="select select-bordered select-sm"
+        <div class="px-4 py-3 border-b border-gray-200">
+          <div class="flex justify-between items-center">
+            <h2 class="font-semibold">Datos de la Caja</h2>
+            <div class="flex gap-2">
+              <select
+                v-if="activeTab === 'transactions'"
+                v-model="transactionFilter"
+                class="select select-bordered select-sm"
+              >
+                <option value="all">Todas</option>
+                <option value="sale">Ventas</option>
+                <option value="debt_payment">Pagos Deuda</option>
+                <option value="extract">Extracciones</option>
+                <option value="inject">Inyecciones</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Tabs -->
+          <div class="flex gap-1 mt-3 border-b">
+            <button
+              @click="activeTab = 'transactions'"
+              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
+                activeTab === 'transactions' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
             >
-              <option value="all">Todas</option>
-              <option value="sale">Ventas</option>
-              <option value="debt_payment">Pagos Deuda</option>
-              <option value="extract">Extracciones</option>
-              <option value="inject">Inyecciones</option>
-            </select>
+              Transacciones ({{ filteredTransactions.length }})
+            </button>
+            <button
+              @click="activeTab = 'sales'"
+              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
+                activeTab === 'sales' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
+            >
+              Ventas ({{ sales.length }})
+            </button>
+            <button
+              @click="activeTab = 'wallets'"
+              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
+                activeTab === 'wallets' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
+            >
+              Trans. Globales ({{ wallets.length }})
+            </button>
+            <button
+              @click="activeTab = 'debts'"
+              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
+                activeTab === 'debts' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
+            >
+              Deudas ({{ debts.length }})
+            </button>
+            <button
+              @click="activeTab = 'settlements'"
+              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
+                activeTab === 'settlements' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
+            >
+              Liquidaciones ({{ settlements.length }})
+            </button>
           </div>
         </div>
-        
-        <!-- Transactions Table -->
-        <div v-if="filteredTransactions.length > 0" class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Descripción
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Monto
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha
-                </th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="transaction in filteredTransactions" :key="transaction.id">
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span 
-                    class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                    :class="getTransactionTypeClass(transaction.type)"
-                  >
-                    {{ getTransactionTypeName(transaction.type) }}
-                  </span>
-                </td>
-                <td class="px-6 py-4">
-                  <div class="text-sm text-gray-900">
-                    {{ getTransactionDescription(transaction) }}
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div 
-                    class="text-sm font-medium"
-                    :class="['extract'].includes(transaction.type) ? 'text-red-600' : 'text-green-600'"
-                  >
-                    {{ ['extract'].includes(transaction.type) ? '-' : '+' }}{{ formatCurrency(transaction.amount) }}
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {{ transaction.createdAt }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right">
-                  <button 
-                    v-if="transaction.saleId"
-                    @click="viewSaleDetails(transaction.saleId)"
-                    class="text-indigo-600 hover:text-indigo-900 mr-3"
-                  >
-                    Ver Venta
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        
-        <!-- Empty Transactions List -->
-        <div v-else class="p-6 text-center">
-          <div class="mb-4 flex justify-center">
-            <LucideFileText class="w-12 h-12 text-gray-400" />
+
+        <!-- Transactions Tab -->
+        <div v-if="activeTab === 'transactions'">
+          <div v-if="filteredTransactions.length > 0" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Caja</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creado Por</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="transaction in filteredTransactions" :key="transaction.id">
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span
+                      class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                      :class="getTransactionTypeClass(transaction.type)"
+                    >
+                      {{ getTransactionTypeName(transaction.type) }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="text-sm text-gray-900">{{ transaction.cashRegisterName }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div
+                      class="text-sm font-medium"
+                      :class="['extract'].includes(transaction.type) ? 'text-red-600' : 'text-green-600'"
+                    >
+                      {{ ['extract'].includes(transaction.type) ? '-' : '+' }}{{ formatCurrency(transaction.amount) }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="text-sm text-gray-600">{{ transaction.createdByName }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ transaction.createdAt }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap text-right">
+                    <button
+                      v-if="transaction.saleId"
+                      @click="viewSaleDetails(transaction.saleId)"
+                      class="text-indigo-600 hover:text-indigo-900 text-sm"
+                    >
+                      Ver Venta
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <h3 class="text-lg font-semibold mb-2">No hay transacciones</h3>
-          <p class="text-gray-600 mb-4">
-            {{ transactionFilter === 'all' 
-                ? 'No se han registrado transacciones en esta caja todavía'
-                : `No hay transacciones del tipo "${getTransactionTypeName(transactionFilter)}"` }}
-          </p>
-          <button
-            v-if="snapshotData?.status === 'open' && transactionFilter === 'all'"
-            @click="openSaleModal"
-            class="btn bg-primary text-white hover:bg-primary/90"
-            :disabled="loadingSaleModal"
-          >
-            <span class="flex items-center gap-1">
-              <LucidePlus class="h-4 w-4" />
-              {{ loadingSaleModal ? 'Cargando...' : 'Registrar Primera Venta' }}
-            </span>
-          </button>
+          <div v-else class="p-6 text-center">
+            <LucideFileText class="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 class="text-lg font-semibold mb-2">No hay transacciones</h3>
+            <p class="text-gray-600">{{ transactionFilter === 'all' ? 'No se han registrado transacciones en esta caja todavía' : `No hay transacciones del tipo "${getTransactionTypeName(transactionFilter)}"` }}</p>
+          </div>
+        </div>
+
+        <!-- Sales Tab -->
+        <div v-if="activeTab === 'sales'">
+          <div v-if="sales.length > 0" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="sale in sales" :key="sale.id">
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="text-sm font-medium text-gray-900">#{{ sale.saleNumber }}</span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="text-sm text-gray-900">{{ sale.clientName || 'Cliente General' }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm font-medium text-green-600">{{ formatCurrency(sale.amountTotal) }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                      {{ sale.isReported ? 'Reportada' : 'No Reportada' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ sale.createdAt }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap text-right">
+                    <button
+                      @click="viewSaleDetails(sale.id)"
+                      class="text-indigo-600 hover:text-indigo-900 text-sm"
+                    >
+                      Ver Detalles
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="p-6 text-center">
+            <LucideFileText class="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 class="text-lg font-semibold mb-2">No hay ventas</h3>
+            <p class="text-gray-600">No se han registrado ventas en esta caja todavía</p>
+          </div>
+        </div>
+
+        <!-- Wallets Tab -->
+        <div v-if="activeTab === 'wallets'">
+          <div v-if="wallets.length > 0" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método Pago</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proveedor</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cuenta Destino</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="wallet in wallets" :key="wallet.id">
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span
+                      class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                      :class="wallet.type === 'Income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                    >
+                      {{ wallet.type === 'Income' ? 'Ingreso' : 'Egreso' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="text-sm text-gray-900">{{ wallet.paymentMethodName || 'N/A' }}</div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="text-sm text-gray-600">{{ wallet.paymentProviderName || '-' }}</div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="text-sm text-gray-900">{{ wallet.ownersAccountName }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div
+                      class="text-sm font-medium"
+                      :class="wallet.type === 'Income' ? 'text-green-600' : 'text-red-600'"
+                    >
+                      {{ wallet.type === 'Income' ? '+' : '-' }}{{ formatCurrency(wallet.amount) }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="flex flex-col gap-1">
+                      <span
+                        class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                        :class="wallet.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                      >
+                        {{ wallet.status === 'paid' ? 'Pagado' : 'Cancelado' }}
+                      </span>
+                      <span
+                        v-if="wallet.isRegistered !== undefined"
+                        class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                        :class="wallet.isRegistered ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'"
+                      >
+                        {{ wallet.isRegistered ? 'Reportada' : 'No Reportada' }}
+                      </span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="text-sm text-gray-600">{{ wallet.categoryName || '-' }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ wallet.createdAt }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="p-6 text-center">
+            <LucideFileText class="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 class="text-lg font-semibold mb-2">No hay transacciones de cartera</h3>
+            <p class="text-gray-600">No se han registrado movimientos de cartera en esta caja</p>
+          </div>
+        </div>
+
+        <!-- Debts Tab -->
+        <div v-if="activeTab === 'debts'">
+          <div v-if="debts.length > 0" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entidad</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origen</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pagado</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pendiente</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimiento</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="debt in debts" :key="debt.id">
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span
+                      class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                      :class="debt.clientName ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'"
+                    >
+                      {{ debt.clientName ? 'Cliente' : 'Proveedor' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="text-sm text-gray-900">{{ debt.clientName || debt.supplierName }}</div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="text-sm text-gray-600">{{ debt.originDescription }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">{{ formatCurrency(debt.originalAmount) }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm font-medium text-green-600">{{ formatCurrency(debt.paidAmount) }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm font-medium text-red-600">{{ formatCurrency(debt.remainingAmount) }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span
+                      class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                      :class="debt.status === 'active' ? 'bg-yellow-100 text-yellow-800' : debt.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                    >
+                      {{ debt.status === 'active' ? 'Activa' : debt.status === 'paid' ? 'Pagada' : 'Cancelada' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ debt.dueDate || '-' }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ debt.createdAt }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="p-6 text-center">
+            <LucideFileText class="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 class="text-lg font-semibold mb-2">No hay deudas</h3>
+            <p class="text-gray-600">No se han creado deudas en esta caja</p>
+          </div>
+        </div>
+
+        <!-- Settlements Tab -->
+        <div v-if="activeTab === 'settlements'">
+          <div v-if="settlements.length > 0" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Venta</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método Pago</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proveedor</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comisión</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="settlement in settlements" :key="settlement.id">
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <button
+                      @click="viewSaleDetails(settlement.saleId)"
+                      class="text-sm font-medium text-indigo-600 hover:text-indigo-900"
+                    >
+                      Ver Venta
+                    </button>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="text-sm text-gray-900">{{ settlement.paymentMethodName }}</div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="text-sm text-gray-900">{{ settlement.paymentProviderName || '-' }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">{{ formatCurrency(settlement.amountTotal) }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-600">
+                      {{ settlement.amountFee ? formatCurrency(settlement.amountFee) : '-' }}
+                      {{ settlement.percentageFee ? `(${settlement.percentageFee}%)` : '' }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span
+                      class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                      :class="settlement.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : settlement.status === 'settled' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                    >
+                      {{ settlement.status === 'pending' ? 'Pendiente' : settlement.status === 'settled' ? 'Liquidada' : 'Cancelada' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ settlement.createdAt }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="p-6 text-center">
+            <LucideFileText class="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 class="text-lg font-semibold mb-2">No hay liquidaciones</h3>
+            <p class="text-gray-600">No se han creado liquidaciones en esta caja</p>
+          </div>
         </div>
       </div>
     </div>
@@ -321,8 +584,13 @@ const loadingSaleModal = ref(false);
 // Data refs
 const snapshotData = ref(null);
 const transactions = ref([]);
+const sales = ref([]);
+const wallets = ref([]);
+const debts = ref([]);
+const settlements = ref([]);
 const isLoading = ref(true);
 const transactionFilter = ref('all');
+const activeTab = ref('transactions');
 
 // Store access
 const cashRegisterStore = useCashRegisterStore();
@@ -344,7 +612,28 @@ const accountBalances = computed(() => {
 });
 
 const totalCurrentBalance = computed(() => {
-  return accountBalances.value.reduce((sum, account) => sum + account.currentAmount, 0);
+  // Calculate from opening balances + wallet transactions + daily cash transactions
+  let balance = openingTotal.value;
+
+  // Add wallet transactions (Income = positive, Outcome = negative)
+  wallets.value.forEach(wallet => {
+    if (wallet.type === 'Income') {
+      balance += wallet.amount;
+    } else if (wallet.type === 'Outcome') {
+      balance -= wallet.amount;
+    }
+  });
+
+  // Add daily cash transactions
+  transactions.value.forEach(transaction => {
+    if (['sale', 'inject'].includes(transaction.type)) {
+      balance += transaction.amount;
+    } else if (['extract'].includes(transaction.type)) {
+      balance -= transaction.amount;
+    }
+  });
+
+  return balance;
 });
 
 const openingTotal = computed(() => {
@@ -392,45 +681,27 @@ function getTransactionTypeClass(type) {
   return classes[type] || 'bg-gray-100 text-gray-800';
 }
 
-function getTransactionDescription(transaction) {
-  switch (transaction.type) {
-    case 'sale':
-      return `Venta ${transaction.saleId ? '#' + transaction.saleId : ''}`;
-    case 'debt_payment':
-      return `Pago de deuda ${transaction.debtId ? '#' + transaction.debtId : ''}`;
-    case 'extract':
-      return 'Extracción de efectivo a caja global';
-    case 'inject':
-      return 'Inyección de efectivo desde caja global';
-    default:
-      return transaction.type;
-  }
-}
 
 async function loadSnapshotData() {
   isLoading.value = true;
   try {
-    // Load the specific snapshot using store method (includes register name)
-    const snapshotResult = await cashRegisterStore.loadSnapshotById(snapshotId);
+    // Use the new unified method to load everything in one call
+    const result = await cashRegisterStore.loadSnapshotDataById(snapshotId);
 
-    if (!snapshotResult.success || !snapshotResult.data) {
+    if (!result.success || !result.data) {
       snapshotData.value = null;
+      useToast(ToastEvents.error, result.error || 'No se pudo cargar la caja diaria');
       return;
     }
 
-    snapshotData.value = snapshotResult.data;
+    snapshotData.value = result.data;
+    transactions.value = result.transactions || [];
 
-    // Set this as the current snapshot in the store for balance calculations
-    cashRegisterStore.currentSnapshot = snapshotResult.data;
-
-    // Update daily cash register store with current snapshot
-    const dailyCashStore = useDailyCashRegisterStore();
-    dailyCashStore.updateCurrentDailyCash(snapshotResult.data);
-
-    // Load transactions for this snapshot using store method
-    await cashRegisterStore.loadTransactionsForSnapshot(snapshotId);
-    // Get transactions from store
-    transactions.value = cashRegisterStore.transactionsBySnapshot(snapshotId);
+    // Load additional data from store caches
+    sales.value = cashRegisterStore.salesBySnapshot(snapshotId) || [];
+    wallets.value = cashRegisterStore.walletsBySnapshot(snapshotId) || [];
+    debts.value = cashRegisterStore.debtsBySnapshot(snapshotId) || [];
+    settlements.value = cashRegisterStore.settlementsBySnapshot(snapshotId) || [];
   } catch (error) {
     console.error('Error loading snapshot data:', error);
     useToast(ToastEvents.error, 'Error al cargar los datos de la caja: ' + error.message);
@@ -483,11 +754,6 @@ async function onSnapshotClosed() {
 // Lifecycle
 onMounted(() => {
   loadSnapshotData();
-  usePaymentMethodsStore().loadAllData();
-
-  // Load global cash
-  useGlobalCashRegisterStore().loadCurrentGlobalCash();
-
 });
 
 // Head configuration

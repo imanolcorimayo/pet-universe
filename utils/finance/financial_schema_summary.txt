@@ -17,7 +17,6 @@ sale/{saleId}
   discountTotal (optional)  // Final discount
   surcharge (optional)      // For credit payments with recharges in final total. This does NOT apply per product    
   products[]                // Product items (Product item will contain item details, price, price type and discounts)
-  wallets[]                 // Wallet transfers (When debt and many payments needed, we save many wallet transfers)
   createdAt
   createdBy
 
@@ -34,6 +33,7 @@ wallet/{walletId}
   type: Income|Outcome            // This will be used on the balances calculations to determine if should add or subtract the amount
 
   globalCashId                    // Ref to "globalCash" to reference the global cash snapshot        
+  dailyCashSnapshotId (optional)  // Ref to "dailyCashSnapshot" to reference the wallet created from sale's page        
   saleId (optional)               // Ref to "sale" in case it comes from there
   debtId (optional)               // Reference to "debt" when debt exists
   settlementId (optional)         // Reference to "settlement" when exists 

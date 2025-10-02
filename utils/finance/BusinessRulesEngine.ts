@@ -168,18 +168,18 @@ export class BusinessRulesEngine {
 
   /**
    * Process a complete sale with multiple payment methods
-   * 
+   *
    * VALIDATION PHASE:
    * - Client exists if partial payment (debt creation requires customer)
    * - Daily cash snapshot exists and is open
-   * 
+   *
    * PROCESSING FLOW:
-   * 1. Create sale record in Firestore
-   * 2. Non-cash payments → Wallet transactions (bank transfers, digital payments)
-   * 3. Cash payments (EFECTIVO) → Daily cash transactions only (no wallet)
-   * 4. Card/Postnet payments → Settlement records (pending status, considered "paid")
-   * 5. Partial payments → Create customer debt record
-   * 
+   * 1. Process wallet transactions first to get their IDs
+   * 2. Populate sale data with wallet references
+   * 3. Create sale record in Firestore with populated wallets array
+   * 4. Process cash and settlement transactions
+   * 5. Create customer debt record if partial payment
+   *
    * PAYMENT METHOD ROUTING:
    * - EFECTIVO: dailyCashTransaction only
    * - Cards/Postnet: settlement record (wallet created when settled)
@@ -188,8 +188,13 @@ export class BusinessRulesEngine {
    */
   async processSale(data: SaleProcessingData): Promise<BusinessRuleResult> {
     const warnings: string[] = [];
-    
+
     try {
+      // 0. Validate data structure
+      if (!data.paymentTransactions || !Array.isArray(data.paymentTransactions)) {
+        return { success: false, error: 'Payment transactions are required and must be an array' };
+      }
+
       // 1. Pre-validation: Check client exists if partial payment expected
       if (data.saleData.isPaidInFull === false && !data.saleData.clientId) {
         return { success: false, error: 'Client is required for partial payments (debt creation)' };
@@ -201,8 +206,29 @@ export class BusinessRulesEngine {
         return { success: false, error: snapshotValidation.error };
       }
 
-      // 3. Create the sale
-      const saleResult = await this.saleSchema.create(data.saleData);
+      // Get the current global cash register ID for wallet transactions
+      const globalCashIdResult = await this.getCurrentGlobalCashId();
+      if (!globalCashIdResult.success) {
+        return { success: false, error: globalCashIdResult.error };
+      }
+      const globalCashId = globalCashIdResult.data;
+
+      // 4. Populate sale data with wallet references and rename items to products
+      const saleDataForSchema = {
+        ...data.saleData,
+        products: data.saleData.items, // Rename items to products for schema
+        dailyCashSnapshotId: data.dailyCashSnapshotId,
+        cashRegisterId: data.cashRegisterId,
+        cashRegisterName: data.cashRegisterName,
+        createdBy: data.userId,
+        createdByName: data.userName,
+      };
+
+      // Remove items field since we renamed it to products
+      delete saleDataForSchema.items;
+
+      // 5. Create the sale record with populated wallets array
+      const saleResult = await this.saleSchema.create(saleDataForSchema);
       if (!saleResult.success) {
         return { success: false, error: `Sale creation failed: ${saleResult.error}` };
       }
@@ -212,28 +238,122 @@ export class BusinessRulesEngine {
         return { success: false, error: 'Sale created but ID not returned' };
       }
 
-      // 4. Prepare payment transactions with sale-specific context
+      // 3. Process wallet transactions
       const preparedPayments = data.paymentTransactions.map(pt => ({
         ...pt,
         relatedEntityType: 'sale',
         description: `Sale #${data.saleData.saleNumber} - ${pt.description}`
       }));
 
-      // 5. Process all payment transactions using generic method
-      const paymentResults = await this.processPaymentTransactions(
-        preparedPayments,
-        saleId,
-        data.dailyCashSnapshotId,
-        data.cashRegisterId,
-        data.cashRegisterName
+      // Process non-cash and non-settlement payments → Wallet transactions FIRST
+      const walletTransactions = preparedPayments.filter(pt =>
+        pt.paymentMethodName.toLowerCase() !== 'efectivo' && !this.requiresSettlement(pt.paymentMethodId)
       );
 
-      warnings.push(...paymentResults.warnings);
+      const walletResults: any[] = [];
 
-      // 6. Create debt if partial payment
+      for (const walletTx of walletTransactions) {
+        // Get account information from payment method
+        const accountInfo = this.getAccountFromPaymentMethod(walletTx.paymentMethodId);
+        if (!accountInfo) {
+          warnings.push(`Account information not found for payment method: ${walletTx.paymentMethodId}`);
+          continue;
+        }
+
+        // Get provider information if available
+        const providerInfo = this.getPaymentProviderInfo(walletTx.paymentMethodId);
+
+        const walletResult = await this.walletSchema.create({
+          businessId: walletTx.businessId,
+          type: walletTx.type,
+          globalCashId: globalCashId,
+          dailyCashSnapshotId: data.dailyCashSnapshotId,
+          paymentMethodId: walletTx.paymentMethodId,
+          paymentMethodName: walletTx.paymentMethodName,
+          paymentProviderId: providerInfo?.paymentProviderId || null,
+          paymentProviderName: providerInfo?.paymentProviderName || null,
+          ownersAccountId: accountInfo.ownersAccountId,
+          ownersAccountName: accountInfo.ownersAccountName,
+          saleId: saleId,
+          amount: walletTx.amount,
+          status: 'paid',
+          isRegistered: true,
+          notes: walletTx.notes || null,
+          categoryCode: walletTx.categoryCode || null,
+          categoryName: walletTx.categoryName || null,
+          createdBy: walletTx.userId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        if (!walletResult.success) {
+          warnings.push(`Wallet transaction failed: ${walletResult.error}`);
+        } else {
+          walletResults.push(walletResult.data);
+        }
+      }
+
+      // 7. Process cash payments → Daily cash transactions
+      const cashTransactions = preparedPayments.filter(pt => pt.paymentMethodName.toLowerCase() === 'efectivo');
+      for (const cashTx of cashTransactions) {
+        const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
+          businessId: cashTx.businessId,
+          dailyCashSnapshotId: data.dailyCashSnapshotId,
+          cashRegisterId: data.cashRegisterId,
+          cashRegisterName: data.cashRegisterName,
+          saleId: saleId,
+          type: 'sale',
+          amount: cashTx.amount,
+          createdBy: cashTx.userId,
+          createdByName: cashTx.userName
+        });
+
+        if (!dailyCashTxResult.success) {
+          warnings.push(`Daily cash transaction failed: ${dailyCashTxResult.error}`);
+        }
+      }
+
+      // 8. Process payments that require settlement → Settlements
+      const settlementTransactions = preparedPayments.filter(pt => this.requiresSettlement(pt.paymentMethodId));
+      const settlementResults: any[] = [];
+
+      for (const settlementTx of settlementTransactions) {
+        // Get provider information for settlement
+        const providerInfo = this.getPaymentProviderInfo(settlementTx.paymentMethodId);
+        if (!providerInfo) {
+          warnings.push(`Payment provider not found for settlement payment method: ${settlementTx.paymentMethodId}`);
+          continue;
+        }
+
+        const settlementResult = await this.settlementSchema.create({
+          businessId: settlementTx.businessId,
+          saleId: saleId,
+          dailyCashSnapshotId: data.dailyCashSnapshotId,
+          cashRegisterId: data.cashRegisterId,
+          cashRegisterName: data.cashRegisterName,
+          amountTotal: settlementTx.amount,
+          paymentMethodId: settlementTx.paymentMethodId,
+          paymentMethodName: settlementTx.paymentMethodName,
+          paymentProviderId: providerInfo.paymentProviderId,
+          paymentProviderName: providerInfo.paymentProviderName,
+          status: 'pending',
+          amountFee: 0, // Will be calculated dynamically when settlement is processed
+          percentageFee: 0, // Will be calculated dynamically when settlement is processed
+          createdBy: settlementTx.userId,
+          createdByName: settlementTx.userName
+        });
+
+        if (!settlementResult.success) {
+          warnings.push(`Settlement creation failed: ${settlementResult.error}`);
+        } else {
+          settlementResults.push(settlementResult.data);
+        }
+      }
+
+      // 9. Create debt if partial payment
       if (data.saleData.isPaidInFull === false && data.saleData.clientId) {
         const remainingAmount = data.saleData.amountTotal - data.paymentTransactions.reduce((sum, pt) => sum + pt.amount, 0);
-        
+
         if (remainingAmount > 0.01) {
           const debtResult = await this.debtSchema.create({
             clientId: data.saleData.clientId,
@@ -263,8 +383,8 @@ export class BusinessRulesEngine {
         success: true,
         data: {
           saleId,
-          walletTransactions: paymentResults.walletResults,
-          settlementTransactions: paymentResults.settlementResults,
+          walletTransactions: walletResults,
+          settlementTransactions: settlementResults,
           warnings
         },
         warnings

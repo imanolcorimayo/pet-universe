@@ -730,7 +730,7 @@ const clientStore = useClientStore();
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 const debtStore = useDebtStore();
-const dailyCashRegisterStore = useDailyCashRegisterStore();
+const cashRegisterStore = useCashRegisterStore();
 
 // Load product and client data
 const { clients } = storeToRefs(clientStore);
@@ -1251,7 +1251,7 @@ function handlePaymentMethodChange(index, paymentData) {
 }
 
 // Update inventory after successful sale
-async function updateInventoryForSale() {
+async function updateInventoryForSale(saleNumber) {
   try {
     for (const item of saleItems.value) {
       if (!item.productId || item.quantity <= 0) continue;
@@ -1358,7 +1358,7 @@ async function submitForm() {
     }
     
     // Generate unique sale number for this daily cash snapshot
-    const saleNumber = dailyCashRegisterStore.generateNextSaleNumber();
+    const saleNumber = cashRegisterStore.generateNextSaleNumber();
     
     // Prepare sale data using BusinessRulesEngine structure
     const saleData = {
@@ -1424,11 +1424,8 @@ async function submitForm() {
     if (result.success) {
       useToast(ToastEvents.success, 'Venta registrada exitosamente');
 
-      // Increment sale counter after successful sale
-      dailyCashRegisterStore.incrementSaleCounter();
-
       // Update inventory for each sold item
-      await updateInventoryForSale();
+      await updateInventoryForSale(saleNumber);
 
       emit('sale-completed');
       closeModal();
@@ -1521,9 +1518,6 @@ async function showModal() {
       paymentMethodsStore.needsCacheRefresh ? paymentMethodsStore.loadAllData() : Promise.resolve(true)
     ]);
 
-    // Load current daily cash separately (it doesn't return a result)
-    await dailyCashRegisterStore.loadCurrentDailyCash();
-
     // Check if all data was loaded successfully
     if (!clientsResult || !productsResult || !categoriesResult || !inventoryResult || !paymentMethodsResult) {
       useToast(ToastEvents.error, "No se pudieron cargar todos los datos necesarios");
@@ -1531,7 +1525,7 @@ async function showModal() {
     }
 
     // Check if a daily cash register is open
-    if (!dailyCashRegisterStore.hasOpenDailyCash) {
+    if (!cashRegisterStore.hasOpenSnapshot) {
       useToast(ToastEvents.error, "No hay una caja diaria abierta. Debes abrir una caja antes de procesar ventas.");
       return;
     }

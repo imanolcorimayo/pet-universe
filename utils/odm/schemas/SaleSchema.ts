@@ -57,11 +57,6 @@ export class SaleSchema extends Schema {
       required: true,
       arrayOf: 'object'
     },
-    wallets: {
-      type: 'array',
-      required: true,
-      arrayOf: 'object'
-    },
     amountTotal: {
       type: 'number',
       required: true,
@@ -193,20 +188,6 @@ export class SaleSchema extends Schema {
       }
     }
 
-    // Validate wallets array (wallet transfers for non-cash payments)
-    if (!data.wallets || !Array.isArray(data.wallets)) {
-      errors.push({
-        field: 'wallets',
-        message: 'Sale must contain wallets array (even if empty for cash-only sales)'
-      });
-    } else {
-      // Validate each wallet transfer
-      for (let i = 0; i < data.wallets.length; i++) {
-        const walletErrors = this.validateWalletTransfer(data.wallets[i], i);
-        errors.push(...walletErrors);
-      }
-    }
-
     // Validate amount calculations
     const calculationErrors = this.validateAmountCalculations(data);
     errors.push(...calculationErrors);
@@ -319,43 +300,6 @@ export class SaleSchema extends Schema {
   }
 
   /**
-   * Validate wallet transfer (for non-cash payments)
-   */
-  private validateWalletTransfer(wallet: any, index: number): any[] {
-    const errors: any[] = [];
-    const prefix = `Wallet ${index + 1}:`;
-
-    // Required fields for wallet transfers
-    const requiredFields = ['paymentMethodId', 'paymentMethodName', 'amount', 'ownersAccountId', 'ownersAccountName'];
-    for (const field of requiredFields) {
-      if (!wallet[field] && wallet[field] !== 0) {
-        errors.push({
-          field: `wallets[${index}].${field}`,
-          message: `${prefix} ${field} is required`
-        });
-      }
-    }
-
-    // Validate amount
-    if (wallet.amount && wallet.amount <= 0) {
-      errors.push({
-        field: `wallets[${index}].amount`,
-        message: `${prefix} Amount must be greater than 0`
-      });
-    }
-
-    // Validate payment method ID format
-    if (wallet.paymentMethodId && typeof wallet.paymentMethodId !== 'string') {
-      errors.push({
-        field: `wallets[${index}].paymentMethodId`,
-        message: `${prefix} Payment method ID must be a string`
-      });
-    }
-
-    return errors;
-  }
-
-  /**
    * Validate amount calculations for the entire sale (new financial schema)
    */
   private validateAmountCalculations(data: any): any[] {
@@ -389,20 +333,6 @@ export class SaleSchema extends Schema {
       errors.push({
         field: 'amountTotal',
         message: `Amount total calculation error. Expected: ${expectedAmountTotal.toFixed(2)}, Got: ${data.amountTotal.toFixed(2)}`
-      });
-    }
-
-    // Validate wallet transfers total (should match amount actually paid via wallet)
-    const walletTotal = data.wallets.reduce((sum: number, wallet: any) => {
-      return sum + (wallet.amount || 0);
-    }, 0);
-
-    // Note: Wallet total might be less than amount total if there's cash payment or debt creation
-    // This validation is handled by BusinessRulesEngine, not schema
-    if (walletTotal > data.amountTotal + 0.01) {
-      errors.push({
-        field: 'wallets',
-        message: `Wallet transfers total (${walletTotal.toFixed(2)}) cannot exceed sale total (${data.amountTotal.toFixed(2)})`
       });
     }
 

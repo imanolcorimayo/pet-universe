@@ -3,6 +3,7 @@ import { CashRegisterSchema } from "~/utils/odm/schemas/CashRegisterSchema";
 import { DailyCashSnapshotSchema } from "~/utils/odm/schemas/DailyCashSnapshotSchema";
 import { DailyCashTransactionSchema } from "~/utils/odm/schemas/DailyCashTransactionSchema";
 import { SaleSchema } from "~/utils/odm/schemas/SaleSchema";
+import { WalletSchema } from "~/utils/odm/schemas/WalletSchema";
 import { useLocalStorage } from "@vueuse/core";
 
 // --- Interfaces ---
@@ -83,6 +84,12 @@ interface CashRegisterState {
   // Daily Cash Transactions
   transactions: DailyCashTransaction[];
 
+  // Snapshot-specific data caches
+  snapshotSales: Map<string, any[]>;
+  snapshotWallets: Map<string, any[]>;
+  snapshotDebts: Map<string, any[]>;
+  snapshotSettlements: Map<string, any[]>;
+
   // State management
   isLoading: boolean;
   isSnapshotLoading: boolean;
@@ -96,6 +103,13 @@ export const useCashRegisterStore = defineStore("cashRegister", {
     currentSnapshot: null,
     registerSnapshots: new Map(),
     transactions: [],
+
+    // Snapshot-specific data caches
+    snapshotSales: new Map(),
+    snapshotWallets: new Map(),
+    snapshotDebts: new Map(),
+    snapshotSettlements: new Map(),
+
     isLoading: false,
     isSnapshotLoading: false,
   }),
@@ -119,6 +133,40 @@ export const useCashRegisterStore = defineStore("cashRegister", {
         ? state.transactions.filter(
             (t) => t.dailyCashSnapshotId === state.currentSnapshot!.id
           )
+        : [],
+
+    // Snapshot-specific data getters
+    salesBySnapshot: (state) => (snapshotId: string) =>
+      state.snapshotSales.get(snapshotId) || [],
+
+    walletsBySnapshot: (state) => (snapshotId: string) =>
+      state.snapshotWallets.get(snapshotId) || [],
+
+    debtsBySnapshot: (state) => (snapshotId: string) =>
+      state.snapshotDebts.get(snapshotId) || [],
+
+    settlementsBySnapshot: (state) => (snapshotId: string) =>
+      state.snapshotSettlements.get(snapshotId) || [],
+
+    // Current snapshot data
+    currentSnapshotSales: (state) =>
+      state.currentSnapshot
+        ? state.snapshotSales.get(state.currentSnapshot.id!) || []
+        : [],
+
+    currentSnapshotWallets: (state) =>
+      state.currentSnapshot
+        ? state.snapshotWallets.get(state.currentSnapshot.id!) || []
+        : [],
+
+    currentSnapshotDebts: (state) =>
+      state.currentSnapshot
+        ? state.snapshotDebts.get(state.currentSnapshot.id!) || []
+        : [],
+
+    currentSnapshotSettlements: (state) =>
+      state.currentSnapshot
+        ? state.snapshotSettlements.get(state.currentSnapshot.id!) || []
         : [],
 
     getRegisterSnapshot: (state) => (registerId: string) =>
@@ -202,6 +250,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
     dailyCashSnapshotSchema: () => new DailyCashSnapshotSchema(),
     dailyCashTransactionSchema: () => new DailyCashTransactionSchema(),
     saleSchema: () => new SaleSchema(),
+    walletSchema: () => new WalletSchema(),
   },
 
   actions: {
@@ -624,6 +673,62 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       }
     },
 
+    /**
+     * Unified method to load all data needed for a specific snapshot page.
+     * This replaces the need for multiple store calls and manual synchronization.
+     *
+     * @param snapshotId - The ID of the snapshot to load
+     * @returns Promise with success/error status and snapshot data
+     */
+    async loadSnapshotDataById(snapshotId: string) {
+      this.isSnapshotLoading = true;
+      try {
+        // 1. Load the snapshot by ID
+        const snapshotResult = await this.loadSnapshotById(snapshotId);
+
+        if (!snapshotResult.success || !snapshotResult.data) {
+          return {
+            success: false,
+            error: snapshotResult.error || 'Snapshot not found',
+            data: null
+          };
+        }
+
+        // 2. Load transactions for this snapshot
+        await this.loadTransactionsForSnapshot(snapshotId);
+
+        // 3. Load all related data for this snapshot
+        await Promise.all([
+          this.loadSalesForSnapshot(snapshotId),
+          this.loadWalletTransactionsForSnapshot(snapshotId),
+          this.loadDebtsForSnapshot(snapshotId),
+          this.loadSettlementsForSnapshot(snapshotId)
+        ]);
+
+        // 4. Ensure payment methods are loaded for balance calculations
+        const paymentMethodsStore = usePaymentMethodsStore();
+        if (paymentMethodsStore.needsCacheRefresh) {
+          await paymentMethodsStore.loadAllData();
+        }
+
+        return {
+          success: true,
+          data: snapshotResult.data,
+          transactions: this.transactionsBySnapshot(snapshotId)
+        };
+      } catch (error) {
+        console.error('Error loading snapshot data:', error);
+        this.currentSnapshot = null;
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Error loading snapshot data',
+          data: null
+        };
+      } finally {
+        this.isSnapshotLoading = false;
+      }
+    },
+
     // --- DAILY CASH TRANSACTION MANAGEMENT ---
     async loadTransactionsForSnapshot(snapshotId?: string) {
       const targetSnapshotId = snapshotId || this.currentSnapshot?.id;
@@ -655,6 +760,26 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       }
     },
 
+    // --- SALE NUMBER GENERATION ---
+
+    /**
+     * Generates the next sale number for the current snapshot.
+     * Format: 001, 002, 003, etc. (3-digit padded)
+     *
+     * @returns The next sale number as a formatted string
+     */
+    generateNextSaleNumber(): string {
+      if (!this.currentSnapshot?.id) {
+        throw new Error('No hay una caja diaria abierta para generar número de venta');
+      }
+
+      // Count existing sale transactions for current snapshot
+      const saleTransactions = this.currentSnapshotTransactions.filter(t => t.type === 'sale');
+      const nextNumber = saleTransactions.length + 1;
+
+      return nextNumber.toString().padStart(3, '0'); // Format as 001, 002, etc.
+    },
+
     // --- UTILITY METHODS ---
 
     async loadAllRegisterSnapshots() {
@@ -684,6 +809,136 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       if (this.selectedRegisterForDisplay) {
         this.loadSnapshotForRegister(this.selectedRegisterForDisplay.id);
       }
+    },
+
+    // --- SNAPSHOT-SPECIFIC DATA LOADING ---
+
+    async loadSalesForSnapshot(snapshotId: string) {
+      try {
+        // Check cache first
+        if (this.snapshotSales.has(snapshotId)) {
+          return {
+            success: true,
+            data: this.snapshotSales.get(snapshotId),
+            fromCache: true
+          };
+        }
+
+        const result = await this.saleSchema.find({
+          where: [
+            { field: 'dailyCashSnapshotId', operator: '==', value: snapshotId }
+          ],
+          orderBy: [{ field: 'createdAt', direction: 'desc' }]
+        });
+
+        if (result.success && result.data) {
+          this.snapshotSales.set(snapshotId, result.data);
+          return { success: true, data: result.data, fromCache: false };
+        }
+
+        return { success: false, error: result.error || 'Failed to load sales' };
+      } catch (error: any) {
+        console.error('Error loading sales for snapshot:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
+    async loadWalletTransactionsForSnapshot(snapshotId: string) {
+      try {
+        // Check cache first
+        if (this.snapshotWallets.has(snapshotId)) {
+          return {
+            success: true,
+            data: this.snapshotWallets.get(snapshotId),
+            fromCache: true
+          };
+        }
+
+        const result = await this.walletSchema.find({
+          where: [
+            { field: 'dailyCashSnapshotId', operator: '==', value: snapshotId }
+          ],
+          orderBy: [{ field: 'createdAt', direction: 'desc' }]
+        });
+
+        if (result.success && result.data) {
+          this.snapshotWallets.set(snapshotId, result.data);
+          return { success: true, data: result.data, fromCache: false };
+        }
+
+        return { success: false, error: result.error || 'Failed to load wallet transactions' };
+      } catch (error: any) {
+        console.error('Error loading wallet transactions for snapshot:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
+    async loadDebtsForSnapshot(snapshotId: string) {
+      try {
+        // Check cache first
+        if (this.snapshotDebts.has(snapshotId)) {
+          return {
+            success: true,
+            data: this.snapshotDebts.get(snapshotId),
+            fromCache: true
+          };
+        }
+
+        const debtStore = useDebtStore();
+        const result = await debtStore.loadDebtsForSnapshot(snapshotId);
+
+        if (result.success && result.data) {
+          this.snapshotDebts.set(snapshotId, result.data);
+          return { success: true, data: result.data, fromCache: result.fromCache };
+        }
+
+        return { success: false, error: result.error || 'Failed to load debts' };
+      } catch (error: any) {
+        console.error('Error loading debts for snapshot:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
+    async loadSettlementsForSnapshot(snapshotId: string) {
+      try {
+        // Check cache first
+        if (this.snapshotSettlements.has(snapshotId)) {
+          return {
+            success: true,
+            data: this.snapshotSettlements.get(snapshotId),
+            fromCache: true
+          };
+        }
+
+        const settlementStore = useSettlementStore();
+        const result = await settlementStore.loadSettlementsForSnapshot(snapshotId);
+
+        if (result.success && result.data) {
+          this.snapshotSettlements.set(snapshotId, result.data);
+          return { success: true, data: result.data, fromCache: result.fromCache };
+        }
+
+        return { success: false, error: result.error || 'Failed to load settlements' };
+      } catch (error: any) {
+        console.error('Error loading settlements for snapshot:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
+    // --- CACHE MANAGEMENT ---
+
+    clearSnapshotCache(snapshotId: string) {
+      this.snapshotSales.delete(snapshotId);
+      this.snapshotWallets.delete(snapshotId);
+      this.snapshotDebts.delete(snapshotId);
+      this.snapshotSettlements.delete(snapshotId);
+    },
+
+    clearAllCaches() {
+      this.snapshotSales.clear();
+      this.snapshotWallets.clear();
+      this.snapshotDebts.clear();
+      this.snapshotSettlements.clear();
     },
 
     // --- SCHEMA ACCESS METHODS ---
