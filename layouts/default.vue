@@ -419,7 +419,7 @@ watch([width, () => route.path], () => {
 
 // Auto-expand daily cash section when on related routes
 watch(() => route.path, (newPath) => {
-  if (newPath.startsWith('/ventas')) {
+  if (newPath.startsWith('/ventas/historico')) {
     dailyCashExpanded.value = true;
   }
 }, { immediate: true });

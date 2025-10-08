@@ -5,7 +5,7 @@
       <div>
         <div class="flex items-center gap-2 mb-2">
           <button 
-            @click="navigateTo('/ventas')"
+            @click="navigateTo('/ventas/historico')"
             class="text-gray-500 hover:text-gray-700"
           >
             <LucideArrowLeft class="h-5 w-5" />
@@ -81,7 +81,7 @@
       <h2 class="text-xl font-semibold mb-2">Caja Diaria No Encontrada</h2>
       <p class="text-gray-600 mb-4">La caja diaria que busca no existe o ha sido eliminada</p>
       <button 
-        @click="navigateTo('/ventas')" 
+        @click="navigateTo('/ventas/historico')" 
         class="btn bg-primary text-white hover:bg-primary/90"
       >
         Volver a Ventas
@@ -184,18 +184,18 @@
           <!-- Tabs -->
           <div class="flex gap-1 mt-3 border-b">
             <button
-              @click="activeTab = 'transactions'"
-              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
-                activeTab === 'transactions' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
-            >
-              Transacciones ({{ filteredTransactions.length }})
-            </button>
-            <button
               @click="activeTab = 'sales'"
               :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
                 activeTab === 'sales' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
             >
               Ventas ({{ sales.length }})
+            </button>
+            <button
+              @click="activeTab = 'transactions'"
+              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
+                activeTab === 'transactions' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
+            >
+              Transacciones ({{ filteredTransactions.length }})
             </button>
             <button
               @click="activeTab = 'wallets'"
@@ -531,24 +531,22 @@
     </div>
     
     <!-- Modals -->
-    <SaleTransaction 
-      ref="saleModal" 
+    <SaleTransaction
+      ref="saleModal"
       :dailyCashSnapshotId="snapshotId"
       :cashRegisterId="snapshotData?.cashRegisterId"
       :cashRegisterName="snapshotData?.cashRegisterName"
-      @sale-completed="reloadTransactions" 
     />
-    <SaleCashExtractModal 
+    <SaleCashExtractModal
       :dailyCashSnapshotId="snapshotId"
       :cashRegisterId="snapshotData?.cashRegisterId"
       :cashRegisterName="snapshotData?.cashRegisterName"
-      ref="extractCashModal" @extract-completed="reloadTransactions" />
+      ref="extractCashModal" />
     <SaleCashInjectModal
       ref="injectCashModal"
       :dailyCashSnapshotId="snapshotId"
       :cashRegisterId="snapshotData?.cashRegisterId"
       :cashRegisterName="snapshotData?.cashRegisterName"
-      @inject-completed="reloadTransactions"
     />
     <SaleCashSnapshotClosing ref="closeSnapshotModal" @snapshot-closed="onSnapshotClosed" />
     <SaleDetails ref="saleDetailsModal" :sale="selectedSale" />
@@ -583,17 +581,19 @@ const loadingSaleModal = ref(false);
 
 // Data refs
 const snapshotData = ref(null);
-const transactions = ref([]);
-const sales = ref([]);
-const wallets = ref([]);
-const debts = ref([]);
-const settlements = ref([]);
 const isLoading = ref(true);
 const transactionFilter = ref('all');
-const activeTab = ref('transactions');
+const activeTab = ref('sales');
 
 // Store access
 const cashRegisterStore = useCashRegisterStore();
+
+// Reactive data from store (using computed)
+const transactions = computed(() => cashRegisterStore.transactionsBySnapshot(snapshotId) || []);
+const sales = computed(() => cashRegisterStore.salesBySnapshot(snapshotId) || []);
+const wallets = computed(() => cashRegisterStore.walletsBySnapshot(snapshotId) || []);
+const debts = computed(() => cashRegisterStore.debtsBySnapshot(snapshotId) || []);
+const settlements = computed(() => cashRegisterStore.settlementsBySnapshot(snapshotId) || []);
 
 // Computed properties
 const accountBalances = computed(() => {
@@ -695,13 +695,8 @@ async function loadSnapshotData() {
     }
 
     snapshotData.value = result.data;
-    transactions.value = result.transactions || [];
-
-    // Load additional data from store caches
-    sales.value = cashRegisterStore.salesBySnapshot(snapshotId) || [];
-    wallets.value = cashRegisterStore.walletsBySnapshot(snapshotId) || [];
-    debts.value = cashRegisterStore.debtsBySnapshot(snapshotId) || [];
-    settlements.value = cashRegisterStore.settlementsBySnapshot(snapshotId) || [];
+    // Note: transactions, sales, wallets, debts, and settlements are now computed from store
+    // They will automatically update when store data changes
   } catch (error) {
     console.error('Error loading snapshot data:', error);
     useToast(ToastEvents.error, 'Error al cargar los datos de la caja: ' + error.message);
@@ -711,10 +706,6 @@ async function loadSnapshotData() {
   }
 }
 
-async function reloadTransactions() {
-  // Reload both snapshot data and transactions using store methods
-  await loadSnapshotData();
-}
 
 async function openSaleModal() {
   if (snapshotData.value?.status !== 'open') {

@@ -4,14 +4,14 @@
     <div class="flex justify-between items-center">
       <div>
         <h1 class="text-2xl font-bold">Historial de Cajas Diarias</h1>
-        <p class="text-gray-600 mt-1">Registro histórico de cajas de ventas diarias</p>
+        <p class="text-gray-600 mt-1">Historial de snapshots de cajas diarias</p>
       </div>
 
       <div class="flex gap-2">
-        <NuxtLink to="/ventas/cajas" class="btn bg-primary text-white hover:bg-primary/90">
+        <NuxtLink to="/ventas/historico" class="btn bg-primary text-white hover:bg-primary/90">
           <span class="flex items-center gap-1">
             <PhMoneyFill class="h-4 w-4" />
-            Caja Actual
+            Volver a Ventas
           </span>
         </NuxtLink>
       </div>
@@ -55,72 +55,65 @@
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
     </div>
     
-    <!-- Sales Register History Table -->
-    <div v-else-if="registerHistory.length > 0" class="bg-white rounded-lg shadow overflow-hidden">
+    <!-- Daily Cash Snapshot History Table -->
+    <div v-else-if="snapshotHistory.length > 0" class="bg-white rounded-lg shadow overflow-hidden">
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Caja</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Apertura</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Abierta por</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cerrada por</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ventas</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gastos</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Neto</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="register in registerHistory" :key="register.id" class="hover:bg-gray-50 transition-colors">
+            <tr v-for="snapshot in snapshotHistory" :key="snapshot.id" class="hover:bg-gray-50 transition-colors">
               <td class="px-4 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">
-                  {{ register.openingDate }}
-                </div>
-                <div v-if="register.closedAt" class="text-xs text-gray-500">
-                  Cerrada: {{ formatTime(register.closedAt) }}
+                  {{ snapshot.cashRegisterName || 'Sin nombre' }}
                 </div>
               </td>
               <td class="px-4 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">{{ register.openedByName }}</div>
-                <div class="text-xs text-gray-500">{{ formatTime(register.openingDate) }}</div>
-              </td>
-              <td class="px-4 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">{{ register.closedByName || '-' }}</div>
-              </td>
-              <td class="px-4 py-4 whitespace-nowrap">
-                <div class="text-sm font-bold text-green-600">
-                  {{ register.totals ? formatCurrency(register.totals.sales) : formatCurrency(0) }}
+                <div class="text-sm font-medium text-gray-900">
+                  {{ snapshot.openedAt }}
+                </div>
+                <div v-if="snapshot.closedAt" class="text-xs text-gray-500">
+                  Cerrada: {{ snapshot.closedAt }}
                 </div>
               </td>
               <td class="px-4 py-4 whitespace-nowrap">
-                <div class="text-sm font-bold text-red-600">
-                  {{ register.totals ? formatCurrency(register.totals.expenses) : formatCurrency(0) }}
-                </div>
+                <div class="text-sm text-gray-900">{{ snapshot.openedByName }}</div>
               </td>
               <td class="px-4 py-4 whitespace-nowrap">
-                <div 
-                  class="text-sm font-bold"
-                  :class="register.totals && register.totals.netAmount >= 0 ? 'text-green-600' : 'text-red-600'"
-                >
-                  {{ register.totals ? formatCurrency(register.totals.netAmount) : formatCurrency(0) }}
+                <div class="text-sm text-gray-900">{{ snapshot.closedByName || '-' }}</div>
+              </td>
+              <td class="px-4 py-4 whitespace-nowrap">
+                <div class="text-sm font-bold text-blue-600">
+                  {{ formatCurrency(calculateNetBalance(snapshot)) }}
+                </div>
+                <div class="text-xs text-gray-500">
+                  {{ snapshot.status === 'closed' ? 'Balance final' : 'Balance inicial' }}
                 </div>
               </td>
               <td class="px-4 py-4 whitespace-nowrap text-center">
-                <span 
+                <span
                   class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full"
-                  :class="register.closedAt ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'"
+                  :class="snapshot.status === 'closed' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'"
                 >
-                  <span 
+                  <span
                     class="w-1.5 h-1.5 rounded-full mr-1.5"
-                    :class="register.closedAt ? 'bg-blue-400' : 'bg-green-400'"
+                    :class="snapshot.status === 'closed' ? 'bg-blue-400' : 'bg-green-400'"
                   ></span>
-                  {{ register.closedAt ? 'Cerrada' : 'Abierta' }}
+                  {{ snapshot.status === 'closed' ? 'Cerrada' : 'Abierta' }}
                 </span>
               </td>
               <td class="px-4 py-4 whitespace-nowrap text-right">
-                <button 
-                  @click="viewRegisterDetails(register)"
+                <button
+                  @click="viewSnapshotDetails(snapshot)"
                   class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
                 >
                   <PhEye class="w-3 h-3 mr-1" />
@@ -131,18 +124,18 @@
           </tbody>
         </table>
       </div>
-      
+
       <!-- Pagination (simplified for now) -->
       <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
         <div class="flex justify-between items-center">
           <div>
             <p class="text-sm text-gray-700">
-              Mostrando <span class="font-medium">{{ registerHistory.length }}</span> registros
+              Mostrando <span class="font-medium">{{ snapshotHistory.length }}</span> registros
             </p>
           </div>
           <div>
-            <button 
-              @click="loadMoreHistory" 
+            <button
+              @click="loadMoreHistory"
               class="btn bg-white border border-gray-300 hover:bg-gray-50"
               :class="{ 'opacity-50 pointer-events-none': loadingMore }"
               :disabled="loadingMore"
@@ -161,28 +154,23 @@
         <BiJournalText class="w-12 h-12 text-gray-400" />
       </div>
       <h2 class="text-xl font-semibold mb-2">No hay registros disponibles</h2>
-      <p class="text-gray-600 mb-4">No se encontraron registros de cajas diarias para el período seleccionado</p>
+      <p class="text-gray-600 mb-4">No se encontraron cajas diarias para el período seleccionado</p>
     </div>
-    
-    <!-- Sales Register Details Modal -->
-    <SaleRegisterDetails ref="detailsModal" :register="selectedRegister" />
   </div>
 </template>
 
 <script setup>
 import { ToastEvents } from '~/interfaces';
+import { formatCurrency } from '~/utils';
 import PhMoneyFill from '~icons/ph/money-fill';
 import PhEye from '~icons/ph/eye';
 import BiSearch from '~icons/bi/search';
 import BiJournalText from '~icons/bi/journal-text';
 
 // ----- Define Refs ---------
-const detailsModal = ref(null);
-const saleStore = useSaleStore();
-const { registerHistory } = storeToRefs(saleStore);
+const cashRegisterStore = useCashRegisterStore();
 const loading = ref(true);
 const loadingMore = ref(false);
-const selectedRegister = ref(null);
 const limit = ref(20);
 
 // Date helpers
@@ -196,17 +184,29 @@ const filters = ref({
   dateTo: currentDate
 });
 
+// ----- Computed Properties ---------
+const snapshotHistory = computed(() => {
+  // Get all snapshots from store and limit them
+  const allSnapshots = cashRegisterStore.allSnapshots || [];
+  // Filter out any undefined or null values and ensure each has an id
+  const validSnapshots = allSnapshots.filter(s => s && s.id);
+  return validSnapshots.slice(0, limit.value);
+});
+
 // ----- Define Methods ---------
 
-function formatTime(timestamp) {
-  if (!timestamp) return '';
-  
-  const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
-  return new Intl.DateTimeFormat('es-AR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).format(date);
+function calculateNetBalance(snapshot) {
+  if (!snapshot || !snapshot.openingBalances || !Array.isArray(snapshot.openingBalances)) {
+    return 0;
+  }
+
+  // For closed snapshots, use closing balances if available
+  if (snapshot.status === 'closed' && snapshot.closingBalances && Array.isArray(snapshot.closingBalances)) {
+    return snapshot.closingBalances.reduce((sum, balance) => sum + (balance?.amount || 0), 0);
+  }
+
+  // For open snapshots, use opening balances
+  return snapshot.openingBalances.reduce((sum, balance) => sum + (balance?.amount || 0), 0);
 }
 
 async function loadHistory() {
@@ -215,8 +215,8 @@ async function loadHistory() {
     // Convert filter dates to Date objects
     const fromDate = $dayjs(filters.value.dateFrom).startOf('day').toDate();
     const toDate = $dayjs(filters.value.dateTo).endOf('day').toDate();
-    
-    await saleStore.loadRegisterHistory(limit.value, fromDate, toDate);
+
+    await cashRegisterStore.loadSnapshotHistory(undefined, { start: fromDate, end: toDate });
   } catch (error) {
     useToast(ToastEvents.error, `Error al cargar el historial: ${error.message}`);
   } finally {
@@ -228,20 +228,15 @@ async function loadMoreHistory() {
   try {
     loadingMore.value = true;
     limit.value += 20;
-    await loadHistory();
+    // No need to reload, just update the limit - computed will handle the slice
   } finally {
     loadingMore.value = false;
   }
 }
 
-function viewRegisterDetails(register) {
-  selectedRegister.value = register;
-  if (detailsModal.value && typeof detailsModal.value.showModal === 'function') {
-    detailsModal.value.showModal();
-  } else {
-    console.error('SaleRegisterDetails modal is not available or showModal is not a function');
-    useToast(ToastEvents.error, 'Error al abrir los detalles del registro');
-  }
+function viewSnapshotDetails(snapshot) {
+  // Navigate to the snapshot detail page
+  navigateTo(`/ventas/caja/${snapshot.id}`);
 }
 
 // ----- Initialize Page ---------

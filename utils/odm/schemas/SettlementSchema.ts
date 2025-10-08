@@ -11,10 +11,17 @@ export class SettlementSchema extends Schema {
       required: true,
       referenceTo: 'userBusiness'
     },
+    // For display purposes when a settlements is created from a sale
     saleId: {
       type: 'reference',
-      required: true,
+      required: false,
       referenceTo: 'sale'
+    },
+    // For display purposes when a settlements is created from a debt
+    debtId: {
+      type: 'reference',
+      required: false,
+      referenceTo: 'debt'
     },
     dailyCashSnapshotId: {
       type: 'reference',
@@ -129,13 +136,24 @@ export class SettlementSchema extends Schema {
       };
     }
 
-    // Validate that sale exists and belongs to the daily cash snapshot
+    // Validate sale reference if provided
     if (validateRefs && data.saleId) {
       const saleValidation = await this.validateSaleReference(data.saleId, data.dailyCashSnapshotId);
       if (!saleValidation.valid) {
         return {
           success: false,
           error: `Sale validation failed: ${saleValidation.errors.map(e => e.message).join(', ')}`
+        };
+      }
+    }
+
+    // Validate debt reference if provided
+    if (validateRefs && data.debtId) {
+      const debtValidation = await this.validateDebtReference(data.debtId);
+      if (!debtValidation.valid) {
+        return {
+          success: false,
+          error: `Debt validation failed: ${debtValidation.errors.map(e => e.message).join(', ')}`
         };
       }
     }
@@ -185,6 +203,24 @@ export class SettlementSchema extends Schema {
    */
   private async validateSettlementData(data: any): Promise<ValidationResult> {
     const errors: any[] = [];
+
+    // Validate that either saleId or debtId is provided (but not both)
+    const hasSale = !!data.saleId;
+    const hasDebt = !!data.debtId;
+
+    if (!hasSale && !hasDebt) {
+      errors.push({
+        field: 'reference',
+        message: 'Either saleId or debtId is required for settlement'
+      });
+    }
+
+    if (hasSale && hasDebt) {
+      errors.push({
+        field: 'reference',
+        message: 'Settlement cannot be linked to both sale and debt'
+      });
+    }
 
     // Validate payment method is postnet-compatible
     const paymentMethodValidation = this.validatePostnetPaymentMethod(data.paymentMethodId);
@@ -399,6 +435,65 @@ export class SettlementSchema extends Schema {
       errors.push({
         field: 'saleId',
         message: `Failed to validate sale reference: ${error}`
+      });
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Validate debt reference
+   */
+  private async validateDebtReference(debtId: string): Promise<ValidationResult> {
+    const errors: any[] = [];
+
+    try {
+      const db = this.getFirestore();
+      const businessId = this.getCurrentBusinessId();
+
+      if (!businessId) {
+        errors.push({
+          field: 'businessId',
+          message: 'Business ID is required'
+        });
+        return { valid: false, errors };
+      }
+
+      const debtDoc = await getDoc(doc(db, 'debt', debtId));
+
+      if (!debtDoc.exists()) {
+        errors.push({
+          field: 'debtId',
+          message: `Debt with ID ${debtId} not found`
+        });
+        return { valid: false, errors };
+      }
+
+      const debt = debtDoc.data();
+
+      // Validate debt belongs to current business
+      if (debt.businessId !== businessId) {
+        errors.push({
+          field: 'debtId',
+          message: 'Debt does not belong to current business'
+        });
+      }
+
+      // Validate debt is active
+      if (debt.status !== 'active') {
+        errors.push({
+          field: 'debtId',
+          message: 'Cannot create settlement for inactive debt'
+        });
+      }
+
+    } catch (error) {
+      errors.push({
+        field: 'debtId',
+        message: `Failed to validate debt reference: ${error}`
       });
     }
 

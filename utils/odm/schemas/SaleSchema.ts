@@ -278,12 +278,14 @@ export class SaleSchema extends Schema {
     }
 
     // Validate price type
-    if (product.priceType && !['regular', 'cash', 'vip', 'bulk', 'promotion'].includes(product.priceType)) {
+    if (product.priceType && !['regular', 'cash', 'vip', 'bulk', 'promotion', 'threePlusDiscount'].includes(product.priceType)) {
       errors.push({
         field: `products[${index}].priceType`,
         message: `${prefix} Invalid price type: ${product.priceType}`
       });
     }
+
+    console.log('Validating product:', product);
 
     // Validate price calculations
     if (product.quantity && product.unitPrice && product.appliedDiscount !== undefined && product.totalPrice) {

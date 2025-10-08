@@ -63,9 +63,9 @@ export class DebtSchema extends Schema {
       min: 0
     },
     originType: {
-      type: 'string',
+      type: 'enum',
       required: true,
-      pattern: /^(sale|purchaseInvoice|manual)$/
+      enum: ['sale', 'purchaseInvoice', 'manual']
     },
     originId: {
       type: 'string',
@@ -78,9 +78,9 @@ export class DebtSchema extends Schema {
       maxLength: 500
     },
     status: {
-      type: 'string',
+      type: 'enum',
       required: true,
-      pattern: /^(active|paid|cancelled)$/,
+      enum: ['active', 'paid', 'cancelled'],
       default: 'active'
     },
     dueDate: {
@@ -185,7 +185,7 @@ export class DebtSchema extends Schema {
 
     // Validate status transitions
     if (data.status !== undefined) {
-      const statusValidation = await this.validateStatusTransition(id, data.status);
+      const statusValidation = await this.validateStatusTransition(id, data.status, data);
       if (!statusValidation.valid) {
         return {
           success: false,
@@ -358,7 +358,7 @@ export class DebtSchema extends Schema {
   /**
    * Validate debt status transitions
    */
-  private async validateStatusTransition(debtId: string, newStatus: string): Promise<ValidationResult> {
+  private async validateStatusTransition(debtId: string, newStatus: string, data: any): Promise<ValidationResult> {
     const errors: any[] = [];
 
     try {
@@ -390,10 +390,13 @@ export class DebtSchema extends Schema {
       // Additional business rules
       if (newStatus === 'paid') {
         const debt = existingDebt.data;
-        if (debt.remainingAmount > 0.01) {
+        // Use the new remainingAmount if provided, otherwise use existing
+        const remainingToCheck = data.remainingAmount !== undefined ? data.remainingAmount : debt.remainingAmount;
+
+        if (remainingToCheck > 0.01) {
           errors.push({
             field: 'status',
-            message: 'Cannot mark debt as paid while remaining amount is greater than 0'
+            message: `No se puede marcar la deuda como pagada mientras el monto restante sea mayor a 0. El monto restante es ${remainingToCheck.toFixed(2)}`
           });
         }
       }

@@ -514,7 +514,7 @@
                   @click="removePaymentMethod(index)"
                   class="text-red-600 hover:text-red-900 p-1"
                   title="Eliminar método de pago"
-                  :disabled="isLoading || paymentDetails.length <= 1"
+                  :disabled="isLoading"
                 >
                   <LucideX class="w-4 h-4" />
                 </button>
@@ -778,20 +778,31 @@ const paymentTotalClass = computed(() => {
 
 const isFormValid = computed(() => {
   // Check if all products have valid data
-  return saleItems.value.every(item => 
-    item.productId && 
-    item.quantity > 0 && 
+  const productsValid = saleItems.value.every(item =>
+    item.productId &&
+    item.quantity > 0 &&
     item.unitPrice > 0
-  ) && paymentDetails.value.every(payment => 
-    payment.paymentMethod && 
-    payment.amount > 0
   );
+
+  // If there are payment methods, they must be valid
+  // Allow 0 payment methods (for full debt creation)
+  const paymentsValid = paymentDetails.value.length === 0 ||
+    paymentDetails.value.every(payment =>
+      payment.paymentMethod &&
+      payment.amount > 0
+    );
+
+  return productsValid && paymentsValid;
 });
 
 const canProcessSale = computed(() => {
-  // Can process if payment is exact OR if there's a client selected and we're creating a debt
-  return paymentDifference.value === 0 || 
-         (selectedClientId.value && paymentDifference.value > 0 && createDebtForDifference.value);
+  // Can process if:
+  // 1. Payment is exact (no difference)
+  // 2. There's unpaid amount AND client selected AND debt creation enabled
+  const hasUnpaidAmount = paymentDifference.value > 0;
+  const canCreateDebt = selectedClientId.value && createDebtForDifference.value;
+
+  return paymentDifference.value === 0 || (hasUnpaidAmount && canCreateDebt);
 });
 
 const stockAlerts = computed(() => {
@@ -1064,10 +1075,9 @@ function updateItemTotal(index) {
     manualDiscountAmount = roundToTwo((item.regularPrice - item.unitPrice) * item.quantity);
   }
   
-  // Calculate total discount (price type discount + custom discount + manual discount) - all rounded
-  const priceTypeDiscount = roundToTwo(item.appliedDiscount * item.quantity);
-  const totalDiscountAmount = roundToTwo(priceTypeDiscount + customDiscountAmount + manualDiscountAmount);
-  
+  // Calculate total discount (custom discount + manual discount) - all rounded
+  const totalDiscountAmount = roundToTwo(customDiscountAmount + manualDiscountAmount);
+
   // Update applied discount for display (rounded)
   item.appliedDiscount = roundToTwo(totalDiscountAmount / item.quantity);
   
@@ -1125,11 +1135,9 @@ function addPaymentMethod() {
 }
 
 function removePaymentMethod(index) {
-  if (paymentDetails.value.length > 1) {
-    paymentDetails.value.splice(index, 1);
-    // Update isReported when payment method is removed
-    updateIsReportedBasedOnPayment();
-  }
+  paymentDetails.value.splice(index, 1);
+  // Update isReported when payment method is removed
+  updateIsReportedBasedOnPayment();
 }
 
 // Product stock helpers
@@ -1316,11 +1324,14 @@ async function submitForm() {
     return useToast(ToastEvents.error, 'Todos los precios deben ser mayores a 0');
   }
   
-  const invalidPayments = paymentDetails.value.filter(payment => !payment.paymentMethod || !payment.amount || payment.amount <= 0);
-  if (invalidPayments.length > 0) {
-    return useToast(ToastEvents.error, 'Todos los métodos de pago deben tener un monto válido');
+  // Only validate payment methods if they exist (allow 0 payment methods for full debt)
+  if (paymentDetails.value.length > 0) {
+    const invalidPayments = paymentDetails.value.filter(payment => !payment.paymentMethod || !payment.amount || payment.amount <= 0);
+    if (invalidPayments.length > 0) {
+      return useToast(ToastEvents.error, 'Todos los métodos de pago deben tener un monto válido');
+    }
   }
-  
+
   // Check payment difference - allow debt creation for customers
   if (paymentDifference.value > 0) {
     if (!selectedClientId.value) {

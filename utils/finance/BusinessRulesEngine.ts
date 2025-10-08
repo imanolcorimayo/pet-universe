@@ -295,6 +295,8 @@ export class BusinessRulesEngine {
 
       // 7. Process cash payments → Daily cash transactions
       const cashTransactions = preparedPayments.filter(pt => pt.paymentMethodName.toLowerCase() === 'efectivo');
+      const dailyCashTxResults: any[] = [];
+
       for (const cashTx of cashTransactions) {
         const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
           businessId: cashTx.businessId,
@@ -310,6 +312,8 @@ export class BusinessRulesEngine {
 
         if (!dailyCashTxResult.success) {
           warnings.push(`Daily cash transaction failed: ${dailyCashTxResult.error}`);
+        } else {
+          dailyCashTxResults.push(dailyCashTxResult.data);
         }
       }
 
@@ -351,6 +355,7 @@ export class BusinessRulesEngine {
       }
 
       // 9. Create debt if partial payment
+      let debtData = null;
       if (data.saleData.isPaidInFull === false && data.saleData.clientId) {
         const remainingAmount = data.saleData.amountTotal - data.paymentTransactions.reduce((sum, pt) => sum + pt.amount, 0);
 
@@ -375,8 +380,44 @@ export class BusinessRulesEngine {
 
           if (!debtResult.success) {
             warnings.push(`Debt creation failed: ${debtResult.error}`);
+          } else {
+            debtData = debtResult.data;
           }
         }
+      }
+
+      // 10. Update store caches with newly created records
+      const cashRegisterStore = useCashRegisterStore();
+
+      // Add sale to cache
+      if (saleResult.data) {
+        cashRegisterStore.addSaleToCache(data.dailyCashSnapshotId, saleResult.data);
+      }
+
+      // Add wallet transactions to cache
+      walletResults.forEach(wallet => {
+        if (wallet) {
+          cashRegisterStore.addWalletToCache(data.dailyCashSnapshotId, wallet);
+        }
+      });
+
+      // Add daily cash transactions to cache
+      dailyCashTxResults.forEach(transaction => {
+        if (transaction) {
+          cashRegisterStore.addTransactionToCache(transaction);
+        }
+      });
+
+      // Add settlement transactions to cache
+      settlementResults.forEach(settlement => {
+        if (settlement) {
+          cashRegisterStore.addSettlementToCache(data.dailyCashSnapshotId, settlement);
+        }
+      });
+
+      // Add debt to cache if created
+      if (debtData) {
+        cashRegisterStore.addDebtToCache(data.dailyCashSnapshotId, debtData);
       }
 
       return {
@@ -420,17 +461,29 @@ export class BusinessRulesEngine {
       // 2. Calculate total payment amount and validate
       const totalPaymentAmount = data.paymentTransactions.reduce((sum, pt) => sum + pt.amount, 0);
       if (totalPaymentAmount > debt.remainingAmount + 0.01) {
-        return { 
-          success: false, 
-          error: `Total payment amount (${totalPaymentAmount}) exceeds remaining debt (${debt.remainingAmount})` 
+        return {
+          success: false,
+          error: `Total payment amount (${totalPaymentAmount}) exceeds remaining debt (${debt.remainingAmount})`
         };
       }
 
-      // 3. Determine payment routing (customer vs supplier debt)
+      // 3. Validate payment transaction data
+      if (!data.paymentTransactions || !Array.isArray(data.paymentTransactions)) {
+        return { success: false, error: 'Payment transactions are required and must be an array' };
+      }
+
+      // 4. Determine payment routing (customer vs supplier debt)
       const isCustomerDebt = !!debt.clientId;
       const targetRegister = isCustomerDebt ? 'daily' : 'global';
 
-      // 4. Prepare payment transactions with debt-specific context
+      // 5. Get the current global cash register ID for wallet transactions
+      const globalCashIdResult = await this.getCurrentGlobalCashId();
+      if (!globalCashIdResult.success) {
+        return { success: false, error: globalCashIdResult.error };
+      }
+      const globalCashId = globalCashIdResult.data;
+
+      // 6. Prepare payment transactions with debt-specific context
       const preparedPayments = data.paymentTransactions.map(pt => ({
         ...pt,
         type: 'Income' as const,
@@ -440,49 +493,132 @@ export class BusinessRulesEngine {
         businessId: debt.businessId
       }));
 
-      // 5. Process payments using generic method (only for customer debts with daily cash info)
-      const dailyCashInfo = isCustomerDebt && data.dailyCashSnapshotId && data.cashRegisterId && data.cashRegisterName
-        ? {
-            dailyCashSnapshotId: data.dailyCashSnapshotId,
-            cashRegisterId: data.cashRegisterId,
-            cashRegisterName: data.cashRegisterName
-          }
-        : undefined;
-
-      const paymentResults = await this.processPaymentTransactions(
-        preparedPayments,
-        data.debtId,
-        dailyCashInfo?.dailyCashSnapshotId,
-        dailyCashInfo?.cashRegisterId,
-        dailyCashInfo?.cashRegisterName
+      // 7. Process non-cash and non-settlement payments → Wallet transactions
+      const walletTransactions = preparedPayments.filter(pt =>
+        pt.paymentMethodName.toLowerCase() !== 'efectivo' && !this.requiresSettlement(pt.paymentMethodId)
       );
 
-      warnings.push(...paymentResults.warnings);
+      const walletResults: any[] = [];
 
-      // 6. Update debt record
+      for (const walletTx of walletTransactions) {
+        // Get account information from payment method
+        const accountInfo = this.getAccountFromPaymentMethod(walletTx.paymentMethodId);
+        if (!accountInfo) {
+          warnings.push(`Account information not found for payment method: ${walletTx.paymentMethodId}`);
+          continue;
+        }
+
+        // Get provider information if available
+        const providerInfo = this.getPaymentProviderInfo(walletTx.paymentMethodId);
+
+        const walletResult = await this.walletSchema.create({
+          businessId: walletTx.businessId,
+          type: walletTx.type,
+          globalCashId: globalCashId,
+          debtId: data.debtId,
+          dailyCashSnapshotId: data.dailyCashSnapshotId || null,
+          paymentMethodId: walletTx.paymentMethodId,
+          paymentMethodName: walletTx.paymentMethodName,
+          paymentProviderId: providerInfo?.paymentProviderId || null,
+          paymentProviderName: providerInfo?.paymentProviderName || null,
+          ownersAccountId: accountInfo.ownersAccountId,
+          ownersAccountName: accountInfo.ownersAccountName,
+          amount: walletTx.amount,
+          status: 'paid',
+          isRegistered: true,
+          notes: walletTx.notes || null,
+          categoryCode: walletTx.categoryCode || null,
+          categoryName: walletTx.categoryName || null,
+          createdBy: walletTx.userId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        if (!walletResult.success) {
+          warnings.push(`Wallet transaction failed: ${walletResult.error}`);
+        } else {
+          walletResults.push(walletResult.data);
+        }
+      }
+
+      // 8. Process cash payments → Daily cash transactions (only if daily cash info provided)
+      const cashTransactions = preparedPayments.filter(pt => pt.paymentMethodName.toLowerCase() === 'efectivo');
+      const dailyCashTxResults: any[] = [];
+
+      if (cashTransactions.length > 0 && data.dailyCashSnapshotId && data.cashRegisterId && data.cashRegisterName) {
+        for (const cashTx of cashTransactions) {
+          const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
+            businessId: cashTx.businessId,
+            dailyCashSnapshotId: data.dailyCashSnapshotId,
+            cashRegisterId: data.cashRegisterId,
+            cashRegisterName: data.cashRegisterName,
+            debtId: data.debtId,
+            type: 'debt_payment',
+            amount: cashTx.amount,
+            createdBy: cashTx.userId,
+            createdByName: cashTx.userName
+          });
+
+          if (!dailyCashTxResult.success) {
+            warnings.push(`Daily cash transaction failed: ${dailyCashTxResult.error}`);
+          } else {
+            dailyCashTxResults.push(dailyCashTxResult.data);
+          }
+        }
+      } else if (cashTransactions.length > 0 && !data.dailyCashSnapshotId) {
+        warnings.push('Cash transactions found but daily cash snapshot information not provided (supplier debt payment)');
+      }
+
+      // 9. Process payments that require settlement → Settlements (only if daily cash info provided)
+      const settlementTransactions = preparedPayments.filter(pt => this.requiresSettlement(pt.paymentMethodId));
+      const settlementResults: any[] = [];
+
+      if (settlementTransactions.length > 0 && data.dailyCashSnapshotId && data.cashRegisterId && data.cashRegisterName) {
+        for (const settlementTx of settlementTransactions) {
+          // Get provider information for settlement
+          const providerInfo = this.getPaymentProviderInfo(settlementTx.paymentMethodId);
+          if (!providerInfo) {
+            warnings.push(`Payment provider not found for settlement payment method: ${settlementTx.paymentMethodId}`);
+            continue;
+          }
+
+          const settlementResult = await this.settlementSchema.create({
+            businessId: settlementTx.businessId,
+            debtId: data.debtId,
+            dailyCashSnapshotId: data.dailyCashSnapshotId,
+            cashRegisterId: data.cashRegisterId,
+            cashRegisterName: data.cashRegisterName,
+            amountTotal: settlementTx.amount,
+            paymentMethodId: settlementTx.paymentMethodId,
+            paymentMethodName: settlementTx.paymentMethodName,
+            paymentProviderId: providerInfo.paymentProviderId,
+            paymentProviderName: providerInfo.paymentProviderName,
+            status: 'pending',
+            amountFee: 0, // Will be calculated dynamically when settlement is processed
+            percentageFee: 0, // Will be calculated dynamically when settlement is processed
+            createdBy: settlementTx.userId,
+            createdByName: settlementTx.userName
+          });
+
+          if (!settlementResult.success) {
+            warnings.push(`Settlement creation failed: ${settlementResult.error}`);
+          } else {
+            settlementResults.push(settlementResult.data);
+          }
+        }
+      } else if (settlementTransactions.length > 0 && !data.dailyCashSnapshotId) {
+        warnings.push('Settlement transactions found but daily cash snapshot information not provided (supplier debt payment)');
+      }
+
+      // 10. Update debt record
       const newPaidAmount = debt.paidAmount + totalPaymentAmount;
       const newRemainingAmount = debt.originalAmount - newPaidAmount;
-
-      // Validate payment doesn't exceed remaining amount
-      if (totalPaymentAmount > debt.remainingAmount + 0.01) {
-        return { 
-          success: false, 
-          error: `Payment amount (${totalPaymentAmount}) exceeds remaining debt (${debt.remainingAmount})` 
-        };
-      }
 
       const updateData: any = {
         paidAmount: newPaidAmount,
         remainingAmount: Math.max(0, newRemainingAmount),
         notes: data.notes ? `${debt.notes}${debt.notes ? '\n' : ''}Payment: ${data.notes}` : debt.notes
       };
-
-      // Update daily cash snapshot references if provided (for customer debts)
-      if (debt.clientId && data.dailyCashSnapshotId) {
-        updateData.dailyCashSnapshotId = data.dailyCashSnapshotId;
-        updateData.cashRegisterId = data.cashRegisterId;
-        updateData.cashRegisterName = data.cashRegisterName;
-      }
 
       // Mark as paid if fully paid
       if (newRemainingAmount <= 0.01) {
@@ -496,15 +632,42 @@ export class BusinessRulesEngine {
         return { success: false, error: `Debt update failed: ${debtUpdateResult.error}` };
       }
 
+      // 11. Update store caches with newly created records (if daily cash snapshot provided)
+      if (data.dailyCashSnapshotId) {
+        const cashRegisterStore = useCashRegisterStore();
+
+        // Add wallet transactions to cache
+        walletResults.forEach(wallet => {
+          if (wallet) {
+            cashRegisterStore.addWalletToCache(data.dailyCashSnapshotId!, wallet);
+          }
+        });
+
+        // Add daily cash transactions to cache
+        dailyCashTxResults.forEach(transaction => {
+          if (transaction) {
+            cashRegisterStore.addTransactionToCache(transaction);
+          }
+        });
+
+        // Add settlement transactions to cache
+        settlementResults.forEach(settlement => {
+          if (settlement) {
+            cashRegisterStore.addSettlementToCache(data.dailyCashSnapshotId!, settlement);
+          }
+        });
+      }
+
       return {
         success: true,
         data: {
           debtId: data.debtId,
-          walletTransactions: paymentResults.walletResults,
-          settlementTransactions: paymentResults.settlementResults,
+          walletTransactions: walletResults,
+          settlementTransactions: settlementResults,
           targetRegister,
           remainingDebt: debt.remainingAmount - totalPaymentAmount,
-          totalPaymentAmount
+          totalPaymentAmount,
+          warnings
         },
         warnings
       };
@@ -805,172 +968,14 @@ export class BusinessRulesEngine {
 
     const snapshot = snapshotResult.data;
     if (snapshot.status !== 'open') {
-      return { 
-        success: false, 
-        error: `Daily cash snapshot is ${snapshot.status}. Cannot process transactions.` 
+      return {
+        success: false,
+        error: `Daily cash snapshot is ${snapshot.status}. Cannot process transactions.`
       };
     }
 
     return { success: true };
   }
-
-  /**
-   * Process payment transactions with proper routing based on payment method
-   * 
-   * PAYMENT METHOD ROUTING:
-   * - EFECTIVO: dailyCashTransaction only (no wallet)
-   * - Cards/Postnet: settlement record (wallet created when settled)
-   * - Other methods: direct wallet transaction
-   */
-  private async processPaymentTransactions(
-    paymentTransactions: PaymentTransactionData[],
-    relatedEntityId: string,
-    dailyCashSnapshotId?: string,
-    cashRegisterId?: string,
-    cashRegisterName?: string
-  ): Promise<{
-    walletResults: any[];
-    settlementResults: any[];
-    warnings: string[];
-  }> {
-    const walletResults: any[] = [];
-    const settlementResults: any[] = [];
-    const warnings: string[] = [];
-
-    // Validate payment transaction data first
-    const validationResult = this.validatePaymentTransactionData(paymentTransactions);
-    if (!validationResult.success) {
-      warnings.push(`Payment validation failed: ${validationResult.error}`);
-      return { walletResults, settlementResults, warnings };
-    }
-
-    // Get the current global cash register ID for wallet transactions
-    const globalCashIdResult = await this.getCurrentGlobalCashId();
-    if (!globalCashIdResult.success) {
-      warnings.push(`Could not determine global cash ID: ${globalCashIdResult.error}`);
-      return { walletResults, settlementResults, warnings };
-    }
-    const globalCashId = globalCashIdResult.data;
-
-    // Process non-cash and non-settlement payments → Wallet transactions
-    const walletTransactions = paymentTransactions.filter(pt => 
-      pt.paymentMethodId !== 'EFECTIVO' && !this.requiresSettlement(pt.paymentMethodId)
-    );
-
-    for (const walletTx of walletTransactions) {
-      // Get account information from payment method
-      const accountInfo = this.getAccountFromPaymentMethod(walletTx.paymentMethodId);
-      if (!accountInfo) {
-        warnings.push(`Account information not found for payment method: ${walletTx.paymentMethodId}`);
-        continue;
-      }
-      
-      // Get provider information if available
-      const providerInfo = this.getPaymentProviderInfo(walletTx.paymentMethodId);
-      
-      const walletResult = await this.walletSchema.create({
-        businessId: walletTx.businessId,
-        type: walletTx.type,
-        globalCashId: globalCashId,
-        saleId: walletTx.relatedEntityType === 'sale' ? relatedEntityId : undefined,
-        debtId: walletTx.relatedEntityType === 'debt' ? relatedEntityId : undefined,
-        purchaseInvoiceId: walletTx.relatedEntityType === 'purchaseInvoice' ? relatedEntityId : undefined,
-        supplierId: walletTx.supplierId,
-        paymentMethodId: walletTx.paymentMethodId,
-        paymentMethodName: walletTx.paymentMethodName,
-        paymentProviderId: providerInfo?.paymentProviderId || null,
-        paymentProviderName: providerInfo?.paymentProviderName || null,
-        ownersAccountId: accountInfo.ownersAccountId,
-        ownersAccountName: accountInfo.ownersAccountName,
-        amount: walletTx.amount,
-        status: 'paid',
-        isRegistered: true,
-        notes: walletTx.notes || null,
-        categoryCode: walletTx.categoryCode || null,
-        categoryName: walletTx.categoryName || null,
-        createdBy: walletTx.userId,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-
-      if (!walletResult.success) {
-        warnings.push(`Wallet transaction failed: ${walletResult.error}`);
-      } else {
-        walletResults.push(walletResult.data);
-      }
-    }
-
-    // Process cash payments → Daily cash transactions (if snapshot provided)
-    const cashTransactions = paymentTransactions.filter(pt => 
-      pt.paymentMethodId === 'EFECTIVO'
-    );
-
-    if (cashTransactions.length > 0 && dailyCashSnapshotId && cashRegisterId && cashRegisterName) {
-      for (const cashTx of cashTransactions) {
-        const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
-          businessId: cashTx.businessId,
-          dailyCashSnapshotId,
-          cashRegisterId,
-          cashRegisterName,
-          saleId: cashTx.relatedEntityType === 'sale' ? relatedEntityId : undefined,
-          debtId: cashTx.relatedEntityType === 'debt' ? relatedEntityId : undefined,
-          type: cashTx.relatedEntityType === 'sale' ? 'sale' : cashTx.relatedEntityType === 'debt' ? 'debt_payment' : 'extract',
-          amount: cashTx.amount,
-          createdBy: cashTx.userId,
-          createdByName: cashTx.userName
-        });
-
-        if (!dailyCashTxResult.success) {
-          warnings.push(`Daily cash transaction failed: ${dailyCashTxResult.error}`);
-        }
-      }
-    } else if (cashTransactions.length > 0) {
-      warnings.push('Cash transactions found but daily cash snapshot information not provided');
-    }
-
-    // Process payments that require settlement → Settlements
-    const settlementTransactions = paymentTransactions.filter(pt => this.requiresSettlement(pt.paymentMethodId));
-
-    if (settlementTransactions.length > 0 && dailyCashSnapshotId && cashRegisterId && cashRegisterName) {
-      for (const settlementTx of settlementTransactions) {
-        // Get provider information for settlement
-        const providerInfo = this.getPaymentProviderInfo(settlementTx.paymentMethodId);
-        if (!providerInfo) {
-          warnings.push(`Payment provider not found for settlement payment method: ${settlementTx.paymentMethodId}`);
-          continue;
-        }
-
-        const settlementResult = await this.settlementSchema.create({
-          businessId: settlementTx.businessId,
-          saleId: relatedEntityId, // This might need adjustment for non-sale entities
-          dailyCashSnapshotId,
-          cashRegisterId,
-          cashRegisterName,
-          amountTotal: settlementTx.amount,
-          paymentMethodId: settlementTx.paymentMethodId,
-          paymentMethodName: settlementTx.paymentMethodName,
-          paymentProviderId: providerInfo.paymentProviderId,
-          paymentProviderName: providerInfo.paymentProviderName,
-          status: 'pending',
-          amountFee: 0, // Will be calculated dynamically when settlement is processed
-          percentageFee: 0, // Will be calculated dynamically when settlement is processed
-          createdBy: settlementTx.userId,
-          createdByName: settlementTx.userName
-        });
-
-        if (!settlementResult.success) {
-          warnings.push(`Settlement creation failed: ${settlementResult.error}`);
-        } else {
-          settlementResults.push(settlementResult.data);
-        }
-      }
-    } else if (settlementTransactions.length > 0) {
-      warnings.push('Settlement transactions found but daily cash snapshot information not provided');
-    }
-
-    return { walletResults, settlementResults, warnings };
-  }
-
 
   /**
    * Process cash injection from global register to daily cash register
@@ -1060,6 +1065,14 @@ export class BusinessRulesEngine {
           error: `Cash injection failed at daily transaction step: ${dailyCashTxResult.error}`,
           warnings
         };
+      }
+
+      // 6. Update store caches with newly created records
+      const cashRegisterStore = useCashRegisterStore();
+
+      // Add daily cash transaction to cache
+      if (dailyCashTxResult.data) {
+        cashRegisterStore.addTransactionToCache(dailyCashTxResult.data);
       }
 
       return {
@@ -1525,6 +1538,14 @@ export class BusinessRulesEngine {
           error: `Cash extraction failed at daily transaction step: ${dailyCashTxResult.error}`,
           warnings
         };
+      }
+
+      // 6. Update store caches with newly created records
+      const cashRegisterStore = useCashRegisterStore();
+
+      // Add daily cash transaction to cache
+      if (dailyCashTxResult.data) {
+        cashRegisterStore.addTransactionToCache(dailyCashTxResult.data);
       }
 
       return {

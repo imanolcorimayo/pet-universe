@@ -60,7 +60,7 @@
             <p class="text-lg font-semibold text-gray-900">
               {{ summary.oldestDebt ? formatRelativeDate(summary.oldestDebt.createdAt) : 'N/A' }}
             </p>
-            <p class="text-xs text-gray-500">{{ summary.oldestDebt?.entityName || '' }}</p>
+            <p class="text-xs text-gray-500">{{ summary.oldestDebt ? (summary.oldestDebt.clientName || summary.oldestDebt.supplierName) : '' }}</p>
           </div>
           <LucideCalendar class="w-8 h-8 text-gray-500" />
         </div>
@@ -151,18 +151,24 @@
                 <div class="flex items-center">
                   <div class="flex-shrink-0 h-8 w-8">
                     <div class="h-8 w-8 rounded-full flex items-center justify-center"
-                         :class="debt.type === 'customer' ? 'bg-blue-100' : 'bg-orange-100'">
-                      <LucideUser v-if="debt.type === 'customer'" class="h-4 w-4 text-blue-600" />
+                         :class="debt.clientId ? 'bg-blue-100' : 'bg-orange-100'">
+                      <LucideUser v-if="debt.clientId" class="h-4 w-4 text-blue-600" />
                       <LucideTruck v-else class="h-4 w-4 text-orange-600" />
                     </div>
                   </div>
                   <div class="ml-3">
-                    <div class="text-sm font-medium text-gray-900">{{ debt.entityName }}</div>
-                    <div class="text-xs text-gray-500">{{ debt.type === 'customer' ? 'Cliente' : 'Proveedor' }}</div>
+                    <div class="text-sm font-medium text-gray-900">{{ debt.clientName || debt.supplierName }}</div>
+                    <div class="text-xs text-gray-500">{{ debt.clientId ? 'Cliente' : 'Proveedor' }}</div>
                   </div>
                 </div>
               </td>
               <td class="px-4 py-3">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded"
+                        :class="getOriginTypeBadgeClass(debt.originType)">
+                    {{ getOriginTypeLabel(debt.originType) }}
+                  </span>
+                </div>
                 <div class="text-sm text-gray-900">{{ debt.originDescription }}</div>
                 <div v-if="debt.notes" class="text-xs text-gray-500 mt-1">{{ debt.notes }}</div>
               </td>
@@ -282,26 +288,31 @@ const summary = computed(() => debtStore.getDebtSummary());
 
 const filteredDebts = computed(() => {
   let filtered = [...debts.value];
-  
+
   // Filter by type
   if (filters.type) {
-    filtered = filtered.filter(debt => debt.type === filters.type);
+    if (filters.type === 'customer') {
+      filtered = filtered.filter(debt => debt.clientId && debt.clientName);
+    } else if (filters.type === 'supplier') {
+      filtered = filtered.filter(debt => debt.supplierId && debt.supplierName);
+    }
   }
-  
+
   // Filter by status
   if (filters.status) {
     filtered = filtered.filter(debt => debt.status === filters.status);
   }
-  
+
   // Filter by search
   if (filters.search) {
     const search = filters.search.toLowerCase();
-    filtered = filtered.filter(debt => 
-      debt.entityName.toLowerCase().includes(search) ||
-      debt.originDescription.toLowerCase().includes(search)
-    );
+    filtered = filtered.filter(debt => {
+      const entityName = debt.clientName || debt.supplierName || '';
+      return entityName.toLowerCase().includes(search) ||
+        debt.originDescription.toLowerCase().includes(search);
+    });
   }
-  
+
   return filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 });
 
@@ -395,5 +406,23 @@ function getStatusBadgeClass(status) {
     cancelled: 'bg-gray-100 text-gray-800'
   };
   return classes[status] || 'bg-gray-100 text-gray-800';
+}
+
+function getOriginTypeLabel(originType) {
+  const labels = {
+    sale: 'Venta',
+    purchaseInvoice: 'Factura de Compra',
+    manual: 'Manual'
+  };
+  return labels[originType] || originType;
+}
+
+function getOriginTypeBadgeClass(originType) {
+  const classes = {
+    sale: 'bg-blue-100 text-blue-700',
+    purchaseInvoice: 'bg-purple-100 text-purple-700',
+    manual: 'bg-gray-100 text-gray-700'
+  };
+  return classes[originType] || 'bg-gray-100 text-gray-700';
 }
 </script>

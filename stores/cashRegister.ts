@@ -79,7 +79,10 @@ interface CashRegisterState {
 
   // Daily Cash Snapshots
   currentSnapshot: DailyCashSnapshot | null;
+  // Map of registerId -> currently open snapshot (or null if closed)
   registerSnapshots: Map<string, DailyCashSnapshot | null>;
+  // Array of ALL snapshots for history display
+  snapshotHistory: DailyCashSnapshot[];
 
   // Daily Cash Transactions
   transactions: DailyCashTransaction[];
@@ -102,6 +105,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
     selectedRegisterForDisplay: null,
     currentSnapshot: null,
     registerSnapshots: new Map(),
+    snapshotHistory: [],
     transactions: [],
 
     // Snapshot-specific data caches
@@ -120,9 +124,8 @@ export const useCashRegisterStore = defineStore("cashRegister", {
     hasOpenSnapshot: (state) => state.currentSnapshot?.status === "open",
 
     snapshotsByRegister: (state) => (registerId: string) => {
-      // Convert Map to array and filter by registerId
-      const allSnapshots = Array.from(state.registerSnapshots.values()).filter(s => s !== null);
-      return allSnapshots.filter((s) => s.cashRegisterId === registerId);
+      // Filter snapshot history by registerId
+      return state.snapshotHistory.filter((s) => s.cashRegisterId === registerId);
     },
 
     transactionsBySnapshot: (state) => (snapshotId: string) =>
@@ -172,10 +175,28 @@ export const useCashRegisterStore = defineStore("cashRegister", {
     getRegisterSnapshot: (state) => (registerId: string) =>
       state.registerSnapshots.get(registerId),
 
-    // Convert Map to array for UI display (sorted by openedAt descending)
+    // All currently open snapshots (from registerSnapshots Map)
+    openSnapshots: (state) => {
+      const snapshots: DailyCashSnapshot[] = [];
+      state.registerSnapshots.forEach((snapshot) => {
+        if (snapshot && snapshot.status === 'open') {
+          snapshots.push(snapshot);
+        }
+      });
+      return snapshots;
+    },
+
+    // All historical snapshots (sorted by createdAt descending)
     allSnapshots: (state) => {
-      const snapshots = Array.from(state.registerSnapshots.values()).filter(s => s !== null) as DailyCashSnapshot[];
-      return snapshots.sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime());
+      return [...state.snapshotHistory].sort((a, b) => {
+        // Use createdAt timestamps if available for proper sorting
+        if (a.createdAt && b.createdAt) {
+          const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : a.createdAt.toDate?.()?.getTime() || 0;
+          const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : b.createdAt.toDate?.()?.getTime() || 0;
+          return timeB - timeA;
+        }
+        return 0; // If no timestamps available, maintain order
+      });
     },
 
     currentAccountBalances: (state) => {
@@ -230,9 +251,24 @@ export const useCashRegisterStore = defineStore("cashRegister", {
           cashAccount.openingAmount + cashMovements;
       }
 
-      // For other accounts: they start at 0 and movements would come from wallet transactions
-      // linked to this daily snapshot (this would require additional implementation)
-      // For now, they remain at opening amount (which is 0 for non-cash accounts)
+      // For other accounts: calculate movements from wallet transactions
+      const walletTransactions = state.currentSnapshot
+        ? state.snapshotWallets.get(state.currentSnapshot.id as string) || []
+        : [];
+
+      // Process each account (except EFECTIVO which was already calculated)
+      Object.keys(balances).forEach(accountId => {
+        if (accountId === cashAccount?.ownersAccountId) return; // Skip cash, already calculated
+
+        const accountMovements = walletTransactions
+          .filter((w: any) => w.ownersAccountId === accountId)
+          .reduce((sum: number, w: any) => {
+            return sum + (w.type === 'Income' ? w.amount : -w.amount);
+          }, 0);
+
+        balances[accountId].movementAmount = accountMovements;
+        balances[accountId].currentAmount = balances[accountId].openingAmount + accountMovements;
+      });
 
       return balances;
     },
@@ -606,20 +642,21 @@ export const useCashRegisterStore = defineStore("cashRegister", {
         if (result.success) {
           const snapshots = result.data as DailyCashSnapshot[];
 
-          // Load register names and store in Map
+          // Load register names
           if (this.registers.length === 0) {
             await this.loadRegisters();
           }
 
+          // Add register names to snapshots
           snapshots.forEach(snapshot => {
             const register = this.registers.find(r => r.id === snapshot.cashRegisterId);
             if (register) {
               snapshot.cashRegisterName = register.name;
             }
-
-            // Store in Map for future reference
-            this.registerSnapshots.set(snapshot.cashRegisterId, snapshot);
           });
+
+          // Store in snapshotHistory array for history display
+          this.snapshotHistory = snapshots;
         } else {
           throw new Error(result.error);
         }
@@ -656,9 +693,13 @@ export const useCashRegisterStore = defineStore("cashRegister", {
           snapshot.cashRegisterName = register.name;
         }
 
-        // Store in the Map for future reference
+        // Set as current snapshot for viewing
         this.currentSnapshot = snapshot;
-        this.registerSnapshots.set(snapshot.cashRegisterId, snapshot);
+
+        // Only add to registerSnapshots if it's an open snapshot
+        if (snapshot.status === 'open') {
+          this.registerSnapshots.set(snapshot.cashRegisterId, snapshot);
+        }
 
         return { success: true, data: snapshot };
       } catch (error) {
@@ -803,6 +844,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       this.transactions = [];
       this.selectedRegisterForDisplay = null;
       this.registerSnapshots.clear();
+      this.snapshotHistory = [];
     },
 
     refreshCurrentSnapshot() {
@@ -939,6 +981,44 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       this.snapshotWallets.clear();
       this.snapshotDebts.clear();
       this.snapshotSettlements.clear();
+    },
+
+    // --- CACHE UPDATE METHODS ---
+
+    addSaleToCache(snapshotId: string, sale: any) {
+      if (!this.snapshotSales.has(snapshotId)) {
+        this.snapshotSales.set(snapshotId, []);
+      }
+      const sales = this.snapshotSales.get(snapshotId)!;
+      sales.unshift(sale); // Add to beginning for newest first
+    },
+
+    addWalletToCache(snapshotId: string, wallet: any) {
+      if (!this.snapshotWallets.has(snapshotId)) {
+        this.snapshotWallets.set(snapshotId, []);
+      }
+      const wallets = this.snapshotWallets.get(snapshotId)!;
+      wallets.unshift(wallet); // Add to beginning for newest first
+    },
+
+    addTransactionToCache(transaction: any) {
+      this.transactions.unshift(transaction); // Add to beginning for newest first
+    },
+
+    addSettlementToCache(snapshotId: string, settlement: any) {
+      if (!this.snapshotSettlements.has(snapshotId)) {
+        this.snapshotSettlements.set(snapshotId, []);
+      }
+      const settlements = this.snapshotSettlements.get(snapshotId)!;
+      settlements.unshift(settlement); // Add to beginning for newest first
+    },
+
+    addDebtToCache(snapshotId: string, debt: any) {
+      if (!this.snapshotDebts.has(snapshotId)) {
+        this.snapshotDebts.set(snapshotId, []);
+      }
+      const debts = this.snapshotDebts.get(snapshotId)!;
+      debts.unshift(debt); // Add to beginning for newest first
     },
 
     // --- SCHEMA ACCESS METHODS ---

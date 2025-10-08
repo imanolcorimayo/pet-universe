@@ -1,19 +1,4 @@
 import { defineStore } from 'pinia';
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  Timestamp,
-  limit
-} from 'firebase/firestore';
-import { useLocalStorage } from '@vueuse/core';
 import { ToastEvents } from '~/interfaces';
 import { DebtSchema } from '~/utils/odm/schemas/DebtSchema';
 
@@ -21,47 +6,47 @@ import { DebtSchema } from '~/utils/odm/schemas/DebtSchema';
 interface Debt {
   id: string;
   businessId: string;
-  type: 'customer' | 'supplier';
-  entityId: string;
-  entityName: string;
+
+  // Entity references (client OR supplier, not both)
+  clientId?: string;
+  clientName?: string;
+  supplierId?: string;
+  supplierName?: string;
+
+  // Daily cash snapshot references (for customer debts)
+  dailyCashSnapshotId?: string;
+  cashRegisterId?: string;
+  cashRegisterName?: string;
+
+  // Amounts
   originalAmount: number;
   paidAmount: number;
   remainingAmount: number;
-  originType: 'sale' | 'purchase' | 'manual';
+
+  // Origin
+  originType: 'sale' | 'purchaseInvoice' | 'manual';
   originId: string | null;
   originDescription: string;
+
+  // Status
   status: 'active' | 'paid' | 'cancelled';
-  dueDate: any | null; // Timestamp
+  dueDate: any | null;
   notes: string;
+
+  // Audit fields
   createdBy: string;
   createdByName: string;
-  createdAt: any; // Timestamp
-  updatedAt: any; // Timestamp
-  paidAt: any | null; // Timestamp
-  cancelledAt: any | null; // Timestamp
+  createdAt: any;
+  updatedAt: any;
+  paidAt: any | null;
+  cancelledAt: any | null;
   cancelledBy: string | null;
   cancelReason: string | null;
 }
 
-interface DebtPayment {
-  id: string;
-  businessId: string;
-  debtId: string;
-  salesRegisterId: string; // TODO: Replace with dailyCashSnapshotId in new financial system
-  amount: number;
-  paymentMethod: string;
-  isReported: boolean;
-  notes: string;
-  createdBy: string;
-  createdByName: string;
-  createdAt: any; // Timestamp
-}
-
 interface DebtState {
   debts: Debt[];
-  payments: DebtPayment[];
   isLoading: boolean;
-  loadingPayments: boolean;
 
   // Cache management by snapshot ID
   snapshotDebts: Map<string, Debt[]>;
@@ -73,9 +58,7 @@ interface DebtState {
 export const useDebtStore = defineStore('debt', {
   state: (): DebtState => ({
     debts: [],
-    payments: [],
     isLoading: false,
-    loadingPayments: false,
 
     // Cache management
     snapshotDebts: new Map(),
@@ -98,53 +81,63 @@ export const useDebtStore = defineStore('debt', {
 
     // Get all active debts
     activeDebts: (state) => state.debts.filter(debt => debt.status === 'active'),
-    
+
     // Get customer debts
-    customerDebts: (state) => state.debts.filter(debt => debt.type === 'customer'),
-    
-    // Get supplier debts  
-    supplierDebts: (state) => state.debts.filter(debt => debt.type === 'supplier'),
-    
+    customerDebts: (state) => state.debts.filter(debt => debt.clientId && debt.clientName),
+
+    // Get supplier debts
+    supplierDebts: (state) => state.debts.filter(debt => debt.supplierId && debt.supplierName),
+
     // Get active customer debts
-    activeCustomerDebts: (state) => state.debts.filter(debt => 
-      debt.type === 'customer' && debt.status === 'active'
+    activeCustomerDebts: (state) => state.debts.filter(debt =>
+      debt.clientId && debt.clientName && debt.status === 'active'
     ),
-    
+
     // Get active supplier debts
-    activeSupplierDebts: (state) => state.debts.filter(debt => 
-      debt.type === 'supplier' && debt.status === 'active'
+    activeSupplierDebts: (state) => state.debts.filter(debt =>
+      debt.supplierId && debt.supplierName && debt.status === 'active'
     ),
-    
+
     // Calculate total debt by type
     totalCustomerDebt: (state) => {
       return state.debts
-        .filter(debt => debt.type === 'customer' && debt.status === 'active')
+        .filter(debt => debt.clientId && debt.clientName && debt.status === 'active')
         .reduce((sum, debt) => sum + debt.remainingAmount, 0);
     },
-    
+
     totalSupplierDebt: (state) => {
       return state.debts
-        .filter(debt => debt.type === 'supplier' && debt.status === 'active')
+        .filter(debt => debt.supplierId && debt.supplierName && debt.status === 'active')
         .reduce((sum, debt) => sum + debt.remainingAmount, 0);
     },
-    
+
     // Get debts by entity
     getDebtsByEntity: (state) => (entityId: string, type: 'customer' | 'supplier') => {
-      return state.debts.filter(debt => 
-        debt.entityId === entityId && 
-        debt.type === type &&
-        debt.status === 'active'
-      );
+      return state.debts.filter(debt => {
+        if (type === 'customer') {
+          return debt.clientId === entityId && debt.status === 'active';
+        } else {
+          return debt.supplierId === entityId && debt.status === 'active';
+        }
+      });
     },
-    
+
     // Get debt by ID
     getDebtById: (state) => (debtId: string) => {
       return state.debts.find(debt => debt.id === debtId);
     },
-    
-    // Get payments for a debt
-    getPaymentsByDebt: (state) => (debtId: string) => {
-      return state.payments.filter(payment => payment.debtId === debtId);
+
+    // Helper getters for backward compatibility
+    getDebtType: () => (debt: Debt): 'customer' | 'supplier' => {
+      return debt.clientId && debt.clientName ? 'customer' : 'supplier';
+    },
+
+    getDebtEntityId: () => (debt: Debt): string => {
+      return debt.clientId || debt.supplierId || '';
+    },
+
+    getDebtEntityName: () => (debt: Debt): string => {
+      return debt.clientName || debt.supplierName || '';
     }
   },
 
@@ -152,7 +145,6 @@ export const useDebtStore = defineStore('debt', {
     // --- Cache Management ---
     clearCache() {
       this.debts = [];
-      this.payments = [];
       this.snapshotDebts.clear();
       this.lastCacheUpdate = 0;
     },
@@ -161,7 +153,7 @@ export const useDebtStore = defineStore('debt', {
       this.snapshotDebts.delete(snapshotId);
     },
 
-    // --- New Schema-Based Methods ---
+    // --- Schema-Based Methods ---
     async loadDebtsForSnapshot(snapshotId: string) {
       try {
         // Check if we already have cached data for this snapshot
@@ -196,25 +188,19 @@ export const useDebtStore = defineStore('debt', {
 
     // Load all debts for the current business
     async loadDebts() {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const currentBusinessId = useLocalStorage('cBId', null);
-      
-      if (!user.value?.uid || !currentBusinessId.value) return;
-
       this.isLoading = true;
       try {
-        const q = query(
-          collection(db, 'debt'),
-          where('businessId', '==', currentBusinessId.value),
-          orderBy('createdAt', 'desc')
-        );
-        
-        const snapshot = await getDocs(q);
-        this.debts = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Debt[];
+        const result = await this.debtSchema.find({
+          orderBy: [{ field: 'createdAt', direction: 'desc' }]
+        });
+
+        if (result.success && result.data) {
+          this.debts = result.data as Debt[];
+          this.lastCacheUpdate = Date.now();
+        } else {
+          console.error('Error loading debts:', result.error);
+          useToast(ToastEvents.error, 'Error al cargar las deudas');
+        }
       } catch (error) {
         console.error('Error loading debts:', error);
         useToast(ToastEvents.error, 'Error al cargar las deudas');
@@ -223,83 +209,24 @@ export const useDebtStore = defineStore('debt', {
       }
     },
 
-    // Load payments for a specific debt
-    async loadPayments(debtId?: string) {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const currentBusinessId = useLocalStorage('cBId', null);
-      
-      if (!user.value?.uid || !currentBusinessId.value) return;
-
-      this.loadingPayments = true;
-      try {
-        let q;
-        if (debtId) {
-          q = query(
-            collection(db, 'debtPayment'),
-            where('businessId', '==', currentBusinessId.value),
-            where('debtId', '==', debtId),
-            orderBy('createdAt', 'desc')
-          );
-        } else {
-          q = query(
-            collection(db, 'debtPayment'),
-            where('businessId', '==', currentBusinessId.value),
-            orderBy('createdAt', 'desc')
-          );
-        }
-        
-        const snapshot = await getDocs(q);
-        const payments = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as DebtPayment[];
-        
-        if (debtId) {
-          // Replace payments for this specific debt
-          this.payments = [
-            ...this.payments.filter(p => p.debtId !== debtId),
-            ...payments
-          ];
-        } else {
-          this.payments = payments;
-        }
-      } catch (error) {
-        console.error('Error loading debt payments:', error);
-        useToast(ToastEvents.error, 'Error al cargar los pagos de deuda');
-      } finally {
-        this.loadingPayments = false;
-      }
-    },
-
-    // Create a new debt
+    // Create a new debt using schema
     async createDebt(data: {
       type: 'customer' | 'supplier';
       entityId: string;
       entityName: string;
       originalAmount: number;
-      originType: 'sale' | 'purchase' | 'manual';
+      originType: 'sale' | 'purchaseInvoice' | 'manual';
       originId?: string;
       originDescription: string;
       dueDate?: Date;
       notes?: string;
+      dailyCashSnapshotId?: string;
+      cashRegisterId?: string;
+      cashRegisterName?: string;
     }) {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const currentBusinessId = useLocalStorage('cBId', null);
-      
-      if (!user.value?.uid || !currentBusinessId.value) {
-        useToast(ToastEvents.error, 'Debes iniciar sesión y seleccionar un negocio');
-        return false;
-      }
-
       try {
-        const ref = collection(db, 'debt');
-        const debtData = {
-          businessId: currentBusinessId.value,
-          type: data.type,
-          entityId: data.entityId,
-          entityName: data.entityName,
+        // Build schema-compliant debt data
+        const debtData: any = {
           originalAmount: data.originalAmount,
           paidAmount: 0,
           remainingAmount: data.originalAmount,
@@ -307,175 +234,55 @@ export const useDebtStore = defineStore('debt', {
           originId: data.originId || null,
           originDescription: data.originDescription,
           status: 'active',
-          dueDate: data.dueDate ? Timestamp.fromDate(data.dueDate) : null,
+          dueDate: data.dueDate || null,
           notes: data.notes || '',
-          createdBy: user.value.uid,
-          createdByName: user.value.displayName || user.value.email,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
           paidAt: null,
           cancelledAt: null,
           cancelledBy: null,
           cancelReason: null
         };
-        
-        const docRef = await addDoc(ref, debtData);
-        
+
+        // Add entity-specific fields
+        if (data.type === 'customer') {
+          debtData.clientId = data.entityId;
+          debtData.clientName = data.entityName;
+
+          // Add daily cash snapshot info if provided
+          if (data.dailyCashSnapshotId) {
+            debtData.dailyCashSnapshotId = data.dailyCashSnapshotId;
+            debtData.cashRegisterId = data.cashRegisterId;
+            debtData.cashRegisterName = data.cashRegisterName;
+          }
+        } else {
+          debtData.supplierId = data.entityId;
+          debtData.supplierName = data.entityName;
+        }
+
+        // Create using schema
+        const result = await this.debtSchema.create(debtData, true);
+
+        if (!result.success) {
+          console.error('Error creating debt:', result.error);
+          useToast(ToastEvents.error, result.error || 'Error al crear la deuda');
+          return false;
+        }
+
         // Add to local cache
-        const newDebt = {
-          id: docRef.id,
-          ...debtData
-        } as Debt;
-        this.debts.unshift(newDebt);
-        
+        if (result.data) {
+          this.debts.unshift(result.data as Debt);
+        }
+
         useToast(ToastEvents.success, 'Deuda creada exitosamente');
-        return { id: docRef.id, ...debtData };
-      } catch (error) {
+        return result.data;
+      } catch (error: any) {
         console.error('Error creating debt:', error);
         useToast(ToastEvents.error, 'Error al crear la deuda');
         return false;
       }
     },
 
-    // Record a payment for a debt
-    async recordPayment(data: {
-      debtId: string;
-      amount: number;
-      paymentMethod: string;
-      isReported: boolean;
-      notes?: string;
-    }) {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      const currentBusinessId = useLocalStorage('cBId', null);
-      // TODO: Update to use BusinessRulesEngine.processDebtPayment() instead of direct store operations
-      // const saleStore = useSaleStore(); // REMOVED - Sale store no longer exists
-      const globalCashRegisterStore = useGlobalCashRegisterStore();
-      
-      if (!user.value?.uid || !currentBusinessId.value) {
-        useToast(ToastEvents.error, 'Debes iniciar sesión y seleccionar un negocio');
-        return false;
-      }
-
-      const debt = this.getDebtById(data.debtId);
-      if (!debt) {
-        useToast(ToastEvents.error, 'Deuda no encontrada');
-        return false;
-      }
-
-      if (data.amount > debt.remainingAmount) {
-        useToast(ToastEvents.error, 'El monto no puede ser mayor al saldo pendiente');
-        return false;
-      }
-
-      try {
-        let salesRegisterId = null;
-        
-        // TODO: Replace with BusinessRulesEngine.processDebtPayment()
-        // Customer debts go to daily cash register, supplier debts go to global register
-        if (debt.type === 'customer') {
-          // TEMPORARILY DISABLED - Customer debt payment processing
-          // This should be handled by BusinessRulesEngine.processDebtPayment()
-          useToast(ToastEvents.error, 'Customer debt payments are temporarily disabled. Please use the new financial system.');
-          return false;
-
-          /*
-          // Customer debt payment - record in daily cash register
-          const dailyCashStore = useDailyCashRegisterStore();
-          if (!dailyCashStore.hasOpenDailyCash) {
-            useToast(ToastEvents.error, 'No hay una caja diaria abierta para registrar pagos de clientes');
-            return false;
-          }
-          */
-
-          salesRegisterId = null; // Will be provided by BusinessRulesEngine
-        } else {
-          // Supplier debt payment - record in global register
-          await globalCashRegisterStore.addTransaction({
-            type: 'expense',
-            category: 'PAGO_DEUDA_PROVEEDOR',
-            description: `Pago de deuda - ${debt.entityName}`,
-            amount: data.amount,
-            paymentMethod: data.paymentMethod,
-            isReported: data.isReported,
-            notes: data.notes || `Pago de deuda ID: ${data.debtId}`,
-          });
-        }
-
-        // Create payment record
-        const paymentRef = collection(db, 'debtPayment');
-        const paymentData = {
-          businessId: currentBusinessId.value,
-          debtId: data.debtId,
-          salesRegisterId: salesRegisterId, // null for supplier debts
-          amount: data.amount,
-          paymentMethod: data.paymentMethod,
-          isReported: data.isReported,
-          notes: data.notes || '',
-          createdBy: user.value.uid,
-          createdByName: user.value.displayName || user.value.email,
-          createdAt: serverTimestamp()
-        };
-        
-        const paymentDocRef = await addDoc(paymentRef, paymentData);
-        
-        // Update debt record
-        const newPaidAmount = debt.paidAmount + data.amount;
-        const newRemainingAmount = debt.originalAmount - newPaidAmount;
-        const isFullyPaid = newRemainingAmount <= 0;
-        
-        const debtRef = doc(db, 'debt', data.debtId);
-        await updateDoc(debtRef, {
-          paidAmount: newPaidAmount,
-          remainingAmount: Math.max(0, newRemainingAmount),
-          status: isFullyPaid ? 'paid' : 'active',
-          paidAt: isFullyPaid ? serverTimestamp() : null,
-          updatedAt: serverTimestamp()
-        });
-        
-        // Update local cache
-        const debtIndex = this.debts.findIndex(d => d.id === data.debtId);
-        if (debtIndex !== -1) {
-          this.debts[debtIndex] = {
-            ...this.debts[debtIndex],
-            paidAmount: newPaidAmount,
-            remainingAmount: Math.max(0, newRemainingAmount),
-            status: isFullyPaid ? 'paid' : 'active',
-            paidAt: isFullyPaid ? new Date() : null,
-            updatedAt: new Date()
-          };
-        }
-        
-        // Add payment to local cache
-        const newPayment = {
-          id: paymentDocRef.id,
-          ...paymentData
-        } as DebtPayment;
-        this.payments.unshift(newPayment);
-        
-        const paymentLocation = debt.type === 'customer' ? 'caja de ventas' : 'caja global';
-        useToast(ToastEvents.success, 
-          isFullyPaid ? 'Deuda pagada completamente' : `Pago registrado exitosamente en ${paymentLocation}`
-        );
-        
-        return { id: paymentDocRef.id, ...paymentData };
-      } catch (error) {
-        console.error('Error recording payment:', error);
-        useToast(ToastEvents.error, 'Error al registrar el pago');
-        return false;
-      }
-    },
-
-    // Cancel a debt
+    // Cancel a debt using schema
     async cancelDebt(debtId: string, reason: string) {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      if (!user.value?.uid) {
-        useToast(ToastEvents.error, 'Debes iniciar sesión');
-        return false;
-      }
-
       const debt = this.getDebtById(debtId);
       if (!debt) {
         useToast(ToastEvents.error, 'Deuda no encontrada');
@@ -488,47 +295,36 @@ export const useDebtStore = defineStore('debt', {
       }
 
       try {
-        const debtRef = doc(db, 'debt', debtId);
-        await updateDoc(debtRef, {
+        const result = await this.debtSchema.update(debtId, {
           status: 'cancelled',
-          cancelledAt: serverTimestamp(),
-          cancelledBy: user.value.uid,
-          cancelReason: reason,
-          updatedAt: serverTimestamp()
-        });
-        
-        // Update local cache
-        const debtIndex = this.debts.findIndex(d => d.id === debtId);
-        if (debtIndex !== -1) {
-          this.debts[debtIndex] = {
-            ...this.debts[debtIndex],
-            status: 'cancelled',
-            cancelledAt: new Date(),
-            cancelledBy: user.value.uid,
-            cancelReason: reason,
-            updatedAt: new Date()
-          };
+          cancelReason: reason
+        }, false);
+
+        if (!result.success) {
+          console.error('Error cancelling debt:', result.error);
+          useToast(ToastEvents.error, result.error || 'Error al cancelar la deuda');
+          return false;
         }
-        
+
+        // Update local cache
+        if (result.data) {
+          const debtIndex = this.debts.findIndex(d => d.id === debtId);
+          if (debtIndex !== -1) {
+            this.debts[debtIndex] = result.data as Debt;
+          }
+        }
+
         useToast(ToastEvents.success, 'Deuda cancelada exitosamente');
         return true;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error cancelling debt:', error);
         useToast(ToastEvents.error, 'Error al cancelar la deuda');
         return false;
       }
     },
 
-    // Close a debt manually (mark as paid without payment - useful for debt forgiveness or manual adjustments)
+    // Close a debt manually using schema
     async closeDebt(debtId: string, reason: string) {
-      const db = useFirestore();
-      const user = useCurrentUser();
-      
-      if (!user.value?.uid) {
-        useToast(ToastEvents.error, 'Debes iniciar sesión');
-        return false;
-      }
-
       const debt = this.getDebtById(debtId);
       if (!debt) {
         useToast(ToastEvents.error, 'Deuda no encontrada');
@@ -541,33 +337,34 @@ export const useDebtStore = defineStore('debt', {
       }
 
       try {
-        const debtRef = doc(db, 'debt', debtId);
-        await updateDoc(debtRef, {
+        const updatedNotes = debt.notes
+          ? `${debt.notes}\n\nCerrada manualmente: ${reason}`
+          : `Cerrada manualmente: ${reason}`;
+
+        const result = await this.debtSchema.update(debtId, {
           status: 'paid',
           paidAmount: debt.originalAmount,
           remainingAmount: 0,
-          paidAt: serverTimestamp(),
-          notes: debt.notes ? `${debt.notes}\n\nCerrada manualmente: ${reason}` : `Cerrada manualmente: ${reason}`,
-          updatedAt: serverTimestamp()
-        });
-        
-        // Update local cache
-        const debtIndex = this.debts.findIndex(d => d.id === debtId);
-        if (debtIndex !== -1) {
-          this.debts[debtIndex] = {
-            ...this.debts[debtIndex],
-            status: 'paid',
-            paidAmount: debt.originalAmount,
-            remainingAmount: 0,
-            paidAt: new Date(),
-            notes: debt.notes ? `${debt.notes}\n\nCerrada manualmente: ${reason}` : `Cerrada manualmente: ${reason}`,
-            updatedAt: new Date()
-          };
+          notes: updatedNotes
+        }, false);
+
+        if (!result.success) {
+          console.error('Error closing debt:', result.error);
+          useToast(ToastEvents.error, result.error || 'Error al cerrar la deuda');
+          return false;
         }
-        
+
+        // Update local cache
+        if (result.data) {
+          const debtIndex = this.debts.findIndex(d => d.id === debtId);
+          if (debtIndex !== -1) {
+            this.debts[debtIndex] = result.data as Debt;
+          }
+        }
+
         useToast(ToastEvents.success, 'Deuda cerrada exitosamente');
         return true;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error closing debt:', error);
         useToast(ToastEvents.error, 'Error al cerrar la deuda');
         return false;
@@ -577,9 +374,9 @@ export const useDebtStore = defineStore('debt', {
     // Get debt summary statistics
     getDebtSummary() {
       const activeDebts = this.activeDebts;
-      const customerDebts = activeDebts.filter(d => d.type === 'customer');
-      const supplierDebts = activeDebts.filter(d => d.type === 'supplier');
-      
+      const customerDebts = activeDebts.filter(d => d.clientId && d.clientName);
+      const supplierDebts = activeDebts.filter(d => d.supplierId && d.supplierName);
+
       return {
         totalDebts: activeDebts.length,
         customerDebts: customerDebts.length,

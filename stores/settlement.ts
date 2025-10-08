@@ -5,7 +5,8 @@ import { SettlementSchema } from "~/utils/odm/schemas/SettlementSchema";
 interface Settlement {
   id: string;
   businessId: string;
-  saleId: string;
+  saleId?: string;
+  debtId?: string;
   dailyCashSnapshotId: string;
   cashRegisterId: string;
   cashRegisterName: string;

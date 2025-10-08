@@ -10,9 +10,9 @@
       <div class="bg-gray-50 p-4 rounded-lg">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-medium text-gray-800 flex items-center gap-2">
-            <LucideUser v-if="debt.type === 'customer'" class="h-5 w-5 text-blue-600" />
+            <LucideUser v-if="debt.clientId" class="h-5 w-5 text-blue-600" />
             <LucideTruck v-else class="h-5 w-5 text-orange-600" />
-            {{ debt.entityName }}
+            {{ debt.clientName || debt.supplierName }}
           </h3>
           <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full"
                 :class="getStatusBadgeClass(debt.status)">
@@ -23,7 +23,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <p class="text-sm text-gray-600">Tipo</p>
-            <p class="font-medium">{{ debt.type === 'customer' ? 'Cliente' : 'Proveedor' }}</p>
+            <p class="font-medium">{{ debt.clientId ? 'Cliente' : 'Proveedor' }}</p>
           </div>
           <div>
             <p class="text-sm text-gray-600">Origen</p>
@@ -82,79 +82,62 @@
             Historial de Pagos
           </h3>
         </div>
-        
-        <div v-if="isLoadingPayments" class="p-8 text-center">
-          <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-          <p class="mt-2 text-sm text-gray-600">Cargando pagos...</p>
+
+        <div v-if="isLoadingTransactions" class="p-8 text-center text-gray-500">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p class="mt-2 text-sm">Cargando transacciones...</p>
         </div>
-        
-        <div v-else-if="payments.length === 0" class="p-8 text-center text-gray-500">
+
+        <div v-else-if="allTransactions.length === 0" class="p-8 text-center text-gray-500">
           <LucideFileX class="w-8 h-8 mx-auto text-gray-300 mb-2" />
-          <p class="text-sm">No se han registrado pagos para esta deuda</p>
+          <p class="text-sm">No hay pagos registrados para esta deuda</p>
         </div>
-        
-        <div v-else class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha
-                </th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Monto
-                </th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Método de Pago
-                </th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo
-                </th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Registrado por
-                </th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Caja de Ventas
-                </th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Notas
-                </th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="payment in payments" :key="payment.id" class="hover:bg-gray-50">
-                <td class="px-4 py-3 text-sm text-gray-900">
-                  {{ payment.createdAt }}
-                </td>
-                <td class="px-4 py-3 text-sm font-medium text-green-600 text-right">
-                  ${{ formatNumber(payment.amount) }}
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-900">
-                  {{ getPaymentMethodName(payment.paymentMethod) }}
-                </td>
-                <td class="px-4 py-3 text-center">
-                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                        :class="payment.isReported ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'">
-                    {{ payment.isReported ? 'Declarado' : 'No declarado' }}
+
+        <div v-else class="divide-y">
+          <div v-for="transaction in allTransactions" :key="transaction.id"
+               class="p-4 hover:bg-gray-50 transition-colors">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <LucideWallet v-if="transaction.type === 'wallet'" class="w-4 h-4 text-blue-600" />
+                  <LucideBanknote v-else-if="transaction.type === 'dailyCash'" class="w-4 h-4 text-green-600" />
+                  <LucideCreditCard v-else class="w-4 h-4 text-purple-600" />
+                  <span class="font-medium text-sm">{{ getTransactionTypeLabel(transaction.type) }}</span>
+                  <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded"
+                        :class="getTransactionStatusClass(transaction)">
+                    {{ getTransactionStatusLabel(transaction) }}
                   </span>
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-900">
-                  {{ payment.createdByName }}
-                </td>
-                <td class="px-4 py-3 text-sm text-blue-600">
-                  <button 
-                    @click="viewSalesRegister(payment.salesRegisterId)"
-                    class="hover:underline"
-                    title="Ver caja de ventas"
-                  >
-                    {{ formatSalesRegisterId(payment.salesRegisterId) }}
-                  </button>
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-600">
-                  {{ payment.notes || '-' }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </div>
+
+                <div class="text-sm text-gray-600 space-y-1">
+                  <div v-if="transaction.paymentMethodName">
+                    <span class="font-medium">Método:</span> {{ transaction.paymentMethodName }}
+                  </div>
+                  <div v-if="transaction.ownersAccountName">
+                    <span class="font-medium">Cuenta:</span> {{ transaction.ownersAccountName }}
+                  </div>
+                  <div v-if="transaction.cashRegisterName">
+                    <span class="font-medium">Caja:</span> {{ transaction.cashRegisterName }}
+                  </div>
+                  <div v-if="transaction.notes" class="text-xs text-gray-500 italic">
+                    {{ transaction.notes }}
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    {{ transaction.createdAt }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="text-right ml-4">
+                <div class="text-lg font-semibold text-green-600">
+                  ${{ formatNumber(transaction.amount) }}
+                </div>
+                <div v-if="transaction.type === 'settlement' && transaction.amountFee" class="text-xs text-gray-500">
+                  Comisión: ${{ formatNumber(transaction.amountFee) }}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -215,45 +198,158 @@ import LucideFileX from '~icons/lucide/file-x';
 import LucideDollarSign from '~icons/lucide/dollar-sign';
 import LucideCheck from '~icons/lucide/check';
 import LucideX from '~icons/lucide/x';
+import LucideWallet from '~icons/lucide/wallet';
+import LucideBanknote from '~icons/lucide/banknote';
+import LucideCreditCard from '~icons/lucide/credit-card';
 
 import { ToastEvents } from '~/interfaces';
+import { WalletSchema } from '~/utils/odm/schemas/WalletSchema';
+import { DailyCashTransactionSchema } from '~/utils/odm/schemas/DailyCashTransactionSchema';
+import { SettlementSchema } from '~/utils/odm/schemas/SettlementSchema';
 
 // Refs
 const modalRef = ref(null);
 const paymentModalRef = ref(null);
 const debt = ref(null);
-const payments = ref([]);
-const isLoadingPayments = ref(false);
+const isLoadingTransactions = ref(false);
+const walletTransactions = ref([]);
+const dailyCashTransactions = ref([]);
+const settlementTransactions = ref([]);
 
 // Store access
 const debtStore = useDebtStore();
-const indexStore = useIndexStore();
 
 // Event emitter
 const emit = defineEmits(['debt-updated']);
 
-// Computed properties
-const getPaymentMethodName = computed(() => {
-  return (code) => {
-    const methods = indexStore.businessConfig?.paymentMethods || {};
-    return methods[code]?.name || code;
-  };
+// Computed: Merge all transactions and sort by date
+const allTransactions = computed(() => {
+  const transactions = [];
+
+  // Add wallet transactions
+  walletTransactions.value.forEach(wt => {
+    transactions.push({
+      ...wt,
+      type: 'wallet'
+    });
+  });
+
+  // Add daily cash transactions
+  dailyCashTransactions.value.forEach(dct => {
+    transactions.push({
+      ...dct,
+      type: 'dailyCash'
+    });
+  });
+
+  // Add settlement transactions
+  settlementTransactions.value.forEach(st => {
+    transactions.push({
+      ...st,
+      type: 'settlement'
+    });
+  });
+
+  // Sort by createdAt descending (newest first)
+  return transactions.sort((a, b) => {
+    const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
+    const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
+    return dateB - dateA;
+  });
 });
 
 // Methods
-async function loadPayments() {
-  if (!debt.value) return;
-  
-  isLoadingPayments.value = true;
+
+// Load all transactions for the debt
+async function loadDebtTransactions() {
+  if (!debt.value?.id) return;
+
+  isLoadingTransactions.value = true;
   try {
-    await debtStore.loadPayments(debt.value.id);
-    payments.value = debtStore.getPaymentsByDebt(debt.value.id);
+    // Initialize schemas
+    const walletSchema = new WalletSchema();
+    const dailyCashSchema = new DailyCashTransactionSchema();
+    const settlementSchema = new SettlementSchema();
+
+    // Load wallet transactions
+    const walletResult = await walletSchema.find({
+      where: [
+        { field: 'debtId', operator: '==', value: debt.value.id }
+      ],
+      orderBy: [{ field: 'createdAt', direction: 'desc' }]
+    });
+
+    if (walletResult.success && walletResult.data) {
+      walletTransactions.value = walletResult.data;
+    }
+
+    // Load daily cash transactions
+    const dailyCashResult = await dailyCashSchema.find({
+      where: [
+        { field: 'debtId', operator: '==', value: debt.value.id }
+      ],
+      orderBy: [{ field: 'createdAt', direction: 'desc' }]
+    });
+
+    if (dailyCashResult.success && dailyCashResult.data) {
+      dailyCashTransactions.value = dailyCashResult.data;
+    }
+
+    // Load settlements
+    const settlementResult = await settlementSchema.find({
+      where: [
+        { field: 'debtId', operator: '==', value: debt.value.id }
+      ],
+      orderBy: [{ field: 'createdAt', direction: 'desc' }]
+    });
+
+    if (settlementResult.success && settlementResult.data) {
+      settlementTransactions.value = settlementResult.data;
+    }
+
   } catch (error) {
-    console.error('Error loading payments:', error);
-    useToast(ToastEvents.error, 'Error al cargar los pagos');
+    console.error('Error loading debt transactions:', error);
+    useToast(ToastEvents.error, 'Error al cargar transacciones');
   } finally {
-    isLoadingPayments.value = false;
+    isLoadingTransactions.value = false;
   }
+}
+
+// Helper functions for transaction display
+function getTransactionTypeLabel(type) {
+  const labels = {
+    wallet: 'Transacción de Cartera',
+    dailyCash: 'Pago en Efectivo',
+    settlement: 'Liquidación'
+  };
+  return labels[type] || type;
+}
+
+function getTransactionStatusLabel(transaction) {
+  if (transaction.type === 'wallet' || transaction.type === 'settlement') {
+    const labels = {
+      paid: 'Pagado',
+      pending: 'Pendiente',
+      settled: 'Liquidado',
+      cancelled: 'Cancelado'
+    };
+    return labels[transaction.status] || transaction.status;
+  }
+  // Daily cash transactions don't have status
+  return 'Registrado';
+}
+
+function getTransactionStatusClass(transaction) {
+  if (transaction.type === 'wallet' || transaction.type === 'settlement') {
+    const classes = {
+      paid: 'bg-green-100 text-green-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+      settled: 'bg-blue-100 text-blue-800',
+      cancelled: 'bg-gray-100 text-gray-800'
+    };
+    return classes[transaction.status] || 'bg-gray-100 text-gray-800';
+  }
+  return 'bg-green-100 text-green-800';
 }
 
 function recordPayment() {
@@ -293,25 +389,16 @@ async function cancelDebt() {
 }
 
 async function onPaymentCompleted() {
-  // Refresh debt data and payments
+  // Refresh debt data
   debt.value = debtStore.getDebtById(debt.value.id);
-  await loadPayments();
+  // Reload transactions to show the new payment
+  await loadDebtTransactions();
   emit('debt-updated');
-}
-
-function viewSalesRegister(salesRegisterId) {
-  // TODO: Implement navigation to sales register view
-  useToast(ToastEvents.info, `Navegación a caja ${formatSalesRegisterId(salesRegisterId)} pendiente`);
 }
 
 // Helper functions
 function formatNumber(value) {
   return Number(value || 0).toFixed(2);
-}
-
-
-function formatSalesRegisterId(salesRegisterId) {
-  return salesRegisterId.substring(0, 8);
 }
 
 function getStatusLabel(status) {
@@ -335,8 +422,9 @@ function getStatusBadgeClass(status) {
 // Modal control
 async function showModal(debtData) {
   debt.value = debtData;
-  await loadPayments();
   modalRef.value?.showModal();
+  // Load transactions for this debt
+  await loadDebtTransactions();
 }
 
 function closeModal() {
@@ -345,7 +433,10 @@ function closeModal() {
 
 function resetData() {
   debt.value = null;
-  payments.value = [];
+  walletTransactions.value = [];
+  dailyCashTransactions.value = [];
+  settlementTransactions.value = [];
+  isLoadingTransactions.value = false;
 }
 
 // Expose methods to parent component

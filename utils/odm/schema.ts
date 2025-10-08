@@ -256,7 +256,7 @@ export abstract class Schema {
   }
 
   // Create a new document
-  async create(data: any, validateRefs = true): Promise<CreateResult> {
+  async create(data: any, validateRefs = false): Promise<CreateResult> {
     try {
       const db = this.getFirestore();
       const businessId = this.getCurrentBusinessId();
