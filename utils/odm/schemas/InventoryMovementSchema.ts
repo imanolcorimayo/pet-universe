@@ -105,15 +105,15 @@ export class InventoryMovementSchema extends Schema {
   // Validate movement type values
   validateMovementType(data: any): ValidationResult {
     const errors: any[] = [];
-    const validMovementTypes = ['sale', 'purchase', 'adjustment', 'opening', 'conversion', 'loss', 'return'];
-    
+    const validMovementTypes = ['sale', 'purchase', 'adjustment', 'opening', 'conversion', 'loss'];
+
     if (data.movementType && !validMovementTypes.includes(data.movementType)) {
       errors.push({
         field: 'movementType',
-        message: 'Movement type must be one of: sale, purchase, adjustment, opening, conversion, loss, return'
+        message: 'Movement type must be one of: sale, purchase, adjustment, opening, conversion, loss'
       });
     }
-    
+
     return {
       valid: errors.length === 0,
       errors

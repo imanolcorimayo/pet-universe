@@ -525,9 +525,11 @@ const selectedProductsForPreview = computed(() => {
     if (!product) return null;
     
     const inventory = getProductInventory(productId);
-    
+
     // Use fallback values if inventory is not found
     const currentCost = inventory?.lastPurchaseCost || 0;
+    // TODO: Verify this logic - profitMarginPercentage was removed from inventory schema
+    // and should only come from product collection. Line needs verification after schema cleanup.
     const currentMargin = inventory?.profitMarginPercentage || product.profitMarginPercentage || 30;
     
     // Calculate new cost

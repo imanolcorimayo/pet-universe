@@ -298,7 +298,7 @@ const products = await productSchema.find({
   - Individual product cost and margin editing
 - **Pricing Logic**:
   - **Costo**: Base cost from `inventory.lastPurchaseCost` (editable)
-  - **Profit Margin**: Stored in `inventory.profitMarginPercentage` (default 30%)
+  - **Profit Margin**: Stored in `product.profitMarginPercentage` (default 30%)
   - **EFECTIVO**: Cost × (1 + margin/100) - Base cash price
   - **REGULAR**: EFECTIVO × 1.25 (25% markup over cash price)
   - **VIP**: Initially equals EFECTIVO, then manually editable

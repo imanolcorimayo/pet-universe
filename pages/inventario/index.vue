@@ -148,7 +148,7 @@
                 Stock Actual
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Valor
+                Valor / Último Costo
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Último Movimiento
@@ -189,9 +189,9 @@
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">{{ formatCurrency(item.totalCostValue) }}</div>
+                <div class="text-sm text-gray-900">{{ formatCurrency(calculateItemValue(item)) }}</div>
                 <div class="text-xs text-gray-500">
-                  {{ formatCurrency(item.averageCost) }}/unidad
+                  {{ formatCurrency(item.lastPurchaseCost || 0) }}/unidad
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
@@ -284,11 +284,32 @@ const selectedCategory = ref('all');
 const stockFilter = ref('all');
 const sortBy = ref('name');
 
+// Helper functions
+function getProductById(productId) {
+  return productStore.getProductById(productId);
+}
+
+function calculateItemValue(item) {
+  const product = getProductById(item.productId);
+  const baseCost = item.lastPurchaseCost || 0;
+
+  // Calculate units value
+  let totalValue = item.unitsInStock * baseCost;
+
+  // Add open kg value for dual tracking products
+  if (product?.trackingType === 'dual' && product?.unitWeight && item.openUnitsWeight) {
+    const costPerKg = baseCost / product.unitWeight;
+    totalValue += item.openUnitsWeight * costPerKg;
+  }
+
+  return totalValue;
+}
+
 // Stats computed property
 const stats = computed(() => {
   let totalProducts = inventoryStore.inventoryItems.length;
   let lowStockCount = inventoryStore.getLowStockInventory.length;
-  let totalValue = inventoryStore.inventoryItems.reduce((acc, item) => acc + (item.totalCostValue || 0), 0);
+  let totalValue = inventoryStore.inventoryItems.reduce((acc, item) => acc + calculateItemValue(item), 0);
   
   // Find last movement date
   let lastMovementDate = 'N/A';
@@ -369,10 +390,6 @@ function viewInventoryDetails(productId) {
   inventoryDetailsModal.value.showModal();
 }
 
-function getProductById(productId) {
-  return productStore.getProductById(productId);
-}
-
 // Removed getCategoryName function - now using productStore.getCategoryName directly
 
 function formatStock(item) {
@@ -426,7 +443,7 @@ function sortInventory(inventory, sortKey) {
       case 'stock':
         return b.unitsInStock - a.unitsInStock;
       case 'value':
-        return b.totalCostValue - a.totalCostValue;
+        return (b.unitsInStock * (b.lastPurchaseCost || 0)) - (a.unitsInStock * (a.lastPurchaseCost || 0));
       case 'movement':
         // Sort by last movement date
         if (!a.originalLastMovementAt) return 1;

@@ -24,8 +24,8 @@ interface PurchaseInvoice {
   invoiceDate: string; // formatted date
   invoiceType: string;
   notes: string;
-  additionalCharges: number;
-  totalSpent: number;
+  amountAdditional: number;
+  amountTotal: number;
   products: {
     productId: string;
     productName: string;
@@ -50,8 +50,8 @@ interface PurchaseInvoiceFormData {
   invoiceDate: Date;
   invoiceType: string;
   notes: string;
-  additionalCharges: number;
-  totalSpent: number;
+  amountAdditional: number;
+  amountTotal: number;
   products: {
     productId: string;
     productName: string;
@@ -210,8 +210,8 @@ export const usePurchaseInvoiceStore = defineStore("purchaseInvoice", {
           invoiceDate: formData.invoiceDate, // Schema will handle date conversion
           invoiceType: formData.invoiceType,
           notes: formData.notes,
-          additionalCharges: formData.additionalCharges,
-          totalSpent: formData.totalSpent,
+          amountAdditional: formData.amountAdditional,
+          amountTotal: formData.amountTotal,
           products: formData.products,
           createdByName: user.value.displayName || user.value.email || 'Usuario',
         };
@@ -258,8 +258,8 @@ export const usePurchaseInvoiceStore = defineStore("purchaseInvoice", {
         if (formData.invoiceDate !== undefined) updateData.invoiceDate = formData.invoiceDate;
         if (formData.invoiceType !== undefined) updateData.invoiceType = formData.invoiceType;
         if (formData.notes !== undefined) updateData.notes = formData.notes;
-        if (formData.additionalCharges !== undefined) updateData.additionalCharges = formData.additionalCharges;
-        if (formData.totalSpent !== undefined) updateData.totalSpent = formData.totalSpent;
+        if (formData.amountAdditional !== undefined) updateData.amountAdditional = formData.amountAdditional;
+        if (formData.amountTotal !== undefined) updateData.amountTotal = formData.amountTotal;
         if (formData.products !== undefined) updateData.products = formData.products;
         if (formData.supplierName !== undefined) updateData.supplierName = formData.supplierName;
         

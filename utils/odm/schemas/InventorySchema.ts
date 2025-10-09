@@ -69,13 +69,6 @@ export class InventorySchema extends Schema {
       min: 0,
       default: 0
     },
-    profitMarginPercentage: {
-      type: 'number',
-      required: false,
-      min: 0,
-      max: 1000,
-      default: 30
-    },
     lastPurchaseAt: {
       type: 'date',
       required: false
@@ -163,37 +156,28 @@ export class InventorySchema extends Schema {
   // Validate cost values
   validateCostValues(data: any): ValidationResult {
     const errors: any[] = [];
-    
+
     if (data.averageCost !== undefined && data.averageCost < 0) {
       errors.push({
         field: 'averageCost',
         message: 'Average cost cannot be negative'
       });
     }
-    
+
     if (data.lastPurchaseCost !== undefined && data.lastPurchaseCost < 0) {
       errors.push({
         field: 'lastPurchaseCost',
         message: 'Last purchase cost cannot be negative'
       });
     }
-    
+
     if (data.totalCostValue !== undefined && data.totalCostValue < 0) {
       errors.push({
         field: 'totalCostValue',
         message: 'Total cost value cannot be negative'
       });
     }
-    
-    if (data.profitMarginPercentage !== undefined) {
-      if (data.profitMarginPercentage < 0 || data.profitMarginPercentage > 1000) {
-        errors.push({
-          field: 'profitMarginPercentage',
-          message: 'Profit margin percentage must be between 0 and 1000'
-        });
-      }
-    }
-    
+
     return {
       valid: errors.length === 0,
       errors

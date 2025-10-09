@@ -72,6 +72,13 @@ interface InventoryState {
   isLoading: boolean;
 }
 
+/**
+ * Interface for adding inventory
+ *
+ * DEPRECATED payment fields (paymentMethod, isReported, createGlobalTransaction)
+ * have been migrated to BusinessRulesEngine.ts.
+ * These fields are no longer used and will be removed in future versions.
+ */
 interface InventoryAdditionData {
   productId: string;
   unitsChange: number;
@@ -80,6 +87,7 @@ interface InventoryAdditionData {
   supplierId?: string | null;
   supplierName?: string | null;
   notes?: string;
+  // DEPRECATED - Payment logic now handled by BusinessRulesEngine
   paymentMethod?: string;
   isReported?: boolean;
   createGlobalTransaction?: boolean;
@@ -89,14 +97,8 @@ interface InventoryReductionData {
   productId: string;
   unitsChange: number;
   weightChange: number;
-  supplierId?: string | null;
-  supplierName?: string | null;
   reason?: string | null;
   notes?: string;
-  isLoss: boolean; // true for losses, false for returns
-  paymentMethod?: string;
-  isReported?: boolean;
-  createGlobalTransaction?: boolean;
 }
 
 interface InventoryAdjustmentToValuesData {
@@ -544,7 +546,8 @@ export const useInventoryStore = defineStore("inventory", {
       }
     },
     
-    // New action for adding inventory (purchases)
+    // Add inventory from purchases
+    // Payment logic has been migrated to BusinessRulesEngine.ts (see SupplierPurchaseModal.vue)
     async addInventory(data: InventoryAdditionData): Promise<boolean> {
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
@@ -585,7 +588,7 @@ export const useInventoryStore = defineStore("inventory", {
           const currentValue = currentUnits * currentCost;
           const addedValue = data.unitsChange * data.unitCost;
           if (newUnitsInStock > 0) {
-            newAverageCost = (currentValue + addedValue) / newUnitsInStock;
+            newAverageCost = Math.round(((currentValue + addedValue) / newUnitsInStock) * 100) / 100;
           }
         }
         
@@ -636,29 +639,13 @@ export const useInventoryStore = defineStore("inventory", {
         });
         
         if (success) {
-          // Create global cash register transaction if requested
+          // DEPRECATED: Global transaction creation has been migrated to BusinessRulesEngine
+          // Payment logic is now handled in SupplierPurchaseModal.vue via processGenericExpense()
+          // This section is kept for backward compatibility but should not be used
           if (data.createGlobalTransaction && data.paymentMethod) {
-            try {
-              const globalCashRegisterStore = useGlobalCashRegisterStore();
-              const productStore = useProductStore();
-              const product = productStore.getProductById(data.productId);
-              const totalAmount = data.unitsChange * data.unitCost;
-              
-              await globalCashRegisterStore.addTransaction({
-                type: 'expense',
-                category: 'COMPRAS',
-                description: `Compra de inventario: ${product?.name || 'Producto'} (${data.unitsChange} unidades)${data.supplierName ? ` - ${data.supplierName}` : ''}`,
-                amount: totalAmount,
-                paymentMethod: data.paymentMethod,
-                isReported: data.isReported ?? true,
-                notes: data.notes || '',
-              });
-            } catch (globalTransactionError) {
-              console.error('Error creating global transaction:', globalTransactionError);
-              useToast(ToastEvents.warning, "Inventario actualizado pero no se pudo registrar la transacción global");
-            }
+            console.warn('DEPRECATED: createGlobalTransaction flag is no longer supported. Use BusinessRulesEngine.processGenericExpense() instead.');
           }
-          
+
           // Update local cache
           const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
           if (index >= 0) {
@@ -689,7 +676,7 @@ export const useInventoryStore = defineStore("inventory", {
       }
     },
     
-    // New action for reducing inventory (losses/returns)
+    // Record inventory loss (damage, theft, expiration, etc.)
     async reduceInventory(data: InventoryReductionData): Promise<boolean> {
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
@@ -737,7 +724,7 @@ export const useInventoryStore = defineStore("inventory", {
           openUnitsWeight: newOpenUnitsWeight,
           isLowStock: isLowStock,
           lastMovementAt: $dayjs().toDate(),
-          lastMovementType: data.isLoss ? "loss" : "return",
+          lastMovementType: "loss",
           lastMovementBy: user.value.uid,
         });
         
@@ -749,10 +736,9 @@ export const useInventoryStore = defineStore("inventory", {
         }
         
         // Record inventory movement
-        const movementType = data.isLoss ? "loss" : "return";
         const success = await this.recordInventoryMovement({
           productId: data.productId,
-          movementType: movementType as "sale" | "purchase" | "adjustment" | "opening",
+          movementType: "loss",
           referenceType: "manual_adjustment",
           referenceId: null,
           quantityChange: -actualUnitsChange, // Negative for reductions
@@ -760,41 +746,16 @@ export const useInventoryStore = defineStore("inventory", {
           unitCost: null,
           previousCost: null,
           totalCost: null,
-          supplierId: data.supplierId || null,
+          supplierId: null,
           unitsBefore: currentUnits,
           unitsAfter: newUnitsInStock,
           weightBefore: currentWeight,
           weightAfter: newOpenUnitsWeight,
-          notes: data.notes || (data.isLoss 
-            ? `Pérdida de ${actualUnitsChange} unidades${data.reason ? ` por ${data.reason}` : ''}`
-            : `Devolución de ${actualUnitsChange} unidades`),
+          notes: data.notes || `Pérdida de ${actualUnitsChange} unidades${data.reason ? ` por ${data.reason}` : ''}`,
           productName: existingInventory.productName,
         });
-        
+
         if (success) {
-          // Create global cash register transaction for returns if requested
-          if (data.createGlobalTransaction && !data.isLoss && data.paymentMethod) {
-            try {
-              const globalCashRegisterStore = useGlobalCashRegisterStore();
-              const productStore = useProductStore();
-              const product = productStore.getProductById(data.productId);
-              const totalAmount = actualUnitsChange * (existingInventory.averageCost || 0);
-              
-              await globalCashRegisterStore.addTransaction({
-                type: 'income',
-                category: 'DEVOLUCIONES',
-                description: `Devolución de inventario: ${product?.name || 'Producto'} (${actualUnitsChange} unidades)${data.supplierName ? ` - ${data.supplierName}` : ''}`,
-                amount: totalAmount,
-                paymentMethod: data.paymentMethod,
-                isReported: data.isReported ?? true,
-                notes: data.notes || '',
-              });
-            } catch (globalTransactionError) {
-              console.error('Error creating global transaction:', globalTransactionError);
-              useToast(ToastEvents.warning, "Inventario actualizado pero no se pudo registrar la transacción global");
-            }
-          }
-          
           // Update local cache
           const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
           if (index >= 0) {
@@ -803,18 +764,18 @@ export const useInventoryStore = defineStore("inventory", {
             this.inventoryItems[index].openUnitsWeight = newOpenUnitsWeight;
             this.inventoryItems[index].isLowStock = isLowStock;
             this.inventoryItems[index].lastMovementAt = $dayjs().format('DD/MM/YYYY');
-            this.inventoryItems[index].lastMovementType = data.isLoss ? "loss" : "return";
+            this.inventoryItems[index].lastMovementType = "loss";
             this.inventoryItems[index].lastMovementBy = user.value.uid;
           }
-          
-          useToast(ToastEvents.success, `Inventario ${data.isLoss ? 'reducido' : 'devuelto'} exitosamente`);
+
+          useToast(ToastEvents.success, "Pérdida de inventario registrada exitosamente");
         }
         
         this.isLoading = false;
         return success;
       } catch (error) {
         console.error("Error reducing inventory:", error);
-        useToast(ToastEvents.error, `Hubo un error al ${data.isLoss ? 'reducir' : 'devolver'} inventario. Por favor intenta nuevamente.`);
+        useToast(ToastEvents.error, "Hubo un error al registrar la pérdida de inventario. Por favor intenta nuevamente.");
         this.isLoading = false;
         return false;
       }

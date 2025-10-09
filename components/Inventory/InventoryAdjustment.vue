@@ -268,57 +268,6 @@
           </div>
 
           <div
-            v-else-if="formData.movementType === 'return'"
-            class="flex flex-col gap-4"
-          >
-            <div class="flex flex-col gap-2">
-              <label class="text-sm font-medium text-gray-700"
-                >Cantidad a devolver</label
-              >
-              <input
-                type="number"
-                v-model.number="formData.unitsChange"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                placeholder="Cantidad"
-                @input="calculateNewValues"
-                min="0"
-                max="inventoryData?.unitsInStock || 999999"
-                step="1"
-              />
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <label class="text-sm font-medium text-gray-700">Proveedor</label>
-              <div class="relative">
-                <input
-                  type="text"
-                  v-model="formData.supplierName"
-                  @input="onSupplierInput"
-                  @focus="showSupplierDropdown = true"
-                  @blur="onSupplierBlur"
-                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                  placeholder="Nombre del proveedor"
-                />
-
-                <!-- Supplier dropdown -->
-                <div
-                  v-if="showSupplierDropdown && filteredSuppliers.length > 0"
-                  class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto"
-                >
-                  <div
-                    v-for="supplier in filteredSuppliers"
-                    :key="supplier.id"
-                    @mousedown="selectSupplier(supplier)"
-                    class="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                  >
-                    {{ supplier.name }}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div
             v-else-if="formData.movementType === 'convert'"
             class="flex flex-col gap-4"
           >
@@ -364,85 +313,6 @@
                 {{ formData.unitsToConvert }} unidad(es) a 
                 <strong>{{ calculateTotalWeight }} kg</strong> de peso disponible.
               </p>
-            </div>
-          </div>
-
-          <!-- Return type selection for returns -->
-          <div 
-            v-if="formData.movementType === 'return'"
-            class="flex flex-col gap-2 mt-4"
-          >
-            <label class="text-sm font-medium text-gray-700">¿Cómo manejar la devolución?</label>
-            <div class="flex gap-4">
-              <label class="flex items-center">
-                <input
-                  type="radio"
-                  v-model="formData.returnType"
-                  value="refund"
-                  class="mr-2 radio-custom"
-                />
-                <span class="text-sm">Reembolso inmediato</span>
-              </label>
-              <label class="flex items-center">
-                <input
-                  type="radio"
-                  v-model="formData.returnType"
-                  value="credit"
-                  class="mr-2 radio-custom"
-                />
-                <span class="text-sm">Crédito a favor del negocio</span>
-              </label>
-            </div>
-          </div>
-
-          <div 
-            v-if="formData.movementType === 'addition' || (formData.movementType === 'return' && formData.returnType === 'refund')"
-            class="flex flex-col gap-2 mt-4"
-          >
-            <label class="text-sm font-medium text-gray-700">Método de pago</label>
-            <select
-              v-model="formData.paymentMethod"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              :class="{ 'text-gray-400': !formData.paymentMethod }"
-            >
-              <option :value="null" disabled>
-                -- Seleccione un método de pago --
-              </option>
-              <option 
-                v-for="method in paymentMethodsStore.activePaymentMethods" 
-                :key="method.id" 
-                :value="method.id"
-              >
-                {{ method.name }}
-              </option>
-            </select>
-          </div>
-
-          <!-- White/Black classification for addition types and refund returns -->
-          <div 
-            v-if="formData.movementType === 'addition' || (formData.movementType === 'return' && formData.returnType === 'refund')"
-            class="flex flex-col gap-2 mt-4"
-          >
-            <label class="text-sm font-medium text-gray-700">Tipo de transacción</label>
-            <div class="flex gap-4">
-              <label class="flex items-center">
-                <input
-                  type="radio"
-                  v-model="formData.isReported"
-                  :value="true"
-                  class="mr-2 radio-custom"
-                />
-                <span class="text-sm">Reportada (Blanca)</span>
-              </label>
-              <label class="flex items-center">
-                <input
-                  type="radio"
-                  v-model="formData.isReported"
-                  :value="false"
-                  class="mr-2 radio-custom"
-                />
-                <span class="text-sm">No reportada (Negra)</span>
-              </label>
             </div>
           </div>
 
@@ -657,7 +527,6 @@ const movementTypes = [
   { value: "addition", label: "Agregar" },
   { value: "loss", label: "Pérdida" },
   { value: "adjustment", label: "Ajustar" },
-  { value: "return", label: "Devolución" },
   { value: "convert", label: "Abrir Bolsa" },
 ];
 
@@ -689,17 +558,10 @@ const formData = ref({
 
   // For losses
   lossReason: null,
-  
+
   // For convert (new)
   unitsToConvert: 1,
   weightPerUnit: 0,
-
-  // For returns
-  returnType: "refund", // "refund" | "credit"
-
-  // For global cash register
-  paymentMethod: null,
-  isReported: true,
 
   // Common for all
   reason: "",
@@ -733,10 +595,9 @@ const isFormValid = computed(() => {
 
   switch (formData.value.movementType) {
     case "addition":
-      // For additions, need positive values, cost, and payment method
+      // For additions, need positive values and cost
       if (formData.value.unitsChange <= 0) return false;
       if (formData.value.unitCost <= 0) return false;
-      if (!formData.value.paymentMethod) return false;
       return true;
 
     case "loss":
@@ -761,18 +622,6 @@ const isFormValid = computed(() => {
       if (formData.value.newCost <= 0) return false;
       return true;
 
-    case "return":
-      // For returns, need positive values
-      if (
-        formData.value.unitsChange <= 0 &&
-        (product.value?.trackingType === "unit" ||
-          formData.value.weightChange <= 0)
-      )
-        return false;
-      // Payment method only required for refund returns
-      if (formData.value.returnType === "refund" && !formData.value.paymentMethod) return false;
-      return true;
-      
     case "convert":
       // For conversions, need valid units and weight
       if (product.value?.trackingType !== "dual") return false;
@@ -808,8 +657,6 @@ const getMovementTypeLabel = computed(() => {
       return "Registrar pérdida";
     case "adjustment":
       return "Ajustar inventario";
-    case "return":
-      return "Registrar devolución";
     case "convert":
       return "Convertir unidades a peso";
     default:
@@ -845,9 +692,6 @@ function resetForm() {
     lossReason: null,
     unitsToConvert: 1,
     weightPerUnit: 0,
-    returnType: "refund",
-    paymentMethod: null,
-    isReported: true,
     reason: "",
     notes: "",
   };
@@ -915,7 +759,6 @@ function calculateNewValues() {
       break;
 
     case "loss":
-    case "return":
       // Removing inventory
       unitsChange = -(Number(formData.value.unitsChange) || 0);
       weightChange = -(Number(formData.value.weightChange) || 0);
@@ -930,7 +773,7 @@ function calculateNewValues() {
 
       newUnits = currentUnits + unitsChange;
       newWeight = currentWeight + weightChange;
-      // Cost stays the same for losses/returns
+      // Cost stays the same for losses
       break;
   }
 
@@ -1039,7 +882,6 @@ function formatMovementType(type) {
     opening: "Apertura",
     addition: "Adición",
     loss: "Pérdida",
-    return: "Devolución",
   };
 
   return typeMap[type] || "Movimiento";
@@ -1130,9 +972,6 @@ async function saveAdjustment() {
     case "adjustment":
       confirmMessage = `¿Estás seguro de ajustar el inventario a ${formData.value.newStock} unidades?`;
       break;
-    case "return":
-      confirmMessage = `¿Estás seguro de registrar una devolución de ${formData.value.unitsChange} unidades?`;
-      break;
     case "convert":
       confirmMessage = `¿Estás seguro de abrir ${formData.value.unitsToConvert} unidad(es) y añadir ${calculateTotalWeight.value} kg al inventario de peso?`;
       break;
@@ -1162,9 +1001,6 @@ async function saveAdjustment() {
           supplierId: formData.value.supplierId,
           supplierName: formData.value.supplierName,
           notes: formData.value.notes,
-          paymentMethod: formData.value.paymentMethod,
-          isReported: formData.value.isReported,
-          createGlobalTransaction: true,
         });
         break;
 
@@ -1187,53 +1023,6 @@ async function saveAdjustment() {
           newCost: formData.value.newCost,
           notes: formData.value.notes,
         });
-        break;
-
-      case "return":
-        // Handle credit returns differently - create debt instead of immediate transaction
-        if (formData.value.returnType === 'credit') {
-          // First reduce inventory
-          success = await inventoryStore.reduceInventory({
-            productId: props.productId,
-            unitsChange: formData.value.unitsChange,
-            weightChange: formData.value.weightChange,
-            supplierId: formData.value.supplierId,
-            supplierName: formData.value.supplierName,
-            notes: formData.value.notes,
-            isLoss: false,
-            createGlobalTransaction: false, // Don't create transaction for credit
-          });
-
-          // Then create debt for the supplier
-          if (success && formData.value.supplierId) {
-            const debtStore = useDebtStore();
-            const returnValue = formData.value.unitsChange * (inventoryData.value?.averageCost || 0);
-            
-            await debtStore.createDebt({
-              type: 'supplier',
-              entityId: formData.value.supplierId,
-              entityName: formData.value.supplierName,
-              originalAmount: returnValue,
-              originType: 'purchase',
-              originDescription: `Devolución de producto - ${product.value?.name}`,
-              notes: formData.value.notes || 'Crédito por devolución de mercancía'
-            });
-          }
-        } else {
-          // Regular refund return
-          success = await inventoryStore.reduceInventory({
-            productId: props.productId,
-            unitsChange: formData.value.unitsChange,
-            weightChange: formData.value.weightChange,
-            supplierId: formData.value.supplierId,
-            supplierName: formData.value.supplierName,
-            notes: formData.value.notes,
-            isLoss: false,
-            paymentMethod: formData.value.paymentMethod,
-            isReported: formData.value.isReported,
-            createGlobalTransaction: true,
-          });
-        }
         break;
 
       case "convert":

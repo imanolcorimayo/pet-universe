@@ -136,7 +136,7 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right">
                   <div class="text-sm font-medium text-gray-900">
-                    {{ formatCurrency(invoice.totalSpent) }}
+                    {{ formatCurrency(invoice.amountTotal) }}
                   </div>
                   <div class="text-xs text-gray-500">
                     {{ invoice.products.length }} producto{{ invoice.products.length !== 1 ? 's' : '' }}

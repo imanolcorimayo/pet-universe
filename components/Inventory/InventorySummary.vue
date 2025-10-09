@@ -30,16 +30,16 @@
       <!-- Value Information -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="border p-3 rounded-lg">
-          <div class="text-sm text-gray-500">Costo Promedio</div>
+          <div class="text-sm text-gray-500">Último Costo de Compra</div>
           <div class="text-lg font-semibold mt-1">
-            {{ formatCurrency(inventory.averageCost) }}/unidad
+            {{ formatCurrency(inventory.lastPurchaseCost || 0) }}/unidad
           </div>
         </div>
-        
+
         <div class="border p-3 rounded-lg">
           <div class="text-sm text-gray-500">Valor Total</div>
           <div class="text-lg font-semibold mt-1 text-green-600">
-            {{ formatCurrency(inventory.totalCostValue) }}
+            {{ formatCurrency(inventory.unitsInStock * (inventory.lastPurchaseCost || 0)) }}
           </div>
         </div>
       </div>

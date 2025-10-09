@@ -350,22 +350,22 @@
           </div>
 
           <div v-if="paymentType !== 'deferred'" class="flex flex-col gap-2">
-            <label class="text-sm font-medium text-gray-700">Método de pago</label>
+            <label class="text-sm font-medium text-gray-700">Cuenta de pago</label>
             <select
-              v-model="paymentMethod"
+              v-model="ownersAccountId"
               class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              :class="{ 'text-gray-400': !paymentMethod }"
+              :class="{ 'text-gray-400': !ownersAccountId }"
               :disabled="isSubmitting"
             >
               <option :value="null" disabled>
-                -- Seleccione un método de pago --
+                -- Seleccione una cuenta --
               </option>
-              <option 
-                v-for="method in paymentMethodsStore.activePaymentMethods" 
-                :key="method.id" 
-                :value="method.id"
+              <option
+                v-for="account in paymentMethodsStore.activeOwnersAccounts"
+                :key="account.id"
+                :value="account.id"
               >
-                {{ method.name }}
+                {{ account.name }}
               </option>
             </select>
           </div>
@@ -529,7 +529,8 @@ const purchaseNotes = ref('');
 
 // Payment information
 const paymentType = ref('full'); // 'full', 'partial', 'deferred'
-const paymentMethod = ref(null);
+const ownersAccountId = ref(null);
+const ownersAccountName = ref('');
 const paidAmount = ref(0);
 const dueDate = ref('');
 const isReported = ref(true);
@@ -540,13 +541,15 @@ const invoiceDate = ref('');
 const invoiceType = ref('');
 const additionalCharges = ref(0);
 
-// Watch for payment method changes to automatically set isReported
-watch(paymentMethod, (newPaymentMethod) => {
-  if (newPaymentMethod) {
-    const paymentMethodData = paymentMethodsStore.getPaymentMethodById(newPaymentMethod);
-    if (paymentMethodData) {
-      // Set isReported to false if payment method is cash (EFECTIVO), true otherwise
-      isReported.value = paymentMethodData.type !== 'cash';
+// Watch for owner account changes to automatically set isReported
+watch(ownersAccountId, (newAccountId) => {
+  if (newAccountId) {
+    const accountData = paymentMethodsStore.getOwnersAccountById(newAccountId);
+    if (accountData) {
+      // Store account name for reference
+      ownersAccountName.value = accountData.name;
+      // Set isReported to false if account is cash (EFECTIVO), true otherwise
+      isReported.value = accountData.type !== 'cash';
     }
   }
 });
@@ -590,22 +593,22 @@ const isFormValid = computed(() => {
   if (!selectedSupplier.value || validProductItems.value.length === 0) {
     return false;
   }
-  
-  // For deferred payment, payment method is not required
+
+  // For deferred payment, owners account is not required
   if (paymentType.value === 'deferred') {
     return true;
   }
-  
-  // For full and partial payment, payment method is required
-  if (!paymentMethod.value) {
+
+  // For full and partial payment, owners account is required
+  if (!ownersAccountId.value) {
     return false;
   }
-  
+
   // For partial payment, paid amount must be valid
   if (paymentType.value === 'partial') {
     return paidAmount.value > 0 && paidAmount.value <= totalPurchaseAmount.value;
   }
-  
+
   return true;
 });
 
@@ -631,11 +634,12 @@ function resetForm() {
   productItems.value = [];
   purchaseNotes.value = '';
   paymentType.value = 'full';
-  paymentMethod.value = null;
+  ownersAccountId.value = null;
+  ownersAccountName.value = '';
   paidAmount.value = 0;
   dueDate.value = '';
   isReported.value = true;
-  
+
   // Reset invoice fields
   invoiceNumber.value = '';
   invoiceDate.value = '';
@@ -767,15 +771,18 @@ async function loadData() {
     if (!indexStore.businessConfigFetched) {
       await indexStore.loadBusinessConfig();
     }
-    
+
+    // Load payment methods, providers, and owner accounts
+    await paymentMethodsStore.loadAllData();
+
     // Load suppliers
     await suppliersStore.fetchSuppliers();
-    
+
     // Load products
     if (!productStore.productsLoaded) {
       await productStore.fetchProducts();
     }
-    
+
     // Load inventory for calculations
     if (!inventoryStore.inventoryLoaded) {
       await inventoryStore.fetchInventory();
@@ -791,9 +798,9 @@ async function loadData() {
 async function savePurchase() {
   if (!isFormValid.value || isSubmitting.value) return;
 
-  // Calculate payment details
-  const totalAmount = totalPurchaseAmount.value;
-  const paymentAmount = paymentType.value === 'full' ? totalAmount : 
+  // Calculate payment details (include additional charges in total)
+  const totalAmount = totalPurchaseAmount.value + (additionalCharges.value || 0);
+  const paymentAmount = paymentType.value === 'full' ? totalAmount :
                        paymentType.value === 'partial' ? paidAmount.value : 0;
   const debtAmount = totalAmount - paymentAmount;
 
@@ -817,54 +824,10 @@ async function savePurchase() {
 
   isSubmitting.value = true;
   let successCount = 0;
-  const debtStore = useDebtStore();
-  
+  let invoiceId = null;
+
   try {
-    // Process each product item for inventory
-    for (const item of validProductItems.value) {
-      // Only create global transaction if there's immediate payment
-      const createGlobalTransaction = paymentAmount > 0;
-      
-      const success = await inventoryStore.addInventory({
-        productId: item.selectedProduct.id,
-        unitsChange: item.unitsChange,
-        weightChange: 0,
-        unitCost: item.unitCost,
-        supplierId: selectedSupplier.value.id,
-        supplierName: selectedSupplier.value.name,
-        notes: purchaseNotes.value || `Compra de proveedor: ${selectedSupplier.value.name}`,
-        paymentMethod: paymentMethod.value,
-        isReported: isReported.value,
-        createGlobalTransaction: createGlobalTransaction,
-        paidAmount: paymentAmount, // Pass the partial payment amount
-        totalAmount: totalAmount,  // Pass the total amount
-      });
-
-      if (success) {
-        successCount++;
-      }
-    }
-
-    // Create debt if there's remaining amount
-    if (debtAmount > 0) {
-      const purchaseDescription = `Compra de productos - ${selectedSupplier.value.name}`;
-      const debtResult = await debtStore.createDebt({
-        type: 'supplier',
-        entityId: selectedSupplier.value.id,
-        entityName: selectedSupplier.value.name,
-        originalAmount: debtAmount,
-        originType: 'purchase',
-        originDescription: purchaseDescription,
-        dueDate: dueDate.value ? new Date(dueDate.value) : undefined,
-        notes: purchaseNotes.value || ''
-      });
-
-      if (!debtResult) {
-        useToast(ToastEvents.warning, 'Compra registrada pero no se pudo crear la deuda pendiente');
-      }
-    }
-
-    // Create invoice record if invoice fields are filled
+    // 1. Create invoice first if invoice data is provided
     if (invoiceNumber.value.trim() || invoiceDate.value || invoiceType.value) {
       const invoiceData = {
         supplierId: selectedSupplier.value.id,
@@ -873,8 +836,8 @@ async function savePurchase() {
         invoiceDate: invoiceDate.value ? new Date(invoiceDate.value) : new Date(),
         invoiceType: invoiceType.value,
         notes: purchaseNotes.value || '',
-        additionalCharges: additionalCharges.value || 0,
-        totalSpent: totalAmount + (additionalCharges.value || 0),
+        amountAdditional: additionalCharges.value || 0,
+        amountTotal: totalAmount,
         products: validProductItems.value.map(item => ({
           productId: item.selectedProduct.id,
           productName: item.selectedProduct.name,
@@ -885,8 +848,75 @@ async function savePurchase() {
       };
 
       const invoiceResult = await purchaseInvoiceStore.createInvoice(invoiceData);
-      if (!invoiceResult) {
-        useToast(ToastEvents.warning, 'Compra registrada pero no se pudo crear el registro de factura');
+      if (invoiceResult) {
+        invoiceId = invoiceResult.id;
+      } else {
+        useToast(ToastEvents.warning, 'No se pudo crear el registro de factura');
+      }
+    }
+
+    // 2. Process each product item for inventory (no payment parameters)
+    for (const item of validProductItems.value) {
+      const success = await inventoryStore.addInventory({
+        productId: item.selectedProduct.id,
+        unitsChange: item.unitsChange,
+        weightChange: 0,
+        unitCost: item.unitCost,
+        supplierId: selectedSupplier.value.id,
+        supplierName: selectedSupplier.value.name,
+        notes: purchaseNotes.value || `Compra de proveedor: ${selectedSupplier.value.name}`,
+      });
+
+      if (success) {
+        successCount++;
+      }
+    }
+
+    // 3. Create payment transaction via BusinessRulesEngine if there's immediate payment
+    if (paymentAmount > 0 && ownersAccountId.value) {
+      const { BusinessRulesEngine } = await import('~/utils/finance/BusinessRulesEngine');
+      const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore);
+
+      const expenseResult = await businessRulesEngine.processGenericExpense({
+        category: 'COMPRAS',
+        categoryCode: 'COMPRAS',
+        categoryName: 'Compras de Inventario',
+        amount: paymentAmount,
+        accountTypeId: ownersAccountId.value,
+        accountTypeName: ownersAccountName.value,
+        supplierId: selectedSupplier.value.id,
+        supplierName: selectedSupplier.value.name,
+        notes: invoiceNumber.value.trim()
+          ? `Factura ${invoiceNumber.value} - ${purchaseNotes.value || 'Compra de inventario'}`
+          : purchaseNotes.value || 'Compra de inventario',
+      });
+
+      if (!expenseResult.success) {
+        useToast(ToastEvents.warning, 'Inventario actualizado pero no se pudo registrar el pago en caja global');
+      }
+    }
+
+    // 4. Create debt if there's remaining amount
+    if (debtAmount > 0) {
+      const debtStore = useDebtStore();
+      const purchaseDescription = invoiceNumber.value.trim()
+        ? `Factura ${invoiceNumber.value} - ${selectedSupplier.value.name}`
+        : `Compra de productos - ${selectedSupplier.value.name}`;
+
+      const debtResult = await debtStore.createDebt({
+        type: 'supplier',
+        entityId: selectedSupplier.value.id,
+        entityName: selectedSupplier.value.name,
+        originalAmount: debtAmount,
+        originType: invoiceId ? 'purchaseInvoice' : 'manual',
+        originId: invoiceId,
+        originDescription: purchaseDescription,
+        dueDate: dueDate.value ? new Date(dueDate.value) : undefined,
+        notes: purchaseNotes.value || ''
+      });
+
+      if (!debtResult) {
+        useToast(ToastEvents.warning, 'Compra registrada pero no se pudo crear la deuda pendiente');
       }
     }
 
