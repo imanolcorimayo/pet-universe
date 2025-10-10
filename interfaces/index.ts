@@ -7,14 +7,6 @@ export enum StockMovementType {
   RETURN = "return" // Product returned
 }
 
-export enum LossReason {
-  SPOILAGE = "spoilage", // Product spoiled
-  DAMAGE = "damage", // Product damaged
-  THEFT = "theft", // Product stolen
-  EXPIRATION = "expiration", // Product expired
-  OTHER = "other" // Other reasons
-}
-
 export interface StockMovement {
   id?: string;
   businessId: string;
@@ -31,7 +23,6 @@ export interface StockMovement {
   unitBuyingPrice: number | null; // Price paid to supplier (for additions). Price of the stock currently (For returns)
   supplierId: string | null; // Reference to supplier
   supplierName: string | null; // Name of supplier
-  lossReason: LossReason | null; // Reason for loss (if type is loss)
   notes: string | null; // Additional information
   userUid: string; // User ID who made the change
   createdByName: string; // User name who made the change

@@ -484,7 +484,7 @@ export const useInventoryStore = defineStore("inventory", {
     // Record inventory movement
     async recordInventoryMovement(data: {
       productId: string;
-      movementType: "sale" | "purchase" | "adjustment" | "opening";
+      movementType: "sale" | "purchase" | "adjustment" | "opening" | "loss";
       referenceType: "sale" | "purchase_order" | "manual_adjustment";
       referenceId: string | null;
       quantityChange: number;

@@ -17,22 +17,44 @@
         <!-- Product Info Card -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-md font-medium mb-3">Producto</h3>
-          <div class="flex flex-col gap-2">
-            <p><span class="font-semibold">Nombre:</span> {{ product.name }}</p>
-            <p>
-              <span class="font-semibold">Categoría:</span>
+
+          <!-- Main product info (compact, horizontal) -->
+          <div class="flex items-center gap-2 mb-2">
+            <p class="text-lg font-semibold">{{ product.name }}</p>
+            <span v-if="product.productCode"
+                  class="text-xs font-mono bg-gray-200 px-2 py-0.5 rounded">
+              {{ product.productCode }}
+            </span>
+          </div>
+
+          <!-- Secondary info (compact grid) -->
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            <p class="text-gray-600">
+              <span class="font-medium">Categoría:</span>
               {{ productStore.getCategoryName(product.category) }}
             </p>
-            <p v-if="product.brand">
-              <span class="font-semibold">Marca:</span> {{ product.brand }}
+
+            <p v-if="product.brand" class="text-gray-600">
+              <span class="font-medium">Marca:</span> {{ product.brand }}
+            </p>
+
+            <p v-if="product.trackingType === 'dual' && product.unitWeight"
+               class="text-gray-600">
+              <span class="font-medium">Peso/unidad:</span> {{ product.unitWeight }} kg
             </p>
           </div>
+
+          <!-- Description (subtle, if exists) -->
+          <p v-if="product.description"
+             class="text-xs text-gray-500 mt-2 italic">
+            {{ product.description }}
+          </p>
         </div>
 
         <!-- Current Inventory Status Card -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-md font-medium mb-3">Estado Actual</h3>
-          <div class="grid grid-cols-3 gap-4">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p class="text-sm text-gray-600">Unidades en Stock</p>
               <p class="font-semibold">
@@ -44,6 +66,12 @@
               <p class="text-sm text-gray-600">Peso Disponible</p>
               <p class="font-semibold">
                 {{ inventoryData?.openUnitsWeight || 0 }} kg
+              </p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600">Último Costo</p>
+              <p class="font-semibold">
+                {{ formatCurrency(inventoryData?.lastPurchaseCost || 0) }}
               </p>
             </div>
             <div>
@@ -186,28 +214,6 @@
                 max="inventoryData?.openUnitsWeight || 999999"
                 step="0.01"
               />
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <label class="text-sm font-medium text-gray-700"
-                >Razón de pérdida</label
-              >
-              <select
-                v-model="formData.lossReason"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                :class="{ 'text-gray-400': !formData.lossReason }"
-              >
-                <option :value="null" disabled>
-                  -- Seleccione una razón --
-                </option>
-                <option
-                  v-for="reason in lossReasons"
-                  :key="reason.value"
-                  :value="reason.value"
-                >
-                  {{ reason.label }}
-                </option>
-              </select>
             </div>
           </div>
 
@@ -530,14 +536,6 @@ const movementTypes = [
   { value: "convert", label: "Abrir Bolsa" },
 ];
 
-const lossReasons = [
-  { value: "spoilage", label: "Deterioro" },
-  { value: "damage", label: "Daño" },
-  { value: "theft", label: "Robo" },
-  { value: "expiration", label: "Vencimiento" },
-  { value: "other", label: "Otro" },
-];
-
 // Enhanced form data
 const formData = ref({
   movementType: "addition", // Default type
@@ -555,9 +553,6 @@ const formData = ref({
   newStock: 0,
   newWeight: 0,
   newCost: 0,
-
-  // For losses
-  lossReason: null,
 
   // For convert (new)
   unitsToConvert: 1,
@@ -601,14 +596,13 @@ const isFormValid = computed(() => {
       return true;
 
     case "loss":
-      // For losses, need positive values and a reason
+      // For losses, need positive values
       if (
         formData.value.unitsChange <= 0 &&
         (product.value?.trackingType === "unit" ||
           formData.value.weightChange <= 0)
       )
         return false;
-      if (!formData.value.lossReason) return false;
       return true;
 
     case "adjustment":
@@ -689,7 +683,6 @@ function resetForm() {
     newStock: 0,
     newWeight: 0,
     newCost: 0,
-    lossReason: null,
     unitsToConvert: 1,
     weightPerUnit: 0,
     reason: "",
@@ -707,16 +700,15 @@ function selectMovementType(type) {
   // Reset form fields not relevant to this type
   formData.value.unitsChange = 0;
   formData.value.weightChange = 0;
-  formData.value.unitCost = inventoryData.value?.averageCost || 0;
-  formData.value.lossReason = null;
+  formData.value.unitCost = inventoryData.value?.lastPurchaseCost || 0;
 
   // Initialize adjustment values with current values
   if (type === "adjustment") {
     formData.value.newStock = inventoryData.value?.unitsInStock || 0;
     formData.value.newWeight = Number(inventoryData.value?.openUnitsWeight || 0);
-    formData.value.newCost = inventoryData.value?.averageCost || 0;
+    formData.value.newCost = inventoryData.value?.lastPurchaseCost || 0;
   }
-  
+
   // Initialize conversion values
   if (type === "convert" && product.value) {
     formData.value.unitsToConvert = 1;
@@ -831,14 +823,14 @@ async function loadInventoryData() {
         weightChange: 0,
       };
 
-      // Set initial form values
-      formData.value.unitCost = inventoryData.value.averageCost;
+      // Set initial form values - use lastPurchaseCost as default
+      formData.value.unitCost = inventoryData.value.lastPurchaseCost;
 
       // If adjustment type
       if (formData.value.movementType === "adjustment") {
         formData.value.newStock = inventoryData.value.unitsInStock;
         formData.value.newWeight = inventoryData.value.openUnitsWeight;
-        formData.value.newCost = inventoryData.value.averageCost;
+        formData.value.newCost = inventoryData.value.lastPurchaseCost;
       }
     }
 
@@ -1009,7 +1001,6 @@ async function saveAdjustment() {
           productId: props.productId,
           unitsChange: formData.value.unitsChange,
           weightChange: formData.value.weightChange,
-          reason: formData.value.lossReason,
           notes: formData.value.notes,
           isLoss: true,
         });
