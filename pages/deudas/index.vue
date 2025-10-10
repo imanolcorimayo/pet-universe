@@ -213,22 +213,6 @@
                   >
                     <LucideEye class="w-4 h-4" />
                   </button>
-                  <button
-                    v-if="debt.status === 'active'"
-                    @click="closeDebt(debt)"
-                    class="p-1 text-blue-600 hover:text-blue-900 rounded"
-                    title="Cerrar deuda"
-                  >
-                    <LucideCheck class="w-4 h-4" />
-                  </button>
-                  <button
-                    v-if="debt.status === 'active'"
-                    @click="cancelDebt(debt)"
-                    class="p-1 text-red-600 hover:text-red-900 rounded"
-                    title="Cancelar deuda"
-                  >
-                    <LucideX class="w-4 h-4" />
-                  </button>
                 </div>
               </td>
             </tr>
@@ -261,8 +245,6 @@ import LucideFileX from '~icons/lucide/file-x';
 import LucideUser from '~icons/lucide/user';
 import LucideDollarSign from '~icons/lucide/dollar-sign';
 import LucideEye from '~icons/lucide/eye';
-import LucideCheck from '~icons/lucide/check';
-import LucideX from '~icons/lucide/x';
 
 import { ToastEvents } from '~/interfaces';
 
@@ -340,34 +322,6 @@ function recordPayment(debt) {
 
 function viewDebtDetails(debt) {
   detailsModalRef.value?.showModal(debt);
-}
-
-async function cancelDebt(debt) {
-  const reason = prompt('¿Por qué motivo se cancela esta deuda?');
-  if (!reason || reason.trim() === '') return;
-  
-  try {
-    const success = await debtStore.cancelDebt(debt.id, reason.trim());
-    if (success) {
-      await refreshData();
-    }
-  } catch (error) {
-    console.error('Error cancelling debt:', error);
-  }
-}
-
-async function closeDebt(debt) {
-  const reason = prompt('¿Por qué motivo se cierra esta deuda? (ej: condonación, acuerdo, etc.)');
-  if (!reason || reason.trim() === '') return;
-  
-  try {
-    const success = await debtStore.closeDebt(debt.id, reason.trim());
-    if (success) {
-      await refreshData();
-    }
-  } catch (error) {
-    console.error('Error closing debt:', error);
-  }
 }
 
 async function onPaymentCompleted() {

@@ -5,7 +5,6 @@ import { PurchaseInvoiceSchema } from '../odm/schemas/PurchaseInvoiceSchema';
 import { DailyCashSnapshotSchema } from '../odm/schemas/DailyCashSnapshotSchema';
 import { DailyCashTransactionSchema } from '../odm/schemas/DailyCashTransactionSchema';
 import { SettlementSchema } from '../odm/schemas/SettlementSchema';
-import type { ValidationResult } from '../odm/types';
 import type { usePaymentMethodsStore } from '../../stores/paymentMethods';
 
 export interface BusinessRuleResult {
@@ -61,6 +60,29 @@ export interface DebtPaymentData {
   dailyCashSnapshotId?: string;
   cashRegisterId?: string;
   cashRegisterName?: string;
+  notes?: string;
+  userId: string;
+  userName: string;
+}
+
+export interface CustomerDebtPaymentData {
+  debtId: string;
+  paymentMethodId: string;
+  paymentMethodName: string;
+  amount: number;
+  dailyCashSnapshotId: string;
+  cashRegisterId: string;
+  cashRegisterName: string;
+  notes?: string;
+  userId: string;
+  userName: string;
+}
+
+export interface SupplierDebtPaymentData {
+  debtId: string;
+  ownersAccountId: string;
+  ownersAccountName: string;
+  amount: number;
   notes?: string;
   userId: string;
   userName: string;
@@ -924,8 +946,359 @@ export class BusinessRulesEngine {
   }
 
   /**
+   * Process customer debt payment (Income transaction)
+   *
+   * Customer pays us for an existing debt. Money comes IN.
+   * - Uses payment method (how customer pays: cash, card, transfer, etc.)
+   * - Creates Income wallet transaction
+   * - Routes to daily cash register
+   * - Supports cash, wallet, and settlement payments
+   */
+  async processCustomerDebtPayment(data: CustomerDebtPaymentData): Promise<BusinessRuleResult> {
+    const warnings: string[] = [];
+
+    try {
+      // 1. Validate debt exists and is active
+      const debtResult = await this.debtSchema.findById(data.debtId);
+      if (!debtResult.success || !debtResult.data) {
+        return { success: false, error: 'Debt not found' };
+      }
+
+      const debt = debtResult.data;
+      if (debt.status !== 'active') {
+        return { success: false, error: 'Debt is not active' };
+      }
+
+      // 2. Verify this is actually a customer debt
+      if (!debt.clientId) {
+        return { success: false, error: 'This is not a customer debt. Use processSupplierDebtPayment instead.' };
+      }
+
+      // 3. Validate payment amount
+      if (data.amount > debt.remainingAmount + 0.01) {
+        return {
+          success: false,
+          error: `Payment amount (${data.amount}) exceeds remaining debt (${debt.remainingAmount})`
+        };
+      }
+
+      // 4. Validate daily cash snapshot is open
+      const snapshotValidation = await this.validateDailyCashSnapshotOpen(data.dailyCashSnapshotId);
+      if (!snapshotValidation.success) {
+        return { success: false, error: snapshotValidation.error };
+      }
+
+      // 5. Get the current global cash register ID for wallet transactions
+      const globalCashIdResult = await this.getCurrentGlobalCashId();
+      if (!globalCashIdResult.success) {
+        return { success: false, error: globalCashIdResult.error };
+      }
+      const globalCashId = globalCashIdResult.data;
+
+      // 6. Validate payment method and get related information
+      const paymentMethod = this.paymentMethodsStore.getPaymentMethodById(data.paymentMethodId);
+      if (!paymentMethod) {
+        return { success: false, error: `Payment method '${data.paymentMethodId}' not found` };
+      }
+
+      if (!paymentMethod.isActive) {
+        return { success: false, error: `Payment method '${data.paymentMethodId}' is not active` };
+      }
+
+      // 7. Get account information from payment method
+      const accountInfo = this.getAccountFromPaymentMethod(data.paymentMethodId);
+      if (!accountInfo) {
+        return { success: false, error: 'Account information not found for payment method' };
+      }
+
+      // 8. Get provider information if available
+      const providerInfo = this.getPaymentProviderInfo(data.paymentMethodId);
+
+      // 9. Determine payment routing
+      const isCashPayment = paymentMethod.name.toLowerCase() === 'efectivo';
+      const requiresSettlement = this.requiresSettlement(data.paymentMethodId);
+
+      const walletResults: any[] = [];
+      const dailyCashTxResults: any[] = [];
+      const settlementResults: any[] = [];
+
+      // 10. Process based on payment type
+      if (isCashPayment) {
+        // Cash payment → Daily cash transaction only
+        const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
+          businessId: debt.businessId,
+          dailyCashSnapshotId: data.dailyCashSnapshotId,
+          cashRegisterId: data.cashRegisterId,
+          cashRegisterName: data.cashRegisterName,
+          debtId: data.debtId,
+          type: 'debt_payment',
+          amount: data.amount,
+          createdBy: data.userId,
+          createdByName: data.userName
+        });
+
+        if (!dailyCashTxResult.success) {
+          return { success: false, error: `Daily cash transaction failed: ${dailyCashTxResult.error}` };
+        }
+
+        dailyCashTxResults.push(dailyCashTxResult.data);
+
+      } else if (requiresSettlement) {
+        // Settlement payment (postnet) → Settlement record
+        if (!providerInfo) {
+          return { success: false, error: 'Payment provider not found for settlement payment method' };
+        }
+
+        const settlementResult = await this.settlementSchema.create({
+          businessId: debt.businessId,
+          debtId: data.debtId,
+          dailyCashSnapshotId: data.dailyCashSnapshotId,
+          cashRegisterId: data.cashRegisterId,
+          cashRegisterName: data.cashRegisterName,
+          amountTotal: data.amount,
+          paymentMethodId: data.paymentMethodId,
+          paymentMethodName: data.paymentMethodName,
+          paymentProviderId: providerInfo.paymentProviderId,
+          paymentProviderName: providerInfo.paymentProviderName,
+          status: 'pending',
+          amountFee: 0,
+          percentageFee: 0,
+          createdBy: data.userId,
+          createdByName: data.userName
+        });
+
+        if (!settlementResult.success) {
+          return { success: false, error: `Settlement creation failed: ${settlementResult.error}` };
+        }
+
+        settlementResults.push(settlementResult.data);
+
+      } else {
+        // Wallet payment (transfer, digital payment, etc.)
+        const walletResult = await this.walletSchema.create({
+          businessId: debt.businessId,
+          type: 'Income',
+          globalCashId: globalCashId,
+          debtId: data.debtId,
+          dailyCashSnapshotId: data.dailyCashSnapshotId,
+          paymentMethodId: data.paymentMethodId,
+          paymentMethodName: data.paymentMethodName,
+          paymentProviderId: providerInfo?.paymentProviderId || null,
+          paymentProviderName: providerInfo?.paymentProviderName || null,
+          ownersAccountId: accountInfo.ownersAccountId,
+          ownersAccountName: accountInfo.ownersAccountName,
+          amount: data.amount,
+          status: 'paid',
+          isRegistered: true,
+          notes: data.notes || null,
+          categoryCode: 'debt_payment',
+          categoryName: 'Pago de Deuda',
+          createdBy: data.userId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        if (!walletResult.success) {
+          return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
+        }
+
+        walletResults.push(walletResult.data);
+      }
+
+      // 11. Update debt record
+      const newPaidAmount = debt.paidAmount + data.amount;
+      const newRemainingAmount = debt.originalAmount - newPaidAmount;
+
+      const updateData: any = {
+        paidAmount: newPaidAmount,
+        remainingAmount: Math.max(0, newRemainingAmount),
+        notes: data.notes ? `${debt.notes}${debt.notes ? '\n' : ''}Payment: ${data.notes}` : debt.notes
+      };
+
+      // Mark as paid if fully paid
+      if (newRemainingAmount <= 0.01) {
+        updateData.status = 'paid';
+        updateData.paidAt = new Date();
+      }
+
+      const debtUpdateResult = await this.debtSchema.update(data.debtId, updateData);
+
+      if (!debtUpdateResult.success) {
+        return { success: false, error: `Debt update failed: ${debtUpdateResult.error}` };
+      }
+
+      // 12. Update store caches with newly created records
+      const cashRegisterStore = useCashRegisterStore();
+
+      // Add wallet transactions to cache
+      walletResults.forEach(wallet => {
+        if (wallet) {
+          cashRegisterStore.addWalletToCache(data.dailyCashSnapshotId, wallet);
+        }
+      });
+
+      // Add daily cash transactions to cache
+      dailyCashTxResults.forEach(transaction => {
+        if (transaction) {
+          cashRegisterStore.addTransactionToCache(transaction);
+        }
+      });
+
+      // Add settlement transactions to cache
+      settlementResults.forEach(settlement => {
+        if (settlement) {
+          cashRegisterStore.addSettlementToCache(data.dailyCashSnapshotId, settlement);
+        }
+      });
+
+      return {
+        success: true,
+        data: {
+          debtId: data.debtId,
+          walletTransactions: walletResults,
+          settlementTransactions: settlementResults,
+          dailyCashTransactions: dailyCashTxResults,
+          remainingDebt: newRemainingAmount,
+          totalPaymentAmount: data.amount,
+          warnings
+        },
+        warnings
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Customer debt payment processing failed: ${error}`
+      };
+    }
+  }
+
+  /**
+   * Process supplier debt payment (Outcome transaction)
+   *
+   * We pay supplier for an existing debt. Money goes OUT.
+   * - Uses owners account (which account we pay FROM: bank, cash register, etc.)
+   * - Creates Outcome wallet transaction
+   * - Routes to global cash register only
+   * - No cash or settlement support (wallet only)
+   */
+  async processSupplierDebtPayment(data: SupplierDebtPaymentData): Promise<BusinessRuleResult> {
+    const warnings: string[] = [];
+
+    try {
+      // 1. Validate debt exists and is active
+      const debtResult = await this.debtSchema.findById(data.debtId);
+      if (!debtResult.success || !debtResult.data) {
+        return { success: false, error: 'Debt not found' };
+      }
+
+      const debt = debtResult.data;
+      if (debt.status !== 'active') {
+        return { success: false, error: 'Debt is not active' };
+      }
+
+      // 2. Verify this is actually a supplier debt
+      if (!debt.supplierId) {
+        return { success: false, error: 'This is not a supplier debt. Use processCustomerDebtPayment instead.' };
+      }
+
+      // 3. Validate payment amount
+      if (data.amount > debt.remainingAmount + 0.01) {
+        return {
+          success: false,
+          error: `Payment amount (${data.amount}) exceeds remaining debt (${debt.remainingAmount})`
+        };
+      }
+
+      // 4. Get the current global cash register ID
+      const globalCashIdResult = await this.getCurrentGlobalCashId();
+      if (!globalCashIdResult.success) {
+        return { success: false, error: globalCashIdResult.error };
+      }
+      const globalCashId = globalCashIdResult.data;
+
+      // 5. Validate owners account exists and is active
+      const ownersAccount = this.paymentMethodsStore.getOwnersAccountById(data.ownersAccountId);
+      if (!ownersAccount) {
+        return { success: false, error: `Owners account '${data.ownersAccountId}' not found` };
+      }
+
+      if (!ownersAccount.isActive) {
+        return { success: false, error: `Owners account '${ownersAccount.name}' is not active` };
+      }
+
+      // 6. Create wallet Outcome transaction
+      const walletResult = await this.walletSchema.create({
+        businessId: debt.businessId,
+        type: 'Outcome',
+        globalCashId: globalCashId,
+        debtId: data.debtId,
+        supplierId: debt.supplierId,
+        ownersAccountId: data.ownersAccountId,
+        ownersAccountName: data.ownersAccountName,
+        amount: data.amount,
+        status: 'paid',
+        isRegistered: true,
+        notes: data.notes || null,
+        categoryCode: 'debt_payment',
+        categoryName: 'Pago de Deuda a Proveedor',
+      });
+
+      if (!walletResult.success) {
+        return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
+      }
+
+      // 7. Update debt record
+      const newPaidAmount = debt.paidAmount + data.amount;
+      const newRemainingAmount = debt.originalAmount - newPaidAmount;
+
+      const updateData: any = {
+        paidAmount: newPaidAmount,
+        remainingAmount: Math.max(0, newRemainingAmount),
+        notes: data.notes ? `${debt.notes}${debt.notes ? '\n' : ''}Payment: ${data.notes}` : debt.notes
+      };
+
+      // Mark as paid if fully paid
+      if (newRemainingAmount <= 0.01) {
+        updateData.status = 'paid';
+        updateData.paidAt = new Date();
+      }
+
+      const debtUpdateResult = await this.debtSchema.update(data.debtId, updateData);
+
+      if (!debtUpdateResult.success) {
+        return { success: false, error: `Debt update failed: ${debtUpdateResult.error}` };
+      }
+
+      // 8. Update global cash store cache
+      const globalCashRegisterStore = useGlobalCashRegisterStore();
+      if (walletResult.data) {
+        globalCashRegisterStore.addWalletTransactionToCache(walletResult.data as WalletTransaction);
+      }
+
+      return {
+        success: true,
+        data: {
+          debtId: data.debtId,
+          walletTransactionId: walletResult.data?.id,
+          remainingDebt: newRemainingAmount,
+          totalPaymentAmount: data.amount,
+          warnings
+        },
+        warnings
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Supplier debt payment processing failed: ${error}`
+      };
+    }
+  }
+
+  /**
    * Get the currently active global cash register ID for the business
-   * 
+   *
    * @returns The ID of the open global cash register or error if none found
    */
   private async getCurrentGlobalCashId(): Promise<BusinessRuleResult> {

@@ -34,7 +34,7 @@ interface GlobalCash {
   closedByName?: string;
 }
 
-interface WalletTransaction {
+export interface WalletTransaction {
   id?: string;
   businessId?: string;
   type: 'Income' | 'Outcome';

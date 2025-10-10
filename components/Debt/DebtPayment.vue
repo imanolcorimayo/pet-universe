@@ -67,37 +67,41 @@
         </div>
       </div>
 
-      <!-- Payment Method -->
-      <div class="bg-gray-50 p-4 rounded-lg">
+      <!-- Payment Method (for customer debts) -->
+      <div v-if="isCustomerDebt" class="bg-gray-50 p-4 rounded-lg">
         <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
           <LucideCreditCard class="h-4 w-4 text-gray-600" />
           Método de Pago
         </label>
-        <p class="text-sm text-gray-600 mb-3">¿Cómo está pagando {{ selectedDebt?.supplierId ? 'al proveedor' : 'el cliente' }}?</p>
-        <select
+        <p class="text-sm text-gray-600 mb-3">¿Cómo está pagando el cliente?</p>
+        <FinancePaymentMethodSelector
           v-model="paymentMethod"
-          class="w-full !p-2 border rounded-md"
+          label=""
+          required
           :disabled="isLoading"
-        >
-          <option value="" disabled>Seleccionar método de pago</option>
-          <option v-for="method in availablePaymentMethods" :key="method.id" :value="method.id">
-            {{ method.name }}
-          </option>
-        </select>
+          placeholder="Seleccionar método de pago"
+        />
+      </div>
+
+      <!-- Owners Account (for supplier debts) -->
+      <div v-if="isSupplierDebt" class="bg-gray-50 p-4 rounded-lg">
+        <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+          <LucideCreditCard class="h-4 w-4 text-gray-600" />
+          Cuenta de Pago
+        </label>
+        <p class="text-sm text-gray-600 mb-3">¿Desde qué cuenta vas a pagar al proveedor?</p>
+        <FinanceOwnersAccountSelector
+          v-model="ownersAccountId"
+          label=""
+          required
+          :disabled="isLoading"
+          placeholder="Seleccionar cuenta"
+        />
       </div>
 
       <!-- Additional Options -->
       <div class="bg-gray-50 p-4 rounded-lg">
         <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Pago</label>
-            <label class="flex items-center cursor-pointer">
-              <input type="checkbox" v-model="isReported" class="mr-2 h-4 w-4" />
-              <span class="text-sm">Pago declarado (en blanco)</span>
-            </label>
-            <p class="text-xs text-gray-500 mt-1">¿Este pago será reportado en la contabilidad oficial?</p>
-          </div>
-          
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Notas del Pago</label>
             <textarea
@@ -207,7 +211,8 @@ const isLoading = ref(false);
 // Form data
 const selectedDebt = ref(null);
 const paymentAmount = ref(0);
-const paymentMethod = ref('');
+const paymentMethod = ref(''); // For customer debts
+const ownersAccountId = ref(''); // For supplier debts
 const selectedSnapshotId = ref('');
 const isReported = ref(true);
 const notes = ref('');
@@ -272,34 +277,35 @@ const requiresSettlement = computed(() => {
 });
 
 const paymentRoutingInfo = computed(() => {
-  if (!selectedDebt.value || !selectedPaymentMethod.value) return '';
+  if (!selectedDebt.value) return '';
 
   const parts = [];
 
-  // Debt type
-  if (isCustomerDebt.value) {
+  // For customer debts
+  if (isCustomerDebt.value && selectedPaymentMethod.value) {
     parts.push('Deuda de cliente');
-  } else {
-    parts.push('Deuda de proveedor');
-  }
 
-  // Payment type
-  if (isCashPayment.value) {
-    if (isCustomerDebt.value) {
+    // Payment type
+    if (isCashPayment.value) {
       parts.push('→ Efectivo a caja diaria');
+    } else if (requiresSettlement.value) {
+      parts.push(`→ ${selectedPaymentMethod.value.name} (liquidación pendiente)`);
     } else {
-      parts.push('→ Efectivo (no disponible para proveedores)');
+      parts.push(`→ ${selectedPaymentMethod.value.name} a ${getAccountName()}`);
     }
-  } else if (requiresSettlement.value) {
-    parts.push(`→ ${selectedPaymentMethod.value.name} (liquidación pendiente)`);
-  } else {
-    parts.push(`→ ${selectedPaymentMethod.value.name} a ${getAccountName()}`);
+
+    parts.push('en caja diaria');
   }
 
-  // Register destination
-  if (isCustomerDebt.value) {
-    parts.push('en caja diaria');
-  } else {
+  // For supplier debts
+  if (isSupplierDebt.value && ownersAccountId.value) {
+    parts.push('Deuda de proveedor');
+
+    const account = paymentMethodsStore.getOwnersAccountById(ownersAccountId.value);
+    if (account) {
+      parts.push(`→ Pago desde ${account.name}`);
+    }
+
     parts.push('en caja global');
   }
 
@@ -319,23 +325,26 @@ const validationError = computed(() => {
     return 'El monto excede el saldo pendiente';
   }
 
-  if (!paymentMethod.value) {
-    return 'Seleccione un método de pago';
-  }
-
-  // For customer debts, require snapshot selection
+  // Validate payment method for customer debts
   if (isCustomerDebt.value) {
+    if (!paymentMethod.value) {
+      return 'Seleccione un método de pago';
+    }
+
     if (availableOpenSnapshots.value.length === 0) {
       return 'No hay cajas diarias abiertas. Debe abrir una caja diaria para registrar pagos de clientes.';
     }
+
     if (!selectedSnapshotId.value) {
       return 'Debe seleccionar una caja diaria para el pago';
     }
   }
 
-  // For cash payments to suppliers, block (not supported by BusinessRulesEngine)
-  if (isSupplierDebt.value && isCashPayment.value) {
-    return 'Los pagos en efectivo a proveedores deben registrarse en la caja global (no soportado actualmente)';
+  // Validate owners account for supplier debts
+  if (isSupplierDebt.value) {
+    if (!ownersAccountId.value) {
+      return 'Seleccione una cuenta para el pago';
+    }
   }
 
   return null;
@@ -384,6 +393,7 @@ onMounted(async () => {
 function initializeForm() {
   paymentAmount.value = 0;
   paymentMethod.value = paymentMethodsStore?.defaultPaymentMethod?.id || '';
+  ownersAccountId.value = '';
   selectedSnapshotId.value = '';
   isReported.value = true;
   notes.value = '';
@@ -417,100 +427,95 @@ async function submitPayment() {
     return;
   }
 
-  if (!paymentMethod.value) {
-    useToast(ToastEvents.error, 'Selecciona un método de pago');
-    return;
-  }
-
   isLoading.value = true;
   try {
-    const { $dayjs } = useNuxtApp();
     const user = useCurrentUser();
-    const currentBusinessId = useLocalStorage('cBId', null);
 
-    if (!user.value?.uid || !currentBusinessId.value) {
-      useToast(ToastEvents.error, 'Debes iniciar sesión y seleccionar un negocio');
+    if (!user.value?.uid) {
+      useToast(ToastEvents.error, 'Debes iniciar sesión');
       return;
-    }
-
-    // Get payment method details
-    const paymentMethodDetails = paymentMethodsStore.getPaymentMethodById(paymentMethod.value);
-    if (!paymentMethodDetails) {
-      useToast(ToastEvents.error, 'Método de pago no encontrado');
-      return;
-    }
-
-    // Get owners account details
-    const ownersAccount = paymentMethodsStore.getOwnersAccountById(paymentMethodDetails.ownersAccountId);
-    if (!ownersAccount) {
-      useToast(ToastEvents.error, 'Cuenta no encontrada para el método de pago');
-      return;
-    }
-
-    // Determine debt type and entity name
-    const debtType = isCustomerDebt.value ? 'customer' : 'supplier';
-    const entityName = selectedDebt.value.clientName || selectedDebt.value.supplierName;
-
-    // Build payment transaction data
-    const paymentTransactionData = {
-      type: 'Income',
-      amount: paymentAmount.value,
-      description: `Pago de deuda - ${entityName}`,
-      category: 'debt_payment',
-      paymentMethodId: paymentMethodDetails.id,
-      paymentMethodName: paymentMethodDetails.name,
-      ownersAccountId: ownersAccount.id,
-      ownersAccountName: ownersAccount.name,
-      userId: user.value.uid,
-      userName: user.value.displayName || user.value.email || 'Unknown',
-      businessId: currentBusinessId.value,
-      notes: notes.value
-    };
-
-    // For customer debts, get daily cash snapshot info
-    let dailyCashInfo;
-
-    if (debtType === 'customer') {
-      // Use the selected snapshot for all customer debt payments
-      if (selectedSnapshotId.value) {
-        const snapshotResult = await cashRegisterStore.loadSnapshotById(selectedSnapshotId.value);
-        if (!snapshotResult.success || !snapshotResult.data) {
-          useToast(ToastEvents.error, 'No se pudo cargar la caja diaria seleccionada');
-          return;
-        }
-
-        const snapshot = snapshotResult.data;
-        if (snapshot.status !== 'open') {
-          useToast(ToastEvents.error, 'La caja diaria seleccionada no está abierta');
-          return;
-        }
-
-        dailyCashInfo = {
-          dailyCashSnapshotId: snapshot.id,
-          cashRegisterId: snapshot.cashRegisterId,
-          cashRegisterName: snapshot.cashRegisterName || 'Caja Principal'
-        };
-      }
     }
 
     // Initialize BusinessRulesEngine
     const { BusinessRulesEngine } = await import('~/utils/finance/BusinessRulesEngine');
     const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore);
 
-    // Process debt payment using BusinessRulesEngine
-    const result = await businessRulesEngine.processDebtPayment({
-      debtId: selectedDebt.value.id,
-      paymentTransactions: [paymentTransactionData],
-      dailyCashSnapshotId: dailyCashInfo?.dailyCashSnapshotId,
-      cashRegisterId: dailyCashInfo?.cashRegisterId,
-      cashRegisterName: dailyCashInfo?.cashRegisterName,
-      notes: notes.value,
-      userId: user.value.uid,
-      userName: user.value.displayName || user.value.email || 'Unknown'
-    });
+    let result;
 
-    if (!result.success) {
-      useToast(ToastEvents.error, result.error || 'Error al procesar el pago');
+    // Process customer debt payment (Income)
+    if (isCustomerDebt.value) {
+      if (!paymentMethod.value) {
+        useToast(ToastEvents.error, 'Selecciona un método de pago');
+        return;
+      }
+
+      if (!selectedSnapshotId.value) {
+        useToast(ToastEvents.error, 'Selecciona una caja diaria');
+        return;
+      }
+
+      // Load and validate snapshot
+      const snapshotResult = await cashRegisterStore.loadSnapshotById(selectedSnapshotId.value);
+      if (!snapshotResult.success || !snapshotResult.data) {
+        useToast(ToastEvents.error, 'No se pudo cargar la caja diaria seleccionada');
+        return;
+      }
+
+      const snapshot = snapshotResult.data;
+      if (snapshot.status !== 'open') {
+        useToast(ToastEvents.error, 'La caja diaria seleccionada no está abierta');
+        return;
+      }
+
+      // Get payment method details
+      const paymentMethodDetails = paymentMethodsStore.getPaymentMethodById(paymentMethod.value);
+      if (!paymentMethodDetails) {
+        useToast(ToastEvents.error, 'Método de pago no encontrado');
+        return;
+      }
+
+      // Process customer debt payment
+      result = await businessRulesEngine.processCustomerDebtPayment({
+        debtId: selectedDebt.value.id,
+        paymentMethodId: paymentMethodDetails.id,
+        paymentMethodName: paymentMethodDetails.name,
+        amount: paymentAmount.value,
+        dailyCashSnapshotId: snapshot.id,
+        cashRegisterId: snapshot.cashRegisterId,
+        cashRegisterName: snapshot.cashRegisterName || 'Caja Principal',
+        notes: notes.value || '',
+        userId: user.value.uid,
+        userName: user.value.displayName || user.value.email || 'Unknown'
+      });
+
+    // Process supplier debt payment (Outcome)
+    } else if (isSupplierDebt.value) {
+      if (!ownersAccountId.value) {
+        useToast(ToastEvents.error, 'Selecciona una cuenta de pago');
+        return;
+      }
+
+      // Get owners account details
+      const ownersAccount = paymentMethodsStore.getOwnersAccountById(ownersAccountId.value);
+      if (!ownersAccount) {
+        useToast(ToastEvents.error, 'Cuenta no encontrada');
+        return;
+      }
+
+      // Process supplier debt payment
+      result = await businessRulesEngine.processSupplierDebtPayment({
+        debtId: selectedDebt.value.id,
+        ownersAccountId: ownersAccount.id,
+        ownersAccountName: ownersAccount.name,
+        amount: paymentAmount.value,
+        notes: notes.value || '',
+        userId: user.value.uid,
+        userName: user.value.displayName || user.value.email || 'Unknown'
+      });
+    }
+
+    if (!result || !result.success) {
+      useToast(ToastEvents.error, result?.error || 'Error al procesar el pago');
       return;
     }
 
@@ -518,11 +523,14 @@ async function submitPayment() {
     await debtStore.loadDebts();
 
     const isFullyPaid = result.data?.remainingDebt <= 0.01;
-    const paymentLocation = debtType === 'customer' ? 'caja diaria' : 'caja global';
+    const debtType = isCustomerDebt.value ? 'cliente' : 'proveedor';
+    const paymentLocation = isCustomerDebt.value ? 'caja diaria' : 'caja global';
 
     useToast(
       ToastEvents.success,
-      isFullyPaid ? 'Deuda pagada completamente' : `Pago registrado exitosamente en ${paymentLocation}`
+      isFullyPaid
+        ? `Deuda de ${debtType} pagada completamente`
+        : `Pago a ${debtType} registrado exitosamente en ${paymentLocation}`
     );
 
     emit('payment-completed');
