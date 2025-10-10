@@ -731,6 +731,7 @@ const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 const debtStore = useDebtStore();
 const cashRegisterStore = useCashRegisterStore();
+const globalCashRegisterStore = useGlobalCashRegisterStore();
 
 // Load product and client data
 const { clients } = storeToRefs(clientStore);
@@ -1418,7 +1419,7 @@ async function submitForm() {
 
     // Use BusinessRulesEngine to process the sale
     const { BusinessRulesEngine } = await import('~/utils/finance/BusinessRulesEngine');
-    const businessEngine = new BusinessRulesEngine(paymentMethodsStore);
+    const businessEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore);
 
     const saleProcessingData = {
       saleData,

@@ -183,9 +183,10 @@ async function submitForm() {
   try {
     // Get current user and business info
     const paymentMethodsStore = usePaymentMethodsStore();
+    const globalCashRegisterStore = useGlobalCashRegisterStore();
 
     // Initialize Business Rules Engine
-    const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore);
+    const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore);
 
     // Prepare cash injection data
     const cashInjectionData = {

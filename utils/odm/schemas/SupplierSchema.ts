@@ -185,7 +185,7 @@ export class SupplierSchema extends Schema {
   }
 
   // Override create to add custom validations
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Validate supplier name uniqueness
     const nameValidation = await this.validateUniqueSupplierName(data.name);
     if (!nameValidation.valid) {
@@ -208,7 +208,7 @@ export class SupplierSchema extends Schema {
   }
 
   // Override update to add custom validations
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any, validateRefs = false) {
     // Validate supplier name uniqueness if name is being updated
     if (data.name) {
       const nameValidation = await this.validateUniqueSupplierName(data.name, id);

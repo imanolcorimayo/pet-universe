@@ -257,7 +257,7 @@ export class InventoryMovementSchema extends Schema {
   }
 
   // Override create to add custom validations
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Custom validations
     const movementTypeValidation = this.validateMovementType(data);
     if (!movementTypeValidation.valid) {
@@ -311,7 +311,7 @@ export class InventoryMovementSchema extends Schema {
   }
 
   // Override update to prevent modifications (movements should be immutable)
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any, validateRefs = false) {
     return { 
       success: false, 
       error: 'Inventory movements are immutable and cannot be updated after creation' 

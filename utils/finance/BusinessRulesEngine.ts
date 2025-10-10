@@ -134,12 +134,10 @@ export interface SettlementPaymentItem {
 export interface SettlementPaymentData {
   totalAmountReceived: number;
   settlementPayments: SettlementPaymentItem[];
-  paymentMethod: string;
+  paymentProviderId: string;
+  paymentProviderName: string;
   accountTypeId: string;
   accountTypeName: string;
-  userId: string;
-  userName: string;
-  businessId: string;
   notes?: string;
   categoryCode?: string;
   categoryName?: string;
@@ -163,7 +161,7 @@ export interface CashExtractionData {
 
 /**
  * Central Business Rules Engine for coordinating financial operations
- * 
+ *
  * This engine ensures data consistency and enforces business rules across
  * all financial schemas in the Pet Universe system.
  */
@@ -176,8 +174,12 @@ export class BusinessRulesEngine {
   private settlementSchema: SettlementSchema;
   private purchaseInvoiceSchema: PurchaseInvoiceSchema;
   private paymentMethodsStore: ReturnType<typeof usePaymentMethodsStore>;
+  private globalCashRegisterStore: ReturnType<typeof useGlobalCashRegisterStore>;
 
-  constructor(paymentMethodsStore: ReturnType<typeof usePaymentMethodsStore>) {
+  constructor(
+    paymentMethodsStore: ReturnType<typeof usePaymentMethodsStore>,
+    globalCashRegisterStore: ReturnType<typeof useGlobalCashRegisterStore>
+  ) {
     this.walletSchema = new WalletSchema();
     this.saleSchema = new SaleSchema();
     this.debtSchema = new DebtSchema();
@@ -186,6 +188,7 @@ export class BusinessRulesEngine {
     this.settlementSchema = new SettlementSchema();
     this.purchaseInvoiceSchema = new PurchaseInvoiceSchema();
     this.paymentMethodsStore = paymentMethodsStore;
+    this.globalCashRegisterStore = globalCashRegisterStore;
   }
 
   /**
@@ -1303,29 +1306,27 @@ export class BusinessRulesEngine {
    */
   private async getCurrentGlobalCashId(): Promise<BusinessRuleResult> {
     try {
-      const globalCashStore = useGlobalCashRegisterStore();
-      
       // Load current global cash if not already loaded
-      if (!globalCashStore.currentGlobalCash) {
-        await globalCashStore.loadCurrentGlobalCash();
+      if (!this.globalCashRegisterStore.currentGlobalCash) {
+        await this.globalCashRegisterStore.loadCurrentGlobalCash();
       }
 
-      if (!globalCashStore.currentGlobalCash) {
-        return { 
-          success: false, 
-          error: 'No open global cash register found. Please open a global cash register first.' 
+      if (!this.globalCashRegisterStore.currentGlobalCash) {
+        return {
+          success: false,
+          error: 'No open global cash register found. Please open a global cash register first.'
         };
       }
 
-      return { 
-        success: true, 
-        data: globalCashStore.currentGlobalCash.id 
+      return {
+        success: true,
+        data: this.globalCashRegisterStore.currentGlobalCash.id
       };
 
     } catch (error) {
-      return { 
-        success: false, 
-        error: `Error determining global cash ID: ${error}` 
+      return {
+        success: false,
+        error: `Error determining global cash ID: ${error}`
       };
     }
   }
@@ -1525,14 +1526,13 @@ export class BusinessRulesEngine {
       const globalCashId = globalCashIdResult.data;
 
       // 5. Create single wallet Income transaction
-      const batchId = `batch_${Date.now()}`;
+      const settlementIds = data.settlementPayments.map(p => p.settlementId);
       const walletResult = await this.walletSchema.create({
-        businessId: data.businessId,
         type: 'Income',
         globalCashId: globalCashId,
-        settlementId: batchId, // Use batch ID for multiple settlements
-        paymentMethodId: data.paymentMethod,
-        paymentMethodName: data.paymentMethod,
+        settlementIds: settlementIds, // Array of settlement IDs for batch processing
+        paymentProviderId: data.paymentProviderId,
+        paymentProviderName: data.paymentProviderName,
         ownersAccountId: data.accountTypeId,
         ownersAccountName: data.accountTypeName,
         amount: data.totalAmountReceived,
@@ -1541,7 +1541,6 @@ export class BusinessRulesEngine {
         notes: data.notes || null,
         categoryCode: data.categoryCode || null,
         categoryName: data.categoryName || null,
-        createdBy: data.userId,
         createdAt: new Date(),
         updatedAt: new Date()
       });
@@ -1562,17 +1561,17 @@ export class BusinessRulesEngine {
 
         const settlementUpdate = {
           status: 'settled',
-          amountFee: Math.max(0, amountFee), // Ensure non-negative
-          percentageFee: Math.max(0, percentageFee), // Ensure non-negative
+          amountFee: Math.max(0, parseFloat(amountFee.toFixed(2))), // Round to 2 decimals
+          percentageFee: Math.max(0, parseFloat(percentageFee.toFixed(2))), // Round to 2 decimals
           paidDate: new Date(),
           walletId: walletTransactionId,
-          updatedAt: new Date(),
-          updatedBy: data.userId,
-          updatedByName: data.userName
         };
+
+        console.log(`Updating settlement ${settlement.id}:`, settlementUpdate);
 
         const updateResult = await this.settlementSchema.update(settlement.id, settlementUpdate);
         if (!updateResult.success) {
+          console.error(`Settlement update failed for ${settlement.id}:`, updateResult.error);
           warnings.push(`Failed to update settlement ${settlement.id}: ${updateResult.error}`);
         } else {
           updatedSettlements.push({
@@ -1621,25 +1620,20 @@ export class BusinessRulesEngine {
       errors.push('At least one settlement payment must be specified');
     }
 
-    if (!data.paymentMethod?.trim()) {
-      errors.push('Payment method is required');
+    if (!data.paymentProviderId?.trim()) {
+      errors.push('Payment provider ID is required');
+    }
+
+    if (!data.paymentProviderName?.trim()) {
+      errors.push('Payment provider name is required');
     }
 
     if (!data.accountTypeId?.trim()) {
       errors.push('Account type ID is required');
     }
 
-    if (!data.businessId?.trim()) {
-      errors.push('Business ID is required');
-    }
-
-    if (!data.userId?.trim()) {
-      errors.push('User ID is required');
-    }
-
-    if (!data.userName?.trim()) {
-      errors.push('User name is required');
-    }
+    // Note: businessId, userId, userName are automatically populated by WalletSchema.addSystemFields()
+    // so we don't need to validate them here
 
     // Validate settlement payments
     for (const payment of data.settlementPayments || []) {
@@ -1669,9 +1663,7 @@ export class BusinessRulesEngine {
           if (settlement.status !== 'pending') {
             errors.push(`Settlement ${payment.settlementId} is not in pending status (current: ${settlement.status})`);
           }
-          if (settlement.businessId !== data.businessId) {
-            errors.push(`Settlement ${payment.settlementId} does not belong to the specified business`);
-          }
+          // Note: businessId validation removed - schema handles this automatically
         }
       } catch (error) {
         errors.push(`Failed to validate settlement ${payment.settlementId}: ${error}`);

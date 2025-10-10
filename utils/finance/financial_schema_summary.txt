@@ -36,7 +36,8 @@ wallet/{walletId}
   dailyCashSnapshotId (optional)  // Ref to "dailyCashSnapshot" to reference the wallet created from sale's page        
   saleId (optional)               // Ref to "sale" in case it comes from there
   debtId (optional)               // Reference to "debt" when debt exists
-  settlementId (optional)         // Reference to "settlement" when exists 
+  settlementIds (optional)        // Array of settlement IDs when wallet is created from batch settlement payment
+                                  // Empty array or null for non-settlement wallet transactions
   purchaseInvoiceId (Optional)    // Reference to "purchaseInvoice" when it exists
   supplierId (Optional)           // In case a supplier is referenced
 

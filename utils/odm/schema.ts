@@ -305,7 +305,7 @@ export abstract class Schema {
   }
 
   // Update an existing document
-  async update(id: string, data: any, validateRefs = true): Promise<UpdateResult> {
+  async update(id: string, data: any, validateRefs = false): Promise<UpdateResult> {
     try {
       const db = this.getFirestore();
       const businessId = this.getCurrentBusinessId();

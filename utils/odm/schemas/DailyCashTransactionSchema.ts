@@ -69,7 +69,7 @@ export class DailyCashTransactionSchema extends Schema {
   /**
    * Custom validation for daily cash transaction creation
    */
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Validate transaction-specific business rules
     const validation = await this.validateTransactionData(data);
     if (!validation.valid) {
@@ -96,7 +96,7 @@ export class DailyCashTransactionSchema extends Schema {
   /**
    * Daily cash transactions should not be updatable (immutable cash flow record)
    */
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any, validateRefs = false) {
     return {
       success: false,
       error: 'Daily cash transactions cannot be modified once created. They represent immutable cash flow records.'

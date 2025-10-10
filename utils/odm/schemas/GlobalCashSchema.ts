@@ -68,7 +68,7 @@ export class GlobalCashSchema extends Schema {
   /**
    * Custom validation for global cash creation
    */
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Validate global cash-specific business rules
     const validation = await this.validateGlobalCashData(data);
     if (!validation.valid) {
@@ -93,7 +93,7 @@ export class GlobalCashSchema extends Schema {
   /**
    * Custom validation for global cash updates
    */
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any, validateRefs = false) {
     // Validate closure data if closing the global cash
     if (data.closedAt) {
       const closureValidation = this.validateClosureData(data);

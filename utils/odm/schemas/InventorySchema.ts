@@ -242,7 +242,7 @@ export class InventorySchema extends Schema {
   }
 
   // Override create to add custom validations
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Custom validations
     const movementTypeValidation = this.validateMovementType(data);
     if (!movementTypeValidation.valid) {
@@ -292,7 +292,7 @@ export class InventorySchema extends Schema {
   }
 
   // Override update to add custom validations
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any, validateRefs = false) {
     // Apply same custom validations on update
     const movementTypeValidation = this.validateMovementType(data);
     if (!movementTypeValidation.valid) {

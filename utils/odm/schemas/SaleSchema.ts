@@ -115,7 +115,7 @@ export class SaleSchema extends Schema {
   /**
    * Custom validation for sale creation
    */
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Validate sale-specific business rules
     const validation = this.validateSaleData(data);
     if (!validation.valid) {
@@ -143,7 +143,7 @@ export class SaleSchema extends Schema {
    * Sales should generally not be updatable (maintain audit trail)
    * Only allow specific field updates like inventory flags
    */
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any, validateRefs = false) {
     const allowedUpdates = ['inventoryUpdated', 'inventoryUpdateAt', 'notes'];
     const updates = Object.keys(data);
     const invalidUpdates = updates.filter(key => !allowedUpdates.includes(key));

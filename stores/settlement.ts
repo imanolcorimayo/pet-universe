@@ -13,6 +13,8 @@ interface Settlement {
   walletId?: string;
   paymentMethodId: string;
   paymentMethodName: string;
+  paymentProviderId: string;
+  paymentProviderName: string;
   status: "pending" | "settled" | "cancelled";
   amountTotal: number;
   amountFee?: number;
@@ -85,6 +87,67 @@ export const useSettlementStore = defineStore("settlement", {
 
     getTotalSettledAmount(): number {
       return this.getSettledSettlements.reduce((sum, settlement) => sum + settlement.amountTotal, 0);
+    },
+
+    getSettlementGroups(): Array<{
+      providerId: string;
+      providerName: string;
+      accountId: string;
+      accountName: string;
+      settlements: Settlement[];
+      totalAmount: number;
+    }> {
+      const paymentMethodsStore = usePaymentMethodsStore();
+      const groupsMap = new Map<string, {
+        providerId: string;
+        providerName: string;
+        accountId: string;
+        accountName: string;
+        settlements: Settlement[];
+        totalAmount: number;
+      }>();
+
+      this.getPendingSettlements.forEach(settlement => {
+        const method = paymentMethodsStore.getPaymentMethodById(settlement.paymentMethodId);
+        if (!method || !method.ownersAccountId) return;
+
+        const account = paymentMethodsStore.getOwnersAccountById(method.ownersAccountId);
+        if (!account) return;
+
+        // Get provider info - fallback to payment method's provider if settlement doesn't have it
+        let providerId = settlement.paymentProviderId;
+        let providerName = settlement.paymentProviderName;
+
+        if (!providerId && method.paymentProviderId) {
+          const provider = paymentMethodsStore.getPaymentProviderById(method.paymentProviderId);
+          if (provider) {
+            providerId = provider.id || '';
+            providerName = provider.name;
+          }
+        }
+
+        // Skip if we still don't have provider info
+        if (!providerId) return;
+
+        const key = `${providerId}_${method.ownersAccountId}`;
+
+        if (!groupsMap.has(key)) {
+          groupsMap.set(key, {
+            providerId: providerId,
+            providerName: providerName || 'Proveedor Desconocido',
+            accountId: method.ownersAccountId,
+            accountName: account.name,
+            settlements: [],
+            totalAmount: 0
+          });
+        }
+
+        const group = groupsMap.get(key)!;
+        group.settlements.push(settlement);
+        group.totalAmount += settlement.amountTotal;
+      });
+
+      return Array.from(groupsMap.values());
     }
   },
 
@@ -105,14 +168,14 @@ export const useSettlementStore = defineStore("settlement", {
         });
 
         if (result.success && result.data) {
-          this.settlements = result.data;
+          this.settlements = result.data as Settlement[];
           this.lastCacheUpdate = Date.now();
           return { success: true, data: result.data };
         } else {
           console.error('Failed to load settlements:', result.error);
           return { success: false, error: result.error || 'Failed to load settlements' };
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error loading settlements:', error);
         return { success: false, error: error.message };
       } finally {
@@ -140,13 +203,13 @@ export const useSettlementStore = defineStore("settlement", {
 
         if (result.success && result.data) {
           // Cache the results
-          this.snapshotSettlements.set(snapshotId, result.data);
+          this.snapshotSettlements.set(snapshotId, result.data as Settlement[]);
           return { success: true, data: result.data, fromCache: false };
         } else {
           console.error('Failed to load settlements for snapshot:', result.error);
           return { success: false, error: result.error || 'Failed to load settlements for snapshot' };
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error loading settlements for snapshot:', error);
         return { success: false, error: error.message };
       }
@@ -159,12 +222,12 @@ export const useSettlementStore = defineStore("settlement", {
 
         if (result.success && result.data) {
           // Add to main cache
-          this.settlements.unshift(result.data);
+          this.settlements.unshift(result.data as Settlement);
 
           // Add to snapshot cache if applicable
           if (result.data.dailyCashSnapshotId) {
             const snapshotSettlements = this.snapshotSettlements.get(result.data.dailyCashSnapshotId) || [];
-            snapshotSettlements.unshift(result.data);
+            snapshotSettlements.unshift(result.data as Settlement);
             this.snapshotSettlements.set(result.data.dailyCashSnapshotId, snapshotSettlements);
           }
 
@@ -172,7 +235,7 @@ export const useSettlementStore = defineStore("settlement", {
         } else {
           return { success: false, error: result.error || 'Failed to create settlement' };
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error creating settlement:', error);
         return { success: false, error: error.message };
       }
@@ -202,7 +265,7 @@ export const useSettlementStore = defineStore("settlement", {
         } else {
           return { success: false, error: result.error || 'Failed to update settlement' };
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error updating settlement:', error);
         return { success: false, error: error.message };
       }
@@ -217,7 +280,7 @@ export const useSettlementStore = defineStore("settlement", {
         };
 
         return await this.updateSettlement(settlementId, updateData);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error settling settlement:', error);
         return { success: false, error: error.message };
       }
@@ -233,7 +296,7 @@ export const useSettlementStore = defineStore("settlement", {
         };
 
         return await this.updateSettlement(settlementId, updateData);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error cancelling settlement:', error);
         return { success: false, error: error.message };
       }

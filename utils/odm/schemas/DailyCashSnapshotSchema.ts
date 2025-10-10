@@ -85,7 +85,7 @@ export class DailyCashSnapshotSchema extends Schema {
   /**
    * Custom validation for daily cash snapshot creation
    */
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Validate snapshot-specific business rules
     const validation = await this.validateSnapshotData(data);
     if (!validation.valid) {
@@ -121,7 +121,7 @@ export class DailyCashSnapshotSchema extends Schema {
   /**
    * Custom validation for daily cash snapshot updates
    */
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any, validateRefs = false) {
     // Validate closure data if closing the snapshot
     if (data.status === 'closed') {
       const closureValidation = this.validateClosureData(data);

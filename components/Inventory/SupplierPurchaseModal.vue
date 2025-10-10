@@ -875,7 +875,7 @@ async function savePurchase() {
     // 3. Create payment transaction via BusinessRulesEngine if there's immediate payment
     if (paymentAmount > 0 && ownersAccountId.value) {
       const { BusinessRulesEngine } = await import('~/utils/finance/BusinessRulesEngine');
-      const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore);
+      const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore);
 
       const expenseResult = await businessRulesEngine.processGenericExpense({
         category: 'COMPRAS',

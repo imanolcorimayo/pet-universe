@@ -135,7 +135,7 @@ export class ProductCategorySchema extends Schema {
   }
 
   // Override create to add name uniqueness validation
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Validate name uniqueness
     const nameValidation = await this.validateUniqueName(data.name);
     if (!nameValidation.valid) {
@@ -149,7 +149,7 @@ export class ProductCategorySchema extends Schema {
   }
 
   // Override update to add name uniqueness validation
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any, validateRefs = false) {
     // Validate name uniqueness if name is being updated
     if (data.name) {
       const nameValidation = await this.validateUniqueName(data.name, id);

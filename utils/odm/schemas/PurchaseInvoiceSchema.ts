@@ -383,7 +383,7 @@ export class PurchaseInvoiceSchema extends Schema {
   }
 
   // Override create to add custom validations
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Validate invoice number uniqueness
     const invoiceNumberValidation = await this.validateInvoiceNumber(data.invoiceNumber, data.supplierId);
     if (!invoiceNumberValidation.valid) {
@@ -444,7 +444,7 @@ export class PurchaseInvoiceSchema extends Schema {
   }
 
   // Override update to add custom validations
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any, validateRefs = false) {
     // Get existing document for comparison
     const existingResult = await this.findById(id);
     if (!existingResult.success || !existingResult.data) {

@@ -835,6 +835,6 @@ export class ExampleSchema extends Schema {
   validateCustomRule(data: any): ValidationResult { ... }
   
   // Override create/update for business logic
-  override async create(data: any, validateRefs = true) { ... }
+  override async create(data: any, validateRefs = false) { ... }
 }
 ```

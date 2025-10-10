@@ -51,7 +51,7 @@ export class CashRegisterSchema extends Schema {
   /**
    * Custom validation for cash register creation
    */
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Validate register-specific business rules
     const validation = await this.validateRegisterData(data);
     if (!validation.valid) {
@@ -76,7 +76,7 @@ export class CashRegisterSchema extends Schema {
   /**
    * Custom validation for cash register updates
    */
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any, validateRefs = false) {
     // Validate register update rules
     const updateValidation = await this.validateRegisterUpdate(id, data);
     if (!updateValidation.valid) {

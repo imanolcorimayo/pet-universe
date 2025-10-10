@@ -438,7 +438,7 @@ async function submitPayment() {
 
     // Initialize BusinessRulesEngine
     const { BusinessRulesEngine } = await import('~/utils/finance/BusinessRulesEngine');
-    const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore);
+    const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore);
 
     let result;
 

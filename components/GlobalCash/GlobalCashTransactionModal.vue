@@ -516,7 +516,7 @@ const handleSubmit = async () => {
 };
 
 const handleCreate = async () => {
-  const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore);
+  const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore);
   const user = useCurrentUser();
   const currentBusinessId = useLocalStorage('cBId', null);
   

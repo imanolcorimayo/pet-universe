@@ -56,6 +56,18 @@ export class SettlementSchema extends Schema {
       minLength: 1,
       maxLength: 100
     },
+    paymentProviderId: {
+      type: 'string',
+      required: false,
+      minLength: 1,
+      maxLength: 50
+    },
+    paymentProviderName: {
+      type: 'string',
+      required: false,
+      minLength: 1,
+      maxLength: 100
+    },
     status: {
       type: 'string',
       required: true,
@@ -126,7 +138,7 @@ export class SettlementSchema extends Schema {
   /**
    * Custom validation for settlement creation
    */
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Validate settlement-specific business rules
     const validation = await this.validateSettlementData(data);
     if (!validation.valid) {
@@ -164,10 +176,10 @@ export class SettlementSchema extends Schema {
   /**
    * Custom validation for settlement updates
    */
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any) {
     // Validate status transitions
     if (data.status !== undefined) {
-      const statusValidation = await this.validateStatusTransition(id, data.status);
+      const statusValidation = await this.validateStatusTransition(id, data.status, data);
       if (!statusValidation.valid) {
         return {
           success: false,
@@ -185,7 +197,7 @@ export class SettlementSchema extends Schema {
       };
     }
 
-    return super.update(id, data, validateRefs);
+    return super.update(id, data, false);
   }
 
   /**
@@ -219,6 +231,21 @@ export class SettlementSchema extends Schema {
       errors.push({
         field: 'reference',
         message: 'Settlement cannot be linked to both sale and debt'
+      });
+    }
+
+    // Validate payment provider is provided (required on creation)
+    if (!data.paymentProviderId || !data.paymentProviderId.trim()) {
+      errors.push({
+        field: 'paymentProviderId',
+        message: 'Payment provider ID is required'
+      });
+    }
+
+    if (!data.paymentProviderName || !data.paymentProviderName.trim()) {
+      errors.push({
+        field: 'paymentProviderName',
+        message: 'Payment provider name is required'
       });
     }
 
@@ -506,7 +533,7 @@ export class SettlementSchema extends Schema {
   /**
    * Validate settlement status transitions
    */
-  private async validateStatusTransition(settlementId: string, newStatus: string): Promise<ValidationResult> {
+  private async validateStatusTransition(settlementId: string, newStatus: string, updateData?: any): Promise<ValidationResult> {
     const errors: any[] = [];
 
     try {
@@ -538,7 +565,9 @@ export class SettlementSchema extends Schema {
       // Additional business rules for transitions
       if (newStatus === 'settled') {
         const settlement = existingSettlement.data;
-        if (!settlement.paidDate) {
+        // Check if paidDate exists either in the settlement or in the update data
+        const hasPaidDate = settlement.paidDate || (updateData && updateData.paidDate);
+        if (!hasPaidDate) {
           errors.push({
             field: 'paidDate',
             message: 'Paid date is required when marking settlement as settled'

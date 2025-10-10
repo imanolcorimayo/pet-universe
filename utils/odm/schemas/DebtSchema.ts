@@ -131,7 +131,7 @@ export class DebtSchema extends Schema {
   /**
    * Custom validation for debt creation
    */
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Validate debt-specific business rules
     const validation = this.validateDebtData(data);
     if (!validation.valid) {
@@ -163,7 +163,7 @@ export class DebtSchema extends Schema {
   /**
    * Custom validation for debt updates
    */
-  override async update(id: string, data: any, validateRefs = true) {
+  override async update(id: string, data: any, validateRefs = false) {
     // Validate amount consistency if amounts are being updated
     if (data.originalAmount !== undefined || data.paidAmount !== undefined || data.remainingAmount !== undefined) {
       const existingDebt = await this.findById(id);

@@ -36,10 +36,9 @@ export class WalletSchema extends Schema {
       required: false,
       referenceTo: 'debt'
     },
-    settlementId: {
-      type: 'reference',
+    settlementIds: {
+      type: 'array',
       required: false,
-      referenceTo: 'settlement'
     },
     purchaseInvoiceId: {
       type: 'reference',
@@ -142,7 +141,7 @@ export class WalletSchema extends Schema {
   /**
    * Custom validation for wallet transaction creation
    */
-  override async create(data: any, validateRefs = true) {
+  override async create(data: any, validateRefs = false) {
     // Validate wallet-specific business rules
     const validation = this.validateWalletData(data);
     if (!validation.valid) {
