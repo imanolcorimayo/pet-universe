@@ -429,7 +429,7 @@ export class BusinessRulesEngine {
       // Add daily cash transactions to cache
       dailyCashTxResults.forEach(transaction => {
         if (transaction) {
-          cashRegisterStore.addTransactionToCache(transaction);
+          cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, transaction);
         }
       });
 
@@ -671,7 +671,7 @@ export class BusinessRulesEngine {
         // Add daily cash transactions to cache
         dailyCashTxResults.forEach(transaction => {
           if (transaction) {
-            cashRegisterStore.addTransactionToCache(transaction);
+            cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId!, transaction);
           }
         });
 
@@ -1143,7 +1143,7 @@ export class BusinessRulesEngine {
       // Add daily cash transactions to cache
       dailyCashTxResults.forEach(transaction => {
         if (transaction) {
-          cashRegisterStore.addTransactionToCache(transaction);
+          cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, transaction);
         }
       });
 
@@ -1446,7 +1446,7 @@ export class BusinessRulesEngine {
 
       // Add daily cash transaction to cache
       if (dailyCashTxResult.data) {
-        cashRegisterStore.addTransactionToCache(dailyCashTxResult.data);
+        cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, dailyCashTxResult.data as DailyCashTransaction);
       }
 
       return {
@@ -1910,7 +1910,7 @@ export class BusinessRulesEngine {
 
       // Add daily cash transaction to cache
       if (dailyCashTxResult.data) {
-        cashRegisterStore.addTransactionToCache(dailyCashTxResult.data);
+        cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, dailyCashTxResult.data as DailyCashTransaction);
       }
 
       return {

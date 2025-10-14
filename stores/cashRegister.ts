@@ -54,7 +54,7 @@ interface DailyCashSnapshot {
   closedByName?: string;
 }
 
-interface DailyCashTransaction {
+export interface DailyCashTransaction {
   id: string;
   businessId: string;
   dailyCashSnapshotId: string;
@@ -84,10 +84,8 @@ interface CashRegisterState {
   // Array of ALL snapshots for history display
   snapshotHistory: DailyCashSnapshot[];
 
-  // Daily Cash Transactions
-  transactions: DailyCashTransaction[];
-
   // Snapshot-specific data caches
+  snapshotTransactions: Map<string, DailyCashTransaction[]>;
   snapshotSales: Map<string, any[]>;
   snapshotWallets: Map<string, any[]>;
   snapshotDebts: Map<string, any[]>;
@@ -106,9 +104,9 @@ export const useCashRegisterStore = defineStore("cashRegister", {
     currentSnapshot: null,
     registerSnapshots: new Map(),
     snapshotHistory: [],
-    transactions: [],
 
     // Snapshot-specific data caches
+    snapshotTransactions: new Map(),
     snapshotSales: new Map(),
     snapshotWallets: new Map(),
     snapshotDebts: new Map(),
@@ -129,13 +127,11 @@ export const useCashRegisterStore = defineStore("cashRegister", {
     },
 
     transactionsBySnapshot: (state) => (snapshotId: string) =>
-      state.transactions.filter((t) => t.dailyCashSnapshotId === snapshotId),
+      state.snapshotTransactions.get(snapshotId) || [],
 
     currentSnapshotTransactions: (state) =>
       state.currentSnapshot
-        ? state.transactions.filter(
-            (t) => t.dailyCashSnapshotId === state.currentSnapshot!.id
-          )
+        ? state.snapshotTransactions.get(state.currentSnapshot.id!) || []
         : [],
 
     // Snapshot-specific data getters
@@ -222,9 +218,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       });
 
       // Get daily cash transactions for this snapshot
-      const snapshotTransactions = state.transactions.filter(
-        (t) => t.dailyCashSnapshotId === state.currentSnapshot!.id
-      );
+      const snapshotTransactions = state.snapshotTransactions.get(state.currentSnapshot.id!) || [];
 
       // For EFECTIVO account: calculate movements from daily cash transactions
       const cashAccount = Object.values(balances).find(account =>
@@ -775,6 +769,15 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       const targetSnapshotId = snapshotId || this.currentSnapshot?.id;
       if (!targetSnapshotId) return;
 
+      // Check cache first
+      if (this.snapshotTransactions.has(targetSnapshotId)) {
+        return {
+          success: true,
+          data: this.snapshotTransactions.get(targetSnapshotId),
+          fromCache: true
+        };
+      }
+
       this.isLoading = true;
       try {
         const schema = new DailyCashTransactionSchema();
@@ -785,11 +788,13 @@ export const useCashRegisterStore = defineStore("cashRegister", {
               operator: "==",
               value: targetSnapshotId,
             },
-          ]
+          ],
+          orderBy: [{ field: 'createdAt', direction: 'desc' }]
         });
 
         if (result.success) {
-          this.transactions = result.data as DailyCashTransaction[];
+          this.snapshotTransactions.set(targetSnapshotId, result.data as DailyCashTransaction[]);
+          return { success: true, data: result.data, fromCache: false };
         } else {
           throw new Error(result.error);
         }
@@ -841,7 +846,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
 
     clearState() {
       this.currentSnapshot = null;
-      this.transactions = [];
+      this.snapshotTransactions.clear();
       this.selectedRegisterForDisplay = null;
       this.registerSnapshots.clear();
       this.snapshotHistory = [];
@@ -970,6 +975,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
     // --- CACHE MANAGEMENT ---
 
     clearSnapshotCache(snapshotId: string) {
+      this.snapshotTransactions.delete(snapshotId);
       this.snapshotSales.delete(snapshotId);
       this.snapshotWallets.delete(snapshotId);
       this.snapshotDebts.delete(snapshotId);
@@ -977,6 +983,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
     },
 
     clearAllCaches() {
+      this.snapshotTransactions.clear();
       this.snapshotSales.clear();
       this.snapshotWallets.clear();
       this.snapshotDebts.clear();
@@ -1001,8 +1008,12 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       wallets.unshift(wallet); // Add to beginning for newest first
     },
 
-    addTransactionToCache(transaction: any) {
-      this.transactions.unshift(transaction); // Add to beginning for newest first
+    addTransactionToCache(snapshotId: string, transaction: DailyCashTransaction) {
+      if (!this.snapshotTransactions.has(snapshotId)) {
+        this.snapshotTransactions.set(snapshotId, []);
+      }
+      const transactions = this.snapshotTransactions.get(snapshotId)!;
+      transactions.unshift(transaction); // Add to beginning for newest first
     },
 
     addSettlementToCache(snapshotId: string, settlement: any) {

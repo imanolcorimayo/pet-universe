@@ -195,7 +195,7 @@
               :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
                 activeTab === 'transactions' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
             >
-              Transacciones ({{ filteredTransactions.length }})
+              Efectivo ({{ filteredTransactions.length }})
             </button>
             <button
               @click="activeTab = 'wallets'"
@@ -626,7 +626,7 @@ const totalCurrentBalance = computed(() => {
 
   // Add daily cash transactions
   transactions.value.forEach(transaction => {
-    if (['sale', 'inject'].includes(transaction.type)) {
+    if (['sale', 'inject', 'debt_payment'].includes(transaction.type)) {
       balance += transaction.amount;
     } else if (['extract'].includes(transaction.type)) {
       balance -= transaction.amount;
