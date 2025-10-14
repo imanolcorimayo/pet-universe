@@ -91,6 +91,9 @@ interface CashRegisterState {
   snapshotDebts: Map<string, any[]>;
   snapshotSettlements: Map<string, any[]>;
 
+  // Fetch tracking - tracks if data has been explicitly fetched from Firebase
+  transactionsFetched: Map<string, boolean>;
+
   // State management
   isLoading: boolean;
   isSnapshotLoading: boolean;
@@ -111,6 +114,9 @@ export const useCashRegisterStore = defineStore("cashRegister", {
     snapshotWallets: new Map(),
     snapshotDebts: new Map(),
     snapshotSettlements: new Map(),
+
+    // Fetch tracking
+    transactionsFetched: new Map(),
 
     isLoading: false,
     isSnapshotLoading: false,
@@ -769,11 +775,11 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       const targetSnapshotId = snapshotId || this.currentSnapshot?.id;
       if (!targetSnapshotId) return;
 
-      // Check cache first
-      if (this.snapshotTransactions.has(targetSnapshotId)) {
+      // Check if already fetched (not just in cache from other operations)
+      if (this.transactionsFetched.get(targetSnapshotId)) {
         return {
           success: true,
-          data: this.snapshotTransactions.get(targetSnapshotId),
+          data: this.snapshotTransactions.get(targetSnapshotId) || [],
           fromCache: true
         };
       }
@@ -794,6 +800,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
 
         if (result.success) {
           this.snapshotTransactions.set(targetSnapshotId, result.data as DailyCashTransaction[]);
+          this.transactionsFetched.set(targetSnapshotId, true);
           return { success: true, data: result.data, fromCache: false };
         } else {
           throw new Error(result.error);
@@ -980,6 +987,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       this.snapshotWallets.delete(snapshotId);
       this.snapshotDebts.delete(snapshotId);
       this.snapshotSettlements.delete(snapshotId);
+      this.transactionsFetched.delete(snapshotId);
     },
 
     clearAllCaches() {
@@ -988,6 +996,7 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       this.snapshotWallets.clear();
       this.snapshotDebts.clear();
       this.snapshotSettlements.clear();
+      this.transactionsFetched.clear();
     },
 
     // --- CACHE UPDATE METHODS ---
