@@ -3,7 +3,7 @@
     ref="modalRef"
     title="Registrar Nueva Venta"
     modalClass="!max-w-5xl"
-    :click-propagation-filter="['tooltip-namespace', 'product-search-input']"
+    :click-propagation-filter="['tooltip-namespace', 'product-search-input', 'payment-method-search-input']"
     modal-namespace="sale-transaction-modal"
   >
     <div class="space-y-4">

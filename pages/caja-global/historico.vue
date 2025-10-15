@@ -68,23 +68,16 @@
                 {{ getRegisterStatusText(register) }}
               </span>
 
-              <!-- Close Button for Unclosed Registers -->
+              <!-- Single Details/Close Button -->
               <button
-                v-if="!register.closedAt"
-                @click="openCloseModal(register)"
-                class="btn bg-orange-600 text-white hover:bg-orange-700 text-sm flex items-center gap-1"
+                @click="openDetailsModal(register)"
+                :class="register.closedAt
+                  ? 'btn bg-blue-600 text-white hover:bg-blue-700 text-sm flex items-center gap-1'
+                  : 'btn bg-orange-600 text-white hover:bg-orange-700 text-sm flex items-center gap-1'"
               >
-                <LucideLock class="h-3 w-3" />
-                Cerrar
-              </button>
-
-              <!-- View Details Button -->
-              <button
-                @click="viewRegisterDetails(register)"
-                class="btn bg-blue-600 text-white hover:bg-blue-700 text-sm flex items-center gap-1"
-              >
-                <LucideEye class="h-3 w-3" />
-                Ver Detalles
+                <LucideEye v-if="register.closedAt" class="h-3 w-3" />
+                <LucideLock v-else class="h-3 w-3" />
+                {{ register.closedAt ? 'Ver Detalles' : 'Ver y Cerrar' }}
               </button>
             </div>
           </div>
@@ -181,117 +174,13 @@
       </button>
     </div>
 
-    <!-- Close Modal for Historical Registers -->
-    <GlobalCashCloseModal
-      :is-visible="showCloseModal"
-      :register-to-close="registerToClose"
-      @close="showCloseModal = false"
-      @success="handleHistoricalCloseSuccess"
+    <!-- Unified Details and Close Modal -->
+    <GlobalCashDetailsModal
+      :is-visible="showDetailsModal"
+      :register="selectedRegister"
+      @close="showDetailsModal = false"
+      @success="handleModalSuccess"
     />
-
-    <!-- Register Details Modal -->
-    <ModalStructure
-      ref="detailsModalRef"
-      title="Detalles de Caja Semanal"
-      @on-close="closeDetailsModal"
-      modal-class="max-w-6xl"
-    >
-      <div v-if="registerDetails" class="space-y-6">
-        <!-- Register Info -->
-        <div class="bg-gray-50 rounded-lg p-4">
-          <h3 class="font-medium text-gray-900 mb-2">
-            Información de la Caja - Semana del {{ formatWeekRange(registerDetails.openedAt) }}
-          </h3>
-          <div class="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span class="text-gray-600">Estado:</span>
-              <span class="ml-2 font-medium" :class="registerDetails.closedAt ? 'text-green-600' : 'text-amber-600'">
-                {{ registerDetails.closedAt ? 'Cerrada' : 'Abierta' }}
-              </span>
-            </div>
-            <div>
-              <span class="text-gray-600">Abierta:</span>
-              <span class="ml-2">{{ registerDetails.openedAt }} por {{ registerDetails.openedByName }}</span>
-            </div>
-            <div v-if="registerDetails.closedAt">
-              <span class="text-gray-600">Cerrada:</span>
-              <span class="ml-2">{{ registerDetails.closedAt }} por {{ registerDetails.closedByName }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Wallet Transactions -->
-        <div v-if="registerTransactions.length > 0">
-          <h3 class="font-medium text-gray-900 mb-4">Transacciones de la Semana</h3>
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cuenta</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <tr
-                  v-for="transaction in registerTransactions"
-                  :key="transaction.id"
-                  :class="transaction.status === 'cancelled' ? 'bg-red-50' : 'hover:bg-gray-50'"
-                >
-                  <td class="px-4 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">
-                      {{ transaction.transactionDate || transaction.createdAt }}
-                    </div>
-                    <div v-if="transaction.transactionDate && transaction.transactionDate !== transaction.createdAt" class="text-xs text-gray-500">
-                      Registrado: {{ transaction.createdAt }}
-                    </div>
-                  </td>
-                  <td class="px-4 py-4 whitespace-nowrap">
-                    <span
-                      class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full"
-                      :class="transaction.type === 'Income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
-                    >
-                      {{ transaction.type === 'Income' ? 'Ingreso' : 'Egreso' }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-4 whitespace-nowrap text-sm">{{ transaction.categoryName || 'Sin categoría' }}</td>
-                  <td class="px-4 py-4 whitespace-nowrap text-sm font-medium" :class="transaction.type === 'Income' ? 'text-green-600' : 'text-red-600'">
-                    {{ transaction.type === 'Income' ? '+' : '-' }}{{ formatCurrency(transaction.amount) }}
-                  </td>
-                  <td class="px-4 py-4 whitespace-nowrap text-sm">{{ transaction.ownersAccountName }}</td>
-                  <td class="px-4 py-4 whitespace-nowrap">
-                    <span
-                      class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full"
-                      :class="transaction.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'"
-                    >
-                      {{ transaction.status === 'cancelled' ? 'Cancelado' : 'Pagado' }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- No Transactions -->
-        <div v-else class="text-center py-8">
-          <LucideFileText class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p class="text-gray-600">No hay transacciones registradas para esta semana</p>
-        </div>
-      </div>
-
-      <template #footer>
-        <button
-          @click="detailsModalRef?.closeModal()"
-          class="btn bg-gray-200 text-gray-700 hover:bg-gray-300"
-        >
-          Cerrar
-        </button>
-      </template>
-    </ModalStructure>
   </div>
 </template>
 
@@ -318,11 +207,8 @@ if (!indexStore.isOwner && indexStore.getUserRole !== 'administrador') {
 
 // State
 const isLoading = ref(true);
-const showCloseModal = ref(false);
-const registerToClose = ref(null);
-const registerDetails = ref(null);
-const registerTransactions = ref([]);
-const detailsModalRef = ref(null);
+const showDetailsModal = ref(false);
+const selectedRegister = ref(null);
 
 // Reactive state
 const { $dayjs } = useNuxtApp();
@@ -415,44 +301,16 @@ const refreshHistory = async () => {
   }
 };
 
-const openCloseModal = (register) => {
-  registerToClose.value = register;
-  showCloseModal.value = true;
+const openDetailsModal = (register) => {
+  selectedRegister.value = register;
+  showDetailsModal.value = true;
 };
 
-const handleHistoricalCloseSuccess = async () => {
-  showCloseModal.value = false;
-  registerToClose.value = null;
+const handleModalSuccess = async () => {
+  showDetailsModal.value = false;
+  selectedRegister.value = null;
   // Refresh the history to show updated status
   await refreshHistory();
-};
-
-const viewRegisterDetails = async (register) => {
-  try {
-    // Set the register data first
-    registerDetails.value = register;
-
-    // Load transactions for this register
-    await globalCashStore.loadSpecificGlobalCash(register.id);
-
-    // Sort transactions by transactionDate (with createdAt fallback) - already sorted by store
-    registerTransactions.value = globalCashStore.walletTransactions;
-
-    // Show the modal using the exposed method
-    await nextTick();
-    detailsModalRef.value?.showModal();
-  } catch (error) {
-    useToast(ToastEvents.error, 'Error al cargar los detalles');
-    // Clean up on error
-    registerDetails.value = null;
-    registerTransactions.value = [];
-  }
-};
-
-const closeDetailsModal = () => {
-  // Clean up state when modal closes (called by @on-close event)
-  registerDetails.value = null;
-  registerTransactions.value = [];
 };
 
 // Lifecycle

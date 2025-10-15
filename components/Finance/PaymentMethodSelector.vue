@@ -1,30 +1,25 @@
 <template>
-  <div class="space-y-2">
+  <div class="space-y-2 payment-method-search-input">
     <label class="block text-sm font-medium text-gray-700">
       {{ label || 'Método de Pago' }}
       <span v-if="required" class="text-red-500">*</span>
     </label>
-    
-    <select
-      :value="modelValue"
-      @input="handleChange"
+    <p v-if="description" class="text-sm text-gray-600 mb-2">{{ description }}</p>
+
+    <FinancePaymentMethodSearchInput
+      :ref="paymentMethodSearchRef"
+      :model-value="modelValue"
+      :payment-methods="availableMethods"
       :disabled="disabled"
-      :required="required"
-      class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
-      :class="{ 'border-red-500': error }"
-    >
-      <option value="" disabled>{{ placeholder || 'Selecciona un método de pago' }}</option>
-      <option 
-        v-for="method in availableMethods" 
-        :key="method.id" 
-        :value="method.id"
-      >
-        {{ method.name }}
-      </option>
-    </select>
-    
+      :placeholder="placeholder || 'Seleccionar método de pago'"
+      :input-class="inputClass"
+      :exclude-ids="excludeIds"
+      :include-only="includeOnly"
+      @update:model-value="handleModelUpdate"
+      @change="handleChange"
+    />
+
     <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
-    <p v-if="description" class="text-sm text-gray-500">{{ description }}</p>
   </div>
 </template>
 
@@ -41,9 +36,13 @@ const props = defineProps({
     type: String,
     default: 'Método de Pago'
   },
+  description: {
+    type: String,
+    default: ''
+  },
   placeholder: {
     type: String,
-    default: 'Selecciona un método de pago'
+    default: 'Seleccionar método de pago'
   },
   required: {
     type: Boolean,
@@ -57,9 +56,9 @@ const props = defineProps({
     type: String,
     default: ''
   },
-  description: {
+  inputClass: {
     type: String,
-    default: ''
+    default: 'p-2'
   },
   // Filter options
   excludeIds: {
@@ -74,37 +73,31 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'change']);
 
+// Ref for the PaymentMethodSearchInput component
+const paymentMethodSearchRef = ref(null);
+
 // Store
 const paymentMethodsStore = usePaymentMethodsStore();
 
 // Computed
 const availableMethods = computed(() => {
-  let methods = paymentMethodsStore.activePaymentMethods;
-  
-  // Apply exclusions
-  if (props.excludeIds.length > 0) {
-    methods = methods.filter(method => !props.excludeIds.includes(method.id));
-  }
-  
-  // Apply inclusions (if specified, only show these)
-  if (props.includeOnly.length > 0) {
-    methods = methods.filter(method => props.includeOnly.includes(method.id));
-  }
-  
-  return methods;
+  return paymentMethodsStore.activePaymentMethods;
 });
 
 // Methods
-const handleChange = (event) => {
-  const value = event.target.value;
+const handleModelUpdate = (value) => {
   emit('update:modelValue', value);
-  
-  // Emit additional data for parent component
-  const selectedMethod = availableMethods.value.find(method => method.id === value);
-  emit('change', {
-    methodId: value,
-    method: selectedMethod
-  });
+};
+
+const handleChange = (data) => {
+  emit('change', data);
+};
+
+// Expose focus method for parent components
+const focus = () => {
+  if (paymentMethodSearchRef.value?.focus) {
+    paymentMethodSearchRef.value.focus();
+  }
 };
 
 // Load payment methods on mount
@@ -112,5 +105,10 @@ onMounted(async () => {
   if (paymentMethodsStore.needsCacheRefresh) {
     await paymentMethodsStore.loadAllData();
   }
+});
+
+// Expose the focus method so parent components can call it
+defineExpose({
+  focus
 });
 </script>
