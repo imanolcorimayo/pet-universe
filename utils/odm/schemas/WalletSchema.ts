@@ -135,6 +135,10 @@ export class WalletSchema extends Schema {
       required: false,
       minLength: 1,
       maxLength: 100
+    },
+    transactionDate: {
+      type: 'date',
+      required: false
     }
   };
 
@@ -142,6 +146,11 @@ export class WalletSchema extends Schema {
    * Custom validation for wallet transaction creation
    */
   override async create(data: any, validateRefs = false) {
+    // Default transactionDate to current date if not provided
+    if (!data.transactionDate) {
+      data.transactionDate = new Date();
+    }
+
     // Validate wallet-specific business rules
     const validation = this.validateWalletData(data);
     if (!validation.valid) {
@@ -161,6 +170,9 @@ export class WalletSchema extends Schema {
         };
       }
     }
+
+    // NOTE: Transaction date validation is now handled in BusinessRulesEngine
+    // to avoid repeated Firestore calls - it uses cached GlobalCash data from the store
 
     return super.create(data, validateRefs);
   }

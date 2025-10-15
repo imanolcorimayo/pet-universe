@@ -241,7 +241,14 @@
                   :key="transaction.id"
                   :class="transaction.status === 'cancelled' ? 'bg-red-50' : 'hover:bg-gray-50'"
                 >
-                  <td class="px-4 py-4 whitespace-nowrap text-sm">{{ transaction.createdAt }}</td>
+                  <td class="px-4 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">
+                      {{ transaction.transactionDate || transaction.createdAt }}
+                    </div>
+                    <div v-if="transaction.transactionDate && transaction.transactionDate !== transaction.createdAt" class="text-xs text-gray-500">
+                      Registrado: {{ transaction.createdAt }}
+                    </div>
+                  </td>
                   <td class="px-4 py-4 whitespace-nowrap">
                     <span
                       class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full"
@@ -427,6 +434,8 @@ const viewRegisterDetails = async (register) => {
 
     // Load transactions for this register
     await globalCashStore.loadSpecificGlobalCash(register.id);
+
+    // Sort transactions by transactionDate (with createdAt fallback) - already sorted by store
     registerTransactions.value = globalCashStore.walletTransactions;
 
     // Show the modal using the exposed method

@@ -124,6 +124,42 @@
         </div>
       </div>
 
+      <!-- Transaction Date -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Fecha de Transacción
+        </label>
+        <input
+          type="date"
+          v-model="form.transactionDate"
+          :disabled="isSubmitting || editMode"
+          :class="[
+            'w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary',
+            editMode ? 'border-gray-300 bg-gray-100 cursor-not-allowed' : 'border-gray-300',
+            !selectedGlobalCashId && !editMode ? 'border-red-500' : ''
+          ]"
+        />
+        <p class="text-xs text-gray-500 mt-1">
+          Fecha en que ocurrió la transacción (por defecto: hoy)
+        </p>
+
+        <!-- Previous week warning message -->
+        <div v-if="isPreviousWeekTransaction && dateValidationMessage && !editMode" class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md flex items-start gap-2">
+          <LucideInfo class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+          <p class="text-xs text-blue-800">
+            {{ dateValidationMessage }}
+          </p>
+        </div>
+
+        <!-- Error message if no valid global cash -->
+        <div v-if="!selectedGlobalCashId && dateValidationMessage && !editMode" class="mt-2 p-2 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+          <LucideX class="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+          <p class="text-xs text-red-800">
+            {{ dateValidationMessage }}
+          </p>
+        </div>
+      </div>
+
       <!-- Payment Method (Income) / Account (Outcome) -->
       <div v-if="form.type === 'Income'">
         <FinancePaymentMethodSelector
@@ -259,7 +295,7 @@
         <div class="flex gap-3">
           <button
             type="button"
-            @click="handleClose"
+            @click="modal?.closeModal()"
             :disabled="isSubmitting"
             class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -303,6 +339,7 @@ const modal = ref(null);
 const globalCashStore = useGlobalCashRegisterStore();
 const paymentMethodsStore = usePaymentMethodsStore();
 const indexStore = useIndexStore();
+const { $dayjs } = useNuxtApp();
 
 // State
 const isSubmitting = ref(false);
@@ -319,11 +356,17 @@ const form = reactive({
   supplierId: null,
   supplierName: null,
   notes: '',
-  isReported: true // Default to reported (white)
+  isReported: true, // Default to reported (white)
+  transactionDate: $dayjs().format('YYYY-MM-DD') // Transaction date (defaults to today)
 });
 
 // Errors
 const errors = ref({});
+
+// Auto-detection state
+const selectedGlobalCashId = ref(null);
+const isPreviousWeekTransaction = ref(false);
+const dateValidationMessage = ref('');
 
 // Computed
 const modalTitle = computed(() => {
@@ -390,10 +433,11 @@ const resetForm = () => {
     supplierId: null,
     supplierName: null,
     notes: '',
-    isReported: true
+    isReported: true,
+    transactionDate: $dayjs().format('YYYY-MM-DD') // Default to today
   });
   errors.value = {};
-  
+
   // Initialize fiscal reporting after reset
   setTimeout(() => {
     initializeFiscalReporting();
@@ -488,14 +532,21 @@ const handleSubmit = async () => {
   if (!validateForm()) {
     return;
   }
-  
-  if (!globalCashStore.currentGlobalCash) {
+
+  // For new transactions, check if we have a valid global cash ID
+  if (!editMode.value && !selectedGlobalCashId.value) {
+    useToast(ToastEvents.error, dateValidationMessage.value || 'No hay una caja global disponible para esta fecha');
+    return;
+  }
+
+  // For edit mode, ensure current global cash exists
+  if (editMode.value && !globalCashStore.currentGlobalCash) {
     useToast(ToastEvents.error, 'No hay una caja global abierta');
     return;
   }
-  
+
   isSubmitting.value = true;
-  
+
   try {
     if (editMode.value) {
       // Update existing transaction
@@ -504,9 +555,10 @@ const handleSubmit = async () => {
       // Create new transaction
       await handleCreate();
     }
-    
-    handleClose();
-    
+
+    // This method will fire "resetForm" via "on-close" event
+    modal.value?.closeModal();
+
   } catch (error) {
     console.error('Error processing transaction:', error);
     useToast(ToastEvents.error, error.message || 'Error al procesar la transacción');
@@ -517,15 +569,18 @@ const handleSubmit = async () => {
 
 const handleCreate = async () => {
   const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashStore);
-  const user = useCurrentUser();
-  const currentBusinessId = useLocalStorage('cBId', null);
-  
+
+  // Parse transaction date
+  const transactionDate = form.transactionDate
+    ? $dayjs(form.transactionDate, 'YYYY-MM-DD').toDate()
+    : new Date();
+
   if (form.type === 'Outcome') {
     // Use processGenericExpense for outcome transactions
     // Get category name from the selected category
     const selectedCategory = indexStore.getActiveExpenseCategories[form.category];
     const categoryName = selectedCategory?.name || null;
-    
+
     const expenseData = {
       description: form.notes.trim() || 'Transacción manual', // Use notes as description, fallback if empty
       category: form.category,
@@ -539,16 +594,21 @@ const handleCreate = async () => {
       supplierName: form.supplierName,
       relatedEntityType: 'manual_expense',
       relatedEntityId: null,
-      globalCashId: globalCashStore.currentGlobalCash.id
+      globalCashId: selectedGlobalCashId.value,
+      transactionDate: transactionDate
     };
-    
+
     const result = await businessRulesEngine.processGenericExpense(expenseData);
-    
+
     if (!result.success) {
       throw new Error(result.error);
     }
-    useToast(ToastEvents.success, 'Egreso registrado exitosamente');
-    
+
+    const successMessage = isPreviousWeekTransaction.value
+      ? 'Egreso registrado exitosamente en la caja de la semana anterior'
+      : 'Egreso registrado exitosamente';
+    useToast(ToastEvents.success, successMessage);
+
   } else {
     // Get category name from the selected category
     const selectedIncomeCategory = indexStore.getActiveIncomeCategories[form.category];
@@ -561,7 +621,7 @@ const handleCreate = async () => {
     }
 
     const walletResult = await businessRulesEngine.processGenericIncome({
-      globalCashId: globalCashStore.currentGlobalCash.id,
+      globalCashId: selectedGlobalCashId.value,
       supplierId: form.supplierId,
       paymentMethodId: form.paymentMethodId,
       paymentMethodName: paymentMethod.name,
@@ -570,14 +630,19 @@ const handleCreate = async () => {
       notes: form.notes.trim() || null,
       categoryCode: form.category,
       categoryName: incomeCategoryName,
+      transactionDate: transactionDate
     });
-    
+
     if (!walletResult.success) {
       throw new Error(walletResult.error);
     }
 
     // The BusinessRulesEngine handles the wallet transaction creation and caching
-    useToast(ToastEvents.success, 'Ingreso registrado exitosamente');
+    const successMessage = isPreviousWeekTransaction.value
+      ? 'Ingreso registrado exitosamente en la caja de la semana anterior'
+      : 'Ingreso registrado exitosamente';
+    useToast(ToastEvents.success, successMessage);
+
   }
 };
 
@@ -630,8 +695,7 @@ const handleDelete = async () => {
     }
     
     useToast(ToastEvents.success, 'Transacción cancelada exitosamente');
-    
-    handleClose();
+    modal.value?.closeModal();
     
   } catch (error) {
     console.error('Error cancelling transaction:', error);
@@ -642,7 +706,7 @@ const handleDelete = async () => {
 };
 
 const handleClose = () => {
-  modal.value?.closeModal();
+  // When comming from "on-close" event, we only want to reset the form
   resetForm();
 };
 
@@ -674,7 +738,10 @@ watch(() => props.transactionToEdit, (transaction) => {
       supplierId: transaction.supplierId || null,
       supplierName: transaction.supplierName || null,
       notes: transaction.notes || '',
-      isReported: transaction.isRegistered !== false
+      isReported: transaction.isRegistered !== false,
+      transactionDate: transaction.transactionDate
+        ? $dayjs(transaction.transactionDate, 'DD/MM/YYYY').format('YYYY-MM-DD')
+        : $dayjs().format('YYYY-MM-DD')
     });
   }
 }, { immediate: true });
@@ -692,6 +759,9 @@ const initializeFiscalReporting = () => {
 
 // Expose modal methods
 const showModal = () => {
+  // Initial detection when modal opens (synchronous now)
+  detectGlobalCashForDate();
+
   modal.value?.showModal();
   // Initialize fiscal reporting when modal opens on next tick
   setTimeout(() => {
@@ -700,13 +770,50 @@ const showModal = () => {
 };
 
 const closeModal = () => {
-  handleClose();
+  // This method will fire "resetForm" via "on-close" event
+  modal.value?.closeModal();
 };
 
 defineExpose({
   showModal,
   closeModal
 });
+
+// Auto-detect appropriate GlobalCash based on transaction date
+const detectGlobalCashForDate = () => {
+  if (!form.transactionDate || editMode.value) {
+    // Don't auto-detect in edit mode or if no date
+    selectedGlobalCashId.value = globalCashStore.currentGlobalCash?.id || null;
+    isPreviousWeekTransaction.value = false;
+    dateValidationMessage.value = '';
+    return;
+  }
+
+  const transactionDate = $dayjs(form.transactionDate, 'YYYY-MM-DD').toDate();
+  const result = globalCashStore.findOpenGlobalCashForDate(transactionDate);
+
+  if (result.globalCash) {
+    selectedGlobalCashId.value = result.globalCash.id;
+    isPreviousWeekTransaction.value = result.isPreviousWeek;
+
+    if (result.isPreviousWeek) {
+      const weekStart = $dayjs(result.globalCash.openedAt, 'DD/MM/YYYY HH:mm').format('DD/MM/YYYY');
+      const weekEnd = $dayjs(result.globalCash.openedAt, 'DD/MM/YYYY HH:mm').add(6, 'day').format('DD/MM/YYYY');
+      dateValidationMessage.value = `Esta transacción se agregará a la caja global de la semana anterior (${weekStart} - ${weekEnd}). Solo aparecerá en el historial de esa semana.`;
+    } else {
+      dateValidationMessage.value = '';
+    }
+  } else {
+    selectedGlobalCashId.value = null;
+    isPreviousWeekTransaction.value = false;
+    dateValidationMessage.value = result.error || 'No se puede determinar la caja global para esta fecha';
+  }
+};
+
+// Watch for transaction date changes
+watch(() => form.transactionDate, () => {
+  detectGlobalCashForDate();
+}, { immediate: false });
 
 // Load required data on mount
 onMounted(async () => {

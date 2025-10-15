@@ -53,7 +53,7 @@
           </h3>
           <p class="text-sm text-amber-700 mt-1">
             La caja de la semana anterior ({{ previousWeekInfo.register?.openedAt }})
-            aún no ha sido cerrada. Se cerrará automáticamente después de 2 días desde el lunes.
+            aún no ha sido cerrada. Por favor, ciérrela manualmente desde el historial.
           </p>
           <div class="mt-3">
             <button
@@ -185,7 +185,10 @@
               <!-- Date -->
               <td class="px-4 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">
-                  {{ transaction.createdAt }}
+                  {{ transaction.transactionDate || transaction.createdAt }}
+                </div>
+                <div v-if="transaction.transactionDate && transaction.transactionDate !== transaction.createdAt" class="text-xs text-gray-500">
+                  Registrado: {{ transaction.createdAt }}
                 </div>
               </td>
               <!-- Type -->

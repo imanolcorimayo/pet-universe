@@ -94,16 +94,17 @@ export interface GenericExpenseData {
   categoryName?: string;
   amount: number;
   notes?: string;
-  
+
   // Account information (where money comes from)
   accountTypeId: string;
   accountTypeName: string;
-  
+
   // Entity associations (optional)
   supplierId?: string;
   supplierName?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
+  transactionDate?: Date;
 }
 
 export interface GenericIncomeData {
@@ -124,6 +125,7 @@ export interface GenericIncomeData {
   relatedEntityType?: string;
   relatedEntityId?: string;
   isRegistered: boolean;
+  transactionDate?: Date;
 }
 
 export interface SettlementPaymentItem {
@@ -189,6 +191,66 @@ export class BusinessRulesEngine {
     this.purchaseInvoiceSchema = new PurchaseInvoiceSchema();
     this.paymentMethodsStore = paymentMethodsStore;
     this.globalCashRegisterStore = globalCashRegisterStore;
+  }
+
+  /**
+   * Validate transaction date against global cash register week boundaries
+   * Uses cached global cash data from store - no Firestore calls
+   */
+  private validateTransactionDate(transactionDate: Date, globalCashId: string): BusinessRuleResult {
+    try {
+      const { $dayjs } = useNuxtApp();
+      const txDate = $dayjs(transactionDate).startOf('day');
+
+      // Find the register that matches this globalCashId
+      let targetRegister = null;
+      let weekStart, weekEnd;
+
+      if (this.globalCashRegisterStore.currentGlobalCash?.id === globalCashId) {
+        targetRegister = this.globalCashRegisterStore.currentGlobalCash;
+      } else if (this.globalCashRegisterStore.previousGlobalCash?.id === globalCashId) {
+        targetRegister = this.globalCashRegisterStore.previousGlobalCash;
+      }
+
+      if (!targetRegister) {
+        return {
+          success: false,
+          error: 'No se encontró la caja global especificada'
+        };
+      }
+
+      // Check if register is open
+      if (targetRegister.closedAt) {
+        return {
+          success: false,
+          error: 'No se pueden agregar transacciones a una caja global cerrada'
+        };
+      }
+
+      // Get week boundaries
+      const openedAt = targetRegister.openedAt;
+      weekStart = $dayjs(openedAt, 'DD/MM/YYYY HH:mm').startOf('day');
+      weekEnd = weekStart.add(7, 'day').startOf('day');
+
+      // Validate date is within week range
+      if (txDate.isBefore(weekStart) || txDate.isSame(weekEnd) || txDate.isAfter(weekEnd)) {
+        const weekStartStr = weekStart.format('DD/MM/YYYY');
+        const weekEndStr = weekEnd.subtract(1, 'day').format('DD/MM/YYYY');
+
+        return {
+          success: false,
+          error: `La fecha de transacción debe estar dentro del rango de la semana de la caja global (${weekStartStr} - ${weekEndStr})`
+        };
+      }
+
+      return { success: true };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Error al validar la fecha de transacción: ${error instanceof Error ? error.message : error}`
+      };
+    }
   }
 
   /**
@@ -735,6 +797,13 @@ export class BusinessRulesEngine {
         globalCashId = globalCashIdResult.data;
       }
 
+      // 1.5. Validate transaction date against global cash register week
+      const transactionDate = data.transactionDate || new Date();
+      const dateValidation = this.validateTransactionDate(transactionDate, globalCashId as string);
+      if (!dateValidation.success) {
+        return { success: false, error: dateValidation.error };
+      }
+
       // 2. Create single wallet transaction (Outcome)
       const walletResult = await globalCashRegister.addWalletRecord({
         type: 'Outcome',
@@ -748,6 +817,7 @@ export class BusinessRulesEngine {
         notes: data.notes || null,
         categoryCode: data.categoryCode || null,
         categoryName: data.categoryName || null,
+        transactionDate: data.transactionDate || new Date()
       })
 
       if (!walletResult.success) {
@@ -788,6 +858,13 @@ export class BusinessRulesEngine {
           return { success: false, error: globalCashIdResult.error };
         }
         globalCashId = globalCashIdResult.data;
+      }
+
+      // 1.5. Validate transaction date against global cash register week
+      const transactionDate = data.transactionDate || new Date();
+      const dateValidation = this.validateTransactionDate(transactionDate, globalCashId as string);
+      if (!dateValidation.success) {
+        return { success: false, error: dateValidation.error };
       }
 
       // 2. Validate payment method exists and is active
@@ -832,6 +909,7 @@ export class BusinessRulesEngine {
         notes: data.notes?.trim() || null,
         categoryCode: data.categoryCode,
         categoryName: data.categoryName,
+        transactionDate: data.transactionDate || new Date()
       });
 
       if (!walletResult.success) {

@@ -56,6 +56,7 @@ export interface WalletTransaction {
   categoryName?: string|null;
   categoryCode?: string|null;
   isRegistered: boolean;
+  transactionDate?: any;
   createdAt?: any;
   createdBy?: string;
   updatedAt?: any;
@@ -65,6 +66,7 @@ export interface WalletTransaction {
 interface GlobalCashState {
   // Current global cash snapshot (weekly)
   currentGlobalCash: GlobalCash | null;
+  previousGlobalCash: GlobalCash | null; // Cache for previous week register
   globalCashHistory: GlobalCash[];
 
   // Wallet transactions for current period
@@ -88,6 +90,7 @@ interface GlobalCashState {
 export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
   state: (): GlobalCashState => ({
     currentGlobalCash: null,
+    previousGlobalCash: null,
     globalCashHistory: [],
     walletTransactions: [],
     calculatedBalances: {},
@@ -185,12 +188,40 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
           this.walletTransactions = [];
         }
 
+        // Also load and cache previous week register for validation purposes
+        await this.loadPreviousGlobalCash();
+
         this.calculateBalances();
       } catch (error) {
         console.error('Error loading current global cash:', error);
         throw new Error('Error al cargar la caja global actual');
       } finally {
         this.isLoading = false;
+      }
+    },
+
+    async loadPreviousGlobalCash() {
+      try {
+        const { $dayjs } = useNuxtApp();
+        const previousWeekStart = this.getPreviousWeekStartDate();
+        const schema = new GlobalCashSchema();
+
+        const result = await schema.find({
+          where: [
+            { field: 'openedAt', operator: '>=', value: $dayjs(previousWeekStart).startOf('day').toDate() },
+            { field: 'openedAt', operator: '<', value: $dayjs(previousWeekStart).add(7, 'day').startOf('day').toDate() }
+          ],
+          limit: 1
+        });
+
+        if (result.success && result.data && result.data.length > 0) {
+          this.previousGlobalCash = result.data[0] as GlobalCash;
+        } else {
+          this.previousGlobalCash = null;
+        }
+      } catch (error) {
+        console.error('Error loading previous global cash:', error);
+        this.previousGlobalCash = null;
       }
     },
 
@@ -252,17 +283,17 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         this.walletTransactions = [];
         return;
       }
-      
+
       this.isWalletLoading = true;
       try {
         const schema = new WalletSchema();
         const result = await schema.find({
-          where: [{ field: 'globalCashId', operator: '==', value: this.currentGlobalCash.id }],
-          orderBy: [{ field: 'createdAt', direction: 'desc' }]
+          where: [{ field: 'globalCashId', operator: '==', value: this.currentGlobalCash.id }]
         });
-        
+
         if (result.success) {
-          this.walletTransactions = result.data as WalletTransaction[];
+          // Sort by transactionDate (with createdAt fallback) in JavaScript
+          this.walletTransactions = this.sortWalletTransactions(result.data as WalletTransaction[]);
         } else {
           throw new Error(result.error);
         }
@@ -275,7 +306,9 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     },
 
     addWalletTransactionToCache(transaction: WalletTransaction) {
-      this.walletTransactions.unshift(transaction);
+      // Add transaction and re-sort to maintain order
+      this.walletTransactions.push(transaction);
+      this.walletTransactions = this.sortWalletTransactions(this.walletTransactions);
       this.calculateBalances();
     },
 
@@ -290,13 +323,17 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     async addWalletRecord(transaction: WalletTransaction) {
 
       try {
-        const walletSchema = new WalletSchema(); 
-  
+        const walletSchema = new WalletSchema();
+
         // Result comes with the ID in case it was successful
         const result = await walletSchema.create(transaction);
 
         if (result.success && result.data) {
-          this.addWalletTransactionToCache({ ...result.data } as WalletTransaction);
+          // Only add to cache if this transaction belongs to the current week's register
+          // Transactions for previous week's register should NOT be cached in current view
+          if (this.currentGlobalCash && result.data.globalCashId === this.currentGlobalCash.id) {
+            this.addWalletTransactionToCache({ ...result.data } as WalletTransaction);
+          }
           return { success: true, id: result.data.id, error: null };
         } else {
           return { success: false, id: null, error: result.error || 'Error al agregar el registro de cartera' };
@@ -423,21 +460,21 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       try {
         const schema = new GlobalCashSchema();
         const result = await schema.findById(id);
-        
+
         if (result.success) {
           const globalCash = result.data as GlobalCash;
-          
+
           // Load wallet transactions for this specific global cash
           const walletSchema = new WalletSchema();
           const walletResult = await walletSchema.find({
-            where: [{ field: 'globalCashId', operator: '==', value: id }],
-            orderBy: [{ field: 'createdAt', direction: 'desc' }]
+            where: [{ field: 'globalCashId', operator: '==', value: id }]
           });
-          
+
           if (walletResult.success) {
-            this.walletTransactions = walletResult.data as WalletTransaction[];
+            // Sort by transactionDate (with createdAt fallback) in JavaScript
+            this.walletTransactions = this.sortWalletTransactions(walletResult.data as WalletTransaction[]);
           }
-          
+
           return globalCash;
         } else {
           throw new Error(result.error);
@@ -451,9 +488,30 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     },
 
     // --- UTILITY METHODS ---
-    
+
+    /**
+     * Sort wallet transactions by transactionDate (or createdAt as fallback) in descending order
+     */
+    sortWalletTransactions(transactions: WalletTransaction[]): WalletTransaction[] {
+      const { $dayjs } = useNuxtApp();
+
+      return transactions.sort((a, b) => {
+        // Get dates for comparison - use transactionDate if available, otherwise createdAt
+        const dateA = a.transactionDate || a.createdAt;
+        const dateB = b.transactionDate || b.createdAt;
+
+        // Parse dates - they come formatted as 'DD/MM/YYYY HH:mm' from schema
+        const momentA = $dayjs(dateA, 'DD/MM/YYYY HH:mm');
+        const momentB = $dayjs(dateB, 'DD/MM/YYYY HH:mm');
+
+        // Sort descending (newest first)
+        return momentB.valueOf() - momentA.valueOf();
+      });
+    },
+
     clearState() {
       this.currentGlobalCash = null;
+      this.previousGlobalCash = null;
       this.walletTransactions = [];
       this.calculatedBalances = {};
       this.totalIncome = 0;
@@ -480,12 +538,12 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       try {
         const schema = new WalletSchema();
         const result = await schema.find({
-          where: [{ field: 'globalCashId', operator: '==', value: globalCashId }],
-          orderBy: [{ field: 'createdAt', direction: 'desc' }]
+          where: [{ field: 'globalCashId', operator: '==', value: globalCashId }]
         });
 
         if (result.success) {
-          const transactions = result.data as WalletTransaction[];
+          // Sort by transactionDate (with createdAt fallback) in JavaScript
+          const transactions = this.sortWalletTransactions(result.data as WalletTransaction[]);
           // Cache the results
           this.walletTransactionCache.set(globalCashId, transactions);
           return transactions;
@@ -906,6 +964,78 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Error al actualizar la caja global'
+        };
+      }
+    },
+
+    /**
+     * Find the appropriate open GlobalCash register for a given transaction date
+     * Returns current week register or previous week register (if open)
+     * Uses cached data - no Firestore calls
+     */
+    findOpenGlobalCashForDate(transactionDate: Date): {
+      globalCash: GlobalCash | null;
+      isPreviousWeek: boolean;
+      error?: string;
+    } {
+      try {
+        const { $dayjs } = useNuxtApp();
+        const txDate = $dayjs(transactionDate).startOf('day');
+
+        // Check current week register
+        if (this.currentGlobalCash) {
+          const openedAt = this.currentGlobalCash.openedAt;
+          const weekStart = $dayjs(openedAt, 'DD/MM/YYYY HH:mm').startOf('day');
+          const weekEnd = weekStart.add(7, 'day').startOf('day');
+
+          // Check if transaction date falls in current week
+          if ((txDate.isSame(weekStart) || txDate.isAfter(weekStart)) && txDate.isBefore(weekEnd)) {
+            // Check if current register is open
+            if (!this.currentGlobalCash.closedAt) {
+              return { globalCash: this.currentGlobalCash, isPreviousWeek: false };
+            } else {
+              return {
+                globalCash: null,
+                isPreviousWeek: false,
+                error: 'La caja global de la semana actual está cerrada'
+              };
+            }
+          }
+        }
+
+        // Check previous week register (from cache)
+        if (this.previousGlobalCash) {
+          const prevWeekStart = $dayjs(this.previousGlobalCash.openedAt, 'DD/MM/YYYY HH:mm').startOf('day');
+          const prevWeekEnd = prevWeekStart.add(7, 'day').startOf('day');
+
+          // Check if transaction date falls in previous week
+          if ((txDate.isSame(prevWeekStart) || txDate.isAfter(prevWeekStart)) && txDate.isBefore(prevWeekEnd)) {
+            // Check if previous register is still open
+            if (!this.previousGlobalCash.closedAt) {
+              return { globalCash: this.previousGlobalCash, isPreviousWeek: true };
+            } else {
+              return {
+                globalCash: null,
+                isPreviousWeek: true,
+                error: 'La caja global de la semana anterior está cerrada'
+              };
+            }
+          }
+        }
+
+        // Transaction date is outside valid range
+        return {
+          globalCash: null,
+          isPreviousWeek: false,
+          error: 'No hay una caja global abierta para la fecha de transacción seleccionada. Las transacciones solo pueden agregarse a la semana actual o a la semana anterior si aún está abierta.'
+        };
+
+      } catch (error) {
+        console.error('Error finding open global cash for date:', error);
+        return {
+          globalCash: null,
+          isPreviousWeek: false,
+          error: error instanceof Error ? error.message : 'Error al buscar caja global para la fecha'
         };
       }
     }
