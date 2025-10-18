@@ -1041,6 +1041,21 @@ export const useCashRegisterStore = defineStore("cashRegister", {
       debts.unshift(debt); // Add to beginning for newest first
     },
 
+    updateSettlementInCache(snapshotId: string, updatedSettlement: any) {
+      // Update snapshot-specific cache
+      const settlements = this.snapshotSettlements.get(snapshotId);
+      if (settlements) {
+        const index = settlements.findIndex(s => s.id === updatedSettlement.id);
+        if (index !== -1) {
+          settlements[index] = { ...settlements[index], ...updatedSettlement };
+        }
+      }
+
+      // Delegate to settlement store to update both main cache and snapshot cache
+      const settlementStore = useSettlementStore();
+      settlementStore.updateSettlementInCache(updatedSettlement.id, updatedSettlement, snapshotId);
+    },
+
     // --- SCHEMA ACCESS METHODS ---
     _getCashRegisterSchema() {
       return new CashRegisterSchema();

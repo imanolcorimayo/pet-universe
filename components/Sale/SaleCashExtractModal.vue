@@ -92,6 +92,10 @@ const props = defineProps({
   }
 });
 
+// Stores
+const cashRegisterStore = useCashRegisterStore();
+
+
 // Refs to control modal visibility and state
 const modalRef = ref(null);
 const isLoading = ref(false);
@@ -135,7 +139,6 @@ async function validateAmount() {
 
   // Validate against available cash in daily register (EFECTIVO account specifically)
   try {
-    const cashRegisterStore = useCashRegisterStore();
 
     // Get EFECTIVO account balance specifically
     const availableBalance = cashRegisterStore.cashAccountBalance;
@@ -166,7 +169,7 @@ async function submitForm() {
     const globalCashRegisterStore = useGlobalCashRegisterStore();
 
     // Initialize Business Rules Engine
-    const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore);
+    const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore, cashRegisterStore);
 
     // Prepare cash extraction data
     const cashExtractionData = {

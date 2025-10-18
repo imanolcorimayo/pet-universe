@@ -568,7 +568,7 @@ const handleSubmit = async () => {
 };
 
 const handleCreate = async () => {
-  const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashStore);
+  const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashStore, useCashRegisterStore());
 
   // Parse transaction date
   const transactionDate = form.transactionDate

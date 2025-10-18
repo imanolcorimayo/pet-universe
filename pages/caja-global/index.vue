@@ -187,7 +187,7 @@
                 <div class="text-sm font-medium text-gray-900">
                   {{ transaction.transactionDate || transaction.createdAt }}
                 </div>
-                <div v-if="transaction.transactionDate && transaction.transactionDate !== transaction.createdAt" class="text-xs text-gray-500">
+                <div v-if="transaction.transactionDate" class="text-xs text-gray-500">
                   Registrado: {{ transaction.createdAt }}
                 </div>
               </td>

@@ -271,6 +271,37 @@ export const useSettlementStore = defineStore("settlement", {
       }
     },
 
+    /**
+     * Update settlement in cache without Firebase call
+     * Used when settlement was already updated in Firebase by another process
+     */
+    updateSettlementInCache(settlementId: string, updatedData: any, snapshotId?: string) {
+      // Update main cache
+      const mainIndex = this.settlements.findIndex(settlement => settlement.id === settlementId);
+      if (mainIndex !== -1) {
+        this.settlements[mainIndex] = { ...this.settlements[mainIndex], ...updatedData };
+      }
+
+      // Update specific snapshot cache if provided
+      if (snapshotId) {
+        const settlements = this.snapshotSettlements.get(snapshotId);
+        if (settlements) {
+          const snapshotIndex = settlements.findIndex(settlement => settlement.id === settlementId);
+          if (snapshotIndex !== -1) {
+            settlements[snapshotIndex] = { ...settlements[snapshotIndex], ...updatedData };
+          }
+        }
+      } else {
+        // Update all snapshot caches if no specific snapshotId provided
+        for (const [snapId, settlements] of this.snapshotSettlements.entries()) {
+          const snapshotIndex = settlements.findIndex(settlement => settlement.id === settlementId);
+          if (snapshotIndex !== -1) {
+            settlements[snapshotIndex] = { ...settlements[snapshotIndex], ...updatedData };
+          }
+        }
+      }
+    },
+
     async settleSettlement(settlementId: string, paidDate?: Date) {
       try {
         const updateData: Partial<Settlement> = {

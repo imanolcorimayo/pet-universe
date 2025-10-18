@@ -186,7 +186,6 @@ const modal = ref();
 const settlementStore = useSettlementStore();
 const paymentMethodsStore = usePaymentMethodsStore();
 const globalCashRegisterStore = useGlobalCashRegisterStore();
-const indexStore = useIndexStore();
 
 // State
 const selectedSettlements = ref<Map<string, number>>(new Map());
@@ -326,6 +325,11 @@ const processPayment = async () => {
       });
     }
 
+    // Add message to notes
+    const notesWithContext = notes.value
+      ? `${notes.value} - Pago procesado en página de liquidaciones`
+      : `Pago procesado en página de liquidaciones`;
+
     // Build payment data
     const paymentData: SettlementPaymentData = {
       totalAmountReceived: totalAmountReceived.value,
@@ -334,13 +338,13 @@ const processPayment = async () => {
       paymentProviderName: props.group.providerName,
       accountTypeId: props.group.accountId,
       accountTypeName: props.group.accountName,
-      notes: notes.value.trim() || undefined,
+      notes: notesWithContext,
       categoryCode: 'settlement_payment',
       categoryName: 'Liquidación de Pagos'
     };
 
     // Process payment using BusinessRulesEngine
-    const engine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore);
+    const engine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore, useCashRegisterStore());
     const result = await engine.processSettlementPayment(paymentData);
 
     if (!result.success) {

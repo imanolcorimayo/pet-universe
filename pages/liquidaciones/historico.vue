@@ -282,7 +282,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { useSettlementStore } from '~/stores/settlement';
 import { usePaymentMethodsStore } from '~/stores/paymentMethods';
@@ -302,7 +302,7 @@ const paymentMethodsStore = usePaymentMethodsStore();
 const isLoading = ref(true);
 
 // Filters
-const selectedStatus = ref<'all' | 'pending' | 'settled' | 'cancelled'>('all');
+const selectedStatus = ref('all');
 const searchQuery = ref('');
 
 const statusOptions = [
@@ -398,6 +398,7 @@ const commissionStats = computed(() => {
         methods: new Map(),
         totalFee: 0,
         totalAmount: 0,
+        totalPercentage: 0,
         count: 0
       });
     }
@@ -430,6 +431,7 @@ const commissionStats = computed(() => {
 
     provider.totalFee += fee;
     provider.totalAmount += amount;
+    provider.totalPercentage += percentage;
     provider.count += 1;
   }
 
@@ -437,9 +439,9 @@ const commissionStats = computed(() => {
   return Array.from(providerMap.values()).map(provider => ({
     providerId: provider.providerId,
     providerName: provider.providerName,
-    avgPercentage: provider.totalAmount > 0
-      ? (provider.totalFee / provider.totalAmount) * 100
-      : 0,
+    avgPercentage: provider.count > 0
+        ? provider.totalPercentage / provider.count
+        : 0,
     totalFee: provider.totalFee,
     count: provider.count,
     methods: Array.from(provider.methods.values()).map(method => ({
@@ -463,42 +465,42 @@ const paginatedSettlements = computed(() => {
 });
 
 // Methods
-const formatNumber = (value: number | undefined | null) => {
+const formatNumber = (value) => {
   if (value === undefined || value === null || isNaN(value)) {
     return '0.00';
   }
   return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 };
 
-const getProviderName = (providerId: string) => {
+const getProviderName = (providerId) => {
   const provider = paymentMethodsStore.paymentProviders.find(p => p.id === providerId);
   return provider?.name || 'N/A';
 };
 
-const getOriginLabel = (settlement: any) => {
+const getOriginLabel = (settlement) => {
   if (settlement.saleId) return 'Venta';
   if (settlement.debtId) return 'Deuda';
   return 'Desconocido';
 };
 
-const getOriginId = (settlement: any) => {
+const getOriginId = (settlement) => {
   return settlement.saleId || settlement.debtId || 'N/A';
 };
 
-const getOriginBadgeClass = (settlement: any) => {
+const getOriginBadgeClass = (settlement) => {
   const baseClass = 'px-2 py-1 rounded-full text-xs font-medium';
   if (settlement.saleId) return `${baseClass} bg-blue-100 text-blue-800`;
   if (settlement.debtId) return `${baseClass} bg-purple-100 text-purple-800`;
   return `${baseClass} bg-gray-100 text-gray-800`;
 };
 
-const getSettlementAmount = (settlement: any) => {
+const getSettlementAmount = (settlement) => {
   const fee = settlement.amountFee || 0;
   return settlement.amountTotal - fee;
 };
 
-const getStatusLabel = (status: string) => {
-  const labels: Record<string, string> = {
+const getStatusLabel = (status) => {
+  const labels = {
     pending: 'Pendiente',
     settled: 'Liquidada',
     cancelled: 'Cancelada'
@@ -506,9 +508,9 @@ const getStatusLabel = (status: string) => {
   return labels[status] || status;
 };
 
-const getStatusBadgeClass = (status: string) => {
+const getStatusBadgeClass = (status) => {
   const baseClass = 'px-2 py-1 rounded-full text-xs font-medium';
-  const statusClasses: Record<string, string> = {
+  const statusClasses = {
     pending: 'bg-yellow-100 text-yellow-800',
     settled: 'bg-green-100 text-green-800',
     cancelled: 'bg-red-100 text-red-800'

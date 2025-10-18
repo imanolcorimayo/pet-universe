@@ -231,6 +231,8 @@ function handleFocus() {
     justSelected.value = false;
     return;
   }
+  // Clear search query to show all options
+  searchQuery.value = '';
   showDropdown();
 }
 

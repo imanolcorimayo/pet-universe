@@ -166,6 +166,10 @@ export interface CashExtractionData {
  *
  * This engine ensures data consistency and enforces business rules across
  * all financial schemas in the Pet Universe system.
+ *
+ * IMPORTANT: Only use stores passed via constructor. Do not import/use additional
+ * stores directly in this class. Store updates should be delegated to the stores
+ * passed in the constructor.
  */
 export class BusinessRulesEngine {
   private walletSchema: WalletSchema;
@@ -177,10 +181,12 @@ export class BusinessRulesEngine {
   private purchaseInvoiceSchema: PurchaseInvoiceSchema;
   private paymentMethodsStore: ReturnType<typeof usePaymentMethodsStore>;
   private globalCashRegisterStore: ReturnType<typeof useGlobalCashRegisterStore>;
+  private cashRegisterStore: ReturnType<typeof useCashRegisterStore>;
 
   constructor(
     paymentMethodsStore: ReturnType<typeof usePaymentMethodsStore>,
-    globalCashRegisterStore: ReturnType<typeof useGlobalCashRegisterStore>
+    globalCashRegisterStore: ReturnType<typeof useGlobalCashRegisterStore>,
+    cashRegisterStore: ReturnType<typeof useCashRegisterStore>
   ) {
     this.walletSchema = new WalletSchema();
     this.saleSchema = new SaleSchema();
@@ -191,6 +197,7 @@ export class BusinessRulesEngine {
     this.purchaseInvoiceSchema = new PurchaseInvoiceSchema();
     this.paymentMethodsStore = paymentMethodsStore;
     this.globalCashRegisterStore = globalCashRegisterStore;
+    this.cashRegisterStore = cashRegisterStore;
   }
 
   /**
@@ -474,37 +481,35 @@ export class BusinessRulesEngine {
       }
 
       // 10. Update store caches with newly created records
-      const cashRegisterStore = useCashRegisterStore();
-
       // Add sale to cache
       if (saleResult.data) {
-        cashRegisterStore.addSaleToCache(data.dailyCashSnapshotId, saleResult.data);
+        this.cashRegisterStore.addSaleToCache(data.dailyCashSnapshotId, saleResult.data);
       }
 
       // Add wallet transactions to cache
       walletResults.forEach(wallet => {
         if (wallet) {
-          cashRegisterStore.addWalletToCache(data.dailyCashSnapshotId, wallet);
+          this.cashRegisterStore.addWalletToCache(data.dailyCashSnapshotId, wallet);
         }
       });
 
       // Add daily cash transactions to cache
       dailyCashTxResults.forEach(transaction => {
         if (transaction) {
-          cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, transaction);
+          this.cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, transaction);
         }
       });
 
       // Add settlement transactions to cache
       settlementResults.forEach(settlement => {
         if (settlement) {
-          cashRegisterStore.addSettlementToCache(data.dailyCashSnapshotId, settlement);
+          this.cashRegisterStore.addSettlementToCache(data.dailyCashSnapshotId, settlement);
         }
       });
 
       // Add debt to cache if created
       if (debtData) {
-        cashRegisterStore.addDebtToCache(data.dailyCashSnapshotId, debtData);
+        this.cashRegisterStore.addDebtToCache(data.dailyCashSnapshotId, debtData);
       }
 
       return {
@@ -721,26 +726,24 @@ export class BusinessRulesEngine {
 
       // 11. Update store caches with newly created records (if daily cash snapshot provided)
       if (data.dailyCashSnapshotId) {
-        const cashRegisterStore = useCashRegisterStore();
-
         // Add wallet transactions to cache
         walletResults.forEach(wallet => {
           if (wallet) {
-            cashRegisterStore.addWalletToCache(data.dailyCashSnapshotId!, wallet);
+            this.cashRegisterStore.addWalletToCache(data.dailyCashSnapshotId!, wallet);
           }
         });
 
         // Add daily cash transactions to cache
         dailyCashTxResults.forEach(transaction => {
           if (transaction) {
-            cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId!, transaction);
+            this.cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId!, transaction);
           }
         });
 
         // Add settlement transactions to cache
         settlementResults.forEach(settlement => {
           if (settlement) {
-            cashRegisterStore.addSettlementToCache(data.dailyCashSnapshotId!, settlement);
+            this.cashRegisterStore.addSettlementToCache(data.dailyCashSnapshotId!, settlement);
           }
         });
       }
@@ -784,7 +787,7 @@ export class BusinessRulesEngine {
    */
   async processGenericExpense(data: GenericExpenseData & { globalCashId?: string }): Promise<BusinessRuleResult> {
     const warnings: string[] = [];
-    const globalCashRegister = useGlobalCashRegisterStore();
+    const globalCashRegister = this.globalCashRegisterStore;
 
     try {
       // 1. Use provided globalCashId or get the current global cash register ID
@@ -847,7 +850,7 @@ export class BusinessRulesEngine {
 
   async processGenericIncome(data: GenericIncomeData & { globalCashId?: string }): Promise<BusinessRuleResult> {
     const warnings: string[] = [];
-    const globalCashRegister = useGlobalCashRegisterStore();
+    const globalCashRegister = this.globalCashRegisterStore;
 
     try {
       // 1. Use provided globalCashId or get the current global cash register ID
@@ -1209,26 +1212,24 @@ export class BusinessRulesEngine {
       }
 
       // 12. Update store caches with newly created records
-      const cashRegisterStore = useCashRegisterStore();
-
       // Add wallet transactions to cache
       walletResults.forEach(wallet => {
         if (wallet) {
-          cashRegisterStore.addWalletToCache(data.dailyCashSnapshotId, wallet);
+          this.cashRegisterStore.addWalletToCache(data.dailyCashSnapshotId, wallet);
         }
       });
 
       // Add daily cash transactions to cache
       dailyCashTxResults.forEach(transaction => {
         if (transaction) {
-          cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, transaction);
+          this.cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, transaction);
         }
       });
 
       // Add settlement transactions to cache
       settlementResults.forEach(settlement => {
         if (settlement) {
-          cashRegisterStore.addSettlementToCache(data.dailyCashSnapshotId, settlement);
+          this.cashRegisterStore.addSettlementToCache(data.dailyCashSnapshotId, settlement);
         }
       });
 
@@ -1352,9 +1353,8 @@ export class BusinessRulesEngine {
       }
 
       // 8. Update global cash store cache
-      const globalCashRegisterStore = useGlobalCashRegisterStore();
       if (walletResult.data) {
-        globalCashRegisterStore.addWalletTransactionToCache(walletResult.data as WalletTransaction);
+        this.globalCashRegisterStore.addWalletTransactionToCache(walletResult.data as WalletTransaction);
       }
 
       return {
@@ -1520,11 +1520,9 @@ export class BusinessRulesEngine {
       }
 
       // 6. Update store caches with newly created records
-      const cashRegisterStore = useCashRegisterStore();
-
       // Add daily cash transaction to cache
       if (dailyCashTxResult.data) {
-        cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, dailyCashTxResult.data as DailyCashTransaction);
+        this.cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, dailyCashTxResult.data as DailyCashTransaction);
       }
 
       return {
@@ -1619,8 +1617,6 @@ export class BusinessRulesEngine {
         notes: data.notes || null,
         categoryCode: data.categoryCode || null,
         categoryName: data.categoryName || null,
-        createdAt: new Date(),
-        updatedAt: new Date()
       });
       if (!walletResult.success) {
         return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
@@ -1633,6 +1629,7 @@ export class BusinessRulesEngine {
 
       // 6. Update each settlement record
       const updatedSettlements = [];
+
       for (const { settlement, amountSettled } of settlementsToProcess) {
         const amountFee = settlement.amountTotal - amountSettled;
         const percentageFee = settlement.amountTotal > 0 ? (amountFee / settlement.amountTotal) * 100 : 0;
@@ -1645,13 +1642,17 @@ export class BusinessRulesEngine {
           walletId: walletTransactionId,
         };
 
-        console.log(`Updating settlement ${settlement.id}:`, settlementUpdate);
-
         const updateResult = await this.settlementSchema.update(settlement.id, settlementUpdate);
         if (!updateResult.success) {
           console.error(`Settlement update failed for ${settlement.id}:`, updateResult.error);
           warnings.push(`Failed to update settlement ${settlement.id}: ${updateResult.error}`);
         } else {
+          // Build updated settlement object
+          const updatedSettlement = {
+            ...settlement,
+            ...settlementUpdate
+          };
+
           updatedSettlements.push({
             settlementId: settlement.id,
             amountTotal: settlement.amountTotal,
@@ -1659,6 +1660,11 @@ export class BusinessRulesEngine {
             amountFee,
             percentageFee
           });
+
+          // Update cash register store cache (which will delegate to settlement store)
+          if (settlement.dailyCashSnapshotId) {
+            this.cashRegisterStore.updateSettlementInCache(settlement.dailyCashSnapshotId, updatedSettlement);
+          }
         }
       }
 
@@ -1984,11 +1990,9 @@ export class BusinessRulesEngine {
       }
 
       // 6. Update store caches with newly created records
-      const cashRegisterStore = useCashRegisterStore();
-
       // Add daily cash transaction to cache
       if (dailyCashTxResult.data) {
-        cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, dailyCashTxResult.data as DailyCashTransaction);
+        this.cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, dailyCashTxResult.data as DailyCashTransaction);
       }
 
       return {
@@ -2039,7 +2043,7 @@ export class BusinessRulesEngine {
 
       // For inject operations, validate sufficient cash balance in global register
       if (operation === 'inject') {
-        const globalCashStore = useGlobalCashRegisterStore();
+        const globalCashStore = this.globalCashRegisterStore;
 
         if (!globalCashStore.hasOpenGlobalCash) {
           return {
@@ -2062,10 +2066,8 @@ export class BusinessRulesEngine {
 
       // For extract operations, validate sufficient cash balance in daily register
       if (operation === 'extract' && dailyCashSnapshotId) {
-        const cashRegisterStore = useCashRegisterStore();
-
         // Get EFECTIVO account balance specifically from daily cash register
-        const dailyCashBalance = cashRegisterStore.cashAccountBalance;
+        const dailyCashBalance = this.cashRegisterStore.cashAccountBalance;
 
         if (dailyCashBalance < amount) {
           return {
@@ -2081,9 +2083,9 @@ export class BusinessRulesEngine {
           cashAccountId: cashAccount.id,
           cashAccountName: cashAccount.name,
           currentBalance: operation === 'inject'
-            ? (useGlobalCashRegisterStore().currentBalances[cashAccount.id || '']?.currentAmount || 0)
+            ? (this.globalCashRegisterStore.currentBalances[cashAccount.id || '']?.currentAmount || 0)
             : operation === 'extract' && dailyCashSnapshotId
-              ? useCashRegisterStore().cashAccountBalance
+              ? this.cashRegisterStore.cashAccountBalance
               : 0
         }
       };

@@ -186,7 +186,7 @@ async function submitForm() {
     const globalCashRegisterStore = useGlobalCashRegisterStore();
 
     // Initialize Business Rules Engine
-    const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore);
+    const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore, useCashRegisterStore());
 
     // Prepare cash injection data
     const cashInjectionData = {
