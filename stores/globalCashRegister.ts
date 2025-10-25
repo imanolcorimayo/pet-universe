@@ -608,6 +608,9 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       movementAmount: number;
       currentAmount: number;
     }> {
+      // Helper function to round to 2 decimals
+      const roundTo2Decimals = (num: number): number => Math.round(num * 100) / 100;
+
       const balances: Record<string, {
         ownersAccountId: string;
         ownersAccountName: string;
@@ -621,9 +624,9 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         balances[opening.ownersAccountId] = {
           ownersAccountId: opening.ownersAccountId,
           ownersAccountName: opening.ownersAccountName,
-          openingAmount: opening.amount,
+          openingAmount: roundTo2Decimals(opening.amount),
           movementAmount: 0,
-          currentAmount: opening.amount
+          currentAmount: roundTo2Decimals(opening.amount)
         };
       });
 
@@ -645,11 +648,11 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
 
         const amount = transaction.amount;
         if (transaction.type === 'Income') {
-          balances[accountId].movementAmount += amount;
-          balances[accountId].currentAmount += amount;
+          balances[accountId].movementAmount = roundTo2Decimals(balances[accountId].movementAmount + amount);
+          balances[accountId].currentAmount = roundTo2Decimals(balances[accountId].currentAmount + amount);
         } else if (transaction.type === 'Outcome') {
-          balances[accountId].movementAmount -= amount;
-          balances[accountId].currentAmount -= amount;
+          balances[accountId].movementAmount = roundTo2Decimals(balances[accountId].movementAmount - amount);
+          balances[accountId].currentAmount = roundTo2Decimals(balances[accountId].currentAmount - amount);
         }
       });
 
@@ -964,6 +967,117 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Error al actualizar la caja global'
+        };
+      }
+    },
+
+    /**
+     * Check if there's a closed register for the current week
+     */
+    async checkClosedRegisterForCurrentWeek(): Promise<{
+      exists: boolean;
+      register?: GlobalCash;
+      error?: string;
+    }> {
+      try {
+        const currentWeekStart = this.getCurrentWeekStartDate();
+        const { $dayjs } = useNuxtApp();
+        const schema = new GlobalCashSchema();
+
+        const result = await schema.find({
+          where: [
+            { field: 'openedAt', operator: '>=', value: $dayjs(currentWeekStart).startOf('day').toDate() },
+            { field: 'openedAt', operator: '<', value: $dayjs(currentWeekStart).add(7, 'day').startOf('day').toDate() }
+          ],
+          limit: 1
+        });
+
+        if (result.success && result.data && result.data.length > 0) {
+          const register = result.data[0] as GlobalCash;
+          // Only return if register is actually closed
+          if (register.closedAt) {
+            return { exists: true, register };
+          }
+        }
+
+        return { exists: false };
+      } catch (error) {
+        console.error('Error checking closed register:', error);
+        return {
+          exists: false,
+          error: error instanceof Error ? error.message : 'Error al verificar caja cerrada'
+        };
+      }
+    },
+
+    /**
+     * Reopen a closed register by removing closure data
+     */
+    async reopenGlobalCash(registerId: string): Promise<{ success: boolean; error?: string }> {
+      try {
+        const schema = new GlobalCashSchema();
+
+        // Remove closure data
+        const result = await schema.update(registerId, {
+          closedAt: null,
+          closedBy: null,
+          closedByName: null,
+          closingBalances: null,
+          differences: null
+        });
+
+        if (result.success) {
+          // Reload current global cash to reflect changes
+          await this.loadCurrentGlobalCash();
+          return { success: true };
+        } else {
+          return { success: false, error: result.error };
+        }
+      } catch (error) {
+        console.error('Error reopening global cash:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Error al reabrir la caja global'
+        };
+      }
+    },
+
+    /**
+     * Open a new global cash register for the current week
+     */
+    async openGlobalCash(openingBalances: Array<{
+      ownersAccountId: string;
+      ownersAccountName: string;
+      amount: number;
+    }>): Promise<{ success: boolean; error?: string }> {
+      try {
+        const user = useCurrentUser();
+        if (!user.value?.uid) {
+          return { success: false, error: 'Usuario no autenticado' };
+        }
+
+        const currentWeekStart = this.getCurrentWeekStartDate();
+        const schema = new GlobalCashSchema();
+
+        const result = await schema.create({
+          openingBalances,
+          openedAt: currentWeekStart,
+          openedBy: user.value.uid,
+          openedByName: user.value.displayName || user.value.email || 'Usuario'
+        });
+
+        if (result.success) {
+          // Reload current global cash
+          await this.loadCurrentGlobalCash();
+          return { success: true };
+        } else {
+          return { success: false, error: result.error };
+        }
+      } catch (error) {
+        console.error('Error opening global cash:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Error al abrir la caja global'
         };
       }
     },

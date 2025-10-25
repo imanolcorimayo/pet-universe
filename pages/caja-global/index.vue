@@ -20,7 +20,7 @@
         <!-- Open Global Cash Button -->
         <button
           v-if="!globalCashStore.hasOpenGlobalCash && !isLoading"
-          @click="showOpenCashModal = true"
+          @click="openGlobalCashModal"
           class="btn bg-green-600 text-white hover:bg-green-700 flex items-center gap-1"
         >
           <LucidePlus class="h-4 w-4" />
@@ -305,8 +305,8 @@
         Abre una nueva caja global semanal para comenzar a registrar transacciones del negocio
       </p>
       <button
-        @click="showOpenCashModal = true"
-        class="btn bg-primary text-white hover:bg-primary/90 flex items-center gap-1"
+        @click="openGlobalCashModal"
+        class="btn bg-primary text-white hover:bg-primary/90 inline-flex items-center gap-1 mx-auto"
       >
         <LucidePlus class="h-4 w-4" />
         Abrir Caja Semanal
@@ -322,7 +322,7 @@
       <p class="text-gray-600 mb-4">No se han registrado transacciones en esta caja semanal todavía</p>
       <button
         @click="openTransactionModal"
-        class="btn bg-primary text-white hover:bg-primary/90 flex items-center gap-1"
+        class="btn bg-primary text-white hover:bg-primary/90 inline-flex items-center gap-1 mx-auto"
       >
         <LucidePlus class="h-4 w-4" />
         Registrar Transacción
@@ -330,27 +330,17 @@
     </div>
     
     <!-- Transaction Modal -->
-    <GlobalCashTransactionModal 
-      ref="transactionModal" 
+    <GlobalCashTransactionModal
+      ref="transactionModal"
       :transaction-to-edit="transactionToEdit"
     />
 
-    <!-- Open Cash Modal (placeholder for now) -->
-    <ModalStructure 
-      v-if="showOpenCashModal"
-      title="Abrir Caja Global Semanal"
-      @on-close="showOpenCashModal = false"
-    >
-      <p class="text-gray-600 mb-4">Funcionalidad de apertura de caja en desarrollo...</p>
-      <template #footer>
-        <button 
-          @click="showOpenCashModal = false"
-          class="btn bg-gray-200 text-gray-700 hover:bg-gray-300"
-        >
-          Cerrar
-        </button>
-      </template>
-    </ModalStructure>
+    <!-- Open Cash Modal -->
+    <GlobalCashOpenModal
+      ref="openCashModal"
+      @close="showOpenCashModal = false"
+      @success="handleOpenSuccess"
+    />
 
   </div>
 </template>
@@ -366,6 +356,7 @@ import LucideHistory from '~icons/lucide/history';
 // Refs
 const transactionModal = ref(null);
 const transactionToEdit = ref(null);
+const openCashModal = ref(null);
 const showOpenCashModal = ref(false);
 
 
@@ -417,6 +408,16 @@ const editTransaction = (transaction) => {
 
   transactionToEdit.value = { ...transaction };
   transactionModal.value?.showModal();
+};
+
+const openGlobalCashModal = () => {
+  openCashModal.value?.showModal();
+};
+
+const handleOpenSuccess = async () => {
+  showOpenCashModal.value = false;
+  // Reload the page data
+  await initializePage();
 };
 
 

@@ -149,7 +149,7 @@ export class GlobalCashSchema extends Schema {
     // Validate that opening balances include main account types
     if (data.openingBalances && Array.isArray(data.openingBalances)) {
       const requiredAccountTypes = ['EFECTIVO']; // At minimum, must have cash
-      const presentAccountTypes = data.openingBalances.map((balance: any) => balance.ownersAccountName);
+      const presentAccountTypes = data.openingBalances.map((balance: any) => balance.ownersAccountName.toLowerCase());
       
       for (const requiredType of requiredAccountTypes) {
         if (!presentAccountTypes.includes(requiredType.toLowerCase())) {
@@ -199,11 +199,11 @@ export class GlobalCashSchema extends Schema {
       }
     }
 
-    // Validate amount is numeric and non-negative
-    if (balance.amount !== undefined && (typeof balance.amount !== 'number' || balance.amount < 0)) {
+    // Validate amount is numeric
+    if (balance.amount !== undefined && typeof balance.amount !== 'number') {
       errors.push({
         field: `${arrayName}[${index}].amount`,
-        message: `${prefix} Amount must be a non-negative number`
+        message: `${prefix} Amount must be a number`
       });
     }
 
@@ -370,8 +370,11 @@ export class GlobalCashSchema extends Schema {
 
       const globalCash = existingGlobalCash.data;
 
-      // Cannot update already closed global cash
-      if (globalCash.closedAt) {
+      // Check if this is a reopen operation (closedAt explicitly set to null)
+      const isReopenOperation = data.closedAt === null && globalCash.closedAt;
+
+      // Cannot update already closed global cash (unless reopening)
+      if (globalCash.closedAt && !isReopenOperation) {
         errors.push({
           field: 'closedAt',
           message: 'Cannot update already closed global cash'
@@ -381,7 +384,7 @@ export class GlobalCashSchema extends Schema {
       // Cannot change fundamental global cash properties
       // Note: openingBalances can be updated for account synchronization
       const protectedFields = ['businessId', 'openedAt', 'openedBy'];
-      
+
       for (const field of protectedFields) {
         if (data[field] !== undefined && JSON.stringify(data[field]) !== JSON.stringify(globalCash[field])) {
           errors.push({

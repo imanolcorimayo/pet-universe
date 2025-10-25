@@ -317,10 +317,11 @@ const getClosingBalanceAmount = (accountId) => {
 
 const updateClosingBalance = (accountId, accountName, value) => {
   const amount = parseFloat(value) || 0;
+  const roundedAmount = Math.round(amount * 100) / 100; // Round to 2 decimals
   closingBalances.value[accountId] = {
     ownersAccountId: accountId,
     ownersAccountName: accountName,
-    amount: amount
+    amount: roundedAmount
   };
 };
 
@@ -387,7 +388,7 @@ const processHistoricalClose = async () => {
   const differences = [];
   props.registerToClose.openingBalances.forEach(balance => {
     const closingAmount = closingBalances.value[balance.ownersAccountId]?.amount || 0;
-    const difference = closingAmount - balance.amount;
+    const difference = Math.round((closingAmount - balance.amount) * 100) / 100; // Round to 2 decimals
     if (Math.abs(difference) >= 0.01) {
       differences.push({
         ownersAccountId: balance.ownersAccountId,
