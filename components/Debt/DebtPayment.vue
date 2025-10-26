@@ -3,6 +3,7 @@
     ref="modalRef"
     title="Registrar Pago de Deuda"
     modalClass="!max-w-2xl"
+    :click-propagation-filter="['payment-method-search-input']"
     @on-close="resetForm"
   >
     <div class="space-y-4">

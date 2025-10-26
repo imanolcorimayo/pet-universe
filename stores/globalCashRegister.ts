@@ -182,6 +182,9 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
           // We make sure this was done
           await this.ensureProperOpeningBalances();
 
+          // Also sync any new accounts added during the week
+          await this.syncActiveAccountsToOpeningBalances();
+
           await this.loadWalletTransactionsForCurrentPeriod();
         } else {
           this.currentGlobalCash = null;
@@ -722,6 +725,53 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       }
 
       return false;
+    },
+
+    /**
+     * Sync active accounts to opening balances
+     * Adds any new accounts created during the week with initial amount of 0
+     */
+    async syncActiveAccountsToOpeningBalances() {
+      if (!this.currentGlobalCash) return;
+
+      try {
+        const paymentMethodsStore = usePaymentMethodsStore();
+        await paymentMethodsStore.loadAllData();
+        const activeAccounts = paymentMethodsStore.activeOwnersAccounts;
+
+        if (!activeAccounts || activeAccounts.length === 0) return;
+
+        const currentBalances = this.currentGlobalCash.openingBalances || [];
+        const currentAccountIds = new Set(currentBalances.map(b => b.ownersAccountId));
+
+        // Find accounts that are active but not in opening balances
+        const missingAccounts = activeAccounts.filter(account =>
+          account.id && !currentAccountIds.has(account.id)
+        );
+
+        if (missingAccounts.length > 0) {
+          // Add missing accounts with initial amount of 0
+          const updatedBalances = [
+            ...currentBalances,
+            ...missingAccounts.map(account => ({
+              ownersAccountId: account.id || '',
+              ownersAccountName: account.name || '',
+              amount: 0
+            }))
+          ];
+
+          // Update the register
+          const updateResult = await this.updateCurrentGlobalCash({
+            openingBalances: updatedBalances
+          });
+
+          if (updateResult.success) {
+            console.log(`Added ${missingAccounts.length} new account(s) to opening balances`);
+          }
+        }
+      } catch (error) {
+        console.error('Error syncing active accounts to opening balances:', error);
+      }
     },
 
     /**

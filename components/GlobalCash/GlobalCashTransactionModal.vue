@@ -3,6 +3,7 @@
     ref="modal"
     :title="modalTitle"
     modal-class="max-w-2xl"
+    :click-propagation-filter="['payment-method-search-input']"
     @on-close="handleClose"
   >
     <form @submit.prevent="handleSubmit" class="space-y-6">
