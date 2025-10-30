@@ -182,14 +182,14 @@ export class WalletSchema extends Schema {
    * Only allow status changes (paid → cancelled) and minimal metadata updates
    */
   override async update(id: string, data: any) {
-    const allowedUpdates = ['status', 'updatedAt', 'updatedBy', 'notes', 'categoryCode', 'categoryName'];
+    const allowedUpdates = ['status', 'updatedAt', 'updatedBy', 'notes', 'categoryCode', 'categoryName', 'isRegistered'];
     const updates = Object.keys(data);
     const invalidUpdates = updates.filter(key => !allowedUpdates.includes(key));
 
     if (invalidUpdates.length > 0) {
       return {
         success: false,
-        error: `Invalid wallet update. Only these fields can be updated: ${allowedUpdates.join(', ')}. To modify other fields like amount or payment details, you must cancel this transaction and create a new one.`
+        error: `Actualización de transacción inválida. Solo estos campos pueden ser actualizados: ${allowedUpdates.join(', ')}. Para modificar otros campos como monto o detalles de pago, debe cancelar esta transacción y crear una nueva.`
       };
     }
 

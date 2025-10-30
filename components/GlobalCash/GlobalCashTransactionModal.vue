@@ -25,7 +25,7 @@
       </div>
 
       <!-- Edit Mode Information Banner -->
-      <div 
+      <div
         v-if="editMode && props.transactionToEdit?.status !== 'cancelled'"
         class="bg-blue-50 border border-blue-200 rounded-md p-4"
       >
@@ -34,7 +34,7 @@
           <div>
             <h3 class="text-sm font-medium text-blue-800">Modo de Edición Limitada</h3>
             <p class="text-sm text-blue-600 mt-1">
-              Solo se pueden modificar las notas y la categoría. Para cambiar montos, métodos de pago o proveedores, 
+              Solo se pueden modificar las notas, la categoría y el reporte fiscal. Para cambiar montos, métodos de pago o proveedores,
               cancele esta transacción y cree una nueva.
             </p>
           </div>
@@ -346,6 +346,13 @@ const { $dayjs } = useNuxtApp();
 const isSubmitting = ref(false);
 const editMode = computed(() => !!props.transactionToEdit?.id);
 
+// Original values snapshot for edit mode comparison
+const originalValues = ref({
+  notes: '',
+  category: '',
+  isReported: true
+});
+
 // Form data
 const form = reactive({
   type: 'Outcome', // Default to Outcome (expense)
@@ -401,24 +408,37 @@ const isTransactionCancelled = computed(() => {
   return editMode.value && props.transactionToEdit?.status === 'cancelled';
 });
 
+const hasEditableFieldsChanged = computed(() => {
+  if (!editMode.value) {
+    return false;
+  }
+
+  // Check if any editable field has changed from the original snapshot
+  const notesChanged = (form.notes || '') !== (originalValues.value.notes || '');
+  const categoryChanged = form.category !== originalValues.value.category;
+  const isReportedChanged = form.isReported !== originalValues.value.isReported;
+
+  return notesChanged || categoryChanged || isReportedChanged;
+});
+
 const isFormValid = computed(() => {
   // Cancelled transactions cannot be edited
   if (isTransactionCancelled.value) {
     return false;
   }
-  
-  // In edit mode, only notes and category can be changed
+
+  // In edit mode, check if category is filled and at least one field has changed
   if (editMode.value) {
-    return !!form.category; // Category is required
+    return !!form.category && hasEditableFieldsChanged.value;
   }
-  
+
   // For new transactions, validate all required fields
-  const isValid = form.type && 
-         form.amount > 0 && 
+  const isValid = form.type &&
+         form.amount > 0 &&
          form.category &&
-         ((form.type === 'Income' && form.paymentMethodId) || 
+         ((form.type === 'Income' && form.paymentMethodId) ||
           (form.type === 'Outcome' && form.ownersAccountId));
-  
+
   return isValid;
 });
 
@@ -649,23 +669,24 @@ const handleCreate = async () => {
 
 const handleUpdate = async () => {
   // Get category name from the selected category
-  const categoryName = form.type === 'Income' 
+  const categoryName = form.type === 'Income'
     ? indexStore.getActiveIncomeCategories[form.category]?.name || null
     : indexStore.getActiveExpenseCategories[form.category]?.name || null;
-  
-  // Only allow updating notes, category code/name (according to WalletSchema restrictions)
+
+  // Only allow updating notes, category code/name, and fiscal reporting (according to WalletSchema restrictions)
   const updateData = {
     notes: form.notes.trim() || null,
     categoryCode: form.category,
-    categoryName: categoryName
+    categoryName: categoryName,
+    isRegistered: form.isReported
   };
-  
+
   const result = await globalCashStore.updateWalletTransaction(props.transactionToEdit.id, updateData);
-  
+
   if (!result.success) {
     throw new Error(result.error);
   }
-  
+
   useToast(ToastEvents.success, 'Transacción actualizada exitosamente');
 };
 
@@ -729,6 +750,8 @@ watch(() => form.type, (newType) => {
 watch(() => props.transactionToEdit, (transaction) => {
   if (transaction) {
     // Populate form with transaction data for editing
+    const isReportedValue = transaction.isRegistered !== false;
+
     Object.assign(form, {
       type: transaction.type,
       amount: transaction.amount,
@@ -739,11 +762,18 @@ watch(() => props.transactionToEdit, (transaction) => {
       supplierId: transaction.supplierId || null,
       supplierName: transaction.supplierName || null,
       notes: transaction.notes || '',
-      isReported: transaction.isRegistered !== false,
+      isReported: isReportedValue,
       transactionDate: transaction.transactionDate
         ? $dayjs(transaction.transactionDate, 'DD/MM/YYYY').format('YYYY-MM-DD')
         : $dayjs().format('YYYY-MM-DD')
     });
+
+    // Save original values snapshot for change detection
+    originalValues.value = {
+      notes: transaction.notes || '',
+      category: transaction.categoryCode || '',
+      isReported: isReportedValue
+    };
   }
 }, { immediate: true });
 

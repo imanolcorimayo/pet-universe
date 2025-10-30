@@ -6,7 +6,7 @@
         <h1 class="text-2xl font-bold">Caja Global</h1>
         <p class="text-gray-600 mt-1">Gestión semanal de ingresos y egresos del negocio</p>
       </div>
-      
+
       <div class="flex gap-2">
         <!-- Historical View Button -->
         <button
@@ -38,6 +38,35 @@
         </button>
 
       </div>
+    </div>
+
+    <!-- Account Filter -->
+    <div
+      v-if="globalCashStore.hasOpenGlobalCash && !isLoading"
+      class="flex items-center gap-3"
+    >
+      <LucideFilter class="h-5 w-5 text-gray-500" />
+      <label class="text-sm font-medium text-gray-700">Filtrar por Cuenta:</label>
+      <select
+        v-model="selectedAccountId"
+        class="flex-1 max-w-xs px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 bg-white hover:border-gray-400 cursor-pointer"
+      >
+        <option :value="null">Todas las cuentas</option>
+        <option
+          v-for="account in availableAccounts"
+          :key="account.id"
+          :value="account.id"
+        >
+          {{ account.name }}
+        </option>
+      </select>
+      <button
+        v-if="selectedAccountId"
+        @click="selectedAccountId = null"
+        class="text-sm text-gray-600 hover:text-gray-800 underline"
+      >
+        Limpiar filtro
+      </button>
     </div>
 
     <!-- Warning Banner for Unclosed Previous Week -->
@@ -78,88 +107,104 @@
       <!-- Total Balance -->
       <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-600">Balance Total</div>
-        <div 
+        <div
           class="text-2xl font-bold"
-          :class="globalCashStore.netBalance >= 0 ? 'text-green-700' : 'text-red-700'"
+          :class="filteredTotals.balance >= 0 ? 'text-green-700' : 'text-red-700'"
         >
-          {{ formatCurrency(globalCashStore.netBalance) }}
+          {{ formatCurrency(filteredTotals.balance) }}
         </div>
         <div class="text-xs text-gray-500 mt-1">
-          Saldo neto de la semana
+          {{ selectedAccountId ? 'Saldo neto filtrado' : 'Saldo neto de la semana' }}
         </div>
       </div>
-      
+
       <!-- Total Income -->
       <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-600">Total Ingresos</div>
         <div class="text-2xl font-bold text-green-700">
-          {{ formatCurrency(globalCashStore.totalIncome) }}
+          {{ formatCurrency(filteredTotals.income) }}
         </div>
         <div class="text-xs text-gray-500 mt-1">
-          {{ globalCashStore.incomeTransactions.length }} transacciones
+          {{ filteredTotals.incomeCount }} transacciones
         </div>
       </div>
-      
+
       <!-- Total Expenses -->
       <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-600">Total Egresos</div>
         <div class="text-2xl font-bold text-red-700">
-          {{ formatCurrency(globalCashStore.totalOutcome) }}
+          {{ formatCurrency(filteredTotals.outcome) }}
         </div>
         <div class="text-xs text-gray-500 mt-1">
-          {{ globalCashStore.outcomeTransactions.length }} transacciones
+          {{ filteredTotals.outcomeCount }} transacciones
         </div>
       </div>
-      
+
       <!-- Transaction Count -->
       <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-600">Transacciones</div>
         <div class="text-2xl font-bold text-blue-700">
-          {{ globalCashStore.walletTransactions.length }}
+          {{ filteredTotals.transactionCount }}
         </div>
         <div class="text-xs text-gray-500 mt-1">
-          Total de movimientos
+          {{ selectedAccountId ? 'Movimientos filtrados' : 'Total de movimientos' }}
         </div>
       </div>
     </div>
     
     <!-- Balances by Account -->
-    <div v-if="globalCashStore.hasOpenGlobalCash" class="bg-white rounded-lg shadow p-4">
-      <h2 class="font-semibold text-lg mb-4">Balances por Cuenta</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div 
-          v-for="balance in Object.values(globalCashStore.currentBalances)" 
-          :key="balance.ownersAccountId" 
-          class="p-3 border rounded-md"
-        >
-          <div class="text-sm text-gray-600">{{ balance.ownersAccountName }}</div>
-          <div 
-            class="text-lg font-bold"
-            :class="balance.currentAmount >= 0 ? 'text-green-700' : 'text-red-700'"
-          >
-            {{ formatCurrency(balance.currentAmount) }}
-          </div>
-          <div class="text-xs text-gray-500 mt-1 space-y-1">
-            <div>Inicial: {{ formatCurrency(balance.openingAmount) }}</div>
-            <div 
-              :class="balance.movementAmount >= 0 ? 'text-green-600' : 'text-red-600'"
+    <div v-if="globalCashStore.hasOpenGlobalCash">
+      <h2 class="font-semibold text-lg mb-3">Balances por Cuenta</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg shadow overflow-hidden">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cuenta</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Inicial</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Movimiento</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Balance Actual</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            <tr
+              v-for="balance in filteredBalances"
+              :key="balance.ownersAccountId"
+              class="hover:bg-gray-50 transition-colors"
             >
-              Movimiento: {{ balance.movementAmount >= 0 ? '+' : '' }}{{ formatCurrency(balance.movementAmount) }}
-            </div>
-          </div>
-        </div>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="text-sm font-medium text-gray-900">{{ balance.ownersAccountName }}</span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-right">
+                <span class="text-sm text-gray-700">{{ formatCurrency(balance.openingAmount) }}</span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-right">
+                <span
+                  class="text-sm font-medium"
+                  :class="balance.movementAmount >= 0 ? 'text-green-600' : 'text-red-600'"
+                >
+                  {{ balance.movementAmount >= 0 ? '+' : '' }}{{ formatCurrency(balance.movementAmount) }}
+                </span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-right">
+                <span
+                  class="text-sm font-bold"
+                  :class="balance.currentAmount >= 0 ? 'text-green-700' : 'text-red-700'"
+                >
+                  {{ formatCurrency(balance.currentAmount) }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
     
     <!-- Transactions List -->
-    <div v-if="globalCashStore.hasOpenGlobalCash && globalCashStore.walletTransactions.length > 0" class="bg-white rounded-lg shadow overflow-hidden">
-      <div class="p-4 border-b">
-        <h2 class="font-semibold text-lg">Transacciones de la Semana</h2>
-      </div>
-      
+    <div v-if="globalCashStore.hasOpenGlobalCash && filteredTransactions.length > 0">
+      <h2 class="font-semibold text-lg mb-3">Transacciones de la Semana</h2>
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
+        <table class="min-w-full bg-white rounded-lg shadow overflow-hidden">
+          <thead class="bg-gray-50 border-b border-gray-200">
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
@@ -171,9 +216,9 @@
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr 
-              v-for="transaction in globalCashStore.walletTransactions" 
+          <tbody class="divide-y divide-gray-200">
+            <tr
+              v-for="transaction in filteredTransactions"
               :key="transaction.id" 
               :class="[
                 'transition-colors',
@@ -294,7 +339,7 @@
         </table>
       </div>
     </div>
-    
+
     <!-- Empty State -->
     <div v-else-if="!globalCashStore.hasOpenGlobalCash" class="bg-white rounded-lg shadow p-6 text-center">
       <div class="mb-4 flex justify-center">
@@ -314,18 +359,33 @@
     </div>
 
     <!-- Empty Transactions List -->
-    <div v-else-if="globalCashStore.walletTransactions.length === 0" class="bg-white rounded-lg shadow p-6 text-center">
+    <div v-else-if="filteredTransactions.length === 0 && globalCashStore.hasOpenGlobalCash" class="bg-white rounded-lg shadow p-6 text-center">
       <div class="mb-4 flex justify-center">
         <LucideFileText class="w-12 h-12 text-gray-400" />
       </div>
-      <h2 class="text-xl font-semibold mb-2">No hay transacciones</h2>
-      <p class="text-gray-600 mb-4">No se han registrado transacciones en esta caja semanal todavía</p>
+      <h2 class="text-xl font-semibold mb-2">
+        {{ selectedAccountId ? 'No hay transacciones para esta cuenta' : 'No hay transacciones' }}
+      </h2>
+      <p class="text-gray-600 mb-4">
+        {{ selectedAccountId
+          ? 'No se han registrado transacciones para la cuenta seleccionada'
+          : 'No se han registrado transacciones en esta caja semanal todavía'
+        }}
+      </p>
       <button
+        v-if="!selectedAccountId"
         @click="openTransactionModal"
         class="btn bg-primary text-white hover:bg-primary/90 inline-flex items-center gap-1 mx-auto"
       >
         <LucidePlus class="h-4 w-4" />
         Registrar Transacción
+      </button>
+      <button
+        v-else
+        @click="selectedAccountId = null"
+        class="btn bg-gray-200 text-gray-700 hover:bg-gray-300 inline-flex items-center gap-1 mx-auto"
+      >
+        Ver Todas las Transacciones
       </button>
     </div>
     
@@ -352,13 +412,14 @@ import LucideEdit from '~icons/lucide/edit';
 import LucideFileText from '~icons/lucide/file-text';
 import LucideAlertTriangle from '~icons/lucide/alert-triangle';
 import LucideHistory from '~icons/lucide/history';
+import LucideFilter from '~icons/lucide/filter';
 
 // Refs
 const transactionModal = ref(null);
 const transactionToEdit = ref(null);
 const openCashModal = ref(null);
 const showOpenCashModal = ref(false);
-
+const selectedAccountId = ref(null);
 
 // Stores
 const globalCashStore = useGlobalCashRegisterStore();
@@ -379,6 +440,53 @@ const previousWeekInfo = ref({ exists: false, shouldWarn: false });
 
 // Reactive state from store
 const { $dayjs } = useNuxtApp();
+
+// Computed properties for filtering
+const availableAccounts = computed(() => {
+  const balances = Object.values(globalCashStore.currentBalances || {});
+  return balances.map(balance => ({
+    id: balance.ownersAccountId,
+    name: balance.ownersAccountName
+  }));
+});
+
+const filteredTransactions = computed(() => {
+  if (!selectedAccountId.value) {
+    return globalCashStore.walletTransactions;
+  }
+  return globalCashStore.walletTransactions.filter(
+    tx => tx.ownersAccountId === selectedAccountId.value
+  );
+});
+
+const filteredBalances = computed(() => {
+  const balances = Object.values(globalCashStore.currentBalances || {});
+  if (!selectedAccountId.value) {
+    return balances;
+  }
+  return balances.filter(
+    balance => balance.ownersAccountId === selectedAccountId.value
+  );
+});
+
+const filteredTotals = computed(() => {
+  const income = filteredTransactions.value
+    .filter(tx => tx.type === 'Income' && tx.status !== 'cancelled')
+    .reduce((sum, tx) => sum + tx.amount, 0);
+
+  const outcome = filteredTransactions.value
+    .filter(tx => tx.type === 'Outcome' && tx.status !== 'cancelled')
+    .reduce((sum, tx) => sum + tx.amount, 0);
+
+  return {
+    income,
+    outcome,
+    balance: income - outcome,
+    transactionCount: filteredTransactions.value.length,
+    incomeCount: filteredTransactions.value.filter(tx => tx.type === 'Income' && tx.status !== 'cancelled').length,
+    outcomeCount: filteredTransactions.value.filter(tx => tx.type === 'Outcome' && tx.status !== 'cancelled').length
+  };
+});
 
 // Methods
 const formatCurrency = (amount) => {

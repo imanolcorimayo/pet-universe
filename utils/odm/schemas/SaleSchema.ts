@@ -285,19 +285,6 @@ export class SaleSchema extends Schema {
       });
     }
 
-    console.log('Validating product:', product);
-
-    // Validate price calculations
-    if (product.quantity && product.unitPrice && product.appliedDiscount !== undefined && product.totalPrice) {
-      const expectedTotal = (product.quantity * product.unitPrice) - (product.appliedDiscount || 0);
-      if (Math.abs(product.totalPrice - expectedTotal) > 0.01) {
-        errors.push({
-          field: `products[${index}].totalPrice`,
-          message: `${prefix} Price calculation error. Expected: ${expectedTotal.toFixed(2)}, Got: ${product.totalPrice.toFixed(2)}`
-        });
-      }
-    }
-
     return errors;
   }
 
