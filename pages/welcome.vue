@@ -33,6 +33,11 @@ definePageMeta({
 });
 
 const googleAuthProvider = new GoogleAuthProvider();
+// Force Google to always ask which account to use
+googleAuthProvider.setCustomParameters({
+  prompt: 'select_account'
+});
+
 
 // ---- Define Vars ----------
 const auth = useFirebaseAuth();
