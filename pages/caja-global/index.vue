@@ -160,9 +160,9 @@
           <thead class="bg-gray-50 border-b border-gray-200">
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cuenta</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Balance Actual</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Inicial</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Movimiento</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Balance Actual</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
@@ -175,6 +175,14 @@
                 <span class="text-sm font-medium text-gray-900">{{ balance.ownersAccountName }}</span>
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-right">
+                <span
+                  class="text-sm font-bold"
+                  :class="balance.currentAmount >= 0 ? 'text-green-700' : 'text-red-700'"
+                >
+                  {{ formatCurrency(balance.currentAmount) }}
+                </span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-right">
                 <span class="text-sm text-gray-700">{{ formatCurrency(balance.openingAmount) }}</span>
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-right">
@@ -183,14 +191,6 @@
                   :class="balance.movementAmount >= 0 ? 'text-green-600' : 'text-red-600'"
                 >
                   {{ balance.movementAmount >= 0 ? '+' : '' }}{{ formatCurrency(balance.movementAmount) }}
-                </span>
-              </td>
-              <td class="px-4 py-3 whitespace-nowrap text-right">
-                <span
-                  class="text-sm font-bold"
-                  :class="balance.currentAmount >= 0 ? 'text-green-700' : 'text-red-700'"
-                >
-                  {{ formatCurrency(balance.currentAmount) }}
                 </span>
               </td>
             </tr>

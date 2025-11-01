@@ -91,65 +91,144 @@
     <!-- Snapshot Content -->
     <div v-else class="space-y-6">
       <!-- Summary Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="p-4 bg-blue-50 rounded-lg">
-          <div class="text-sm text-blue-700">Balance Total</div>
-          <div class="text-2xl font-bold text-blue-700">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <!-- Balance Total with Initial -->
+        <div class="bg-white rounded-lg shadow p-4">
+          <div class="text-sm text-gray-600">Balance Total</div>
+          <div
+            class="text-2xl font-bold"
+            :class="totalCurrentBalance >= 0 ? 'text-blue-700' : 'text-red-700'"
+          >
             {{ formatCurrency(totalCurrentBalance) }}
+          </div>
+          <div class="text-xs text-gray-500 mt-1">
+            Inicial (efectivo): {{ formatCurrency(openingTotal) }}
           </div>
         </div>
 
-        <div class="p-4 bg-green-50 rounded-lg">
-          <div class="text-sm text-green-700">Total Ventas</div>
+        <!-- Sales -->
+        <div class="bg-white rounded-lg shadow p-4">
+          <div class="text-sm text-gray-600">Ventas del Día</div>
           <div class="text-2xl font-bold text-green-700">
             {{ formatCurrency(salesTotal) }}
           </div>
-          <div class="text-xs text-green-600">{{ salesCount }} ventas</div>
+          <div class="text-xs text-gray-500 mt-1">{{ salesCount }} ventas</div>
         </div>
 
-        <div class="p-4 bg-purple-50 rounded-lg">
-          <div class="text-sm text-purple-700">Balance Inicial</div>
-          <div class="text-2xl font-bold text-purple-700">
-            {{ formatCurrency(openingTotal) }}
+        <!-- Debts -->
+        <div class="bg-white rounded-lg shadow p-4">
+          <div class="text-sm text-gray-600">Deudas</div>
+          <div class="text-2xl font-bold text-gray-900">
+            {{ debts.length }}
+          </div>
+          <div class="text-xs text-gray-500 mt-1">
+            {{ formatCurrency(debtsTotal) }}
           </div>
         </div>
 
-        <div class="p-4 bg-gray-50 rounded-lg">
-          <div class="text-sm text-gray-700">Transacciones</div>
-          <div class="text-2xl font-bold text-gray-700">
-            {{ transactions.length }}
+        <!-- Settlements -->
+        <div class="bg-white rounded-lg shadow p-4">
+          <div class="text-sm text-gray-600">Liquidaciones</div>
+          <div class="text-2xl font-bold text-gray-900">
+            {{ settlementsCount.pending }}
+          </div>
+          <div class="text-xs text-gray-500 mt-1">
+            {{ formatCurrency(settlementsTotal) }} pendiente
+          </div>
+        </div>
+
+        <!-- Global Transactions -->
+        <div class="bg-white rounded-lg shadow p-4">
+          <div class="text-sm text-gray-600">Trans. Globales</div>
+          <div class="text-2xl font-bold text-gray-900">
+            {{ wallets.length }}
+          </div>
+          <div class="text-xs text-gray-500 mt-1">
+            {{ formatCurrency(walletsTotal) }}
           </div>
         </div>
       </div>
 
       <!-- Balances by Account -->
-      <div v-if="snapshotData?.status === 'open'" class="bg-white rounded-lg shadow p-4">
-        <h2 class="font-semibold text-lg mb-4">Balances por Cuenta</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div
-            v-for="balance in accountBalances"
-            :key="balance.ownersAccountId"
-            class="p-3 border rounded-md"
-          >
-            <div class="text-sm text-gray-600">{{ balance.ownersAccountName }}</div>
-            <div
-              class="text-lg font-bold"
-              :class="balance.currentAmount >= 0 ? 'text-green-700' : 'text-red-700'"
-            >
-              {{ formatCurrency(balance.currentAmount) }}
-            </div>
-            <div class="text-xs text-gray-500 mt-1 space-y-1">
-              <div>Inicial: {{ formatCurrency(balance.openingAmount) }}</div>
-              <div
-                :class="balance.movementAmount >= 0 ? 'text-green-600' : 'text-red-600'"
+      <div v-if="displayBalances.length > 0">
+        <h2 class="font-semibold text-lg mb-3">Balances por Cuenta</h2>
+        <div class="overflow-x-auto">
+          <table class="min-w-full bg-white rounded-lg shadow overflow-hidden">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cuenta</th>
+                <!-- Open snapshot columns -->
+                <template v-if="snapshotData?.status === 'open'">
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Balance Actual</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Inicial</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Movimiento</th>
+                </template>
+                <!-- Closed snapshot columns -->
+                <template v-else>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Reportado</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Calculado</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Discrepancia</th>
+                </template>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <tr
+                v-for="balance in displayBalances"
+                :key="balance.ownersAccountId"
+                class="hover:bg-gray-50 transition-colors"
               >
-                Movimiento: {{ balance.movementAmount >= 0 ? '+' : '' }}{{ formatCurrency(balance.movementAmount) }}
-              </div>
-            </div>
-          </div>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <span class="text-sm font-medium text-gray-900">{{ balance.ownersAccountName }}</span>
+                </td>
+                <!-- Open snapshot data -->
+                <template v-if="snapshotData?.status === 'open'">
+                  <td class="px-4 py-3 whitespace-nowrap text-right">
+                    <span
+                      class="text-sm font-bold"
+                      :class="balance.currentAmount >= 0 ? 'text-green-700' : 'text-red-700'"
+                    >
+                      {{ formatCurrency(balance.currentAmount) }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-right">
+                    <span class="text-sm text-gray-700">{{ formatCurrency(balance.openingAmount) }}</span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-right">
+                    <span
+                      class="text-sm font-medium"
+                      :class="balance.movementAmount >= 0 ? 'text-green-600' : 'text-red-600'"
+                    >
+                      {{ balance.movementAmount >= 0 ? '+' : '' }}{{ formatCurrency(balance.movementAmount) }}
+                    </span>
+                  </td>
+                </template>
+                <!-- Closed snapshot data -->
+                <template v-else>
+                  <td class="px-4 py-3 whitespace-nowrap text-right">
+                    <span class="text-sm font-bold text-gray-900">
+                      {{ formatCurrency(balance.closingAmount) }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-right">
+                    <span class="text-sm text-gray-700">
+                      {{ formatCurrency(balance.calculatedAmount) }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-right">
+                    <span
+                      class="text-sm font-bold"
+                      :class="balance.discrepancy === 0 ? 'text-green-600' : balance.discrepancy > 0 ? 'text-blue-600' : 'text-red-600'"
+                    >
+                      {{ balance.discrepancy === 0 ? '0 ✓' : (balance.discrepancy > 0 ? '+' : '') + formatCurrency(balance.discrepancy) }}
+                    </span>
+                  </td>
+                </template>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
-      
+
       <!-- Quick Actions when Closed -->
       <div v-if="snapshotData?.status === 'closed'" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
         <div class="flex items-center gap-2">
@@ -611,6 +690,43 @@ const accountBalances = computed(() => {
   return Object.values(balances);
 });
 
+const displayBalances = computed(() => {
+  if (!snapshotData.value) return [];
+
+  // For open snapshots, use the live accountBalances
+  if (snapshotData.value.status === 'open') {
+    return accountBalances.value;
+  }
+
+  // For closed snapshots, build balances from closing data
+  if (!snapshotData.value.closingBalances || !Array.isArray(snapshotData.value.closingBalances)) return [];
+
+  // closingBalances and differences are ARRAYS, not objects
+  const closingBalances = snapshotData.value.closingBalances || [];
+  const differences = snapshotData.value.differences || [];
+
+  // Build array from closing balances
+  const balancesArray = closingBalances.map(closing => {
+    // Find the corresponding difference entry
+    const diff = differences.find(d => d.ownersAccountId === closing.ownersAccountId);
+    const difference = diff?.difference || 0;
+
+    // Calculate the calculated amount: difference = closingAmount - calculatedAmount
+    // Therefore: calculatedAmount = closingAmount - difference
+    const calculatedAmount = closing.amount - difference;
+
+    return {
+      ownersAccountId: closing.ownersAccountId,
+      ownersAccountName: closing.ownersAccountName,
+      closingAmount: closing.amount,
+      calculatedAmount: calculatedAmount,
+      discrepancy: difference
+    };
+  });
+
+  return balancesArray;
+});
+
 const totalCurrentBalance = computed(() => {
   // Calculate from opening balances + wallet transactions + daily cash transactions
   let balance = openingTotal.value;
@@ -642,13 +758,11 @@ const openingTotal = computed(() => {
 });
 
 const salesTotal = computed(() => {
-  return transactions.value
-    .filter(t => t.type === 'sale')
-    .reduce((sum, t) => sum + t.amount, 0);
+  return sales.value.reduce((sum, sale) => sum + sale.amountTotal, 0);
 });
 
 const salesCount = computed(() => {
-  return transactions.value.filter(t => t.type === 'sale').length;
+  return sales.value.length;
 });
 
 const filteredTransactions = computed(() => {
@@ -656,6 +770,34 @@ const filteredTransactions = computed(() => {
     return transactions.value;
   }
   return transactions.value.filter(t => t.type === transactionFilter.value);
+});
+
+const debtsTotal = computed(() => {
+  return debts.value.reduce((sum, debt) => sum + debt.remainingAmount, 0);
+});
+
+const settlementsCount = computed(() => {
+  const pending = settlements.value.filter(s => s.status === 'pending').length;
+  const settled = settlements.value.filter(s => s.status === 'settled').length;
+  return { pending, settled };
+});
+
+const settlementsTotal = computed(() => {
+  return settlements.value
+    .filter(s => s.status === 'pending')
+    .reduce((sum, s) => sum + s.amountTotal, 0);
+});
+
+const walletsTotal = computed(() => {
+  let total = 0;
+  wallets.value.forEach(wallet => {
+    if (wallet.type === 'Income') {
+      total += wallet.amount;
+    } else if (wallet.type === 'Outcome') {
+      total -= wallet.amount;
+    }
+  });
+  return total;
 });
 
 // Methods
