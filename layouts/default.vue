@@ -298,7 +298,7 @@
       </div>
     </Transition>
     <div class="flex-1 flex flex-col max-h-screen overflow-y-scroll relative">
-      <TheHeader class="md:hidden" @switchMenu="switchMenu" />
+      <TheHeader class="md:hidden sticky top-0 z-20 bg-white" @switchMenu="switchMenu" />
       <main class="flex-1 flex px-2 max-w-[80rem] mx-auto w-full">
         <slot />
       </main>

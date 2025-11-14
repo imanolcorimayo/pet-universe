@@ -143,6 +143,7 @@ export interface SettlementPaymentData {
   notes?: string;
   categoryCode?: string;
   categoryName?: string;
+  paidDate?: Date;
 }
 
 export interface CashTransferData {
@@ -1594,12 +1595,24 @@ export class BusinessRulesEngine {
         };
       }
 
-      // 4. Get the current global cash register ID
-      const globalCashIdResult = await this.getCurrentGlobalCashId();
-      if (!globalCashIdResult.success) {
-        return { success: false, error: globalCashIdResult.error };
+      // 4. Find the appropriate global cash register for the payment date
+      const paymentDate = data.paidDate || new Date();
+      const globalCashResult = this.globalCashRegisterStore.findOpenGlobalCashForDate(paymentDate);
+
+      if (!globalCashResult.globalCash) {
+        return {
+          success: false,
+          error: globalCashResult.error || 'No se encontró una caja global abierta para la fecha de pago seleccionada'
+        };
       }
-      const globalCashId = globalCashIdResult.data;
+
+      const globalCashId = globalCashResult.globalCash.id;
+
+      // 4.5. Validate transaction date against the selected global cash register
+      const dateValidation = this.validateTransactionDate(paymentDate, globalCashId);
+      if (!dateValidation.success) {
+        return { success: false, error: dateValidation.error };
+      }
 
       // 5. Create single wallet Income transaction
       const settlementIds = data.settlementPayments.map(p => p.settlementId);
@@ -1617,6 +1630,7 @@ export class BusinessRulesEngine {
         notes: data.notes || null,
         categoryCode: data.categoryCode || null,
         categoryName: data.categoryName || null,
+        transactionDate: data.paidDate || new Date(),
       });
       if (!walletResult.success) {
         return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };
@@ -1638,7 +1652,7 @@ export class BusinessRulesEngine {
           status: 'settled',
           amountFee: Math.max(0, parseFloat(amountFee.toFixed(2))), // Round to 2 decimals
           percentageFee: Math.max(0, parseFloat(percentageFee.toFixed(2))), // Round to 2 decimals
-          paidDate: new Date(),
+          paidDate: data.paidDate || new Date(),
           walletId: walletTransactionId,
         };
 

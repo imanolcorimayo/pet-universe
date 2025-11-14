@@ -84,6 +84,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useSettlementStore } from '~/stores/settlement';
 import { usePaymentMethodsStore } from '~/stores/paymentMethods';
+import { useGlobalCashRegisterStore } from '~/stores/globalCashRegister';
 import LucideRefreshCw from '~icons/lucide/refresh-cw';
 import LucideCreditCard from '~icons/lucide/credit-card';
 import LucideFileText from '~icons/lucide/file-text';
@@ -92,6 +93,7 @@ import LucideHistory from '~icons/lucide/history';
 
 const settlementStore = useSettlementStore();
 const paymentMethodsStore = usePaymentMethodsStore();
+const globalCashRegisterStore = useGlobalCashRegisterStore();
 const isLoading = ref(true);
 
 const settlementGroups = computed(() => {
@@ -129,6 +131,11 @@ onMounted(async () => {
     // Ensure payment methods are loaded first (required for grouping)
     if (paymentMethodsStore.paymentMethods.length === 0 || paymentMethodsStore.needsCacheRefresh) {
       await paymentMethodsStore.loadAllData();
+    }
+
+    // Load global cash register (includes previous week for date validation)
+    if (!globalCashRegisterStore.currentGlobalCash) {
+      await globalCashRegisterStore.loadCurrentGlobalCash();
     }
 
     // Then load settlements if not already loaded or cache is stale

@@ -1,7 +1,7 @@
 <template>
-  <div class="w-full flex flex-col gap-4 p-6">
+  <div class="w-full flex flex-col gap-4 p-3 sm:p-6">
     <!-- Header -->
-    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start gap-4">
+    <div class="sticky top-16 md:top-0 z-10 bg-gray-50 -mx-3 sm:-mx-6 px-3 sm:px-6 py-4 mb-2 flex flex-col sm:flex-row justify-between items-start gap-4 shadow-sm rounded">
       <div>
         <div class="flex items-center gap-2 mb-2">
           <button 
@@ -20,8 +20,8 @@
         </p>
       </div>
       
-      <div class="flex gap-2">
-        <button 
+      <div class="flex flex-wrap gap-2">
+        <button
           v-if="snapshotData?.status === 'open'"
           @click="openSaleModal"
           class="btn bg-primary text-white hover:bg-primary/90"
@@ -29,40 +29,44 @@
         >
           <span class="flex items-center gap-1">
             <LucidePlus class="h-4 w-4" />
-            {{ loadingSaleModal ? 'Cargando...' : 'Nueva Venta' }}
+            <span class="hidden sm:inline xl:hidden">{{ loadingSaleModal ? 'Cargando...' : 'Venta' }}</span>
+            <span class="hidden xl:inline">{{ loadingSaleModal ? 'Cargando...' : 'Nueva Venta' }}</span>
           </span>
         </button>
-        
-        <button 
+
+        <button
           v-if="snapshotData?.status === 'open'"
           @click="extractCashModal.showModal()"
           class="btn bg-secondary text-white hover:bg-secondary/90"
         >
           <span class="flex items-center gap-1">
             <LucideArrowUpFromLine class="h-4 w-4" />
-            Extraer Efectivo
+            <span class="hidden sm:inline xl:hidden">Extraer</span>
+            <span class="hidden xl:inline">Extraer Efectivo</span>
           </span>
         </button>
-        
-        <button 
+
+        <button
           v-if="snapshotData?.status === 'open'"
           @click="injectCashModal.showModal()"
           class="btn bg-green-500 text-white hover:bg-green-600"
         >
           <span class="flex items-center gap-1">
             <LucideArrowDownFromLine class="h-4 w-4" />
-            Inyectar Efectivo
+            <span class="hidden sm:inline xl:hidden">Inyectar</span>
+            <span class="hidden xl:inline">Inyectar Efectivo</span>
           </span>
         </button>
-        
-        <button 
+
+        <button
           v-if="snapshotData?.status === 'open'"
           @click="closeSnapshotModal.showModal()"
           class="btn bg-red-500 text-white hover:bg-red-600"
         >
           <span class="flex items-center gap-1">
             <LucideLock class="h-4 w-4" />
-            Cerrar Caja Diaria
+            <span class="hidden sm:inline xl:hidden">Cerrar</span>
+            <span class="hidden xl:inline">Cerrar Caja Diaria</span>
           </span>
         </button>
       </div>
@@ -261,41 +265,45 @@
           </div>
 
           <!-- Tabs -->
-          <div class="flex gap-1 mt-3 border-b">
+          <div class="flex gap-1 mt-3 border-b overflow-x-auto scrollbar-hide">
             <button
               @click="activeTab = 'sales'"
-              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
+              :class="['px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap',
                 activeTab === 'sales' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
             >
               Ventas ({{ sales.length }})
             </button>
             <button
               @click="activeTab = 'transactions'"
-              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
+              :class="['px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap',
                 activeTab === 'transactions' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
             >
               Efectivo ({{ filteredTransactions.length }})
             </button>
             <button
               @click="activeTab = 'wallets'"
-              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
+              :class="['px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap',
                 activeTab === 'wallets' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
             >
-              Trans. Globales ({{ wallets.length }})
+              <span class="hidden sm:inline">Trans. Globales</span>
+              <span class="sm:hidden">Globales</span>
+              <span>({{ wallets.length }})</span>
             </button>
             <button
               @click="activeTab = 'debts'"
-              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
+              :class="['px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap',
                 activeTab === 'debts' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
             >
               Deudas ({{ debts.length }})
             </button>
             <button
               @click="activeTab = 'settlements'"
-              :class="['px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
+              :class="['px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap',
                 activeTab === 'settlements' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700']"
             >
-              Liquidaciones ({{ settlements.length }})
+              <span class="hidden sm:inline">Liquidaciones</span>
+              <span class="sm:hidden">Liquid.</span>
+              <span>({{ settlements.length }})</span>
             </button>
           </div>
         </div>

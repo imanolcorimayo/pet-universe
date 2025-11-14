@@ -182,13 +182,7 @@
           <thead class="bg-gray-50 border-b">
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fecha Creación
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Origen
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                ID Referencia
               </th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Proveedor
@@ -206,22 +200,16 @@
                 Estado
               </th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fecha Liquidación
+                Fechas
               </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
             <tr v-for="settlement in paginatedSettlements" :key="settlement.id" class="hover:bg-gray-50">
               <td class="px-4 py-3 text-sm text-gray-900">
-                {{ settlement.createdAt }}
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-900">
                 <span :class="getOriginBadgeClass(settlement)">
                   {{ getOriginLabel(settlement) }}
                 </span>
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-900 font-mono">
-                {{ getOriginId(settlement) }}
               </td>
               <td class="px-4 py-3 text-sm text-gray-900">
                 {{ getProviderName(settlement.paymentProviderId) }}
@@ -243,8 +231,13 @@
                   {{ getStatusLabel(settlement.status) }}
                 </span>
               </td>
-              <td class="px-4 py-3 text-sm text-gray-900">
-                {{ settlement.paidDate || '-' }}
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">
+                  {{ settlement.paidDate || settlement.createdAt }}
+                </div>
+                <div v-if="settlement.paidDate" class="text-xs text-gray-500">
+                  Creado: {{ settlement.createdAt }}
+                </div>
               </td>
             </tr>
           </tbody>
@@ -318,6 +311,7 @@ const itemsPerPage = 20;
 
 // Computed
 const filteredSettlements = computed(() => {
+  const { $dayjs } = useNuxtApp();
   let settlements = settlementStore.settlements;
 
   // Filter by status
@@ -335,7 +329,26 @@ const filteredSettlements = computed(() => {
     });
   }
 
-  return settlements;
+  // Sort by paidDate desc, then by createdAt desc
+  return settlements.sort((a, b) => {
+    // First sort by paidDate (most recent first)
+    if (a.paidDate && b.paidDate) {
+      const dateA = $dayjs(a.paidDate, 'DD/MM/YYYY');
+      const dateB = $dayjs(b.paidDate, 'DD/MM/YYYY');
+      if (!dateA.isSame(dateB)) {
+        return dateB.diff(dateA);
+      }
+    } else if (a.paidDate && !b.paidDate) {
+      return -1; // Paid dates come first
+    } else if (!a.paidDate && b.paidDate) {
+      return 1; // Paid dates come first
+    }
+
+    // Then sort by createdAt (most recent first)
+    const createdA = $dayjs(a.createdAt, 'DD/MM/YYYY HH:mm');
+    const createdB = $dayjs(b.createdAt, 'DD/MM/YYYY HH:mm');
+    return createdB.diff(createdA);
+  });
 });
 
 const stats = computed(() => {

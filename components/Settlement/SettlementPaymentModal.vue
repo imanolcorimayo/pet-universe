@@ -116,6 +116,23 @@
         </div>
       </div>
 
+      <!-- Payment Date -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Fecha de Pago
+        </label>
+        <input
+          v-model="paymentDate"
+          type="date"
+          :min="minPaymentDate"
+          :max="maxPaymentDate"
+          class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+        />
+        <p class="text-xs text-gray-500 mt-1">
+          Fecha en que se recibió el pago del proveedor (semana actual o anterior si está abierta)
+        </p>
+      </div>
+
       <!-- Notes -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -158,11 +175,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useSettlementStore } from '~/stores/settlement';
-import { usePaymentMethodsStore } from '~/stores/paymentMethods';
-import { useGlobalCashRegisterStore } from '~/stores/globalCashRegister';
-import { useIndexStore } from '~/stores/index';
 import { BusinessRulesEngine } from '~/utils/finance/BusinessRulesEngine';
 import type { SettlementPaymentData, SettlementPaymentItem } from '~/utils/finance/BusinessRulesEngine';
 import { toast } from 'vue3-toastify';
@@ -186,10 +198,12 @@ const modal = ref();
 const settlementStore = useSettlementStore();
 const paymentMethodsStore = usePaymentMethodsStore();
 const globalCashRegisterStore = useGlobalCashRegisterStore();
+const { $dayjs } = useNuxtApp();
 
 // State
 const selectedSettlements = ref<Map<string, number>>(new Map());
 const notes = ref<string>('');
+const paymentDate = ref<string>('');
 const isProcessing = ref(false);
 const errorMessage = ref<string>('');
 
@@ -243,9 +257,29 @@ const canProcess = computed(() => {
   return selectedSettlements.value.size > 0 && !isProcessing.value;
 });
 
+// Calculate valid date range for payment
+const minPaymentDate = computed(() => {
+  // Allow current week or previous week if it's still open
+  if (globalCashRegisterStore.previousGlobalCash && !globalCashRegisterStore.previousGlobalCash.closedAt) {
+    const prevWeekStart = $dayjs(globalCashRegisterStore.previousGlobalCash.openedAt, 'DD/MM/YYYY HH:mm');
+    return prevWeekStart.format('YYYY-MM-DD');
+  }
+  // Only current week is available
+  if (globalCashRegisterStore.currentGlobalCash) {
+    const currentWeekStart = $dayjs(globalCashRegisterStore.currentGlobalCash.openedAt, 'DD/MM/YYYY HH:mm');
+    return currentWeekStart.format('YYYY-MM-DD');
+  }
+  return $dayjs().format('YYYY-MM-DD');
+});
+
+const maxPaymentDate = computed(() => {
+  return $dayjs().format('YYYY-MM-DD');
+});
+
 // Methods
 const showModal = () => {
   initializeSelections();
+  paymentDate.value = $dayjs().format('YYYY-MM-DD');
   errorMessage.value = '';
   modal.value?.showModal();
 };
@@ -340,7 +374,8 @@ const processPayment = async () => {
       accountTypeName: props.group.accountName,
       notes: notesWithContext,
       categoryCode: 'settlement_payment',
-      categoryName: 'Liquidación de Pagos'
+      categoryName: 'Liquidación de Pagos',
+      paidDate: paymentDate.value ? $dayjs(paymentDate.value, 'YYYY-MM-DD').toDate() : new Date()
     };
 
     // Process payment using BusinessRulesEngine

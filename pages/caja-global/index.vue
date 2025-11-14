@@ -1,72 +1,79 @@
 <template>
-  <div class="w-full flex flex-col gap-4 p-6">
-    <!-- Page Header -->
-    <div class="flex justify-between items-center">
-      <div>
-        <h1 class="text-2xl font-bold">Caja Global</h1>
-        <p class="text-gray-600 mt-1">Gestión semanal de ingresos y egresos del negocio</p>
+  <div class="w-full flex flex-col gap-4 p-3 sm:p-6">
+    <!-- Page Header + Filter -->
+    <div class="sticky top-16 md:top-0 z-10 bg-gray-50 -mx-3 sm:-mx-6 px-3 sm:px-6 py-4 mb-2 flex flex-col gap-4 shadow-sm rounded">
+      <!-- Header Row -->
+      <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
+        <div>
+          <h1 class="text-2xl font-bold">Caja Global</h1>
+          <p class="text-gray-600 mt-1 text-sm">Gestión semanal de ingresos y egresos del negocio</p>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <!-- Historical View Button -->
+          <button
+            @click="navigateTo('/caja-global/historico')"
+            class="btn bg-gray-200 text-gray-700 hover:bg-gray-300 flex items-center gap-1"
+          >
+            <LucideHistory class="h-4 w-4" />
+            <span class="hidden sm:inline xl:hidden">Hist.</span>
+            <span class="hidden xl:inline">Historial</span>
+          </button>
+
+          <!-- Open Global Cash Button -->
+          <button
+            v-if="!globalCashStore.hasOpenGlobalCash && !isLoading"
+            @click="openGlobalCashModal"
+            class="btn bg-green-600 text-white hover:bg-green-700 flex items-center gap-1"
+          >
+            <LucidePlus class="h-4 w-4" />
+            <span class="hidden sm:inline xl:hidden">Abrir</span>
+            <span class="hidden xl:inline">Abrir Caja Semanal</span>
+          </button>
+
+          <!-- New Transaction Button -->
+          <button
+            v-if="globalCashStore.hasOpenGlobalCash && !isLoading"
+            @click="openTransactionModal"
+            class="btn bg-primary text-white hover:bg-primary/90 flex items-center gap-1"
+          >
+            <LucidePlus class="h-4 w-4" />
+            <span class="hidden sm:inline xl:hidden">Transacción</span>
+            <span class="hidden xl:inline">Nueva Transacción</span>
+          </button>
+        </div>
       </div>
 
-      <div class="flex gap-2">
-        <!-- Historical View Button -->
-        <button
-          @click="navigateTo('/caja-global/historico')"
-          class="btn bg-gray-200 text-gray-700 hover:bg-gray-300 flex items-center gap-1"
+      <!-- Account Filter -->
+      <div
+        v-if="globalCashStore.hasOpenGlobalCash && !isLoading"
+        class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3"
+      >
+        <div class="flex items-center gap-2">
+          <LucideFilter class="h-5 w-5 text-gray-500" />
+          <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Filtrar por Cuenta:</label>
+        </div>
+        <select
+          v-model="selectedAccountId"
+          class="flex-1 w-full sm:max-w-xs px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 bg-white hover:border-gray-400 cursor-pointer"
         >
-          <LucideHistory class="h-4 w-4" />
-          Historial
-        </button>
-
-        <!-- Open Global Cash Button -->
+          <option :value="null">Todas las cuentas</option>
+          <option
+            v-for="account in availableAccounts"
+            :key="account.id"
+            :value="account.id"
+          >
+            {{ account.name }}
+          </option>
+        </select>
         <button
-          v-if="!globalCashStore.hasOpenGlobalCash && !isLoading"
-          @click="openGlobalCashModal"
-          class="btn bg-green-600 text-white hover:bg-green-700 flex items-center gap-1"
+          v-if="selectedAccountId"
+          @click="selectedAccountId = null"
+          class="text-sm text-gray-600 hover:text-gray-800 underline whitespace-nowrap"
         >
-          <LucidePlus class="h-4 w-4" />
-          Abrir Caja Semanal
+          Limpiar filtro
         </button>
-
-        <!-- New Transaction Button -->
-        <button
-          v-if="globalCashStore.hasOpenGlobalCash && !isLoading"
-          @click="openTransactionModal"
-          class="btn bg-primary text-white hover:bg-primary/90 flex items-center gap-1"
-        >
-          <LucidePlus class="h-4 w-4" />
-          Nueva Transacción
-        </button>
-
       </div>
-    </div>
-
-    <!-- Account Filter -->
-    <div
-      v-if="globalCashStore.hasOpenGlobalCash && !isLoading"
-      class="flex items-center gap-3"
-    >
-      <LucideFilter class="h-5 w-5 text-gray-500" />
-      <label class="text-sm font-medium text-gray-700">Filtrar por Cuenta:</label>
-      <select
-        v-model="selectedAccountId"
-        class="flex-1 max-w-xs px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 bg-white hover:border-gray-400 cursor-pointer"
-      >
-        <option :value="null">Todas las cuentas</option>
-        <option
-          v-for="account in availableAccounts"
-          :key="account.id"
-          :value="account.id"
-        >
-          {{ account.name }}
-        </option>
-      </select>
-      <button
-        v-if="selectedAccountId"
-        @click="selectedAccountId = null"
-        class="text-sm text-gray-600 hover:text-gray-800 underline"
-      >
-        Limpiar filtro
-      </button>
     </div>
 
     <!-- Warning Banner for Unclosed Previous Week -->
