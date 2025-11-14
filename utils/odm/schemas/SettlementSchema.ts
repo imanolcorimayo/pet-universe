@@ -551,8 +551,8 @@ export class SettlementSchema extends Schema {
       // Define valid status transitions
       const validTransitions: Record<string, string[]> = {
         'pending': ['settled', 'cancelled'],
-        'settled': [], // Settled settlements cannot be changed
-        'cancelled': ['pending'] // Cancelled settlements can be reactivated
+        'settled': ['cancelled'], // Settled settlements can be cancelled (for corrections)
+        'cancelled': [] // Cancelled settlements are final
       };
 
       if (!validTransitions[currentStatus]?.includes(newStatus)) {

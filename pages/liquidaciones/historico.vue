@@ -202,6 +202,9 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Fechas
               </th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
@@ -227,9 +230,14 @@
                 ${{ formatNumber(getSettlementAmount(settlement)) }}
               </td>
               <td class="px-4 py-3 text-sm">
-                <span :class="getStatusBadgeClass(settlement.status)">
-                  {{ getStatusLabel(settlement.status) }}
-                </span>
+                <div>
+                  <span :class="getStatusBadgeClass(settlement.status)">
+                    {{ getStatusLabel(settlement.status) }}
+                  </span>
+                  <div v-if="settlement.status === 'cancelled' && settlement.cancelReason" class="text-xs text-gray-500 mt-1">
+                    {{ settlement.cancelReason }}
+                  </div>
+                </div>
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">
@@ -238,6 +246,24 @@
                 <div v-if="settlement.paidDate" class="text-xs text-gray-500">
                   Creado: {{ settlement.createdAt }}
                 </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-right">
+                <button
+                  v-if="settlement.status !== 'cancelled'"
+                  @click="openCancelModal(settlement.id)"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 hover:text-red-700 transition-colors"
+                >
+                  <LucideXCircle class="w-3 h-3" />
+                  Cancelar
+                </button>
+                <span
+                  v-else
+                  class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 rounded-md cursor-not-allowed"
+                  title="Ya está cancelada"
+                >
+                  <LucideXCircle class="w-3 h-3" />
+                  Cancelada
+                </span>
               </td>
             </tr>
           </tbody>
@@ -272,6 +298,12 @@
         </div>
       </div>
     </div>
+
+    <!-- Cancel Modal -->
+    <SettlementCancelModal
+      ref="cancelModal"
+      @cancelled="handleCancelled"
+    />
   </div>
 </template>
 
@@ -289,10 +321,12 @@ import LucideFileText from '~icons/lucide/file-text';
 import LucideChevronLeft from '~icons/lucide/chevron-left';
 import LucideChevronRight from '~icons/lucide/chevron-right';
 import LucidePercent from '~icons/lucide/percent';
+import SettlementCancelModal from '~/components/Settlement/SettlementCancelModal.vue';
 
 const settlementStore = useSettlementStore();
 const paymentMethodsStore = usePaymentMethodsStore();
 const isLoading = ref(true);
+const cancelModal = ref();
 
 // Filters
 const selectedStatus = ref('all');
@@ -540,6 +574,14 @@ const refreshData = async () => {
   } finally {
     isLoading.value = false;
   }
+};
+
+const openCancelModal = (settlementId) => {
+  cancelModal.value?.showModal(settlementId);
+};
+
+const handleCancelled = async () => {
+  await refreshData();
 };
 
 // Lifecycle

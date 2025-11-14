@@ -319,9 +319,11 @@ export const useSettlementStore = defineStore("settlement", {
 
     async cancelSettlement(settlementId: string, cancelReason: string) {
       try {
+        const indexStore = useIndexStore();
         const updateData: Partial<Settlement> = {
           status: 'cancelled',
           cancelledAt: new Date(),
+          cancelledBy: indexStore.userUid,
           cancelReason: cancelReason,
           updatedAt: new Date()
         };
