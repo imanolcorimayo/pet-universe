@@ -337,7 +337,9 @@ export class BusinessRulesEngine {
       const preparedPayments = data.paymentTransactions.map(pt => ({
         ...pt,
         relatedEntityType: 'sale',
-        description: `Sale #${data.saleData.saleNumber} - ${pt.description}`
+        description: `Sale #${data.saleData.saleNumber} - ${pt.description}`,
+        categoryCode: 'VENTA_CAJA_DIARIA',
+        categoryName: 'Venta desde caja diaria'
       }));
 
       // Process non-cash and non-settlement payments → Wallet transactions FIRST

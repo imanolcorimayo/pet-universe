@@ -493,22 +493,30 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     // --- UTILITY METHODS ---
 
     /**
-     * Sort wallet transactions by transactionDate (or createdAt as fallback) in descending order
+     * Sort wallet transactions by transactionDate first, then by createdAt in descending order
      */
     sortWalletTransactions(transactions: WalletTransaction[]): WalletTransaction[] {
       const { $dayjs } = useNuxtApp();
 
       return transactions.sort((a, b) => {
-        // Get dates for comparison - use transactionDate if available, otherwise createdAt
-        const dateA = a.transactionDate || a.createdAt;
-        const dateB = b.transactionDate || b.createdAt;
+        // Parse transactionDate (if exists)
+        const txDateA = a.transactionDate ? $dayjs(a.transactionDate, 'DD/MM/YYYY HH:mm') : null;
+        const txDateB = b.transactionDate ? $dayjs(b.transactionDate, 'DD/MM/YYYY HH:mm') : null;
 
-        // Parse dates - they come formatted as 'DD/MM/YYYY HH:mm' from schema
-        const momentA = $dayjs(dateA, 'DD/MM/YYYY HH:mm');
-        const momentB = $dayjs(dateB, 'DD/MM/YYYY HH:mm');
+        // First sort by transactionDate
+        if (txDateA && txDateB) {
+          const txDateDiff = txDateB.valueOf() - txDateA.valueOf();
+          if (txDateDiff !== 0) return txDateDiff;
+        } else if (txDateA) {
+          return -1; // a has transactionDate, b doesn't - a comes first
+        } else if (txDateB) {
+          return 1; // b has transactionDate, a doesn't - b comes first
+        }
 
-        // Sort descending (newest first)
-        return momentB.valueOf() - momentA.valueOf();
+        // Then sort by createdAt
+        const createdA = $dayjs(a.createdAt, 'DD/MM/YYYY HH:mm');
+        const createdB = $dayjs(b.createdAt, 'DD/MM/YYYY HH:mm');
+        return createdB.valueOf() - createdA.valueOf();
       });
     },
 

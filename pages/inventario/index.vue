@@ -9,7 +9,7 @@
     </div>
     
     <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       <!-- Total Products Card -->
       <div class="bg-white rounded-lg shadow p-4">
         <div class="flex items-start justify-between">
@@ -22,7 +22,7 @@
           </div>
         </div>
       </div>
-      
+
       <!-- Low Stock Card -->
       <div class="bg-white rounded-lg shadow p-4">
         <div class="flex items-start justify-between">
@@ -34,15 +34,15 @@
             <TablerAlertTriangle class="h-6 w-6 text-amber-600" />
           </div>
         </div>
-        <a 
-          href="#" 
-          @click.prevent="setStockFilter('low')" 
+        <a
+          href="#"
+          @click.prevent="setStockFilter('low')"
           class="mt-2 inline-block text-xs text-amber-600 hover:text-amber-800"
         >
           Ver productos con stock bajo
         </a>
       </div>
-      
+
       <!-- Inventory Value Card -->
       <div class="bg-white rounded-lg shadow p-4">
         <div class="flex items-start justify-between">
@@ -55,7 +55,23 @@
           </div>
         </div>
       </div>
-      
+
+      <!-- Sale Value Card -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-500">Valor de Venta</p>
+            <p class="mt-1 text-lg font-bold text-blue-600">{{ formatCurrency(stats.totalSaleValueRegular) }}</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Efectivo: {{ formatCurrency(stats.totalSaleValueCash) }}
+            </p>
+          </div>
+          <div class="p-2 bg-blue-100 rounded-lg">
+            <LucideDollarSign class="h-6 w-6 text-blue-600" />
+          </div>
+        </div>
+      </div>
+
       <!-- Last Movement Card -->
       <div class="bg-white rounded-lg shadow p-4">
         <div class="flex items-start justify-between">
@@ -151,6 +167,9 @@
                 Valor / Último Costo
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Precios de Venta
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Último Movimiento
               </th>
               <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -192,6 +211,27 @@
                 <div class="text-sm text-gray-900">{{ formatCurrency(calculateItemValue(item)) }}</div>
                 <div class="text-xs text-gray-500">
                   {{ formatCurrency(item.lastPurchaseCost || 0) }}/unidad
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div v-if="getProductById(item.productId)?.trackingType === 'dual'">
+                  <div class="text-sm text-gray-900">
+                    {{ formatCurrency(getSalePrice(item.productId, 'regular', 'unit')) }}/{{ getProductById(item.productId)?.unitType }}
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    {{ formatCurrency(getSalePrice(item.productId, 'regular', 'kg')) }}/kg
+                  </div>
+                  <div class="text-xs text-gray-400 mt-1">
+                    Efectivo: {{ formatCurrency(getSalePrice(item.productId, 'cash', 'unit')) }}/{{ getProductById(item.productId)?.unitType }}
+                  </div>
+                </div>
+                <div v-else>
+                  <div class="text-sm text-gray-900">
+                    {{ formatCurrency(getSalePrice(item.productId, 'regular')) }}
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    Efectivo: {{ formatCurrency(getSalePrice(item.productId, 'cash')) }}
+                  </div>
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
@@ -289,6 +329,23 @@ function getProductById(productId) {
   return productStore.getProductById(productId);
 }
 
+function getSalePrice(productId, priceType = 'regular', unitType = null) {
+  const product = getProductById(productId);
+  if (!product || !product.prices) return 0;
+
+  // For dual tracking products, specify which price to get
+  if (product.trackingType === 'dual') {
+    if (unitType === 'kg') {
+      return product.prices.kg?.[priceType] || 0;
+    }
+    // Default to unit price for dual products
+    return product.prices.unit?.[priceType] || 0;
+  }
+
+  // For regular and weight products
+  return product.prices[priceType] || 0;
+}
+
 function calculateItemValue(item) {
   const product = getProductById(item.productId);
   const baseCost = item.lastPurchaseCost || 0;
@@ -305,12 +362,39 @@ function calculateItemValue(item) {
   return totalValue;
 }
 
+function calculateItemSaleValue(item, priceType = 'regular') {
+  const product = getProductById(item.productId);
+  if (!product || !product.prices) return 0;
+
+  // For dual tracking products, use unit and kg prices separately
+  if (product.trackingType === 'dual' && product.unitWeight) {
+    const unitPrice = product.prices.unit?.[priceType] || 0;
+    const kgPrice = product.prices.kg?.[priceType] || 0;
+
+    // Closed bags value
+    let totalValue = item.unitsInStock * unitPrice;
+
+    // Open kg value
+    if (item.openUnitsWeight) {
+      totalValue += item.openUnitsWeight * kgPrice;
+    }
+
+    return totalValue;
+  }
+
+  // For regular and weight products, use direct price
+  const salePrice = product.prices[priceType] || 0;
+  return item.unitsInStock * salePrice;
+}
+
 // Stats computed property
 const stats = computed(() => {
   let totalProducts = inventoryStore.inventoryItems.length;
   let lowStockCount = inventoryStore.getLowStockInventory.length;
   let totalValue = inventoryStore.inventoryItems.reduce((acc, item) => acc + calculateItemValue(item), 0);
-  
+  let totalSaleValueRegular = inventoryStore.inventoryItems.reduce((acc, item) => acc + calculateItemSaleValue(item, 'regular'), 0);
+  let totalSaleValueCash = inventoryStore.inventoryItems.reduce((acc, item) => acc + calculateItemSaleValue(item, 'cash'), 0);
+
   // Find last movement date
   let lastMovementDate = 'N/A';
   if (inventoryStore.inventoryItems.length > 0) {
@@ -321,16 +405,18 @@ const stats = computed(() => {
         if (!b.originalLastMovementAt) return -1;
         return b.originalLastMovementAt.toMillis() - a.originalLastMovementAt.toMillis();
       });
-    
+
     if (sortedByDate.length > 0) {
       lastMovementDate = sortedByDate[0].lastMovementAt;
     }
   }
-  
+
   return {
     totalProducts,
     lowStockCount,
     totalValue,
+    totalSaleValueRegular,
+    totalSaleValueCash,
     lastMovementDate
   };
 });

@@ -106,7 +106,7 @@
             {{ formatCurrency(totalCurrentBalance) }}
           </div>
           <div class="text-xs text-gray-500 mt-1">
-            Inicial (efectivo): {{ formatCurrency(openingTotal) }}
+            Inicial (efectivo): {{ formatCurrency(openingTotal) }} · No incluye liquidaciones
           </div>
         </div>
 
