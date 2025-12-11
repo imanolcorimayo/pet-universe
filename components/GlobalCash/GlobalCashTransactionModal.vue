@@ -503,15 +503,11 @@ const handlePaymentMethodChange = (data) => {
 
 const handleAccountChange = (data) => {
   // Auto-set transaction reporting based on account type for outcome transactions
-  if (form.ownersAccountId) {
-    const account = paymentMethodsStore.getOwnersAccountById(form.ownersAccountId);
-    if (account) {
-      // "efectivo" accounts = black (not reported), others = white (reported)
-      const isEfectivo = account.name.toLowerCase().includes('efectivo') || 
-                        account.name.toLowerCase().includes('caja') ||
-                        account.code?.toLowerCase().includes('efectivo');
-      form.isReported = !isEfectivo; // efectivo = false (black), others = true (white)
-    }
+  // Use data.account directly to avoid timing issues with v-model updates
+  if (data.account) {
+    // Use account.type for reliable detection instead of string matching
+    const isCashAccount = data.account.type === 'cash';
+    form.isReported = !isCashAccount; // cash = false (black), others = true (white)
   } else {
     form.isReported = true; // Default to white when no account
   }
@@ -616,7 +612,8 @@ const handleCreate = async () => {
       relatedEntityType: 'manual_expense',
       relatedEntityId: null,
       globalCashId: selectedGlobalCashId.value,
-      transactionDate: transactionDate
+      transactionDate: transactionDate,
+      isRegistered: form.isReported
     };
 
     const result = await businessRulesEngine.processGenericExpense(expenseData);

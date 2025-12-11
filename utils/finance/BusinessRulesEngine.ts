@@ -105,6 +105,9 @@ export interface GenericExpenseData {
   relatedEntityType?: string;
   relatedEntityId?: string;
   transactionDate?: Date;
+
+  // Fiscal reporting
+  isRegistered?: boolean;
 }
 
 export interface GenericIncomeData {
@@ -819,7 +822,7 @@ export class BusinessRulesEngine {
         ownersAccountName: data.accountTypeName,
         amount: data.amount,
         status: 'paid',
-        isRegistered: true,
+        isRegistered: data.isRegistered ?? true,
         notes: data.notes || null,
         categoryCode: data.categoryCode || null,
         categoryName: data.categoryName || null,

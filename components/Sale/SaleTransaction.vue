@@ -1039,16 +1039,16 @@ function updateItemTotal(index) {
   
   if (!product) return;
   
-  // Apply 3+ kg discount pricing rule if applicable for kg sales
-  if (item.unitType === 'kg' && item.quantity > 3 && item.priceType === 'regular') {
+  // Apply 3+ kg discount pricing rule if applicable for kg sales (starting at 3kg)
+  if (item.unitType === 'kg' && item.quantity >= 3 && item.priceType === 'regular') {
     // Switch to threePlusDiscount pricing
     item.priceType = 'threePlusDiscount';
     updatePriceFromType(index);
     return;
   }
 
-  // Remove threePlusDiscount if conditions are not met
-  if (item.unitType === 'kg' && item.quantity <= 3 && item.priceType === 'threePlusDiscount') {
+  // Remove threePlusDiscount if quantity drops below 3kg
+  if (item.unitType === 'kg' && item.quantity < 3 && item.priceType === 'threePlusDiscount') {
     // Switch to regular pricing
     item.priceType = 'regular';
     updatePriceFromType(index);
