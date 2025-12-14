@@ -118,6 +118,47 @@ textarea {
   @apply border border-gray-300 rounded px-3 py-[0.625rem] text-base text-black w-full shadow-md;
 }
 
+/* Compact Input Styles - Use .input-compact class on inputs or parent container */
+.input-compact input[type="text"],
+.input-compact input[type="tel"],
+.input-compact input[type="email"],
+.input-compact input[type="password"],
+.input-compact input[type="number"],
+.input-compact input[type="date"],
+.input-compact input[type="datetime-local"],
+.input-compact select,
+.input-compact textarea,
+input.input-sm,
+select.input-sm,
+textarea.input-sm {
+  @apply px-2.5 py-1.5 text-sm shadow-sm rounded-lg;
+}
+
+/* Extra small inputs for tight spaces */
+.input-xs input[type="text"],
+.input-xs input[type="tel"],
+.input-xs input[type="email"],
+.input-xs input[type="password"],
+.input-xs input[type="number"],
+.input-xs input[type="date"],
+.input-xs input[type="datetime-local"],
+.input-xs select,
+.input-xs textarea,
+input.input-xs,
+select.input-xs,
+textarea.input-xs {
+  @apply px-2 py-1 text-xs shadow-sm rounded-md;
+}
+
+/* Compact button styles */
+.btn-sm {
+  @apply px-3 py-1.5 text-sm rounded-md;
+}
+
+.btn-xs {
+  @apply px-2 py-1 text-xs rounded-md;
+}
+
 /* Radio Button Styles */
 input[type="radio"] {
   appearance: none;

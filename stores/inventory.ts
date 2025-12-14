@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
+import { useToast } from "~/composables/useToast";
 import { InventorySchema } from "~/utils/odm/schemas/InventorySchema";
 import { InventoryMovementSchema } from "~/utils/odm/schemas/InventoryMovementSchema";
 import { serverTimestamp } from "firebase/firestore";
@@ -414,18 +415,26 @@ export const useInventoryStore = defineStore("inventory", {
         }
         
         const existingInventory = existingResult.data[0];
-        
+
         // Calculate new inventory levels
-        const newUnitsInStock = existingInventory.unitsInStock + adjustmentData.unitsChange;
-        const newOpenUnitsWeight = existingInventory.openUnitsWeight + adjustmentData.weightChange;
-        
-        // Validate new values
-        if (newUnitsInStock < 0 || newOpenUnitsWeight < 0) {
-          useToast(ToastEvents.error, "El ajuste resultaría en valores negativos de inventario");
-          this.isLoading = false;
-          return false;
+        let newUnitsInStock = existingInventory.unitsInStock + adjustmentData.unitsChange;
+        let newOpenUnitsWeight = existingInventory.openUnitsWeight + adjustmentData.weightChange;
+
+        // Clamp to 0 if values would go negative and show warning
+        let showNegativeWarning = false;
+        if (newUnitsInStock < 0) {
+          newUnitsInStock = 0;
+          showNegativeWarning = true;
         }
-        
+        if (newOpenUnitsWeight < 0) {
+          newOpenUnitsWeight = 0;
+          showNegativeWarning = true;
+        }
+
+        if (showNegativeWarning) {
+          useToast(ToastEvents.warning, "El inventario se ajustó a 0 (la cantidad vendida excedía el stock disponible)");
+        }
+
         // Update inventory using schema
         const result = await inventorySchema.update(existingInventory.id, {
           unitsInStock: newUnitsInStock,
@@ -441,14 +450,18 @@ export const useInventoryStore = defineStore("inventory", {
           return false;
         }
         
-        // Record inventory movement
+        // Calculate actual changes (may differ from requested if clamped)
+        const actualUnitsChange = newUnitsInStock - existingInventory.unitsInStock;
+        const actualWeightChange = newOpenUnitsWeight - existingInventory.openUnitsWeight;
+
+        // Record inventory movement with actual changes
         const success = await this.recordInventoryMovement({
           productId: adjustmentData.productId,
           movementType: "adjustment",
           referenceType: "manual_adjustment",
           referenceId: null,
-          quantityChange: adjustmentData.unitsChange,
-          weightChange: adjustmentData.weightChange,
+          quantityChange: actualUnitsChange,
+          weightChange: actualWeightChange,
           unitCost: null,
           previousCost: null,
           totalCost: null,

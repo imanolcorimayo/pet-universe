@@ -23,14 +23,26 @@
       <div class="flex flex-wrap gap-2">
         <button
           v-if="snapshotData?.status === 'open'"
-          @click="openSaleModal"
+          @click="navigateTo(`/ventas/caja/${snapshotId}/nueva-venta`)"
           class="btn bg-primary text-white hover:bg-primary/90"
-          :disabled="loadingSaleModal"
         >
           <span class="flex items-center gap-1">
             <LucidePlus class="h-4 w-4" />
-            <span class="hidden sm:inline xl:hidden">{{ loadingSaleModal ? 'Cargando...' : 'Venta' }}</span>
-            <span class="hidden xl:inline">{{ loadingSaleModal ? 'Cargando...' : 'Nueva Venta' }}</span>
+            <span class="hidden sm:inline xl:hidden">Venta</span>
+            <span class="hidden xl:inline">Nueva Venta</span>
+          </span>
+        </button>
+
+        <button
+          v-if="snapshotData?.status === 'open'"
+          @click="openSaleModal"
+          class="btn bg-primary/70 text-white hover:bg-primary/80"
+          :disabled="loadingSaleModal"
+          title="Usar modal clásico"
+        >
+          <span class="flex items-center gap-1">
+            <LucideLayoutGrid class="h-4 w-4" />
+            <span class="hidden xl:inline">{{ loadingSaleModal ? 'Cargando...' : 'Modal' }}</span>
           </span>
         </button>
 
@@ -648,6 +660,7 @@ import { formatCurrency } from '~/utils';
 import LucideArrowLeft from '~icons/lucide/arrow-left';
 import LucidePlus from '~icons/lucide/plus';
 import LucideLock from '~icons/lucide/lock';
+import LucideLayoutGrid from '~icons/lucide/layout-grid';
 import LucideArrowUpFromLine from '~icons/lucide/arrow-up-from-line';
 import LucideArrowDownFromLine from '~icons/lucide/arrow-down-from-line';
 import LucideAlertCircle from '~icons/lucide/alert-circle';
