@@ -461,11 +461,30 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     async loadSpecificGlobalCash(id: string) {
       this.isLoading = true;
       try {
+        const { $dayjs } = useNuxtApp();
         const schema = new GlobalCashSchema();
         const result = await schema.findById(id);
 
         if (result.success) {
           const globalCash = result.data as GlobalCash;
+
+          // Determine if this register is for current or previous week and set store state
+          const registerOpenedAt = $dayjs(globalCash.openedAt, 'DD/MM/YYYY HH:mm').startOf('day');
+          const currentWeekStart = $dayjs(this.getCurrentWeekStartDate()).startOf('day');
+          const currentWeekEnd = currentWeekStart.add(7, 'day');
+          const previousWeekStart = $dayjs(this.getPreviousWeekStartDate()).startOf('day');
+          const previousWeekEnd = previousWeekStart.add(7, 'day');
+
+          // Check if register is from current week (openedAt falls within current week range)
+          if ((registerOpenedAt.isSame(currentWeekStart) || registerOpenedAt.isAfter(currentWeekStart)) &&
+              registerOpenedAt.isBefore(currentWeekEnd)) {
+            this.currentGlobalCash = globalCash;
+          }
+          // Check if register is from previous week
+          else if ((registerOpenedAt.isSame(previousWeekStart) || registerOpenedAt.isAfter(previousWeekStart)) &&
+                   registerOpenedAt.isBefore(previousWeekEnd)) {
+            this.previousGlobalCash = globalCash;
+          }
 
           // Load wallet transactions for this specific global cash
           const walletSchema = new WalletSchema();

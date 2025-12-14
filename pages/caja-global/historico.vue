@@ -68,9 +68,9 @@
                 {{ getRegisterStatusText(register) }}
               </span>
 
-              <!-- Single Details/Close Button -->
+              <!-- View Details Button -->
               <button
-                @click="openDetailsModal(register)"
+                @click="navigateTo(`/caja-global/${register.id}`)"
                 :class="register.closedAt
                   ? 'btn bg-blue-600 text-white hover:bg-blue-700 text-sm flex items-center gap-1'
                   : 'btn bg-orange-600 text-white hover:bg-orange-700 text-sm flex items-center gap-1'"
@@ -173,14 +173,6 @@
         Ir a Caja Actual
       </button>
     </div>
-
-    <!-- Unified Details and Close Modal -->
-    <GlobalCashDetailsModal
-      :is-visible="showDetailsModal"
-      :register="selectedRegister"
-      @close="showDetailsModal = false"
-      @success="handleModalSuccess"
-    />
   </div>
 </template>
 
@@ -207,8 +199,6 @@ if (!indexStore.isOwner && indexStore.getUserRole !== 'administrador') {
 
 // State
 const isLoading = ref(true);
-const showDetailsModal = ref(false);
-const selectedRegister = ref(null);
 
 // Reactive state
 const { $dayjs } = useNuxtApp();
@@ -299,18 +289,6 @@ const refreshHistory = async () => {
   } finally {
     isLoading.value = false;
   }
-};
-
-const openDetailsModal = (register) => {
-  selectedRegister.value = register;
-  showDetailsModal.value = true;
-};
-
-const handleModalSuccess = async () => {
-  showDetailsModal.value = false;
-  selectedRegister.value = null;
-  // Refresh the history to show updated status
-  await refreshHistory();
 };
 
 // Lifecycle
