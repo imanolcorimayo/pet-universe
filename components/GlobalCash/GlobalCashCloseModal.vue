@@ -127,7 +127,7 @@
     <template #footer>
       <div class="flex justify-end space-x-3">
         <button
-          @click="handleClose"
+          @click="closeModal"
           class="btn bg-gray-200 text-gray-700 hover:bg-gray-300"
           :disabled="isProcessing"
         >
@@ -330,10 +330,14 @@ const getAccountName = (accountId) => {
   return closingBalances.value[accountId]?.ownersAccountName || 'Cuenta Desconocida';
 };
 
+// Called when modal emits onClose (after it's already closing) - just cleanup and notify parent
 const handleClose = () => {
   isProcessing.value = false;
   closingBalances.value = {};
   differenceNotes.value = {};
+  historicalWalletTransactions.value = [];
+  historicalCalculatedBalances.value = [];
+  isLoadingHistoricalData.value = false;
   emit('close');
 };
 
@@ -415,8 +419,13 @@ const processHistoricalClose = async () => {
     throw new Error(result.error);
   }
 
+  // If closing previous week, update current week's opening balances with these closing balances
+  if (isPreviousWeekRegister.value) {
+    await globalCashStore.updateCurrentWeekOpeningBalances(closingBalancesArray);
+  }
+
   useToast(ToastEvents.success, 'Caja semanal cerrada exitosamente');
-  handleClose();
+  closeModal();
   emit('success');
 };
 

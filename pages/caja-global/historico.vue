@@ -88,15 +88,20 @@
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <!-- Opening Summary -->
             <div>
-              <h4 class="text-sm font-medium text-gray-700 mb-2">Saldos de Apertura</h4>
+              <h4 class="text-sm font-medium mb-2" :class="isOpeningProvisional(register) ? 'text-blue-700' : 'text-gray-700'">
+                Saldos de Apertura
+                <span v-if="isOpeningProvisional(register)" class="text-xs font-normal text-blue-500">(provisional)</span>
+              </h4>
               <div class="space-y-1">
                 <div
-                  v-for="balance in register.openingBalances"
+                  v-for="balance in getEffectiveOpeningBalances(register)"
                   :key="balance.ownersAccountId"
                   class="flex justify-between text-sm"
                 >
                   <span class="text-gray-600">{{ balance.ownersAccountName }}:</span>
-                  <span class="font-medium">{{ formatCurrency(balance.amount) }}</span>
+                  <span class="font-medium" :class="isOpeningProvisional(register) ? 'text-blue-600 italic' : ''">
+                    {{ formatCurrency(balance.amount) }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -199,6 +204,7 @@ if (!indexStore.isOwner && indexStore.getUserRole !== 'administrador') {
 
 // State
 const isLoading = ref(true);
+const calculatedOpeningBalances = ref({}); // Key: registerId, Value: calculated opening balances
 
 // Reactive state
 const { $dayjs } = useNuxtApp();
@@ -216,6 +222,22 @@ const isLastWeekRegister = (register) => {
   const registerDate = $dayjs(register.openedAt, 'DD/MM/YYYY HH:mm');
   const weekStart = $dayjs(lastWeekStart);
   return registerDate.isSame(weekStart, 'week');
+};
+
+// Check if opening balances are provisional (current week + previous week not closed)
+const isOpeningProvisional = (register) => {
+  if (!isCurrentWeekRegister(register)) return false;
+  // Find previous week register in history
+  const previousWeekRegister = globalCashStore.globalCashHistory.find(r => isLastWeekRegister(r));
+  return previousWeekRegister && !previousWeekRegister.closedAt;
+};
+
+// Get effective opening balances for display
+const getEffectiveOpeningBalances = (register) => {
+  if (isOpeningProvisional(register) && calculatedOpeningBalances.value[register.id]) {
+    return calculatedOpeningBalances.value[register.id];
+  }
+  return register.openingBalances || [];
 };
 
 const getRegisterContainerClasses = (register) => {
@@ -284,10 +306,48 @@ const refreshHistory = async () => {
   isLoading.value = true;
   try {
     await globalCashStore.loadGlobalCashHistory(20);
+    // Calculate provisional opening balances for current week if needed
+    await calculateProvisionalOpeningBalances();
   } catch (error) {
     useToast(ToastEvents.error, 'Error al cargar el historial');
   } finally {
     isLoading.value = false;
+  }
+};
+
+// Calculate provisional opening balances for current week register
+const calculateProvisionalOpeningBalances = async () => {
+  const history = globalCashStore.globalCashHistory;
+
+  // Find current week and previous week registers
+  const currentWeekRegister = history.find(r => isCurrentWeekRegister(r));
+  const previousWeekRegister = history.find(r => isLastWeekRegister(r));
+
+  // Only calculate if current week exists and previous week is NOT closed
+  if (!currentWeekRegister || !previousWeekRegister || previousWeekRegister.closedAt) {
+    calculatedOpeningBalances.value = {};
+    return;
+  }
+
+  try {
+    // Get previous week's transactions
+    const previousTransactions = await globalCashStore.getWalletTransactionsForRegister(previousWeekRegister.id, true);
+
+    // Calculate previous week's closing balances
+    const calculatedBalances = globalCashStore.calculateBalancesFromTransactions(
+      previousTransactions,
+      previousWeekRegister.openingBalances || []
+    );
+
+    // Store as opening balances for current week
+    calculatedOpeningBalances.value[currentWeekRegister.id] = Object.values(calculatedBalances).map(balance => ({
+      ownersAccountId: balance.ownersAccountId,
+      ownersAccountName: balance.ownersAccountName,
+      amount: balance.currentAmount
+    }));
+  } catch (error) {
+    console.error('Error calculating provisional opening balances:', error);
+    calculatedOpeningBalances.value = {};
   }
 };
 

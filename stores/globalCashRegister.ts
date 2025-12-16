@@ -113,6 +113,13 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     // Balance calculations
     balancesByAccount: (state) => state.calculatedBalances,
 
+    // Check if previous week register is closed (opening balances are confirmed)
+    isPreviousWeekClosed: (state) => {
+      // If no previous week register exists, consider it "closed" (nothing to wait for)
+      if (!state.previousGlobalCash) return true;
+      return !!state.previousGlobalCash.closedAt;
+    },
+
     // Get current balances (opening + movements) for display
     currentBalances: (state) => {
       const balances: Record<string, {
@@ -476,9 +483,13 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
           const previousWeekEnd = previousWeekStart.add(7, 'day');
 
           // Check if register is from current week (openedAt falls within current week range)
-          if ((registerOpenedAt.isSame(currentWeekStart) || registerOpenedAt.isAfter(currentWeekStart)) &&
-              registerOpenedAt.isBefore(currentWeekEnd)) {
+          const isCurrentWeek = (registerOpenedAt.isSame(currentWeekStart) || registerOpenedAt.isAfter(currentWeekStart)) &&
+              registerOpenedAt.isBefore(currentWeekEnd);
+
+          if (isCurrentWeek) {
             this.currentGlobalCash = globalCash;
+            // Also load previous week register to check its closure status
+            await this.loadPreviousGlobalCash();
           }
           // Check if register is from previous week
           else if ((registerOpenedAt.isSame(previousWeekStart) || registerOpenedAt.isAfter(previousWeekStart)) &&
@@ -1017,6 +1028,56 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Error al actualizar la caja global'
+        };
+      }
+    },
+
+    /**
+     * Update current week's opening balances with the closing balances from previous week
+     * Called when previous week is closed to finalize current week's opening state
+     */
+    async updateCurrentWeekOpeningBalances(closingBalances: Array<{
+      ownersAccountId: string;
+      ownersAccountName: string;
+      amount: number;
+    }>): Promise<{ success: boolean; error?: string }> {
+      try {
+        // If currentGlobalCash is not loaded, try to find it
+        if (!this.currentGlobalCash) {
+          const { $dayjs } = useNuxtApp();
+          const currentWeekStart = this.getCurrentWeekStartDate();
+          const schema = new GlobalCashSchema();
+
+          const result = await schema.find({
+            where: [
+              { field: 'openedAt', operator: '>=', value: $dayjs(currentWeekStart).startOf('day').toDate() },
+              { field: 'openedAt', operator: '<', value: $dayjs(currentWeekStart).add(7, 'day').startOf('day').toDate() }
+            ],
+            limit: 1
+          });
+
+          if (result.success && result.data && result.data.length > 0) {
+            this.currentGlobalCash = result.data[0] as GlobalCash;
+          } else {
+            // No current week register exists yet, nothing to update
+            return { success: true };
+          }
+        }
+
+        const result = await this.updateCurrentGlobalCash({
+          openingBalances: closingBalances
+        });
+
+        if (result.success) {
+          console.log('Current week opening balances updated from previous week closing');
+        }
+
+        return result;
+      } catch (error) {
+        console.error('Error updating current week opening balances:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Error al actualizar saldos de apertura'
         };
       }
     },

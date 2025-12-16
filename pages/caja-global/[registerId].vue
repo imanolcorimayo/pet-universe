@@ -124,6 +124,20 @@
         </div>
       </div>
 
+      <!-- Provisional Opening Balances Warning (Current week with previous week unclosed) -->
+      <div v-else-if="isOpeningBalancesProvisional" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="flex items-start">
+          <LucideInfo class="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+          <div>
+            <h3 class="text-sm font-medium text-blue-800">Saldos de Apertura Provisionales</h3>
+            <p class="text-sm text-blue-700 mt-1">
+              Los saldos de apertura de esta semana se calcularán automáticamente cuando se cierre la semana anterior.
+              Cualquier cambio en la semana anterior afectará los saldos iniciales de esta semana.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Summary Cards -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Total Balance -->
@@ -213,7 +227,10 @@
                 <!-- Open register columns -->
                 <template v-if="!registerData.closedAt">
                   <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Balance Actual</th>
-                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Inicial</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider" :class="isOpeningBalancesProvisional ? 'text-blue-600' : 'text-gray-500'">
+                    Inicial
+                    <span v-if="isOpeningBalancesProvisional" class="text-blue-500 normal-case">(provisional)</span>
+                  </th>
                   <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Movimiento</th>
                 </template>
                 <!-- Closed register columns -->
@@ -244,7 +261,9 @@
                     </span>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap text-right">
-                    <span class="text-sm text-gray-700">{{ formatCurrency(balance.openingAmount) }}</span>
+                    <span class="text-sm" :class="isOpeningBalancesProvisional ? 'text-blue-600 italic' : 'text-gray-700'">
+                      {{ formatCurrency(balance.openingAmount) }}
+                    </span>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap text-right">
                     <span
@@ -481,6 +500,7 @@ import LucideAlertCircle from '~icons/lucide/alert-circle';
 import LucideAlertTriangle from '~icons/lucide/alert-triangle';
 import LucideFileText from '~icons/lucide/file-text';
 import LucideFilter from '~icons/lucide/filter';
+import LucideInfo from '~icons/lucide/info';
 
 // Route and page setup
 const route = useRoute();
@@ -495,6 +515,7 @@ const transactionToEdit = ref(null);
 const registerData = ref(null);
 const isLoading = ref(true);
 const selectedAccountId = ref(null);
+const calculatedPreviousWeekClosing = ref([]);
 
 // Stores
 const globalCashStore = useGlobalCashRegisterStore();
@@ -545,6 +566,33 @@ const canEditTransaction = computed(() => {
   return !registerData.value?.closedAt && (isCurrentWeek.value || isPreviousWeek.value);
 });
 
+// Opening balances are provisional when viewing current week and previous week is not closed
+const isOpeningBalancesProvisional = computed(() => {
+  if (!registerData.value || registerData.value.closedAt) return false;
+  // Only applies to current week register
+  if (!isCurrentWeek.value) return false;
+  // Check if previous week is closed
+  return !globalCashStore.isPreviousWeekClosed;
+});
+
+// Get effective opening balances - calculated from previous week when provisional
+const effectiveOpeningBalances = computed(() => {
+  if (!registerData.value) return [];
+
+  // If not provisional, use the saved opening balances
+  if (!isOpeningBalancesProvisional.value) {
+    return registerData.value.openingBalances || [];
+  }
+
+  // When provisional, use the calculated previous week closing balances
+  if (calculatedPreviousWeekClosing.value.length > 0) {
+    return calculatedPreviousWeekClosing.value;
+  }
+
+  // Fallback to saved opening balances
+  return registerData.value.openingBalances || [];
+});
+
 // Computed - Data
 const walletTransactions = computed(() => globalCashStore.walletTransactions || []);
 
@@ -569,7 +617,8 @@ const filteredTransactions = computed(() => {
 const calculatedBalances = computed(() => {
   if (!registerData.value) return {};
 
-  const openingBalances = registerData.value.openingBalances || [];
+  // Use effective opening balances (calculated from previous week when provisional)
+  const openingBalances = effectiveOpeningBalances.value;
   return globalCashStore.calculateBalancesFromTransactions(walletTransactions.value, openingBalances);
 });
 
@@ -698,12 +747,51 @@ const loadRegisterData = async () => {
     // Load suppliers for display
     await supplierStore.fetchSuppliers();
 
+    // If viewing current week and previous week is not closed, calculate previous week closing
+    await loadPreviousWeekClosingIfNeeded();
+
   } catch (error) {
     console.error('Error loading register data:', error);
     useToast(ToastEvents.error, 'Error al cargar los datos de la caja: ' + error.message);
     registerData.value = null;
   } finally {
     isLoading.value = false;
+  }
+};
+
+// Calculate previous week closing balances for provisional opening display
+const loadPreviousWeekClosingIfNeeded = async () => {
+  // Only needed if viewing current week and previous week is not closed
+  if (!isCurrentWeek.value || globalCashStore.isPreviousWeekClosed) {
+    calculatedPreviousWeekClosing.value = [];
+    return;
+  }
+
+  const previousWeek = globalCashStore.previousGlobalCash;
+  if (!previousWeek) {
+    calculatedPreviousWeekClosing.value = [];
+    return;
+  }
+
+  try {
+    // Get previous week's transactions
+    const previousTransactions = await globalCashStore.getWalletTransactionsForRegister(previousWeek.id, true);
+
+    // Calculate balances from previous week's opening + transactions
+    const calculatedBalances = globalCashStore.calculateBalancesFromTransactions(
+      previousTransactions,
+      previousWeek.openingBalances || []
+    );
+
+    // Convert to opening balances format (use currentAmount as the closing/opening for next week)
+    calculatedPreviousWeekClosing.value = Object.values(calculatedBalances).map(balance => ({
+      ownersAccountId: balance.ownersAccountId,
+      ownersAccountName: balance.ownersAccountName,
+      amount: balance.currentAmount
+    }));
+  } catch (error) {
+    console.error('Error calculating previous week closing:', error);
+    calculatedPreviousWeekClosing.value = [];
   }
 };
 
