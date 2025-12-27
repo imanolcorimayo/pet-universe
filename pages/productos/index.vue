@@ -61,135 +61,163 @@
           
           <!-- Status Filter -->
           <div class="flex gap-2">
-            <button 
-              @click="setFilter('all')" 
+            <button
+              @click="setFilter('all')"
               class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               :class="productFilter === 'all' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             >
               Todos
             </button>
-            <button 
-              @click="setFilter('active')" 
+            <button
+              @click="setFilter('active')"
               class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               :class="productFilter === 'active' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             >
               Activos
             </button>
-            <button 
-              @click="setFilter('archived')" 
+            <button
+              @click="setFilter('archived')"
               class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               :class="productFilter === 'archived' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             >
               Archivados
             </button>
           </div>
+
+          <!-- No Code Filter -->
+          <button
+            @click="toggleNoCodeFilter"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            :class="noCodeFilter ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+          >
+            Sin Código
+          </button>
         </div>
       </div>
     </div>
     
-    <!-- Product List -->
-    <div v-if="!isLoading && filteredProducts.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div v-for="product in filteredProducts" :key="product.id" class="bg-white rounded-lg shadow p-4">
-        <div class="flex justify-between">
-          <div class="flex items-start gap-3">
-            <div class="p-3 bg-primary/10 rounded-full">
-              <LucidePackage class="text-primary h-6 w-6" />
-            </div>
-            <div>
-              <h3 class="font-semibold text-lg">
-                <span v-if="product.brand">{{ product.brand }} - </span>{{ product.name }}<span v-if="product.trackingType === 'dual' && product.unitWeight"> - {{ product.unitWeight }}kg</span>
-              </h3>
-              <p class="text-sm text-gray-500">{{ productStore.getCategoryName(product.category) }} {{ product.subcategory ? `- ${product.subcategory}` : '' }}</p>
-              <div class="flex items-center gap-2 mt-1">
-                <p class="text-xs text-gray-400">
-                  <span v-if="product.trackingType === 'dual'">Unidades y Peso</span>
-                  <span v-else-if="product.trackingType === 'weight'">Peso</span>
-                  <span v-else>Unidades</span>
-                </p>
-                <span v-if="product.productCode" class="text-xs text-gray-300">•</span>
-                <span v-if="product.productCode" class="text-xs text-gray-500 font-mono">{{ product.productCode }}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <span v-if="!product.isActive" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-              Archivado
-            </span>
-          </div>
-        </div>
-        
-        <!-- Price info -->
-        <div class="mt-4 flex flex-col gap-1">
-          <div class="flex justify-between">
-            <span class="text-sm text-gray-500">Precio Regular:</span>
-            <span class="text-sm font-semibold">{{ formatCurrency(product.prices.regular) }}</span>
-          </div>
-          <div v-if="product.prices.cash > 0" class="flex justify-between">
-            <span class="text-sm text-gray-500">Precio Efectivo:</span>
-            <span class="text-sm font-semibold">{{ formatCurrency(product.prices.cash) }}</span>
-          </div>
-        </div>
-        
-        <!-- Stock info -->
-        <div class="mt-2 flex items-center gap-2">
-          <LucideBarChart2 class="text-gray-500 h-4 w-4" />
-          <span class="text-sm text-gray-500">
-            Stock Mínimo: {{ product.minimumStock }} {{ product.unitType }}(s)
-          </span>
-        </div>
-        
-        <!-- Actions -->
-        <div class="mt-4 pt-3 border-t border-gray-100 flex justify-between">
-          <button 
-            @click="viewProductDetails(product)" 
-            class="text-sm text-primary flex items-center gap-1"
-            v-if="!loadingProduct"
-          >
-            <LucideEye class="h-4 w-4" /> Ver detalles
-          </button>
-          <div class="flex items-center gap-3" v-else>
-            <span class="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary"></span>
-            Cargando...
-          </div>
-          
-          <div class="flex gap-2">
-            <button 
-              v-if="product.isActive"
-              @click="editProduct(product)" 
-              class="text-sm text-blue-600 flex items-center gap-1"
-            >
-              <LucidePencil class="h-4 w-4" /> Editar
-            </button>
-            
-            <button 
-              v-if="product.isActive"
-              @click="confirmArchiveProduct(product)" 
-              class="text-sm text-red-600 flex items-center gap-1"
-            >
-              <LucideArchive class="h-4 w-4" /> Archivar
-            </button>
-            
-            <button 
-              v-else
-              @click="confirmRestoreProduct(product)" 
-              class="text-sm text-green-600 flex items-center gap-1"
-            >
-              <LucideRefreshCcw class="h-4 w-4" /> Restaurar
-            </button>
-          </div>
-        </div>
+    <!-- Product Table -->
+    <div v-if="!isLoading && displayedProducts.length > 0" class="bg-white rounded-lg shadow overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Producto
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Categoría
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Precios
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Stock Mínimo
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Estado
+              </th>
+              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Acciones
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-for="product in displayedProducts" :key="product.id" class="hover:bg-gray-50">
+              <td class="px-6 py-4 max-w-xs">
+                <div>
+                  <div class="text-sm font-medium text-gray-900">
+                    <span v-if="product.brand">{{ product.brand }} - </span>{{ product.name }}<span v-if="product.trackingType === 'dual' && product.unitWeight"> - {{ product.unitWeight }}kg</span>
+                  </div>
+                  <div class="flex items-center gap-2 mt-1 flex-wrap">
+                    <span v-if="product.productCode" class="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">
+                      {{ product.productCode }}
+                    </span>
+                    <span v-else class="text-xs text-orange-500 font-medium">
+                      Sin código
+                    </span>
+                    <span class="text-xs text-gray-300">•</span>
+                    <span class="text-xs text-gray-500">
+                      <span v-if="product.trackingType === 'dual'">Unidades y Peso</span>
+                      <span v-else-if="product.trackingType === 'weight'">Peso</span>
+                      <span v-else>Unidades</span>
+                    </span>
+                  </div>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">{{ productStore.getCategoryName(product.category) }}</div>
+                <div v-if="product.subcategory" class="text-xs text-gray-500">{{ product.subcategory }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">{{ formatCurrency(product.prices.regular) }}</div>
+                <div v-if="product.prices.cash > 0" class="text-xs text-gray-500">
+                  Efectivo: {{ formatCurrency(product.prices.cash) }}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ product.minimumStock }} {{ product.unitType }}{{ product.minimumStock !== 1 ? 'es' : '' }}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span v-if="product.isActive" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                  Activo
+                </span>
+                <span v-else class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                  Archivado
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div class="flex justify-end gap-3">
+                  <button
+                    v-if="!loadingProduct"
+                    @click="viewProductDetails(product)"
+                    class="text-primary hover:text-primary/80"
+                  >
+                    Ver
+                  </button>
+                  <span v-else class="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary"></span>
+
+                  <button
+                    v-if="product.isActive"
+                    @click="editProduct(product)"
+                    class="text-blue-600 hover:text-blue-800"
+                  >
+                    Editar
+                  </button>
+
+                  <button
+                    v-if="product.isActive"
+                    @click="confirmArchiveProduct(product)"
+                    class="text-red-600 hover:text-red-800"
+                  >
+                    Archivar
+                  </button>
+
+                  <button
+                    v-else
+                    @click="confirmRestoreProduct(product)"
+                    class="text-green-600 hover:text-green-800"
+                  >
+                    Restaurar
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
     
     <!-- Empty State -->
-    <div v-else-if="!isLoading && filteredProducts.length === 0" class="bg-white rounded-lg shadow p-8 text-center">
+    <div v-else-if="!isLoading && displayedProducts.length === 0" class="bg-white rounded-lg shadow p-8 text-center">
       <div class="flex justify-center mb-4">
         <TablerPackages class="h-12 w-12 text-gray-400" />
       </div>
       <h3 class="text-lg font-medium text-gray-900 mb-2">No se encontraron productos</h3>
       <p class="text-gray-500 mb-4">
-        {{ searchQuery || selectedCategory !== 'all' ? 'No hay resultados para tu búsqueda.' : 'Agrega tu primer producto para comenzar.' }}
+        {{ searchQuery || selectedCategory !== 'all' || noCodeFilter ? 'No hay resultados para tu búsqueda.' : 'Agrega tu primer producto para comenzar.' }}
       </p>
       <button
         @click="productFormModal.showModal()"
@@ -212,15 +240,9 @@
 <script setup>
 import { ToastEvents } from '~/interfaces';
 
-import LucidePackage from '~icons/lucide/package';
 import TablerPackages from '~icons/tabler/packages';
 import LucideSearch from '~icons/lucide/search';
 import LucidePlus from '~icons/lucide/plus';
-import LucideEye from '~icons/lucide/eye';
-import LucidePencil from '~icons/lucide/pencil';
-import LucideArchive from '~icons/lucide/archive';
-import LucideRefreshCcw from '~icons/lucide/refresh-ccw';
-import LucideBarChart2 from '~icons/lucide/bar-chart-2';
 
 // Store references
 const productStore = useProductStore();
@@ -238,6 +260,15 @@ const selectedProductId = ref(null);
 const searchQuery = ref('');
 const selectedCategory = ref('all');
 const loadingProduct = ref(false);
+const noCodeFilter = ref(false);
+
+// Computed for applying local no-code filter on top of store filtering
+const displayedProducts = computed(() => {
+  if (!noCodeFilter.value) {
+    return filteredProducts.value;
+  }
+  return filteredProducts.value.filter(product => !product.productCode);
+});
 
 // Watched values
 watch(searchQuery, (newValue) => {
@@ -251,6 +282,10 @@ watch(selectedCategory, (newValue) => {
 // Methods
 function setFilter(filter) {
   productStore.setProductFilter(filter);
+}
+
+function toggleNoCodeFilter() {
+  noCodeFilter.value = !noCodeFilter.value;
 }
 
 // Removed getCategoryName function - now using productStore.getCategoryName directly
