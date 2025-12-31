@@ -26,19 +26,22 @@ export interface PaymentTransactionData {
   supplierId?: string;
   supplierName?: string;
   notes?: string;
-  
+
   // Payment method (how customer pays)
   paymentMethodId: string;
   paymentMethodName: string;
-  
+
   // Payment provider (for card/digital payments that need settlement processing)
   paymentProviderId?: string;
   paymentProviderName?: string;
-  
+
   // Owners account (where money is received/stored)
   ownersAccountId: string;
   ownersAccountName: string;
-  
+
+  // Fiscal reporting (per-payment level)
+  isReported?: boolean;
+
   userId: string;
   userName: string;
   businessId: string;
@@ -290,12 +293,12 @@ export class BusinessRulesEngine {
     try {
       // 0. Validate data structure
       if (!data.paymentTransactions || !Array.isArray(data.paymentTransactions)) {
-        return { success: false, error: 'Payment transactions are required and must be an array' };
+        return { success: false, error: 'Las transacciones de pago son requeridas' };
       }
 
       // 1. Pre-validation: Check client exists if partial payment expected
       if (data.saleData.isPaidInFull === false && !data.saleData.clientId) {
-        return { success: false, error: 'Client is required for partial payments (debt creation)' };
+        return { success: false, error: 'Se requiere un cliente para pagos parciales (creación de deuda)' };
       }
 
       // 2. Validate daily cash snapshot is open
@@ -333,7 +336,7 @@ export class BusinessRulesEngine {
 
       const saleId = saleResult.data?.id;
       if (!saleId) {
-        return { success: false, error: 'Sale created but ID not returned' };
+        return { success: false, error: 'La venta fue creada pero no se obtuvo el ID' };
       }
 
       // 3. Process wallet transactions
@@ -377,7 +380,7 @@ export class BusinessRulesEngine {
           saleId: saleId,
           amount: walletTx.amount,
           status: 'paid',
-          isRegistered: true,
+          isRegistered: walletTx.isReported ?? true, // Use per-payment isReported, default to true
           notes: walletTx.notes || null,
           categoryCode: walletTx.categoryCode || null,
           categoryName: walletTx.categoryName || null,
@@ -406,6 +409,7 @@ export class BusinessRulesEngine {
           saleId: saleId,
           type: 'sale',
           amount: cashTx.amount,
+          isReported: cashTx.isReported ?? false, // Use per-payment isReported
           createdBy: cashTx.userId,
           createdByName: cashTx.userName
         });
@@ -548,12 +552,12 @@ export class BusinessRulesEngine {
       // 1. Validate debt exists and is active
       const debtResult = await this.debtSchema.findById(data.debtId);
       if (!debtResult.success || !debtResult.data) {
-        return { success: false, error: 'Debt not found' };
+        return { success: false, error: 'Deuda no encontrada' };
       }
 
       const debt = debtResult.data;
       if (debt.status !== 'active') {
-        return { success: false, error: 'Debt is not active' };
+        return { success: false, error: 'La deuda no está activa' };
       }
 
       // 2. Calculate total payment amount and validate
@@ -567,7 +571,7 @@ export class BusinessRulesEngine {
 
       // 3. Validate payment transaction data
       if (!data.paymentTransactions || !Array.isArray(data.paymentTransactions)) {
-        return { success: false, error: 'Payment transactions are required and must be an array' };
+        return { success: false, error: 'Las transacciones de pago son requeridas' };
       }
 
       // 4. Determine payment routing (customer vs supplier debt)
@@ -969,7 +973,7 @@ export class BusinessRulesEngine {
 
       const invoiceId = invoiceResult.data?.id;
       if (!invoiceId) {
-        return { success: false, error: 'Purchase invoice created but ID not returned' };
+        return { success: false, error: 'La factura de compra fue creada pero no se obtuvo el ID' };
       }
 
       // 3. Create wallet transaction (outcome)
@@ -1051,17 +1055,17 @@ export class BusinessRulesEngine {
       // 1. Validate debt exists and is active
       const debtResult = await this.debtSchema.findById(data.debtId);
       if (!debtResult.success || !debtResult.data) {
-        return { success: false, error: 'Debt not found' };
+        return { success: false, error: 'Deuda no encontrada' };
       }
 
       const debt = debtResult.data;
       if (debt.status !== 'active') {
-        return { success: false, error: 'Debt is not active' };
+        return { success: false, error: 'La deuda no está activa' };
       }
 
       // 2. Verify this is actually a customer debt
       if (!debt.clientId) {
-        return { success: false, error: 'This is not a customer debt. Use processSupplierDebtPayment instead.' };
+        return { success: false, error: 'Esta no es una deuda de cliente. Use el método para deudas de proveedor.' };
       }
 
       // 3. Validate payment amount
@@ -1098,7 +1102,7 @@ export class BusinessRulesEngine {
       // 7. Get account information from payment method
       const accountInfo = this.getAccountFromPaymentMethod(data.paymentMethodId);
       if (!accountInfo) {
-        return { success: false, error: 'Account information not found for payment method' };
+        return { success: false, error: 'No se encontró información de cuenta para el método de pago' };
       }
 
       // 8. Get provider information if available
@@ -1136,7 +1140,7 @@ export class BusinessRulesEngine {
       } else if (requiresSettlement) {
         // Settlement payment (postnet) → Settlement record
         if (!providerInfo) {
-          return { success: false, error: 'Payment provider not found for settlement payment method' };
+          return { success: false, error: 'No se encontró el proveedor de pago para el método de liquidación' };
         }
 
         const settlementResult = await this.settlementSchema.create({
@@ -1277,17 +1281,17 @@ export class BusinessRulesEngine {
       // 1. Validate debt exists and is active
       const debtResult = await this.debtSchema.findById(data.debtId);
       if (!debtResult.success || !debtResult.data) {
-        return { success: false, error: 'Debt not found' };
+        return { success: false, error: 'Deuda no encontrada' };
       }
 
       const debt = debtResult.data;
       if (debt.status !== 'active') {
-        return { success: false, error: 'Debt is not active' };
+        return { success: false, error: 'La deuda no está activa' };
       }
 
       // 2. Verify this is actually a supplier debt
       if (!debt.supplierId) {
-        return { success: false, error: 'This is not a supplier debt. Use processCustomerDebtPayment instead.' };
+        return { success: false, error: 'Esta no es una deuda de proveedor. Use el método para deudas de cliente.' };
       }
 
       // 3. Validate payment amount
@@ -1398,7 +1402,7 @@ export class BusinessRulesEngine {
       if (!this.globalCashRegisterStore.currentGlobalCash) {
         return {
           success: false,
-          error: 'No open global cash register found. Please open a global cash register first.'
+          error: 'No hay una caja global abierta. Debe abrir la caja global antes de continuar.'
         };
       }
 
@@ -1421,7 +1425,7 @@ export class BusinessRulesEngine {
   private async validateDailyCashSnapshotOpen(snapshotId: string): Promise<BusinessRuleResult> {
     const snapshotResult = await this.dailyCashSnapshotSchema.findById(snapshotId);
     if (!snapshotResult.success || !snapshotResult.data) {
-      return { success: false, error: 'Daily cash snapshot not found' };
+      return { success: false, error: 'No se encontró la caja diaria' };
     }
 
     const snapshot = snapshotResult.data;
@@ -1492,7 +1496,7 @@ export class BusinessRulesEngine {
 
       const walletTransactionId = walletResult.data?.id;
       if (!walletTransactionId) {
-        return { success: false, error: 'Wallet transaction created but ID not returned' };
+        return { success: false, error: 'La transacción de billetera fue creada pero no se obtuvo el ID' };
       }
 
       // 5. Create daily cash inject transaction (money entering daily register)
@@ -1643,7 +1647,7 @@ export class BusinessRulesEngine {
 
       const walletTransactionId = walletResult.data?.id;
       if (!walletTransactionId) {
-        return { success: false, error: 'Wallet transaction created but ID not returned' };
+        return { success: false, error: 'La transacción de billetera fue creada pero no se obtuvo el ID' };
       }
 
       // 6. Update each settlement record
@@ -1975,7 +1979,7 @@ export class BusinessRulesEngine {
 
       const walletTransactionId = walletResult.data?.id;
       if (!walletTransactionId) {
-        return { success: false, error: 'Wallet transaction created but ID not returned' };
+        return { success: false, error: 'La transacción de billetera fue creada pero no se obtuvo el ID' };
       }
 
       // 5. Create daily cash extract transaction (money leaving daily register)

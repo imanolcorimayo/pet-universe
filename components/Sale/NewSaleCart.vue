@@ -354,6 +354,27 @@
                       placeholder="Monto"
                     />
                   </div>
+
+                  <!-- Per-payment isReported toggle (only shown when multiple payments) -->
+                  <div v-if="paymentMethods.length > 1" class="flex items-center justify-between pt-1">
+                    <span class="text-xs text-gray-600">Reportado</span>
+                    <div class="flex items-center gap-1.5">
+                      <span
+                        :class="[
+                          'text-[10px] px-1.5 py-0.5 rounded-full',
+                          payment.isReported ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-600'
+                        ]"
+                      >
+                        {{ payment.isReported ? 'B' : 'N' }}
+                      </span>
+                      <input
+                        type="checkbox"
+                        :checked="payment.isReported"
+                        @change="updatePaymentMethod(index, 'isReported', $event.target.checked)"
+                        class="rounded text-primary w-3.5 h-3.5"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <button
@@ -457,8 +478,8 @@
             </div>
           </div>
 
-          <!-- Fiscal Reporting -->
-          <div class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded-md">
+          <!-- Fiscal Reporting (only for single payment method) -->
+          <div v-if="paymentMethods.length <= 1" class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded-md">
             <label class="flex items-center justify-between cursor-pointer">
               <div class="flex items-center gap-2">
                 <LucideFileText class="w-4 h-4 text-gray-500" />
@@ -481,6 +502,19 @@
                 />
               </div>
             </label>
+          </div>
+
+          <!-- Fiscal Reporting Summary (for multiple payment methods) -->
+          <div v-else class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded-md">
+            <div class="flex items-center gap-2 text-xs">
+              <LucideFileText class="w-4 h-4 text-gray-500" />
+              <span class="font-medium text-gray-700">Reporte por método:</span>
+              <div class="flex items-center gap-1.5 ml-auto">
+                <span class="text-blue-600">{{ reportedPaymentsCount }}B</span>
+                <span class="text-gray-400">/</span>
+                <span class="text-gray-600">{{ nonReportedPaymentsCount }}N</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -618,6 +652,14 @@ const paymentTotal = computed(() => {
 
 const paymentDifference = computed(() => {
   return total.value - paymentTotal.value;
+});
+
+const reportedPaymentsCount = computed(() => {
+  return props.paymentMethods.filter(p => p.isReported).length;
+});
+
+const nonReportedPaymentsCount = computed(() => {
+  return props.paymentMethods.filter(p => !p.isReported).length;
 });
 
 const canSubmit = computed(() => {
@@ -821,6 +863,18 @@ function updateManualPrice(index, value) {
 function updatePaymentMethod(index, field, value) {
   const methods = [...props.paymentMethods];
   methods[index][field] = value;
+
+  // Auto-set isReported based on payment method when method changes
+  if (field === 'paymentMethodId' && value) {
+    const method = paymentMethodsStore.getPaymentMethodById(value);
+    if (method) {
+      const isEfectivo = method.name.toLowerCase().includes('efectivo') ||
+                         method.code?.toLowerCase().includes('efectivo');
+      // Cash payments default to not reported (negro), non-cash to reported (blanco)
+      methods[index].isReported = !isEfectivo;
+    }
+  }
+
   emit('update:payment-methods', methods);
 }
 
@@ -830,7 +884,8 @@ function addPaymentMethod() {
 
   methods.push({
     paymentMethodId: '',
-    amount: remaining
+    amount: remaining,
+    isReported: false // Default to not reported, will auto-update based on payment method
   });
 
   emit('update:payment-methods', methods);

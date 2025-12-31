@@ -52,6 +52,11 @@ export class DailyCashTransactionSchema extends Schema {
       required: true,
       min: 0.01
     },
+    isReported: {
+      type: 'boolean',
+      required: false,
+      defaultValue: false
+    },
     createdAt: {
       type: 'date',
       required: true

@@ -227,8 +227,19 @@
       </div>
     </div>
 
+    <!-- Resize Handle - Desktop -->
+    <div
+      class="hidden lg:flex w-1.5 bg-gray-200 hover:bg-primary/50 cursor-col-resize transition-colors items-center justify-center group"
+      @mousedown="startResize"
+    >
+      <div class="w-0.5 h-8 bg-gray-400 group-hover:bg-primary rounded-full"></div>
+    </div>
+
     <!-- Right Sidebar (Cart) - Desktop -->
-    <div class="hidden lg:flex w-96 border-l border-gray-200 bg-white flex-col">
+    <div
+      class="hidden lg:flex border-l border-gray-200 bg-white flex-col"
+      :style="{ width: `${sidebarWidth}px` }"
+    >
       <SaleNewSaleCart
         :cart-items="cartItems"
         :selected-client-id="selectedClientId"
@@ -382,6 +393,13 @@ const isReported = ref(false);
 const showSuccessModal = ref(false);
 const lastSaleNumber = ref('');
 
+// Sidebar resize state
+const MIN_SIDEBAR_WIDTH = 320;
+const MAX_SIDEBAR_WIDTH = 600;
+const DEFAULT_SIDEBAR_WIDTH = 384; // w-96
+const sidebarWidth = useLocalStorage('nuevaVentaSidebarWidth', DEFAULT_SIDEBAR_WIDTH);
+const isResizing = ref(false);
+
 // Computed
 const productCategories = computed(() => productStore.categories || []);
 
@@ -530,7 +548,8 @@ function goToPaymentStep() {
 
   paymentMethods.value = [{
     paymentMethodId: defaultMethod,
-    amount: total
+    amount: total,
+    isReported: isReported.value // Use the global isReported as default
   }];
 
   isPaymentStep.value = true;
@@ -560,6 +579,16 @@ async function submitSale() {
 
     if (!user.value?.uid || !currentBusinessId.value) {
       useToast(ToastEvents.error, 'Debes iniciar sesión y seleccionar un negocio');
+      return;
+    }
+
+    // Pre-check: Verify global cash register is open
+    if (!globalCashRegisterStore.currentGlobalCash) {
+      await globalCashRegisterStore.loadCurrentGlobalCash();
+    }
+    if (!globalCashRegisterStore.currentGlobalCash) {
+      useToast(ToastEvents.error, 'No hay una caja global abierta. Debe abrir la caja global antes de registrar ventas.');
+      isLoading.value = false;
       return;
     }
 
@@ -609,11 +638,17 @@ async function submitSale() {
       debtNotes: debtNotes.value || ''
     };
 
+    // Determine if we're using per-payment isReported (multiple payments) or global isReported (single payment)
+    const hasMultiplePayments = paymentMethods.value.length > 1;
+
     // Build payment transactions
     const paymentTransactions = paymentMethods.value.map(payment => {
       const method = paymentMethodsStore.getPaymentMethodById(payment.paymentMethodId);
       const account = method ? paymentMethodsStore.getOwnersAccountById(method.ownersAccountId) : null;
       const provider = method?.paymentProviderId ? paymentMethodsStore.getPaymentProviderById(method.paymentProviderId) : null;
+
+      // Use per-payment isReported if multiple payments, otherwise use global isReported
+      const paymentIsReported = hasMultiplePayments ? (payment.isReported ?? false) : isReported.value;
 
       return {
         type: 'Income',
@@ -625,6 +660,7 @@ async function submitSale() {
         paymentProviderName: provider?.name || null,
         ownersAccountId: account?.id || 'unknown',
         ownersAccountName: account?.name || 'Unknown Account',
+        isReported: paymentIsReported,
         userId: user.value.uid,
         userName: user.value.displayName || user.value.email || 'Usuario',
         businessId: currentBusinessId.value
@@ -724,6 +760,31 @@ function handleBack() {
   }
 }
 
+// Sidebar resize functions
+function startResize(event) {
+  event.preventDefault();
+  isResizing.value = true;
+  document.addEventListener('mousemove', handleResize);
+  document.addEventListener('mouseup', stopResize);
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+}
+
+function handleResize(event) {
+  if (!isResizing.value) return;
+  const containerWidth = window.innerWidth;
+  const newWidth = containerWidth - event.clientX;
+  sidebarWidth.value = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, newWidth));
+}
+
+function stopResize() {
+  isResizing.value = false;
+  document.removeEventListener('mousemove', handleResize);
+  document.removeEventListener('mouseup', stopResize);
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+}
+
 // Load initial data
 async function loadData() {
   isLoading.value = true;
@@ -753,6 +814,12 @@ async function loadData() {
       return;
     }
 
+    // Verify global cash register is open
+    await globalCashRegisterStore.loadCurrentGlobalCash();
+    if (!globalCashRegisterStore.currentGlobalCash) {
+      useToast(ToastEvents.warning, 'No hay una caja global abierta. Debe abrir la caja global antes de registrar ventas.');
+    }
+
     snapshotData.value = result.data;
   } catch (error) {
     console.error('Error loading data:', error);
@@ -765,6 +832,12 @@ async function loadData() {
 // Lifecycle
 onMounted(() => {
   loadData();
+});
+
+onUnmounted(() => {
+  // Cleanup resize listeners if component unmounts during resize
+  document.removeEventListener('mousemove', handleResize);
+  document.removeEventListener('mouseup', stopResize);
 });
 
 // Page head
