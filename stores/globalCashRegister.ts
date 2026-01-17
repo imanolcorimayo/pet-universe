@@ -3,6 +3,10 @@ import { GlobalCashSchema } from '~/utils/odm/schemas/GlobalCashSchema';
 import { WalletSchema } from '~/utils/odm/schemas/WalletSchema';
 import { useLocalStorage } from '@vueuse/core';
 
+// Module-level variable for wallet subscription (can't store functions in Pinia state)
+let walletUnsubscribe: (() => void) | null = null;
+let subscribedGlobalCashId: string | null = null;
+
 // --- Interfaces ---
 interface GlobalCash {
   id: string;
@@ -84,6 +88,10 @@ interface GlobalCashState {
   // Loading states
   isLoading: boolean;
   isWalletLoading: boolean;
+
+  // Cache tracking
+  lastFetch: number;
+  cacheValidityMs: number;
 }
 
 // --- Store ---
@@ -99,7 +107,9 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     netBalance: 0,
     walletTransactionCache: new Map(),
     isLoading: false,
-    isWalletLoading: false
+    isWalletLoading: false,
+    lastFetch: 0,
+    cacheValidityMs: 5 * 60 * 1000 // 5 minutes
   }),
 
   getters: {
@@ -160,13 +170,24 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       });
 
       return balances;
+    },
+
+    // Check if cache needs refresh (no data or expired)
+    needsCacheRefresh(): boolean {
+      if (!this.currentGlobalCash) return true;
+      return Date.now() - this.lastFetch > this.cacheValidityMs;
     }
   },
 
   actions: {
     // --- GLOBAL CASH MANAGEMENT (Weekly Snapshots) ---
     
-    async loadCurrentGlobalCash() {
+    async loadCurrentGlobalCash(forceRefresh = false) {
+      // Skip fetch if cache is still fresh
+      if (!forceRefresh && !this.needsCacheRefresh) {
+        return;
+      }
+
       this.isLoading = true;
       try {
         const currentWeekStart = this.getCurrentWeekStartDate();
@@ -198,9 +219,12 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
           this.walletTransactions = [];
         }
 
-        // Also load and cache previous week register for validation purposes
-        await this.loadPreviousGlobalCash();
+        // Also load and cache previous week register for validation purposes (skip if already cached)
+        if (!this.previousGlobalCash) {
+          await this.loadPreviousGlobalCash();
+        }
 
+        this.lastFetch = Date.now();
         this.calculateBalances();
       } catch (error) {
         console.error('Error loading current global cash:', error);
@@ -294,24 +318,54 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         return;
       }
 
-      this.isWalletLoading = true;
-      try {
-        const schema = new WalletSchema();
-        const result = await schema.find({
-          where: [{ field: 'globalCashId', operator: '==', value: this.currentGlobalCash.id }]
-        });
+      // Use subscription for real-time updates instead of one-time fetch
+      this.subscribeToWalletTransactions(this.currentGlobalCash.id);
+    },
 
-        if (result.success) {
-          // Sort by transactionDate (with createdAt fallback) in JavaScript
-          this.walletTransactions = this.sortWalletTransactions(result.data as WalletTransaction[]);
-        } else {
-          throw new Error(result.error);
+    /**
+     * Subscribe to real-time wallet transaction updates for a specific global cash register
+     * Automatically unsubscribes from previous subscription if switching registers
+     */
+    subscribeToWalletTransactions(globalCashId: string) {
+      // Skip if already subscribed to this register
+      if (subscribedGlobalCashId === globalCashId && walletUnsubscribe) {
+        return;
+      }
+
+      // Unsubscribe from previous if exists
+      this.unsubscribeFromWalletTransactions();
+
+      this.isWalletLoading = true;
+      const schema = new WalletSchema();
+
+      walletUnsubscribe = schema.subscribe(
+        {
+          where: [{ field: 'globalCashId', operator: '==', value: globalCashId }]
+        },
+        (transactions) => {
+          // Sort and update store state
+          this.walletTransactions = this.sortWalletTransactions(transactions as WalletTransaction[]);
+          this.calculateBalances();
+          this.isWalletLoading = false;
+        },
+        (error) => {
+          console.error('Wallet subscription error:', error);
+          this.walletTransactions = [];
+          this.isWalletLoading = false;
         }
-      } catch (error) {
-        console.error('Error loading wallet transactions:', error);
-        this.walletTransactions = [];
-      } finally {
-        this.isWalletLoading = false;
+      );
+
+      subscribedGlobalCashId = globalCashId;
+    },
+
+    /**
+     * Unsubscribe from wallet transaction updates
+     */
+    unsubscribeFromWalletTransactions() {
+      if (walletUnsubscribe) {
+        walletUnsubscribe();
+        walletUnsubscribe = null;
+        subscribedGlobalCashId = null;
       }
     },
 
@@ -465,7 +519,15 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       }
     },
 
-    async loadSpecificGlobalCash(id: string) {
+    async loadSpecificGlobalCash(id: string, forceRefresh = false) {
+      // Check cache first - if requesting current week's register and cache is fresh
+      if (!forceRefresh &&
+          this.currentGlobalCash?.id === id &&
+          !this.needsCacheRefresh) {
+        // Return cached data without Firebase call
+        return this.currentGlobalCash;
+      }
+
       this.isLoading = true;
       try {
         const { $dayjs } = useNuxtApp();
@@ -488,8 +550,11 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
 
           if (isCurrentWeek) {
             this.currentGlobalCash = globalCash;
-            // Also load previous week register to check its closure status
-            await this.loadPreviousGlobalCash();
+            this.lastFetch = Date.now(); // Update cache timestamp
+            // Also load previous week register to check its closure status (skip if cached)
+            if (!this.previousGlobalCash) {
+              await this.loadPreviousGlobalCash();
+            }
           }
           // Check if register is from previous week
           else if ((registerOpenedAt.isSame(previousWeekStart) || registerOpenedAt.isAfter(previousWeekStart)) &&
@@ -497,16 +562,8 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
             this.previousGlobalCash = globalCash;
           }
 
-          // Load wallet transactions for this specific global cash
-          const walletSchema = new WalletSchema();
-          const walletResult = await walletSchema.find({
-            where: [{ field: 'globalCashId', operator: '==', value: id }]
-          });
-
-          if (walletResult.success) {
-            // Sort by transactionDate (with createdAt fallback) in JavaScript
-            this.walletTransactions = this.sortWalletTransactions(walletResult.data as WalletTransaction[]);
-          }
+          // Subscribe to wallet transactions for real-time updates
+          this.subscribeToWalletTransactions(id);
 
           return globalCash;
         } else {
@@ -551,6 +608,9 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     },
 
     clearState() {
+      // Unsubscribe from real-time updates
+      this.unsubscribeFromWalletTransactions();
+
       this.currentGlobalCash = null;
       this.previousGlobalCash = null;
       this.walletTransactions = [];
@@ -559,10 +619,11 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       this.totalOutcome = 0;
       this.netBalance = 0;
       this.walletTransactionCache.clear();
+      this.lastFetch = 0; // Reset cache timestamp
     },
 
     async refreshFromFirebase() {
-      await this.loadCurrentGlobalCash();
+      await this.loadCurrentGlobalCash(true); // Force refresh
     },
 
     // --- WALLET TRANSACTION METHODS ---
@@ -774,7 +835,10 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
 
       try {
         const paymentMethodsStore = usePaymentMethodsStore();
-        await paymentMethodsStore.loadAllData();
+        // Only load payment methods if cache needs refresh
+        if (paymentMethodsStore.needsCacheRefresh) {
+          await paymentMethodsStore.loadAllData();
+        }
         const activeAccounts = paymentMethodsStore.activeOwnersAccounts;
 
         if (!activeAccounts || activeAccounts.length === 0) return;
@@ -841,6 +905,9 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
 
         const register = previousRegister.data[0] as GlobalCash;
 
+        // Cache the previous register for later use
+        this.previousGlobalCash = register;
+
         // If previous week is closed, use closing balances
         if (register.closedAt && register.closingBalances) {
           return register.closingBalances;
@@ -892,8 +959,20 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       try {
         const currentWeekStart = this.getCurrentWeekStartDate();
         const { $dayjs } = useNuxtApp();
-        
-        // Check if current week register exists
+
+        // Check cache first - if currentGlobalCash is loaded and belongs to current week, use it
+        if (this.currentGlobalCash && !this.needsCacheRefresh) {
+          const cachedOpenedAt = $dayjs(this.currentGlobalCash.openedAt, 'DD/MM/YYYY HH:mm');
+          const weekStart = $dayjs(currentWeekStart).startOf('day');
+          const weekEnd = weekStart.add(7, 'day');
+
+          if (cachedOpenedAt.isSame(weekStart, 'day') ||
+              (cachedOpenedAt.isAfter(weekStart) && cachedOpenedAt.isBefore(weekEnd))) {
+            return { exists: true, register: this.currentGlobalCash };
+          }
+        }
+
+        // Check if current week register exists in Firebase
         const globalCashSchema = new GlobalCashSchema();
         const currentRegister = await globalCashSchema.find({
           where: [

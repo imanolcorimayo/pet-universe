@@ -1,17 +1,19 @@
-import { 
-  addDoc, 
-  collection, 
-  doc, 
-  updateDoc, 
-  deleteDoc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
+import {
+  addDoc,
+  collection,
+  doc,
+  updateDoc,
+  deleteDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
   limit as firestoreLimit,
   serverTimestamp,
-  type Timestamp 
+  onSnapshot,
+  type Timestamp,
+  type Unsubscribe
 } from 'firebase/firestore';
 import { Validator } from './validator';
 import type { 
@@ -513,6 +515,61 @@ export abstract class Schema {
     };
 
     return this.find(options);
+  }
+
+  // Subscribe to real-time updates with query options
+  subscribe(
+    options: QueryOptions,
+    onData: (data: DocumentWithId[]) => void,
+    onError?: (error: Error) => void
+  ): Unsubscribe {
+    const db = this.getFirestore();
+    const businessId = this.getCurrentBusinessId();
+
+    if (!businessId) {
+      onError?.(new Error('Business ID is required'));
+      return () => {}; // Return no-op unsubscribe
+    }
+
+    // Build query
+    const queryRef = collection(db, this.collectionName);
+    const constraints: any[] = [where('businessId', '==', businessId)];
+
+    // Add where clauses
+    if (options.where) {
+      for (const condition of options.where) {
+        constraints.push(where(condition.field, condition.operator, condition.value));
+      }
+    }
+
+    // Add order by clauses
+    if (options.orderBy) {
+      for (const order of options.orderBy) {
+        constraints.push(orderBy(order.field, order.direction));
+      }
+    }
+
+    // Add limit
+    if (options.limit) {
+      constraints.push(firestoreLimit(options.limit));
+    }
+
+    // Create query and subscribe
+    const q = query(queryRef, ...constraints);
+
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const documents = querySnapshot.docs.map(doc => this.addDocumentId(doc));
+        onData(documents);
+      },
+      (error) => {
+        console.error(`Error in ${this.collectionName} subscription:`, error);
+        onError?.(error);
+      }
+    );
+
+    return unsubscribe;
   }
 
   // Clear reference cache
