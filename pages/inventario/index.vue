@@ -172,14 +172,14 @@
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Último Movimiento
               </th>
-              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-40">
                 Acciones
               </th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
             <tr v-for="item in filteredInventory" :key="item.productId" class="hover:bg-gray-50">
-              <td class="px-6 py-4 whitespace-nowrap">
+              <td class="px-6 py-4">
                 <div class="flex items-center">
                   <div>
                     <div class="text-sm font-medium text-gray-900">
@@ -242,14 +242,14 @@
                   {{ getMovementTypeLabel(item.lastMovementType) }}
                 </div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button 
+              <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium w-40">
+                <button
                   @click="viewInventoryDetails(item.productId)"
                   class="text-primary hover:text-primary/80 mr-3"
                 >
                   Ver Inventario
                 </button>
-                <button 
+                <button
                   @click="openAdjustInventory(item.productId)"
                   class="text-primary hover:text-primary/80"
                 >

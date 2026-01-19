@@ -558,11 +558,6 @@ export const useProductStore = defineStore("product", {
           console.warn("Product created but inventory initialization failed");
         }
 
-        // Add to products array
-        this.products.push(newProduct);
-        // Add to Map for O(1) access
-        this.productsByIdMap.set(newProduct.id, newProduct);
-
         useToast(ToastEvents.success, "Producto creado exitosamente");
         this.isLoading = false;
         return true;
@@ -635,18 +630,8 @@ export const useProductStore = defineStore("product", {
           return false;
         }
 
-        // Update local state
-        const productIndex = this.products.findIndex(p => p.id === productId);
-        if (productIndex >= 0) {
-          const updatedProduct: Product = result.data as Product;
-
-          this.products[productIndex] = updatedProduct;
-          this.productsByIdMap.set(productId, updatedProduct);
-
-          // Update selected product if applicable
-          if (this.selectedProduct && this.selectedProduct.id === productId) {
-            this.selectedProduct = updatedProduct;
-          }
+        if (this.selectedProduct && this.selectedProduct.id === productId) {
+          this.selectedProduct = result.data as Product;
         }
 
         useToast(ToastEvents.success, "Producto actualizado exitosamente");
@@ -674,20 +659,10 @@ export const useProductStore = defineStore("product", {
           return false;
         }
 
-        // Update local state
-        const productIndex = this.products.findIndex(p => p.id === productId);
-        if (productIndex >= 0) {
-          const archivedProduct = result.data as Product;
-
-          this.products[productIndex] = archivedProduct;
-          this.productsByIdMap.set(productId, archivedProduct);
-        }
-        
-        // Clear selected product if it was archived
         if (this.selectedProduct && this.selectedProduct.id === productId) {
           this.selectedProduct = null;
         }
-        
+
         this.isLoading = false;
         return true;
       } catch (error) {
@@ -712,15 +687,6 @@ export const useProductStore = defineStore("product", {
           return false;
         }
 
-        // Update local state
-        const productIndex = this.products.findIndex(p => p.id === productId);
-        if (productIndex >= 0) {
-          const restoredProduct = result.data as Product;
-
-          this.products[productIndex] = restoredProduct;
-          this.productsByIdMap.set(productId, restoredProduct);
-        }
-        
         useToast(ToastEvents.success, "Producto restaurado exitosamente");
         this.isLoading = false;
         return true;

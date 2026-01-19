@@ -335,15 +335,7 @@ export const useInventoryStore = defineStore("inventory", {
           this.isLoading = false;
           return false;
         }
-        
-        // Update local state
-        const updatedInventory = result.data as Inventory;
-        const index = this.inventoryItems.findIndex(item => item.productId === productId);
-        if (index >= 0) {
-          this.inventoryItems[index] = updatedInventory;
-          this.inventoryByProductId.set(productId, updatedInventory);
-        }
-        
+
         this.isLoading = false;
         return true;
       } catch (error) {
@@ -431,16 +423,6 @@ export const useInventoryStore = defineStore("inventory", {
           notes: adjustmentData.notes,
           productName: existingInventory.productName,
         });
-        
-        if (success) {
-          // Update local cache with schema result
-          const updatedInventory = result.data as Inventory;
-          const index = this.inventoryItems.findIndex(item => item.productId === adjustmentData.productId);
-          if (index >= 0) {
-            this.inventoryItems[index] = updatedInventory;
-            this.inventoryByProductId.set(adjustmentData.productId, updatedInventory);
-          }
-        }
         
         this.isLoading = false;
         return success;
@@ -610,33 +592,9 @@ export const useInventoryStore = defineStore("inventory", {
         });
         
         if (success) {
-          // DEPRECATED: Global transaction creation has been migrated to BusinessRulesEngine
-          // Payment logic is now handled in SupplierPurchaseModal.vue via processGenericExpense()
-          // This section is kept for backward compatibility but should not be used
-          if (data.createGlobalTransaction && data.paymentMethod) {
-            console.warn('DEPRECATED: createGlobalTransaction flag is no longer supported. Use BusinessRulesEngine.processGenericExpense() instead.');
-          }
-
-          // Update local cache
-          const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
-          if (index >= 0) {
-            const { $dayjs } = useNuxtApp();
-            this.inventoryItems[index].unitsInStock = newUnitsInStock;
-            this.inventoryItems[index].openUnitsWeight = newOpenUnitsWeight;
-            this.inventoryItems[index].averageCost = newAverageCost;
-            this.inventoryItems[index].lastPurchaseCost = data.unitCost;
-            this.inventoryItems[index].totalCostValue = newUnitsInStock * newAverageCost;
-            this.inventoryItems[index].isLowStock = isLowStock;
-            this.inventoryItems[index].lastPurchaseAt = $dayjs().format('DD/MM/YYYY');
-            this.inventoryItems[index].lastSupplierId = data.supplierId || null;
-            this.inventoryItems[index].lastMovementAt = $dayjs().format('DD/MM/YYYY');
-            this.inventoryItems[index].lastMovementType = "purchase";
-            this.inventoryItems[index].lastMovementBy = user.value.uid;
-          }
-          
           useToast(ToastEvents.success, "Inventario actualizado exitosamente");
         }
-        
+
         this.isLoading = false;
         return success;
       } catch (error) {
@@ -727,21 +685,9 @@ export const useInventoryStore = defineStore("inventory", {
         });
 
         if (success) {
-          // Update local cache
-          const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
-          if (index >= 0) {
-            const { $dayjs } = useNuxtApp();
-            this.inventoryItems[index].unitsInStock = newUnitsInStock;
-            this.inventoryItems[index].openUnitsWeight = newOpenUnitsWeight;
-            this.inventoryItems[index].isLowStock = isLowStock;
-            this.inventoryItems[index].lastMovementAt = $dayjs().format('DD/MM/YYYY');
-            this.inventoryItems[index].lastMovementType = "loss";
-            this.inventoryItems[index].lastMovementBy = user.value.uid;
-          }
-
           useToast(ToastEvents.success, "Pérdida de inventario registrada exitosamente");
         }
-        
+
         this.isLoading = false;
         return success;
       } catch (error) {
@@ -838,23 +784,9 @@ export const useInventoryStore = defineStore("inventory", {
         });
         
         if (success) {
-          // Update local cache
-          const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
-          if (index >= 0) {
-            const { $dayjs } = useNuxtApp();
-            this.inventoryItems[index].unitsInStock = data.newUnits;
-            this.inventoryItems[index].openUnitsWeight = data.newWeight;
-            this.inventoryItems[index].averageCost = data.newCost;
-            this.inventoryItems[index].totalCostValue = data.newUnits * data.newCost;
-            this.inventoryItems[index].isLowStock = isLowStock;
-            this.inventoryItems[index].lastMovementAt = $dayjs().format('DD/MM/YYYY');
-            this.inventoryItems[index].lastMovementType = "adjustment";
-            this.inventoryItems[index].lastMovementBy = user.value.uid;
-          }
-          
           useToast(ToastEvents.success, "Inventario ajustado exitosamente");
         }
-        
+
         this.isLoading = false;
         return success;
       } catch (error) {
@@ -1003,33 +935,9 @@ export const useInventoryStore = defineStore("inventory", {
         });
         
         if (success) {
-          // Update local cache
-          const index = this.inventoryItems.findIndex(item => item.productId === data.productId);
-          if (index >= 0) {
-            const { $dayjs } = useNuxtApp();
-            this.inventoryItems[index].unitsInStock = newUnitsInStock;
-            this.inventoryItems[index].openUnitsWeight = newOpenUnitsWeight;
-            this.inventoryItems[index].isLowStock = isLowStock;
-            this.inventoryItems[index].lastMovementAt = $dayjs().format('DD/MM/YYYY');
-            this.inventoryItems[index].lastMovementType = "conversion";
-            this.inventoryItems[index].lastMovementBy = user.value.uid;
-            
-            // Also update the Map
-            if (this.inventoryByProductId.has(data.productId)) {
-              const cachedItem = this.inventoryByProductId.get(data.productId) as Inventory;
-              cachedItem.unitsInStock = newUnitsInStock;
-              cachedItem.openUnitsWeight = newOpenUnitsWeight;
-              cachedItem.isLowStock = isLowStock;
-              cachedItem.lastMovementAt = $dayjs().format('DD/MM/YYYY');
-              cachedItem.lastMovementType = "conversion";
-              cachedItem.lastMovementBy = user.value.uid;
-              this.inventoryByProductId.set(data.productId, cachedItem);
-            }
-          }
-          
           useToast(ToastEvents.success, "Conversión de unidades a peso completada exitosamente");
         }
-        
+
         this.isLoading = false;
         return success;
       } catch (error) {
@@ -1123,22 +1031,7 @@ export const useInventoryStore = defineStore("inventory", {
           this.isLoading = false;
           return false;
         }
-        
-        // Update local state
-        const index = this.inventoryItems.findIndex(item => item.productId === productId);
-        if (index >= 0) {
-          this.inventoryItems[index].lastPurchaseCost = newCost;
-          this.inventoryItems[index].totalCostValue = newTotalCostValue;
-        }
-        
-        // Update Map cache
-        if (this.inventoryByProductId.has(productId)) {
-          const cachedItem = this.inventoryByProductId.get(productId) as Inventory;
-          cachedItem.lastPurchaseCost = newCost;
-          cachedItem.totalCostValue = newTotalCostValue;
-          this.inventoryByProductId.set(productId, cachedItem);
-        }
-        
+
         this.isLoading = false;
         return true;
       } catch (error) {
@@ -1190,39 +1083,6 @@ export const useInventoryStore = defineStore("inventory", {
     calculateMarginFromPrice(price: number, cost: number): number {
       if (cost <= 0) return 0;
       return Math.round(((price - cost) / cost) * 100 * 100) / 100;
-    },
-
-    // Add new inventory item to local cache (for when products are created)
-    addInventoryToCache(inventoryData: {
-      id: string;
-      businessId: string;
-      productId: string;
-      productName: string;
-      minimumStock: number;
-    }): void {
-      const { $dayjs } = useNuxtApp();
-      
-      const newInventoryItem: Inventory = {
-        id: inventoryData.id,
-        businessId: inventoryData.businessId,
-        productId: inventoryData.productId,
-        productName: inventoryData.productName,
-        unitsInStock: 0,
-        openUnitsWeight: 0,
-        totalWeight: 0,
-        minimumStock: inventoryData.minimumStock,
-        isLowStock: true, // New products start with 0 stock, so low stock
-        averageCost: 0,
-        lastPurchaseCost: 0,
-        totalCostValue: 0,
-        createdBy: inventoryData.businessId, // Will be overwritten with actual user when fetched
-        createdAt: $dayjs().format('DD/MM/YYYY'),
-        updatedAt: $dayjs().format('DD/MM/YYYY'),
-      };
-      
-      // Add to both array and Map
-      this.inventoryItems.push(newInventoryItem);
-      this.inventoryByProductId.set(inventoryData.productId, newInventoryItem);
     },
 
     // === REAL-TIME SUBSCRIPTION METHODS ===
