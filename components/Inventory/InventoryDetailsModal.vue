@@ -11,78 +11,82 @@
       </div>
 
       <div v-else-if="product && inventory" class="space-y-6">
-          <!-- Product Info Card -->
+          <!-- Basic Information -->
           <div class="bg-gray-50 p-4 rounded-lg">
-            <h3 class="text-md font-medium mb-3">Producto</h3>
-
-            <!-- Main product info (compact, horizontal) -->
-            <div class="flex items-center gap-2 mb-2">
-              <p class="text-lg font-semibold">{{ product.name }}</p>
-              <span v-if="product.productCode"
-                    class="text-xs font-mono bg-gray-200 px-2 py-0.5 rounded">
-                {{ product.productCode }}
-              </span>
+            <h3 class="text-lg font-medium mb-3">Información Básica</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p class="text-sm text-gray-600">Nombre</p>
+                <p class="font-semibold">{{ product.name }}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-600">Código del Producto</p>
+                <p class="font-semibold">{{ product.productCode || 'No especificado' }}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-600">Marca</p>
+                <p class="font-semibold">{{ product.brand || 'No especificada' }}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-600">Categoría</p>
+                <p class="font-semibold">{{ productStore.getCategoryName(product.category) }}</p>
+              </div>
+              <div v-if="product.trackingType === 'dual' && product.unitWeight">
+                <p class="text-sm text-gray-600">Peso por Unidad</p>
+                <p class="font-semibold">{{ product.unitWeight }} kg</p>
+              </div>
             </div>
-
-            <!-- Secondary info (compact grid) -->
-            <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-              <p class="text-gray-600">
-                <span class="font-medium">Categoría:</span>
-                {{ productStore.getCategoryName(product.category) }}
-              </p>
-
-              <p v-if="product.brand" class="text-gray-600">
-                <span class="font-medium">Marca:</span> {{ product.brand }}
-              </p>
-
-              <p v-if="product.trackingType === 'dual' && product.unitWeight"
-                 class="text-gray-600">
-                <span class="font-medium">Peso/unidad:</span> {{ product.unitWeight }} kg
-              </p>
+            <div v-if="product.description" class="mt-4">
+              <p class="text-sm text-gray-600">Descripción</p>
+              <p class="font-semibold">{{ product.description }}</p>
             </div>
-
-            <!-- Description (subtle, if exists) -->
-            <p v-if="product.description"
-               class="text-xs text-gray-500 mt-2 italic">
-              {{ product.description }}
-            </p>
           </div>
 
-          <!-- Current Inventory Status Card -->
+          <!-- Stock Status -->
           <div class="bg-gray-50 p-4 rounded-lg">
-            <h3 class="text-md font-medium mb-3">Estado Actual</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <h3 class="text-lg font-medium mb-3">Estado de Stock</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p class="text-sm text-gray-600">Unidades en Stock</p>
-                <p class="font-semibold" :class="{ 'text-red-600': inventory.isLowStock }">
-                  {{ inventory.unitsInStock || 0 }}
-                  {{ product.unitType || "unidad" }}(s)
+                <p class="font-semibold" :class="{ 'text-red-600': isLowStock }">
+                  {{ inventory.unitsInStock || 0 }} {{ product.unitType || 'unidad' }}(s)
                 </p>
               </div>
               <div v-if="product.trackingType !== 'unit'">
                 <p class="text-sm text-gray-600">Peso Disponible</p>
-                <p class="font-semibold">
-                  {{ inventory.openUnitsWeight || 0 }} kg
-                </p>
+                <p class="font-semibold">{{ inventory.openUnitsWeight || 0 }} kg</p>
               </div>
               <div>
-                <p class="text-sm text-gray-600">Último Costo</p>
-                <p class="font-semibold">
-                  {{ formatCurrency(inventory.lastPurchaseCost || 0) }}
+                <p class="text-sm text-gray-600">Stock Mínimo</p>
+                <p class="font-semibold">{{ minimumStock > 0 ? minimumStock : 'No configurado' }}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-600">Estado</p>
+                <p :class="isLowStock ? 'text-red-600 font-bold' : 'text-green-600 font-bold'">
+                  {{ isLowStock ? 'Stock Bajo' : 'Stock Adecuado' }}
                 </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Costs -->
+          <div class="bg-gray-50 p-4 rounded-lg">
+            <h3 class="text-lg font-medium mb-3">Costos</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p class="text-sm text-gray-600">Último Costo</p>
+                <p class="font-semibold">{{ formatCurrency(inventory.lastPurchaseCost || 0) }}</p>
               </div>
               <div>
                 <p class="text-sm text-gray-600">Costo Promedio</p>
-                <p class="font-semibold">
-                  {{ formatCurrency(inventory.averageCost || 0) }}
-                </p>
+                <p class="font-semibold">{{ formatCurrency(inventory.averageCost || 0) }}</p>
               </div>
             </div>
           </div>
 
         <!-- Movements Section -->
-        <div class="space-y-4">
-          <h3 class="text-md font-medium">Movimientos ({{ movements.length }})</h3>
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <h3 class="text-lg font-medium mb-3">Movimientos ({{ movements.length }})</h3>
 
           <div v-if="paginatedMovements.length > 0" class="overflow-x-auto">
             <!-- Movements Table -->
@@ -267,6 +271,17 @@ const product = computed(() => {
 
 const inventory = computed(() => {
   return inventoryStore.getInventoryByProductId(props.productId);
+});
+
+// Get minimum stock from product (source of truth) or inventory as fallback
+const minimumStock = computed(() => {
+  return product.value?.minimumStock || inventory.value?.minimumStock || 0;
+});
+
+// Check if item is low stock using product's minimumStock as source of truth
+const isLowStock = computed(() => {
+  if (!inventory.value) return false;
+  return minimumStock.value > 0 && inventory.value.unitsInStock < minimumStock.value;
 });
 
 const totalPages = computed(() => {

@@ -28,7 +28,10 @@
         <div class="flex items-start justify-between">
           <div>
             <p class="text-sm font-medium text-gray-500">Stock Bajo</p>
-            <p class="mt-1 text-2xl font-bold text-amber-600">{{ stats.lowStockCount }}</p>
+            <div class="flex items-baseline gap-2">
+              <p class="mt-1 text-2xl font-bold text-amber-600">{{ stats.lowStockCount }}</p>
+              <p class="text-sm text-amber-500">({{ stats.lowStockPercentage }}%)</p>
+            </div>
           </div>
           <div class="p-2 bg-amber-100 rounded-lg">
             <TablerAlertTriangle class="h-6 w-6 text-amber-600" />
@@ -199,11 +202,12 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="flex flex-col">
-                  <div :class="item.isLowStock ? 'text-red-600 font-medium' : 'text-gray-900'">
+                  <div :class="isItemLowStock(item) ? 'text-red-600 font-medium' : 'text-gray-900'">
                     {{ formatStock(item) }}
                   </div>
-                  <div class="text-xs text-gray-500" v-if="item.minimumStock">
-                    Mínimo: {{ item.minimumStock }}
+                  <div v-if="getMinimumStock(item) > 0" class="text-xs" :class="isItemLowStock(item) ? 'text-red-500' : 'text-gray-500'">
+                    Mínimo: {{ getMinimumStock(item) }}
+                    <span v-if="isItemLowStock(item)" class="ml-1 font-medium">• Stock Bajo</span>
                   </div>
                 </div>
               </td>
@@ -329,6 +333,19 @@ function getProductById(productId) {
   return productStore.getProductById(productId);
 }
 
+// Check if item is low stock using product's minimumStock as source of truth
+function isItemLowStock(item) {
+  const product = getProductById(item.productId);
+  const minimumStock = product?.minimumStock || item.minimumStock || 0;
+  return minimumStock > 0 && item.unitsInStock < minimumStock;
+}
+
+// Get minimum stock from product (source of truth)
+function getMinimumStock(item) {
+  const product = getProductById(item.productId);
+  return product?.minimumStock || item.minimumStock || 0;
+}
+
 function getSalePrice(productId, priceType = 'regular', unitType = null) {
   const product = getProductById(productId);
   if (!product || !product.prices) return 0;
@@ -393,7 +410,9 @@ function calculateItemSaleValue(item, priceType = 'regular') {
 // Stats computed property
 const stats = computed(() => {
   let totalProducts = inventoryStore.inventoryItems.length;
-  let lowStockCount = inventoryStore.getLowStockInventory.length;
+  // Use product's minimumStock as source of truth for low stock count
+  let lowStockCount = inventoryStore.inventoryItems.filter(item => isItemLowStock(item)).length;
+  let lowStockPercentage = totalProducts > 0 ? Math.round((lowStockCount / totalProducts) * 100) : 0;
   let totalValue = inventoryStore.inventoryItems.reduce((acc, item) => acc + calculateItemValue(item), 0);
   let totalSaleValueRegular = inventoryStore.inventoryItems.reduce((acc, item) => acc + calculateItemSaleValue(item, 'regular'), 0);
   let totalSaleValueCash = inventoryStore.inventoryItems.reduce((acc, item) => acc + calculateItemSaleValue(item, 'cash'), 0);
@@ -417,6 +436,7 @@ const stats = computed(() => {
   return {
     totalProducts,
     lowStockCount,
+    lowStockPercentage,
     totalValue,
     totalSaleValueRegular,
     totalSaleValueCash,
@@ -428,9 +448,9 @@ const stats = computed(() => {
 const filteredInventory = computed(() => {
   let result = [...inventoryStore.inventoryItems];
   
-  // Apply stock filter
+  // Apply stock filter using product's minimumStock
   if (stockFilter.value === 'low') {
-    result = result.filter(item => item.isLowStock);
+    result = result.filter(item => isItemLowStock(item));
   }
   
   // Apply category filter
