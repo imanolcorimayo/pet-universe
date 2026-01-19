@@ -336,10 +336,11 @@ function getSalePrice(productId, priceType = 'regular', unitType = null) {
   // For dual tracking products, specify which price to get
   if (product.trackingType === 'dual') {
     if (unitType === 'kg') {
+      // Kg prices are stored nested
       return product.prices.kg?.[priceType] || 0;
     }
-    // Default to unit price for dual products
-    return product.prices.unit?.[priceType] || 0;
+    // Unit prices are at top level
+    return product.prices[priceType] || 0;
   }
 
   // For regular and weight products
@@ -368,7 +369,9 @@ function calculateItemSaleValue(item, priceType = 'regular') {
 
   // For dual tracking products, use unit and kg prices separately
   if (product.trackingType === 'dual' && product.unitWeight) {
-    const unitPrice = product.prices.unit?.[priceType] || 0;
+    // Unit prices are at top level
+    const unitPrice = product.prices[priceType] || 0;
+    // Kg prices are stored nested
     const kgPrice = product.prices.kg?.[priceType] || 0;
 
     // Closed bags value
@@ -517,8 +520,7 @@ function openSupplierPurchase() {
 }
 
 function onInventoryAdjusted() {
-  // Refresh inventory data
-  inventoryStore.fetchInventory();
+  // No need to refetch - onSnapshot handles updates automatically
 }
 
 function sortInventory(inventory, sortKey) {
@@ -543,18 +545,13 @@ function sortInventory(inventory, sortKey) {
 
 // Lifecycle hooks
 onMounted(async () => {
-  // Make sure products and categories are loaded first for product information
-  if (!productStore.productsLoaded) {
-    await productStore.fetchProducts();
-  }
-  
+  // Subscribe to real-time updates for products and inventory
+  productStore.subscribeToProducts();
+  inventoryStore.subscribeToInventory();
+
+  // Categories still use one-time fetch (rarely change)
   if (!productStore.categoriesLoaded) {
     await productStore.fetchCategories();
-  }
-  
-  // Then load inventory data
-  if (!inventoryStore.inventoryLoaded) {
-    await inventoryStore.fetchInventory();
   }
 });
 </script>

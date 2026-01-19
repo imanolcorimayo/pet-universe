@@ -334,6 +334,9 @@ const auth = useFirebaseAuth();
 // ------ Define Pinia Vars --------
 const indexStore = useIndexStore();
 const cashRegisterStore = useCashRegisterStore();
+const globalCashRegisterStore = useGlobalCashRegisterStore();
+const productStore = useProductStore();
+const inventoryStore = useInventoryStore();
 indexStore.fetchBusinesses();
 
 // Import cash register state for dynamic navigation
@@ -390,6 +393,11 @@ onMounted(async () => {
 // ------ Define Methods --------
 async function signOut() {
   if (!auth) return;
+
+  // Cleanup subscriptions before signing out
+  globalCashRegisterStore.clearState();
+  productStore.clearState();
+  inventoryStore.clearState();
 
   // Sign out from firebase
   await auth.signOut();

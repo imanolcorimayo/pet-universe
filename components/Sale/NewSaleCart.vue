@@ -727,7 +727,12 @@ function getPrice(index, priceType) {
       const regularKg = product.prices?.kg?.regular || 0;
       return regularKg * 0.9;
     }
-    return product.prices?.[item.unitType]?.[priceType] || 0;
+    if (item.unitType === 'kg') {
+      // Kg prices are stored nested
+      return product.prices?.kg?.[priceType] || 0;
+    }
+    // Unit prices are at top level
+    return product.prices?.[priceType] || 0;
   }
 
   return product.prices?.[priceType] || 0;
@@ -827,7 +832,14 @@ function updateUnitType(index, unitType) {
   if (!product) return;
 
   // Get new price for the unit type
-  const newPrice = product.prices?.[unitType]?.['regular'] || 0;
+  let newPrice = 0;
+  if (unitType === 'kg') {
+    // Kg prices are stored nested
+    newPrice = product.prices?.kg?.regular || 0;
+  } else {
+    // Unit prices are at top level
+    newPrice = product.prices?.regular || 0;
+  }
 
   emit('update-item', index, {
     unitType,

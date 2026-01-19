@@ -345,26 +345,27 @@ function onProductSaved() {
 }
 
 function onProductArchived() {
-  productStore.fetchProducts();
+  // No need to refetch - onSnapshot handles updates automatically
 }
 
 function onProductRestored() {
-  productStore.fetchProducts();
+  // No need to refetch - onSnapshot handles updates automatically
 }
 
 function onProductUpdated() {
-  productStore.fetchProducts();
+  // No need to refetch - onSnapshot handles updates automatically
 }
 
 function onInventoryAdjusted() {
-  // Refresh product data if needed
+  // No need to refresh - onSnapshot handles updates automatically
 }
 
 // Lifecycle hooks
 onMounted(async () => {
-  if (!productStore.productsLoaded) {
-    await productStore.fetchProducts();
-  }
+  // Subscribe to real-time product updates
+  productStore.subscribeToProducts();
+
+  // Categories still use one-time fetch (rarely change)
   if (!productStore.categoriesLoaded) {
     await productStore.fetchCategories();
   }

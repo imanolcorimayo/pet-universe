@@ -978,19 +978,17 @@ function updatePriceFromType(index) {
     // Get the regular price first for discount calculation
     let regularPrice = 0;
     let selectedPrice = 0;
-    
+
     if (product.trackingType === 'dual') {
-      // For dual products, check the unit type
-      if (item.unitType === 'unit') {
-        // Use unit-specific prices if available, otherwise fall back to standard prices
-        const unitPrices = product.prices.unit || product.prices;
-        regularPrice = unitPrices.regular || 0;
-        selectedPrice = unitPrices[item.priceType] || 0;
-      } else { // kg
-        // Use kg-specific prices if available, otherwise fall back to standard prices
-        const kgPrices = product.prices.kg || product.prices;
+      // For dual products: unit prices at top level, kg prices nested
+      if (item.unitType === 'kg') {
+        const kgPrices = product.prices.kg || {};
         regularPrice = kgPrices.regular || 0;
         selectedPrice = kgPrices[item.priceType] || 0;
+      } else {
+        // Unit prices are at top level
+        regularPrice = product.prices.regular || 0;
+        selectedPrice = product.prices[item.priceType] || 0;
       }
     } else {
       // Standard product pricing
@@ -1518,18 +1516,20 @@ function getStockAfterSaleTextClass(productId, unitType, quantity) {
 async function showModal() {
   try {
     isLoading.value = true;
-    
-    // Load all necessary data in parallel
-    const [clientsResult, productsResult, categoriesResult, inventoryResult, paymentMethodsResult] = await Promise.all([
+
+    // Subscribe to real-time updates for products and inventory
+    productStore.subscribeToProducts();
+    inventoryStore.subscribeToInventory();
+
+    // Load other necessary data in parallel
+    const [clientsResult, categoriesResult, paymentMethodsResult] = await Promise.all([
       clientStore.fetchClients(),
-      productStore.fetchProducts(),
       productStore.fetchCategories(),
-      inventoryStore.fetchInventory(),
       paymentMethodsStore.needsCacheRefresh ? paymentMethodsStore.loadAllData() : Promise.resolve(true)
     ]);
 
     // Check if all data was loaded successfully
-    if (!clientsResult || !productsResult || !categoriesResult || !inventoryResult || !paymentMethodsResult) {
+    if (!clientsResult || !categoriesResult || !paymentMethodsResult) {
       useToast(ToastEvents.error, "No se pudieron cargar todos los datos necesarios");
       return;
     }

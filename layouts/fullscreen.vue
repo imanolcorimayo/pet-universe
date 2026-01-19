@@ -333,6 +333,9 @@ const auth = useFirebaseAuth();
 // ------ Define Pinia Vars --------
 const indexStore = useIndexStore();
 const cashRegisterStore = useCashRegisterStore();
+const globalCashRegisterStore = useGlobalCashRegisterStore();
+const productStore = useProductStore();
+const inventoryStore = useInventoryStore();
 indexStore.fetchBusinesses();
 
 const { registerSnapshots, registers } = storeToRefs(cashRegisterStore);
@@ -383,6 +386,11 @@ onMounted(async () => {
 // ------ Define Methods --------
 async function signOut() {
   if (!auth) return;
+
+  // Cleanup subscriptions before signing out
+  globalCashRegisterStore.clearState();
+  productStore.clearState();
+  inventoryStore.clearState();
 
   await auth.signOut();
 

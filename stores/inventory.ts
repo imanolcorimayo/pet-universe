@@ -5,6 +5,10 @@ import { InventorySchema } from "~/utils/odm/schemas/InventorySchema";
 import { InventoryMovementSchema } from "~/utils/odm/schemas/InventoryMovementSchema";
 import { serverTimestamp } from "firebase/firestore";
 
+// Module-level variable for inventory subscription (can't store functions in Pinia state)
+let inventoryUnsubscribe: (() => void) | null = null;
+let subscribedInventoryBusinessId: string | null = null;
+
 // Inventory interfaces
 interface Inventory {
   id: string;
@@ -197,53 +201,7 @@ export const useInventoryStore = defineStore("inventory", {
         return false;
       }
     },
-    
-    // Fetch inventory for a specific product
-    async fetchInventoryForProduct(productId: string): Promise<Inventory | null> {
-      if (!productId) return null;
 
-      if (this.inventoryByProductId.has(productId)) {
-        console.log(`Inventory for product ${productId} is already cached.`);
-        return this.inventoryByProductId.get(productId) as Inventory;
-      }
-
-      try {
-        this.isLoading = true;
-        
-        const inventorySchema = this._getInventorySchema();
-        const result = await inventorySchema.find({
-          where: [{ field: 'productId', operator: '==', value: productId }],
-          limit: 1
-        });
-        
-        if (!result.success || !result.data || result.data.length === 0) {
-          this.isLoading = false;
-          return null;
-        }
-        
-        const inventoryItem = result.data[0] as Inventory;
-        
-        // Update both array and Map
-        const existingIndex = this.inventoryItems.findIndex(item => item.productId === productId);
-        if (existingIndex >= 0) {
-          this.inventoryItems[existingIndex] = inventoryItem;
-        } else {
-          this.inventoryItems.push(inventoryItem);
-        }
-        
-        // Update Map with latest data
-        this.inventoryByProductId.set(productId, inventoryItem);
-        
-        this.isLoading = false;
-        return inventoryItem;
-      } catch (error) {
-        console.error("Error fetching inventory for product:", error);
-        useToast(ToastEvents.error, "Hubo un error al cargar el inventario del producto.");
-        this.isLoading = false;
-        return null;
-      }
-    },
-    
     // Fetch movements for a specific product
     async fetchMovementsForProduct(productId: string): Promise<InventoryMovement[]> {
       // Check if movements are already cached
@@ -1265,6 +1223,81 @@ export const useInventoryStore = defineStore("inventory", {
       // Add to both array and Map
       this.inventoryItems.push(newInventoryItem);
       this.inventoryByProductId.set(inventoryData.productId, newInventoryItem);
+    },
+
+    // === REAL-TIME SUBSCRIPTION METHODS ===
+
+    /**
+     * Subscribe to real-time inventory updates for the current business
+     * Automatically unsubscribes from previous subscription if switching businesses
+     */
+    subscribeToInventory() {
+      const currentBusinessId = useLocalStorage('cBId', null);
+
+      if (!currentBusinessId.value) {
+        console.warn('Cannot subscribe to inventory: no business selected');
+        return;
+      }
+
+      // Skip if already subscribed to this business
+      if (subscribedInventoryBusinessId === currentBusinessId.value && inventoryUnsubscribe) {
+        return;
+      }
+
+      // Unsubscribe from previous if exists
+      this.unsubscribeFromInventory();
+
+      this.isLoading = true;
+      const inventorySchema = this._getInventorySchema();
+
+      inventoryUnsubscribe = inventorySchema.subscribe(
+        {},
+        (data) => {
+          const inventoryItems = data as Inventory[];
+          // Update both array and Map
+          this.inventoryByProductId.clear();
+          inventoryItems.forEach(item => {
+            this.inventoryByProductId.set(item.productId, item);
+          });
+
+          this.inventoryItems = inventoryItems;
+          this.inventoryLoaded = true;
+          this.isLoading = false;
+        },
+        (error) => {
+          console.error('Inventory subscription error:', error);
+          this.isLoading = false;
+        }
+      );
+
+      subscribedInventoryBusinessId = currentBusinessId.value;
+    },
+
+    /**
+     * Unsubscribe from inventory updates
+     */
+    unsubscribeFromInventory() {
+      if (inventoryUnsubscribe) {
+        inventoryUnsubscribe();
+        inventoryUnsubscribe = null;
+        subscribedInventoryBusinessId = null;
+      }
+    },
+
+    /**
+     * Clear all inventory state and unsubscribe from real-time updates
+     * Call this on logout or business switch
+     */
+    clearState() {
+      // Unsubscribe from real-time updates
+      this.unsubscribeFromInventory();
+
+      // Reset state
+      this.inventoryItems = [];
+      this.inventoryMovementsByProductId.clear();
+      this.inventoryByProductId.clear();
+      this.inventoryLoaded = false;
+      this.isLoading = false;
     },
   }
 });

@@ -4,6 +4,10 @@ import { ProductSchema } from "~/utils/odm/schemas/ProductSchema";
 import { ProductCategorySchema } from "~/utils/odm/schemas/ProductCategorySchema";
 import { roundUpPrice } from "~/utils/index";
 
+// Module-level variable for product subscription (can't store functions in Pinia state)
+let productUnsubscribe: (() => void) | null = null;
+let subscribedBusinessId: string | null = null;
+
 // Product interfaces
 interface ProductPrices {
   regular: number;
@@ -11,13 +15,7 @@ interface ProductPrices {
   vip: number;
   bulk: number;
 
-  // For dual tracking products
-  unit?: {
-    regular: number;
-    cash: number;
-    vip: number;
-    bulk: number;
-  };
+  // For dual tracking products - kg prices stored separately
   kg?: {
     regular: number;
     threePlusDiscount: number;
@@ -507,14 +505,8 @@ export const useProductStore = defineStore("product", {
           bulk: 0,
         };
 
-        // For dual products, add unit and kg price structures
+        // For dual products, add kg price structure
         if (formData.trackingType === 'dual') {
-          defaultPrices.unit = {
-            regular: 0,
-            cash: 0,
-            vip: 0,
-            bulk: 0,
-          };
           defaultPrices.kg = {
             regular: 0,
             threePlusDiscount: 0,
@@ -790,6 +782,90 @@ export const useProductStore = defineStore("product", {
     calculateMarginFromPrice(price: number, cost: number): number {
       if (cost <= 0) return 0;
       return Math.round(((price - cost) / cost) * 100 * 100) / 100;
+    },
+
+    // === REAL-TIME SUBSCRIPTION METHODS ===
+
+    /**
+     * Subscribe to real-time product updates for the current business
+     * Automatically unsubscribes from previous subscription if switching businesses
+     */
+    subscribeToProducts() {
+      const currentBusinessId = useLocalStorage('cBId', null);
+
+      if (!currentBusinessId.value) {
+        console.warn('Cannot subscribe to products: no business selected');
+        return;
+      }
+
+      // Skip if already subscribed to this business
+      if (subscribedBusinessId === currentBusinessId.value && productUnsubscribe) {
+        return;
+      }
+
+      // Unsubscribe from previous if exists
+      this.unsubscribeFromProducts();
+
+      this.isLoading = true;
+      const productSchema = this._getProductSchema();
+
+      productUnsubscribe = productSchema.subscribe(
+        {
+          orderBy: [{ field: 'name', direction: 'asc' }]
+        },
+        (data) => {
+          const products = data as Product[];
+          // Update both array and Map
+          this.productsByIdMap.clear();
+          products.forEach(product => {
+            this.productsByIdMap.set(product.id, product);
+          });
+
+          this.products = products;
+          this.productsLoaded = true;
+          this.isLoading = false;
+        },
+        (error) => {
+          console.error('Product subscription error:', error);
+          this.isLoading = false;
+        }
+      );
+
+      subscribedBusinessId = currentBusinessId.value;
+    },
+
+    /**
+     * Unsubscribe from product updates
+     */
+    unsubscribeFromProducts() {
+      if (productUnsubscribe) {
+        productUnsubscribe();
+        productUnsubscribe = null;
+        subscribedBusinessId = null;
+      }
+    },
+
+    /**
+     * Clear all product state and unsubscribe from real-time updates
+     * Call this on logout or business switch
+     */
+    clearState() {
+      // Unsubscribe from real-time updates
+      this.unsubscribeFromProducts();
+
+      // Reset state
+      this.products = [];
+      this.productsByIdMap.clear();
+      this.productsLoaded = false;
+      this.isLoading = false;
+      this.selectedProduct = null;
+      this.productFilter = "active";
+      this.categoryFilter = "all";
+      this.searchQuery = "";
+      this.categories = [];
+      this.categoriesByIdMap.clear();
+      this.categoriesLoaded = false;
+      this.isCategoriesLoading = false;
     },
 
   }

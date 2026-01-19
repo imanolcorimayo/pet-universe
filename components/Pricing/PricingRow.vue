@@ -451,10 +451,10 @@ const displayPrices = computed(() => {
   // Use stored product prices, fallback to freshly calculated if not available
   const storedPrices = props.product.prices || {};
   return {
-    cash: storedPrices.cash || storedPrices.unit?.cash || freshlyCalculatedPrices.value.cash,
-    regular: storedPrices.regular || storedPrices.unit?.regular || freshlyCalculatedPrices.value.regular,
-    vip: storedPrices.vip || storedPrices.unit?.vip || freshlyCalculatedPrices.value.vip,
-    bulk: storedPrices.bulk || storedPrices.unit?.bulk  || freshlyCalculatedPrices.value.bulk,
+    cash: storedPrices.cash || freshlyCalculatedPrices.value.cash,
+    regular: storedPrices.regular || freshlyCalculatedPrices.value.regular,
+    vip: storedPrices.vip || freshlyCalculatedPrices.value.vip,
+    bulk: storedPrices.bulk || freshlyCalculatedPrices.value.bulk,
   };
 });
 

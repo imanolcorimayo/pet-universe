@@ -807,11 +807,12 @@ async function loadInventoryData() {
     if (!indexStore.businessConfigFetched) {
       await indexStore.loadBusinessConfig();
     }
-    
-    // Load inventory data for product
-    inventoryData.value = await inventoryStore.fetchInventoryForProduct(
-      props.productId
-    );
+
+    // Subscribe to real-time inventory updates
+    inventoryStore.subscribeToInventory();
+
+    // Get inventory data from store (subscription ensures it's up-to-date)
+    inventoryData.value = inventoryStore.getInventoryByProductId(props.productId);
 
     // Initialize calculated values
     if (inventoryData.value) {

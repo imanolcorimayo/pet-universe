@@ -385,15 +385,13 @@ function closeModal() {
 async function loadData() {
   loading.value = true;
   try {
-    // Ensure we have both product and inventory data
+    // Subscribe to real-time updates if not already subscribed
     if (!product.value) {
-      await productStore.fetchProducts();
+      productStore.subscribeToProducts();
     }
+    inventoryStore.subscribeToInventory();
 
-    // Fetch inventory data
-    await inventoryStore.fetchInventoryForProduct(props.productId);
-
-    // Fetch movement history
+    // Fetch movement history (not covered by subscription)
     const fetchedMovements = await inventoryStore.fetchMovementsForProduct(props.productId);
     movements.value = fetchedMovements;
 

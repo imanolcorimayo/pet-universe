@@ -385,7 +385,6 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     },
 
     async addWalletRecord(transaction: WalletTransaction) {
-
       try {
         const walletSchema = new WalletSchema();
 
@@ -393,11 +392,9 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         const result = await walletSchema.create(transaction);
 
         if (result.success && result.data) {
-          // Only add to cache if this transaction belongs to the current week's register
-          // Transactions for previous week's register should NOT be cached in current view
-          if (this.currentGlobalCash && result.data.globalCashId === this.currentGlobalCash.id) {
-            this.addWalletTransactionToCache({ ...result.data } as WalletTransaction);
-          }
+          // Note: We don't manually update the cache here because the onSnapshot
+          // subscription will automatically receive and apply the new transaction.
+          // Manual cache updates would cause duplicates due to race conditions.
           return { success: true, id: result.data.id, error: null };
         } else {
           return { success: false, id: null, error: result.error || 'Error al agregar el registro de cartera' };
@@ -417,23 +414,23 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       try {
         const walletSchema = new WalletSchema();
         const user = useCurrentUser();
-        
+
         // Prepare update data with required system fields
         const updates = {
           ...updateData,
           updatedBy: user.value?.uid,
           updatedAt: new Date()
         };
-        
+
         const result = await walletSchema.update(transactionId, updates);
-        
+
         if (result.success && result.data) {
-          this.updateWalletTransactionInCache({ ...result.data } as WalletTransaction);
+          // onSnapshot subscription will automatically update the cache
           return { success: true, data: result.data, error: null };
         } else {
           return { success: false, data: null, error: result.error || 'Error al actualizar la transacción' };
         }
-        
+
       } catch (error) {
         console.error('Error updating wallet transaction:', error);
         return { success: false, data: null, error: error instanceof Error ? error.message : 'Error al actualizar la transacción' };
@@ -444,20 +441,20 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       try {
         const walletSchema = new WalletSchema();
         const user = useCurrentUser();
-        
+
         const result = await walletSchema.update(transactionId, {
           status: 'cancelled',
           updatedBy: user.value?.uid,
           updatedAt: new Date()
         });
-        
+
         if (result.success && result.data) {
-          this.updateWalletTransactionInCache({ ...result.data } as WalletTransaction);
+          // onSnapshot subscription will automatically update the cache
           return { success: true, data: result.data, error: null };
         } else {
           return { success: false, data: null, error: result.error || 'Error al cancelar la transacción' };
         }
-        
+
       } catch (error) {
         console.error('Error cancelling wallet transaction:', error);
         return { success: false, data: null, error: error instanceof Error ? error.message : 'Error al cancelar la transacción' };

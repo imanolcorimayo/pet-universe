@@ -195,14 +195,16 @@ const filteredProducts = computed(() => {
 // Methods
 async function loadInitialData() {
   isLoading.value = true;
-  
+
   try {
-    // Load products, categories, and inventory in parallel
-    await Promise.all([
-      productStore.fetchProducts(),
-      productStore.fetchCategories(),
-      inventoryStore.fetchInventory(),
-    ]);
+    // Subscribe to real-time updates for products and inventory
+    productStore.subscribeToProducts();
+    inventoryStore.subscribeToInventory();
+
+    // Categories still use one-time fetch (rarely change)
+    if (!productStore.categoriesLoaded) {
+      await productStore.fetchCategories();
+    }
   } catch (error) {
     console.error('Error loading initial data:', error);
     useToast(ToastEvents.error, 'Error al cargar los datos iniciales');

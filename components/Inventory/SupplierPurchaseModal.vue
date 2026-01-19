@@ -778,15 +778,9 @@ async function loadData() {
     // Load suppliers
     await suppliersStore.fetchSuppliers();
 
-    // Load products
-    if (!productStore.productsLoaded) {
-      await productStore.fetchProducts();
-    }
-
-    // Load inventory for calculations
-    if (!inventoryStore.inventoryLoaded) {
-      await inventoryStore.fetchInventory();
-    }
+    // Subscribe to real-time updates for products and inventory
+    productStore.subscribeToProducts();
+    inventoryStore.subscribeToInventory();
   } catch (error) {
     console.error("Error loading data:", error);
     useToast(ToastEvents.error, "Error al cargar los datos");

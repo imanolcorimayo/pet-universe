@@ -189,28 +189,15 @@ export class ProductSchema extends Schema {
         }
       }
       
-      // For dual tracking, validate unit and kg price structures
-      if (data.trackingType === 'dual') {
-        if (data.prices.unit) {
-          for (const field of requiredPriceFields) {
-            if (data.prices.unit[field] !== undefined && (typeof data.prices.unit[field] !== 'number' || data.prices.unit[field] < 0)) {
-              errors.push({
-                field: `prices.unit.${field}`,
-                message: `Unit ${field} price must be a non-negative number`
-              });
-            }
-          }
-        }
-        
-        if (data.prices.kg) {
-          const kgFields = ['regular', 'threePlusDiscount', 'vip'];
-          for (const field of kgFields) {
-            if (data.prices.kg[field] !== undefined && (typeof data.prices.kg[field] !== 'number' || data.prices.kg[field] < 0)) {
-              errors.push({
-                field: `prices.kg.${field}`,
-                message: `Kg ${field} price must be a non-negative number`
-              });
-            }
+      // For dual tracking, validate kg price structure
+      if (data.trackingType === 'dual' && data.prices.kg) {
+        const kgFields = ['regular', 'threePlusDiscount', 'vip'];
+        for (const field of kgFields) {
+          if (data.prices.kg[field] !== undefined && (typeof data.prices.kg[field] !== 'number' || data.prices.kg[field] < 0)) {
+            errors.push({
+              field: `prices.kg.${field}`,
+              message: `Kg ${field} price must be a non-negative number`
+            });
           }
         }
       }

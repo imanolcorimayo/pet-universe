@@ -155,19 +155,20 @@ const customPriceInput = ref(null);
 // Computed
 const regularPrice = computed(() => {
   if (props.trackingType === 'dual') {
-    if (props.unitType === 'unit') {
-      return props.productPrices.unit?.regular || props.productPrices.regular || 0;
-    } else {
-      return props.productPrices.kg?.regular || props.productPrices.regular || 0;
+    if (props.unitType === 'kg') {
+      return props.productPrices.kg?.regular || 0;
     }
+    // Unit prices are at top level
+    return props.productPrices.regular || 0;
   }
   return props.productPrices.regular || 0;
 });
 
 const availablePrices = computed(() => {
   const prices = {};
-  const basePrices = props.trackingType === 'dual' 
-    ? (props.unitType === 'unit' ? (props.productPrices.unit || props.productPrices) : props.productPrices.kg || props.productPrices)
+  // For dual products: unit prices at top level, kg prices nested
+  const basePrices = props.trackingType === 'dual' && props.unitType === 'kg'
+    ? (props.productPrices.kg || props.productPrices)
     : props.productPrices;
 
   // Regular price

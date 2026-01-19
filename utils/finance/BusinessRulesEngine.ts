@@ -1362,10 +1362,8 @@ export class BusinessRulesEngine {
         return { success: false, error: `Debt update failed: ${debtUpdateResult.error}` };
       }
 
-      // 8. Update global cash store cache
-      if (walletResult.data) {
-        this.globalCashRegisterStore.addWalletTransactionToCache(walletResult.data as WalletTransaction);
-      }
+      // Note: No manual cache update needed - onSnapshot subscription will
+      // automatically receive and apply the new wallet transaction
 
       return {
         success: true,

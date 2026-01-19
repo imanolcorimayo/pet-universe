@@ -160,13 +160,13 @@
                     <template v-if="product.trackingType === 'dual'">
                       <div class="flex items-center gap-2">
                         <span class="text-gray-500 w-16">Regular:</span>
-                        <span class="font-medium">{{ formatCurrency(product.prices?.unit?.regular || 0) }}/u</span>
+                        <span class="font-medium">{{ formatCurrency(product.prices?.regular || 0) }}/u</span>
                         <span class="text-gray-400">|</span>
                         <span class="font-medium">{{ formatCurrency(product.prices?.kg?.regular || 0) }}/kg</span>
                       </div>
                       <div class="flex items-center gap-2">
                         <span class="text-gray-500 w-16">Efectivo:</span>
-                        <span class="text-green-600">{{ formatCurrency(product.prices?.unit?.cash || 0) }}/u</span>
+                        <span class="text-green-600">{{ formatCurrency(product.prices?.cash || 0) }}/u</span>
                         <span class="text-gray-400">|</span>
                         <span class="text-green-600">{{ formatCurrency(product.prices?.kg?.cash || 0) }}/kg</span>
                       </div>
@@ -175,9 +175,9 @@
                         <span class="text-orange-600">{{ formatCurrency((product.prices?.kg?.regular || 0) * 0.9) }}/kg</span>
                         <span class="text-orange-500 text-[10px]">(-10%)</span>
                       </div>
-                      <div v-if="product.prices?.unit?.vip || product.prices?.kg?.vip" class="flex items-center gap-2">
+                      <div v-if="product.prices?.vip || product.prices?.kg?.vip" class="flex items-center gap-2">
                         <span class="text-gray-500 w-16">VIP:</span>
-                        <span class="text-purple-600">{{ formatCurrency(product.prices?.unit?.vip || 0) }}/u</span>
+                        <span class="text-purple-600">{{ formatCurrency(product.prices?.vip || 0) }}/u</span>
                         <span class="text-gray-400">|</span>
                         <span class="text-purple-600">{{ formatCurrency(product.prices?.kg?.vip || 0) }}/kg</span>
                       </div>
@@ -506,7 +506,12 @@ function addToCart(product) {
 
 function getProductPrice(product, priceType, unitType) {
   if (product.trackingType === 'dual') {
-    return product.prices?.[unitType]?.[priceType] || 0;
+    if (unitType === 'kg') {
+      // Kg prices are stored nested
+      return product.prices?.kg?.[priceType] || 0;
+    }
+    // Unit prices are at top level
+    return product.prices?.[priceType] || 0;
   }
   return product.prices?.[priceType] || 0;
 }
@@ -790,11 +795,13 @@ async function loadData() {
   isLoading.value = true;
 
   try {
-    // Load all required data in parallel
+    // Subscribe to real-time updates for products and inventory
+    productStore.subscribeToProducts();
+    inventoryStore.subscribeToInventory();
+
+    // Load other required data in parallel
     await Promise.all([
-      productStore.productsLoaded ? Promise.resolve() : productStore.fetchProducts(),
       productStore.categoriesLoaded ? Promise.resolve() : productStore.fetchCategories(),
-      inventoryStore.inventoryLoaded ? Promise.resolve() : inventoryStore.fetchInventory(),
       clientStore.clientsLoaded ? Promise.resolve() : clientStore.fetchClients(),
       paymentMethodsStore.needsCacheRefresh ? paymentMethodsStore.loadAllData() : Promise.resolve()
     ]);

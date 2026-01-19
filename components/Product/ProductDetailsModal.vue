@@ -67,41 +67,25 @@
                 <div>
                   <p class="text-sm text-gray-600">Regular</p>
                   <p class="font-semibold">
-                    {{
-                      formatCurrency(
-                        product.prices.unit?.regular || product.prices.regular
-                      )
-                    }}
+                    {{ formatCurrency(product.prices.regular) }}
                   </p>
                 </div>
                 <div>
                   <p class="text-sm text-gray-600">Efectivo</p>
                   <p class="font-semibold">
-                    {{
-                      formatCurrency(
-                        product.prices.unit?.cash || product.prices.cash
-                      )
-                    }}
+                    {{ formatCurrency(product.prices.cash) }}
                   </p>
                 </div>
                 <div>
                   <p class="text-sm text-gray-600">VIP</p>
                   <p class="font-semibold">
-                    {{
-                      formatCurrency(
-                        product.prices.unit?.vip || product.prices.vip
-                      )
-                    }}
+                    {{ formatCurrency(product.prices.vip) }}
                   </p>
                 </div>
                 <div>
                   <p class="text-sm text-gray-600">Mayorista</p>
                   <p class="font-semibold">
-                    {{
-                      formatCurrency(
-                        product.prices.unit?.bulk || product.prices.kg?.bulk || product.prices.bulk
-                      )
-                    }}
+                    {{ formatCurrency(product.prices.bulk) }}
                   </p>
                 </div>
               </div>
@@ -394,10 +378,10 @@ function closeModal() {
   mainModal.value?.closeModal();
 }
 
-async function loadInventoryData() {
-  inventoryData.value = await inventoryStore.fetchInventoryForProduct(
-    props.productId
-  );
+function loadInventoryData() {
+  // Subscribe to real-time inventory updates and get data from store
+  inventoryStore.subscribeToInventory();
+  inventoryData.value = inventoryStore.getInventoryByProductId(props.productId);
 }
 
 function editProduct() {
