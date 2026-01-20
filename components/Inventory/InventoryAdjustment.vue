@@ -808,10 +808,7 @@ async function loadInventoryData() {
       await indexStore.loadBusinessConfig();
     }
 
-    // Subscribe to real-time inventory updates
-    inventoryStore.subscribeToInventory();
-
-    // Get inventory data from store (subscription ensures it's up-to-date)
+    // Get inventory data from store (main page already subscribes)
     inventoryData.value = inventoryStore.getInventoryByProductId(props.productId);
 
     // Initialize calculated values
@@ -1038,18 +1035,6 @@ async function saveAdjustment() {
   }
 }
 
-// ----- Watch for changes ---------
-watch(
-  () => props.productId,
-  async (newProductId) => {
-    if (newProductId) {
-      resetForm();
-      await loadInventoryData();
-    }
-  }
-);
-
-// ----- Define Expose ---------
 defineExpose({
   showModal: async () => {
     resetForm();
@@ -1057,14 +1042,20 @@ defineExpose({
     mainModal.value?.showModal();
   },
   showAddInventoryModal: async () => {
+    resetForm();
+    await loadInventoryData();
     selectMovementType("addition");
     mainModal.value?.showModal();
   },
   showReduceInventoryModal: async () => {
+    resetForm();
+    await loadInventoryData();
     selectMovementType("loss");
     mainModal.value?.showModal();
   },
   showAdjustInventoryModal: async () => {
+    resetForm();
+    await loadInventoryData();
     selectMovementType("adjustment");
     mainModal.value?.showModal();
   }

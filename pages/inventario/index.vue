@@ -150,7 +150,7 @@
     </div>
     
     <!-- Loading State -->
-    <div v-if="isLoading" class="flex justify-center items-center py-12">
+    <div v-if="initialLoading" class="flex justify-center items-center py-12">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
     </div>
     
@@ -186,15 +186,15 @@
                 <div class="flex items-center">
                   <div>
                     <div class="text-sm font-medium text-gray-900">
-                      <span v-if="getProductById(item.productId)?.brand">{{ getProductById(item.productId).brand }} - </span>{{ item.productName }}<span v-if="getProductById(item.productId)?.trackingType === 'dual' && getProductById(item.productId)?.unitWeight"> - {{ getProductById(item.productId).unitWeight }}kg</span>
+                      <span v-if="item.product?.brand">{{ item.product.brand }} - </span>{{ item.productName }}<span v-if="item.product?.trackingType === 'dual' && item.product?.unitWeight"> - {{ item.product.unitWeight }}kg</span>
                     </div>
                     <div class="flex items-center gap-2 mt-1">
-                      <span v-if="getProductById(item.productId)?.productCode" class="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">
-                        {{ getProductById(item.productId).productCode }}
+                      <span v-if="item.product?.productCode" class="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">
+                        {{ item.product.productCode }}
                       </span>
-                      <span v-if="getProductById(item.productId)?.productCode && getProductById(item.productId)?.category" class="text-xs text-gray-300">•</span>
-                      <div v-if="getProductById(item.productId)?.category" class="text-xs text-gray-500">
-                        {{ productStore.getCategoryName(getProductById(item.productId)?.category) }}
+                      <span v-if="item.product?.productCode && item.product?.category" class="text-xs text-gray-300">•</span>
+                      <div v-if="item.product?.category" class="text-xs text-gray-500">
+                        {{ productStore.getCategoryName(item.product.category) }}
                       </div>
                     </div>
                   </div>
@@ -202,39 +202,39 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="flex flex-col">
-                  <div :class="isItemLowStock(item) ? 'text-red-600 font-medium' : 'text-gray-900'">
-                    {{ formatStock(item) }}
+                  <div :class="item.isLowStock ? 'text-red-600 font-medium' : 'text-gray-900'">
+                    {{ item.formattedStock }}
                   </div>
-                  <div v-if="getMinimumStock(item) > 0" class="text-xs" :class="isItemLowStock(item) ? 'text-red-500' : 'text-gray-500'">
-                    Mínimo: {{ getMinimumStock(item) }}
-                    <span v-if="isItemLowStock(item)" class="ml-1 font-medium">• Stock Bajo</span>
+                  <div v-if="item.minimumStock > 0" class="text-xs" :class="item.isLowStock ? 'text-red-500' : 'text-gray-500'">
+                    Mínimo: {{ item.minimumStock }}
+                    <span v-if="item.isLowStock" class="ml-1 font-medium">• Stock Bajo</span>
                   </div>
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">{{ formatCurrency(calculateItemValue(item)) }}</div>
+                <div class="text-sm text-gray-900">{{ formatCurrency(item.inventoryValue) }}</div>
                 <div class="text-xs text-gray-500">
                   {{ formatCurrency(item.lastPurchaseCost || 0) }}/unidad
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                <div v-if="getProductById(item.productId)?.trackingType === 'dual'">
+                <div v-if="item.isDual">
                   <div class="text-sm text-gray-900">
-                    {{ formatCurrency(getSalePrice(item.productId, 'regular', 'unit')) }}/{{ getProductById(item.productId)?.unitType }}
+                    {{ formatCurrency(item.displayPrices.regularUnit) }}/{{ item.product?.unitType }}
                   </div>
                   <div class="text-xs text-gray-500">
-                    {{ formatCurrency(getSalePrice(item.productId, 'regular', 'kg')) }}/kg
+                    {{ formatCurrency(item.displayPrices.regularKg) }}/kg
                   </div>
                   <div class="text-xs text-gray-400 mt-1">
-                    Efectivo: {{ formatCurrency(getSalePrice(item.productId, 'cash', 'unit')) }}/{{ getProductById(item.productId)?.unitType }}
+                    Efectivo: {{ formatCurrency(item.displayPrices.cashUnit) }}/{{ item.product?.unitType }}
                   </div>
                 </div>
                 <div v-else>
                   <div class="text-sm text-gray-900">
-                    {{ formatCurrency(getSalePrice(item.productId, 'regular')) }}
+                    {{ formatCurrency(item.displayPrices.regular) }}
                   </div>
                   <div class="text-xs text-gray-500">
-                    Efectivo: {{ formatCurrency(getSalePrice(item.productId, 'cash')) }}
+                    Efectivo: {{ formatCurrency(item.displayPrices.cash) }}
                   </div>
                 </div>
               </td>
@@ -243,15 +243,20 @@
                   {{ item.lastMovementAt || 'N/A' }}
                 </div>
                 <div class="text-xs text-gray-500">
-                  {{ getMovementTypeLabel(item.lastMovementType) }}
+                  {{ MOVEMENT_LABELS[item.lastMovementType] || 'N/A' }}
                 </div>
               </td>
               <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium w-40">
                 <button
                   @click="viewInventoryDetails(item.productId)"
-                  class="text-primary hover:text-primary/80 mr-3"
+                  :disabled="loadingDetailsFor === item.productId"
+                  class="text-primary hover:text-primary/80 mr-3 disabled:opacity-50"
                 >
-                  Ver Inventario
+                  <span v-if="loadingDetailsFor === item.productId" class="inline-flex items-center gap-1">
+                    <LucideLoader2 class="h-3 w-3 animate-spin" />
+                    Cargando...
+                  </span>
+                  <span v-else>Ver Inventario</span>
                 </button>
                 <button
                   @click="openAdjustInventory(item.productId)"
@@ -273,8 +278,8 @@
       </div>
       <h3 class="text-lg font-medium text-gray-900 mb-2">No se encontraron productos</h3>
       <p class="text-gray-500 mb-4">
-        {{ searchQuery || selectedCategory !== 'all' || stockFilter !== 'all' ? 
-          'No hay resultados para tu búsqueda. Intenta con otros filtros.' : 
+        {{ searchQuery || stockFilter !== 'all' ?
+          'No hay resultados para tu búsqueda. Intenta con otros filtros.' :
           'Agrega productos a tu inventario para comenzar.' }}
       </p>
       <button
@@ -289,241 +294,196 @@
     </div>
     
     <!-- Modals -->
-    <InventoryAdjustment ref="inventoryAdjustmentModal" :product-id="selectedProductId" @adjustment-saved="onInventoryAdjusted" />
-    <InventoryDetailsModal ref="inventoryDetailsModal" :product-id="selectedProductId" @updated="onInventoryAdjusted" />
-    <SupplierPurchaseModal ref="supplierPurchaseModal" @purchase-saved="onInventoryAdjusted" />
+    <InventoryAdjustment ref="inventoryAdjustmentModal" :product-id="selectedProductId" />
+    <InventoryDetailsModal ref="inventoryDetailsModal" :product-id="selectedProductId" />
+    <SupplierPurchaseModal ref="supplierPurchaseModal" />
   </div>
 </template>
 
 <script setup>
-import { ToastEvents } from '~/interfaces';
 import { formatCurrency } from '~/utils';
 
-// Import components
 import SupplierPurchaseModal from '~/components/Inventory/SupplierPurchaseModal.vue';
 
 import TablerPackages from '~icons/tabler/packages';
 import TablerAlertTriangle from '~icons/tabler/alert-triangle';
 import LucideSearch from '~icons/lucide/search';
 import LucidePlus from '~icons/lucide/plus';
-import LucideDownload from '~icons/lucide/download';
 import LucideDollarSign from '~icons/lucide/dollar-sign';
 import LucideHistory from '~icons/lucide/history';
 import LucideTruck from '~icons/lucide/truck';
+import LucideLoader2 from '~icons/lucide/loader-2';
 
-// Store references
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
-const { isLoading } = storeToRefs(inventoryStore);
 
-// Component refs
+const initialLoading = ref(true);
+
 const inventoryAdjustmentModal = ref(null);
 const inventoryDetailsModal = ref(null);
 const supplierPurchaseModal = ref(null);
 
-// Local state
 const selectedProductId = ref(null);
 const searchQuery = ref('');
-const selectedCategory = ref('all');
 const stockFilter = ref('all');
 const sortBy = ref('name');
+const loadingDetailsFor = ref(null);
 
-// Helper functions
-function getProductById(productId) {
-  return productStore.getProductById(productId);
-}
+const MOVEMENT_LABELS = {
+  sale: 'Venta',
+  purchase: 'Compra',
+  adjustment: 'Ajuste',
+  opening: 'Apertura',
+  loss: 'Pérdida',
+  return: 'Devolución'
+};
 
-// Check if item is low stock using product's minimumStock as source of truth
-function isItemLowStock(item) {
-  const product = getProductById(item.productId);
-  const minimumStock = product?.minimumStock || item.minimumStock || 0;
-  return minimumStock > 0 && item.unitsInStock < minimumStock;
-}
+// Single enriched data source - all computations done once per item
+const enrichedInventory = computed(() => {
+  return inventoryStore.inventoryItems.map(item => {
+    const product = productStore.getProductById(item.productId);
+    const minStock = product?.minimumStock || item.minimumStock || 0;
+    const baseCost = item.lastPurchaseCost || 0;
+    const isDual = product?.trackingType === 'dual';
+    const isWeight = product?.trackingType === 'weight';
+    const unitWeight = product?.unitWeight || 0;
+    const openWeight = item.openUnitsWeight || 0;
 
-// Get minimum stock from product (source of truth)
-function getMinimumStock(item) {
-  const product = getProductById(item.productId);
-  return product?.minimumStock || item.minimumStock || 0;
-}
-
-function getSalePrice(productId, priceType = 'regular', unitType = null) {
-  const product = getProductById(productId);
-  if (!product || !product.prices) return 0;
-
-  // For dual tracking products, specify which price to get
-  if (product.trackingType === 'dual') {
-    if (unitType === 'kg') {
-      // Kg prices are stored nested
-      return product.prices.kg?.[priceType] || 0;
-    }
-    // Unit prices are at top level
-    return product.prices[priceType] || 0;
-  }
-
-  // For regular and weight products
-  return product.prices[priceType] || 0;
-}
-
-function calculateItemValue(item) {
-  const product = getProductById(item.productId);
-  const baseCost = item.lastPurchaseCost || 0;
-
-  // Calculate units value
-  let totalValue = item.unitsInStock * baseCost;
-
-  // Add open kg value for dual tracking products
-  if (product?.trackingType === 'dual' && product?.unitWeight && item.openUnitsWeight) {
-    const costPerKg = baseCost / product.unitWeight;
-    totalValue += item.openUnitsWeight * costPerKg;
-  }
-
-  return totalValue;
-}
-
-function calculateItemSaleValue(item, priceType = 'regular') {
-  const product = getProductById(item.productId);
-  if (!product || !product.prices) return 0;
-
-  // For dual tracking products, use unit and kg prices separately
-  if (product.trackingType === 'dual' && product.unitWeight) {
-    // Unit prices are at top level
-    const unitPrice = product.prices[priceType] || 0;
-    // Kg prices are stored nested
-    const kgPrice = product.prices.kg?.[priceType] || 0;
-
-    // Closed bags value
-    let totalValue = item.unitsInStock * unitPrice;
-
-    // Open kg value
-    if (item.openUnitsWeight) {
-      totalValue += item.openUnitsWeight * kgPrice;
+    // Pre-compute inventory value
+    let inventoryValue = item.unitsInStock * baseCost;
+    if (isDual && unitWeight && openWeight) {
+      inventoryValue += openWeight * (baseCost / unitWeight);
     }
 
-    return totalValue;
-  }
+    // Pre-compute sale values
+    let saleValueRegular = 0;
+    let saleValueCash = 0;
+    if (product?.prices) {
+      if (isDual && unitWeight) {
+        saleValueRegular = item.unitsInStock * (product.prices.regular || 0) + openWeight * (product.prices.kg?.regular || 0);
+        saleValueCash = item.unitsInStock * (product.prices.cash || 0) + openWeight * (product.prices.kg?.cash || 0);
+      } else {
+        saleValueRegular = item.unitsInStock * (product.prices.regular || 0);
+        saleValueCash = item.unitsInStock * (product.prices.cash || 0);
+      }
+    }
 
-  // For regular and weight products, use direct price
-  const salePrice = product.prices[priceType] || 0;
-  return item.unitsInStock * salePrice;
-}
+    // Pre-compute formatted stock
+    let formattedStock;
+    if (!product) {
+      formattedStock = `${item.unitsInStock} unidades`;
+    } else if (isWeight) {
+      formattedStock = `${item.unitsInStock} kg`;
+    } else if (isDual) {
+      formattedStock = `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 'es' : ''} + ${openWeight} kg`;
+    } else {
+      formattedStock = `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 'es' : ''}`;
+    }
 
-// Stats computed property
+    // Pre-compute prices for display
+    const prices = product?.prices || {};
+    const displayPrices = isDual ? {
+      regularUnit: prices.regular || 0,
+      cashUnit: prices.cash || 0,
+      regularKg: prices.kg?.regular || 0,
+      cashKg: prices.kg?.cash || 0
+    } : {
+      regular: prices.regular || 0,
+      cash: prices.cash || 0
+    };
+
+    return {
+      ...item,
+      product,
+      minimumStock: minStock,
+      isLowStock: minStock > 0 && item.unitsInStock < minStock,
+      inventoryValue,
+      saleValueRegular,
+      saleValueCash,
+      formattedStock,
+      displayPrices,
+      isDual,
+      // Search string pre-computed for filtering
+      searchString: [
+        item.productName,
+        product?.productCode,
+        product?.brand,
+        product?.description,
+        isDual && unitWeight ? `${unitWeight}kg` : '',
+        product?.brand ? `${product.brand} - ${item.productName}` : ''
+      ].filter(Boolean).join(' ').toLowerCase()
+    };
+  });
+});
+
+// Stats derived from enriched data - no additional lookups
 const stats = computed(() => {
-  let totalProducts = inventoryStore.inventoryItems.length;
-  // Use product's minimumStock as source of truth for low stock count
-  let lowStockCount = inventoryStore.inventoryItems.filter(item => isItemLowStock(item)).length;
-  let lowStockPercentage = totalProducts > 0 ? Math.round((lowStockCount / totalProducts) * 100) : 0;
-  let totalValue = inventoryStore.inventoryItems.reduce((acc, item) => acc + calculateItemValue(item), 0);
-  let totalSaleValueRegular = inventoryStore.inventoryItems.reduce((acc, item) => acc + calculateItemSaleValue(item, 'regular'), 0);
-  let totalSaleValueCash = inventoryStore.inventoryItems.reduce((acc, item) => acc + calculateItemSaleValue(item, 'cash'), 0);
+  const items = enrichedInventory.value;
+  let lowStockCount = 0;
+  let totalValue = 0;
+  let totalSaleValueRegular = 0;
+  let totalSaleValueCash = 0;
+  let latestMovement = null;
 
-  // Find last movement date
-  let lastMovementDate = 'N/A';
-  if (inventoryStore.inventoryItems.length > 0) {
-    const sortedByDate = [...inventoryStore.inventoryItems]
-      .filter(item => item.originalLastMovementAt)
-      .sort((a, b) => {
-        if (!a.originalLastMovementAt) return 1;
-        if (!b.originalLastMovementAt) return -1;
-        return b.originalLastMovementAt.toMillis() - a.originalLastMovementAt.toMillis();
-      });
+  for (const item of items) {
+    if (item.isLowStock) lowStockCount++;
+    totalValue += item.inventoryValue;
+    totalSaleValueRegular += item.saleValueRegular;
+    totalSaleValueCash += item.saleValueCash;
 
-    if (sortedByDate.length > 0) {
-      lastMovementDate = sortedByDate[0].lastMovementAt;
+    if (item.originalLastMovementAt && (!latestMovement || item.originalLastMovementAt.toMillis() > latestMovement.originalLastMovementAt.toMillis())) {
+      latestMovement = item;
     }
   }
 
+  const totalProducts = items.length;
   return {
     totalProducts,
     lowStockCount,
-    lowStockPercentage,
+    lowStockPercentage: totalProducts > 0 ? Math.round((lowStockCount / totalProducts) * 100) : 0,
     totalValue,
     totalSaleValueRegular,
     totalSaleValueCash,
-    lastMovementDate
+    lastMovementDate: latestMovement?.lastMovementAt || 'N/A'
   };
 });
 
-// Filtered inventory computed property
+// Filtered inventory - just filtering and sorting, no lookups
 const filteredInventory = computed(() => {
-  let result = [...inventoryStore.inventoryItems];
-  
-  // Apply stock filter using product's minimumStock
+  let result = enrichedInventory.value;
+
   if (stockFilter.value === 'low') {
-    result = result.filter(item => isItemLowStock(item));
+    result = result.filter(item => item.isLowStock);
   }
-  
-  // Apply category filter
-  if (selectedCategory.value !== 'all') {
-    result = result.filter(item => {
-      const product = productStore.getProductById(item.productId);
-      return product?.category === selectedCategory.value;
-    });
-  }
-  
-  // Apply search filter
+
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
-    result = result.filter(item => {
-      const product = getProductById(item.productId);
-      
-      // Create combined search string that matches the display format
-      const brandPart = product?.brand ? `${product.brand} - ` : '';
-      const namePart = item.productName;
-      const weightPart = (product?.trackingType === 'dual' && product?.unitWeight) ? ` - ${product.unitWeight}kg` : '';
-      const combinedString = `${brandPart}${namePart}${weightPart}`.toLowerCase();
-      
-      return (
-        // Search in individual fields
-        item.productName.toLowerCase().includes(query) ||
-        (product?.productCode && product.productCode.toLowerCase().includes(query)) ||
-        (product?.brand || '').toLowerCase().includes(query) ||
-        (product?.description || '').toLowerCase().includes(query) ||
-        (product?.unitWeight && product.unitWeight.toString().includes(query)) ||
-        // Search in combined display string
-        combinedString.includes(query)
-      );
-    });
+    result = result.filter(item => item.searchString.includes(query));
   }
-  
-  // Apply sorting
-  result = sortInventory(result, sortBy.value);
-  
-  return result;
+
+  // Sort
+  return [...result].sort((a, b) => {
+    switch (sortBy.value) {
+      case 'name': return a.productName.localeCompare(b.productName);
+      case 'stock': return b.unitsInStock - a.unitsInStock;
+      case 'value': return b.inventoryValue - a.inventoryValue;
+      case 'movement':
+        if (!a.originalLastMovementAt) return 1;
+        if (!b.originalLastMovementAt) return -1;
+        return b.originalLastMovementAt.toMillis() - a.originalLastMovementAt.toMillis();
+      default: return 0;
+    }
+  });
 });
 
-// Methods
-
-function viewInventoryDetails(productId) {
+async function viewInventoryDetails(productId) {
+  loadingDetailsFor.value = productId;
   selectedProductId.value = productId;
-  inventoryDetailsModal.value.showModal();
-}
-
-// Removed getCategoryName function - now using productStore.getCategoryName directly
-
-function formatStock(item) {
-  const product = getProductById(item.productId);
-  if (!product) return `${item.unitsInStock} unidades`;
-  
-  if (product.trackingType === 'weight') {
-    return `${item.unitsInStock} kg`;
-  } else if (product.trackingType === 'dual') {
-    return `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 'es' : ''} + ${item.openUnitsWeight} kg`;
-  } else {
-    return `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 'es' : ''}`;
+  try {
+    await inventoryDetailsModal.value.showModal();
+  } finally {
+    loadingDetailsFor.value = null;
   }
-}
-
-function getMovementTypeLabel(type) {
-  const types = {
-    'sale': 'Venta',
-    'purchase': 'Compra',
-    'adjustment': 'Ajuste',
-    'opening': 'Apertura',
-    'loss': 'Pérdida',
-    'return': 'Devolución'
-  };
-  return types[type] || 'N/A';
 }
 
 function setStockFilter(filter) {
@@ -539,39 +499,24 @@ function openSupplierPurchase() {
   supplierPurchaseModal.value.showModal();
 }
 
-function onInventoryAdjusted() {
-  // No need to refetch - onSnapshot handles updates automatically
-}
-
-function sortInventory(inventory, sortKey) {
-  return [...inventory].sort((a, b) => {
-    switch(sortKey) {
-      case 'name':
-        return a.productName.localeCompare(b.productName);
-      case 'stock':
-        return b.unitsInStock - a.unitsInStock;
-      case 'value':
-        return (b.unitsInStock * (b.lastPurchaseCost || 0)) - (a.unitsInStock * (a.lastPurchaseCost || 0));
-      case 'movement':
-        // Sort by last movement date
-        if (!a.originalLastMovementAt) return 1;
-        if (!b.originalLastMovementAt) return -1;
-        return b.originalLastMovementAt.toMillis() - a.originalLastMovementAt.toMillis();
-      default:
-        return 0;
-    }
-  });
-}
-
-// Lifecycle hooks
 onMounted(async () => {
-  // Subscribe to real-time updates for products and inventory
   productStore.subscribeToProducts();
   inventoryStore.subscribeToInventory();
 
-  // Categories still use one-time fetch (rarely change)
   if (!productStore.categoriesLoaded) {
     await productStore.fetchCategories();
+  }
+
+  if (inventoryStore.inventoryItems.length > 0) {
+    initialLoading.value = false;
+  } else {
+    const stopWatch = watch(() => inventoryStore.inventoryItems.length, (len) => {
+      if (len > 0) {
+        initialLoading.value = false;
+        stopWatch();
+      }
+    });
+    setTimeout(() => { initialLoading.value = false; stopWatch(); }, 3000);
   }
 });
 </script>

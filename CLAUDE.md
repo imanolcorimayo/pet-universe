@@ -14,6 +14,8 @@ Pet shop management system with dual cash register approach: global business reg
 - **Dates**: Always use `$dayjs` via `const { $dayjs } = useNuxtApp()`, never `new Date()`
 - **Date parsing**: For ODM schema dates use `$dayjs(dateValue, 'DD/MM/YYYY')` format
 - **Date display**: ODM schemas auto-format to `'DD/MM/YYYY HH:mm'` - use directly in templates without formatDate functions
+- **No empty functions with comments**: Never create empty functions just to satisfy an interface/event handler. Either implement the function or remove the handler entirely. No "// No-op" or "// Not needed" comments
+- **Minimal comments**: Code should be self-explanatory. Only add comments for genuinely complex business logic, never for obvious code or removed functionality
 
 ## Architecture
 

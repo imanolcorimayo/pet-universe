@@ -238,7 +238,6 @@
 import { ToastEvents } from '~/interfaces';
 import { formatCurrency } from '~/utils';
 
-// Props
 const props = defineProps({
   productId: {
     type: String,
@@ -246,16 +245,11 @@ const props = defineProps({
   },
 });
 
-// Emits
-const emit = defineEmits([
-  "updated",
-]);
+const emit = defineEmits(["updated"]);
 
-// Store references
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 
-// Refs
 const mainModal = ref(null);
 const inventoryAdjustmentModal = ref(null);
 const productDetailsModal = ref(null);
@@ -263,133 +257,98 @@ const loading = ref(false);
 const movements = ref([]);
 const currentPage = ref(1);
 const itemsPerPage = 10;
+const loadedProductId = ref(''); // Track which product's movements are loaded
 
-// Computed properties
-const product = computed(() => {
-  return productStore.getProductById(props.productId);
-});
-
-const inventory = computed(() => {
-  return inventoryStore.getInventoryByProductId(props.productId);
-});
-
-// Get minimum stock from product (source of truth) or inventory as fallback
-const minimumStock = computed(() => {
-  return product.value?.minimumStock || inventory.value?.minimumStock || 0;
-});
-
-// Check if item is low stock using product's minimumStock as source of truth
-const isLowStock = computed(() => {
-  if (!inventory.value) return false;
-  return minimumStock.value > 0 && inventory.value.unitsInStock < minimumStock.value;
-});
-
-const totalPages = computed(() => {
-  return Math.ceil(movements.value.length / itemsPerPage);
-});
+const product = computed(() => productStore.getProductById(props.productId));
+const inventory = computed(() => inventoryStore.getInventoryByProductId(props.productId));
+const minimumStock = computed(() => product.value?.minimumStock || inventory.value?.minimumStock || 0);
+const isLowStock = computed(() => inventory.value && minimumStock.value > 0 && inventory.value.unitsInStock < minimumStock.value);
+const totalPages = computed(() => Math.ceil(movements.value.length / itemsPerPage));
 
 const paginatedMovements = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
-  const end = start + itemsPerPage;
-  return movements.value.slice(start, end);
+  return movements.value.slice(start, start + itemsPerPage);
 });
 
 const displayedPages = computed(() => {
-  const pages = [];
   const total = totalPages.value;
   const current = currentPage.value;
+  if (total <= 1) return [1];
 
-  // Always show first page
-  pages.push(1);
-
-  // Show pages around current page
+  const pages = [1];
   for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
-    if (!pages.includes(i)) {
-      pages.push(i);
-    }
+    if (!pages.includes(i)) pages.push(i);
   }
-
-  // Always show last page if there are multiple pages
-  if (total > 1 && !pages.includes(total)) {
-    pages.push(total);
-  }
-
+  if (!pages.includes(total)) pages.push(total);
   return pages;
 });
 
-// Methods
+const MOVEMENT_TYPE_LABELS = {
+  sale: 'Venta',
+  purchase: 'Compra',
+  adjustment: 'Ajuste',
+  opening: 'Apertura',
+  loss: 'Pérdida',
+  return: 'Devolución',
+  conversion: 'Conversión'
+};
+
+const REFERENCE_TYPE_LABELS = {
+  sale: 'Venta',
+  purchase_order: 'Orden de Compra',
+  manual_adjustment: 'Ajuste Manual'
+};
+
+const MOVEMENT_BADGE_CLASSES = {
+  purchase: 'bg-green-100 text-green-700',
+  sale: 'bg-blue-100 text-blue-700',
+  adjustment: 'bg-yellow-100 text-yellow-700',
+  loss: 'bg-red-100 text-red-700',
+  opening: 'bg-gray-100 text-gray-700',
+  return: 'bg-purple-100 text-purple-700',
+  conversion: 'bg-indigo-100 text-indigo-700'
+};
+
 function getMovementTypeLabel(type) {
-  const types = {
-    'sale': 'Venta',
-    'purchase': 'Compra',
-    'adjustment': 'Ajuste',
-    'opening': 'Apertura',
-    'loss': 'Pérdida',
-    'return': 'Devolución',
-    'conversion': 'Conversión'
-  };
-  return types[type] || type;
+  return MOVEMENT_TYPE_LABELS[type] || type;
 }
 
 function getReferenceTypeLabel(type) {
-  const types = {
-    'sale': 'Venta',
-    'purchase_order': 'Orden de Compra',
-    'manual_adjustment': 'Ajuste Manual'
-  };
-  return types[type] || type || 'N/A';
+  return REFERENCE_TYPE_LABELS[type] || type || 'N/A';
 }
 
 function getMovementTypeBadgeClass(type) {
-  const classes = {
-    'purchase': 'bg-green-100 text-green-700',
-    'sale': 'bg-blue-100 text-blue-700',
-    'adjustment': 'bg-yellow-100 text-yellow-700',
-    'loss': 'bg-red-100 text-red-700',
-    'opening': 'bg-gray-100 text-gray-700',
-    'return': 'bg-purple-100 text-purple-700',
-    'conversion': 'bg-indigo-100 text-indigo-700'
-  };
-  return classes[type] || 'bg-gray-100 text-gray-700';
+  return MOVEMENT_BADGE_CLASSES[type] || 'bg-gray-100 text-gray-700';
 }
 
 function getChangeColorClass(quantityChange, weightChange) {
-  const hasPositiveChange = quantityChange > 0 || weightChange > 0;
-  const hasNegativeChange = quantityChange < 0 || weightChange < 0;
-
-  if (hasPositiveChange && !hasNegativeChange) return 'text-green-600';
-  if (hasNegativeChange && !hasPositiveChange) return 'text-red-600';
+  const hasPositive = quantityChange > 0 || weightChange > 0;
+  const hasNegative = quantityChange < 0 || weightChange < 0;
+  if (hasPositive && !hasNegative) return 'text-green-600';
+  if (hasNegative && !hasPositive) return 'text-red-600';
   return 'text-gray-600';
 }
 
 function formatQuantityChange(movement) {
-  let change = '';
-
+  const parts = [];
   if (movement.quantityChange !== 0) {
-    change += `${movement.quantityChange > 0 ? '+' : ''}${movement.quantityChange} und`;
+    parts.push(`${movement.quantityChange > 0 ? '+' : ''}${movement.quantityChange} und`);
   }
-
   if (movement.weightChange !== 0) {
-    if (change) change += ', ';
-    change += `${movement.weightChange > 0 ? '+' : ''}${movement.weightChange.toFixed(2)} kg`;
+    parts.push(`${movement.weightChange > 0 ? '+' : ''}${movement.weightChange.toFixed(2)} kg`);
   }
-
-  return change || 'Sin cambios';
+  return parts.join(', ') || 'Sin cambios';
 }
 
 function formatStockSnapshot(movement, type) {
   const units = type === 'before' ? movement.unitsBefore : movement.unitsAfter;
   const weight = type === 'before' ? movement.weightBefore : movement.weightAfter;
-
   if (!product.value) return 'N/A';
 
-  if (product.value.trackingType === 'weight') {
-    return `${weight || 0} kg`;
-  } else if (product.value.trackingType === 'dual') {
-    return `${units || 0} und + ${weight || 0} kg`;
-  } else {
-    return `${units || 0} und`;
-  }
+  const trackingType = product.value.trackingType;
+  if (trackingType === 'weight') return `${weight || 0} kg`;
+  if (trackingType === 'dual') return `${units || 0} und + ${weight || 0} kg`;
+  return `${units || 0} und`;
 }
 
 function closeModal() {
@@ -397,20 +356,13 @@ function closeModal() {
   currentPage.value = 1;
 }
 
-async function loadData() {
+async function loadMovements(productId) {
+  if (!productId || loadedProductId.value === productId) return;
+
   loading.value = true;
   try {
-    // Subscribe to real-time updates if not already subscribed
-    if (!product.value) {
-      productStore.subscribeToProducts();
-    }
-    inventoryStore.subscribeToInventory();
-
-    // Fetch movement history (not covered by subscription)
-    const fetchedMovements = await inventoryStore.fetchMovementsForProduct(props.productId);
-    movements.value = fetchedMovements;
-
-    // Reset pagination
+    movements.value = await inventoryStore.fetchMovementsForProduct(productId);
+    loadedProductId.value = productId;
     currentPage.value = 1;
   } catch (error) {
     console.error("Error loading inventory details:", error);
@@ -421,29 +373,19 @@ async function loadData() {
 }
 
 function onInventoryUpdated() {
-  loadData();
+  // Force reload movements for current product
+  loadedProductId.value = '';
+  loadMovements(props.productId);
   emit("updated");
 }
 
 function onProductUpdated() {
-  loadData();
   emit("updated");
 }
 
-// Watch for product ID changes
-watch(
-  () => props.productId,
-  async (newProductId) => {
-    if (newProductId) {
-      await loadData();
-    }
-  }
-);
-
-// Expose methods
 defineExpose({
   showModal: async () => {
-    await loadData();
+    await loadMovements(props.productId);
     mainModal.value?.showModal();
   },
 });
