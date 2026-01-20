@@ -78,3 +78,8 @@ export interface FetchSingleResult<T = DocumentWithId> {
   data?: T;
   error?: string;
 }
+
+export interface DocChange<T = DocumentWithId> {
+  type: 'added' | 'modified' | 'removed';
+  doc: T;
+}

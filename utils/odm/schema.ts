@@ -16,16 +16,17 @@ import {
   type Unsubscribe
 } from 'firebase/firestore';
 import { Validator } from './validator';
-import type { 
-  SchemaDefinition, 
-  ValidationResult, 
-  QueryOptions, 
+import type {
+  SchemaDefinition,
+  ValidationResult,
+  QueryOptions,
   DocumentWithId,
   CreateResult,
   UpdateResult,
   DeleteResult,
   FetchResult,
-  FetchSingleResult
+  FetchSingleResult,
+  DocChange
 } from './types';
 
 export abstract class Schema {
@@ -562,6 +563,60 @@ export abstract class Schema {
       (querySnapshot) => {
         const documents = querySnapshot.docs.map(doc => this.addDocumentId(doc));
         onData(documents);
+      },
+      (error) => {
+        console.error(`Error in ${this.collectionName} subscription:`, error);
+        onError?.(error);
+      }
+    );
+
+    return unsubscribe;
+  }
+
+  // Subscribe to real-time updates with incremental changes (optimized for large collections)
+  subscribeIncremental(
+    options: QueryOptions,
+    onChanges: (changes: DocChange[]) => void,
+    onError?: (error: Error) => void
+  ): Unsubscribe {
+    const db = this.getFirestore();
+    const businessId = this.getCurrentBusinessId();
+
+    if (!businessId) {
+      onError?.(new Error('Business ID is required'));
+      return () => {};
+    }
+
+    // Build query
+    const queryRef = collection(db, this.collectionName);
+    const constraints: any[] = [where('businessId', '==', businessId)];
+
+    if (options.where) {
+      for (const condition of options.where) {
+        constraints.push(where(condition.field, condition.operator, condition.value));
+      }
+    }
+
+    if (options.orderBy) {
+      for (const order of options.orderBy) {
+        constraints.push(orderBy(order.field, order.direction));
+      }
+    }
+
+    if (options.limit) {
+      constraints.push(firestoreLimit(options.limit));
+    }
+
+    const q = query(queryRef, ...constraints);
+
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const changes: DocChange[] = querySnapshot.docChanges().map(change => ({
+          type: change.type,
+          doc: this.addDocumentId(change.doc)
+        }));
+        onChanges(changes);
       },
       (error) => {
         console.error(`Error in ${this.collectionName} subscription:`, error);

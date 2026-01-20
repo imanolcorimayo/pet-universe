@@ -1038,23 +1038,27 @@ async function saveAdjustment() {
 defineExpose({
   showModal: async () => {
     resetForm();
+    await nextTick();
     await loadInventoryData();
     mainModal.value?.showModal();
   },
   showAddInventoryModal: async () => {
     resetForm();
+    await nextTick();
     await loadInventoryData();
     selectMovementType("addition");
     mainModal.value?.showModal();
   },
   showReduceInventoryModal: async () => {
     resetForm();
+    await nextTick();
     await loadInventoryData();
     selectMovementType("loss");
     mainModal.value?.showModal();
   },
   showAdjustInventoryModal: async () => {
     resetForm();
+    await nextTick();
     await loadInventoryData();
     selectMovementType("adjustment");
     mainModal.value?.showModal();

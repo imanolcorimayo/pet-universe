@@ -21,12 +21,12 @@
     </div>
     
     <!-- Loading State -->
-    <div v-if="isLoading" class="flex justify-center items-center py-12">
+    <div v-if="initialLoading" class="flex justify-center items-center py-12">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
     </div>
-    
+
     <!-- Search & Filters -->
-    <div v-else class="bg-white rounded-lg shadow p-4 mb-4">
+    <div v-if="!initialLoading" class="bg-white rounded-lg shadow p-4 mb-4">
       <div class="flex flex-col md:flex-row gap-4 justify-between">
         <!-- Search -->
         <div class="relative flex-grow md:max-w-md h-fit">
@@ -97,7 +97,7 @@
     </div>
     
     <!-- Product Table -->
-    <div v-if="!isLoading && displayedProducts.length > 0" class="bg-white rounded-lg shadow overflow-hidden">
+    <div v-if="!initialLoading && displayedProducts.length > 0" class="bg-white rounded-lg shadow overflow-hidden">
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
@@ -211,7 +211,7 @@
     </div>
     
     <!-- Empty State -->
-    <div v-else-if="!isLoading && displayedProducts.length === 0" class="bg-white rounded-lg shadow p-8 text-center">
+    <div v-else-if="!initialLoading && displayedProducts.length === 0" class="bg-white rounded-lg shadow p-8 text-center">
       <div class="flex justify-center mb-4">
         <TablerPackages class="h-12 w-12 text-gray-400" />
       </div>
@@ -232,21 +232,23 @@
     
     <!-- Modals -->
     <ProductFormModal ref="productFormModal" :edit-mode="isEditing" :product-data="selectedProductData" @product-saved="onProductSaved" />
-    <ProductDetailsModal ref="productDetailsModal" :product-id="selectedProductId" @archived="onProductArchived" @restored="onProductRestored" @updated="onProductUpdated" @adjustment-saved="onInventoryAdjusted" />
+    <ProductDetailsModal ref="productDetailsModal" :product-id="selectedProductId" />
     <ConfirmDialogue ref="confirmDialogue" />
   </div>
 </template>
 
 <script setup>
 import { ToastEvents } from '~/interfaces';
+import { formatCurrency } from '~/utils';
 
 import TablerPackages from '~icons/tabler/packages';
 import LucideSearch from '~icons/lucide/search';
 import LucidePlus from '~icons/lucide/plus';
 
-// Store references
 const productStore = useProductStore();
-const { filteredProducts, isLoading, productFilter, activeCategories } = storeToRefs(productStore);
+const { filteredProducts, productFilter, activeCategories } = storeToRefs(productStore);
+
+const initialLoading = ref(true);
 
 // Component refs
 const productFormModal = ref(null);
@@ -344,30 +346,23 @@ function onProductSaved() {
   selectedProductData.value = null;
 }
 
-function onProductArchived() {
-  // No need to refetch - onSnapshot handles updates automatically
-}
-
-function onProductRestored() {
-  // No need to refetch - onSnapshot handles updates automatically
-}
-
-function onProductUpdated() {
-  // No need to refetch - onSnapshot handles updates automatically
-}
-
-function onInventoryAdjusted() {
-  // No need to refresh - onSnapshot handles updates automatically
-}
-
-// Lifecycle hooks
 onMounted(async () => {
-  // Subscribe to real-time product updates
   productStore.subscribeToProducts();
 
-  // Categories still use one-time fetch (rarely change)
   if (!productStore.categoriesLoaded) {
     await productStore.fetchCategories();
+  }
+
+  if (productStore.products.length > 0) {
+    initialLoading.value = false;
+  } else {
+    const stopWatch = watch(() => productStore.products.length, (len) => {
+      if (len > 0) {
+        initialLoading.value = false;
+        stopWatch();
+      }
+    });
+    setTimeout(() => { initialLoading.value = false; stopWatch(); }, 3000);
   }
 });
 </script>

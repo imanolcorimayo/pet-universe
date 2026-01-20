@@ -325,6 +325,7 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
     /**
      * Subscribe to real-time wallet transaction updates for a specific global cash register
      * Automatically unsubscribes from previous subscription if switching registers
+     * Uses incremental updates for better performance with large collections
      */
     subscribeToWalletTransactions(globalCashId: string) {
       // Skip if already subscribed to this register
@@ -338,13 +339,39 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       this.isWalletLoading = true;
       const schema = new WalletSchema();
 
-      walletUnsubscribe = schema.subscribe(
+      walletUnsubscribe = schema.subscribeIncremental(
         {
           where: [{ field: 'globalCashId', operator: '==', value: globalCashId }]
         },
-        (transactions) => {
-          // Sort and update store state
-          this.walletTransactions = this.sortWalletTransactions(transactions as WalletTransaction[]);
+        (changes) => {
+          let needsSort = false;
+
+          for (const change of changes) {
+            const transaction = change.doc as WalletTransaction;
+
+            if (change.type === 'added') {
+              this.walletTransactions.push(transaction);
+              needsSort = true;
+            }
+            else if (change.type === 'modified') {
+              const index = this.walletTransactions.findIndex(t => t.id === transaction.id);
+              if (index >= 0) {
+                this.walletTransactions[index] = transaction;
+              }
+              needsSort = true;
+            }
+            else if (change.type === 'removed') {
+              const index = this.walletTransactions.findIndex(t => t.id === transaction.id);
+              if (index >= 0) {
+                this.walletTransactions.splice(index, 1);
+              }
+            }
+          }
+
+          if (needsSort) {
+            this.walletTransactions = this.sortWalletTransactions(this.walletTransactions);
+          }
+
           this.calculateBalances();
           this.isWalletLoading = false;
         },

@@ -38,7 +38,12 @@
               type="text"
               placeholder="Código único del producto (opcional)"
               class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              :class="{ '!border-red-500 !ring-red-500': duplicateProductCode }"
+              @blur="validateProductCode"
             />
+            <p v-if="duplicateProductCode" class="text-xs text-red-500 mt-1">
+              Ya existe un producto activo con este código
+            </p>
           </div>
 
           <!-- Brand Field -->
@@ -270,6 +275,7 @@ const emit = defineEmits(["product-saved"]);
 const mainModal = ref(null);
 const productStore = useProductStore();
 const isLoading = ref(false);
+const duplicateProductCode = ref(false);
 
 // ----- Computed Properties ---------
 const activeCategories = computed(() => {
@@ -282,7 +288,8 @@ const isFormValid = computed(() => {
     formData.value.category &&
     formData.value.trackingType &&
     formData.value.unitType &&
-    formData.value.minimumStock >= 0;
+    formData.value.minimumStock >= 0 &&
+    !duplicateProductCode.value;
 
   // Add validation for unitWeight when trackingType is 'dual'
   if (formData.value.trackingType === "dual") {
@@ -330,6 +337,22 @@ function resetForm() {
     minimumStock: 2,
     supplierIds: [],
   };
+  duplicateProductCode.value = false;
+}
+
+function validateProductCode() {
+  if (props.editMode) return;
+
+  const code = formData.value.productCode?.trim();
+  if (!code) {
+    duplicateProductCode.value = false;
+    return;
+  }
+
+  const existingProduct = productStore.products.find(
+    (p) => p.productCode === code && p.isActive
+  );
+  duplicateProductCode.value = !!existingProduct;
 }
 
 // Handle tracking type change to set default values

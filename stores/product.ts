@@ -755,6 +755,7 @@ export const useProductStore = defineStore("product", {
     /**
      * Subscribe to real-time product updates for the current business
      * Automatically unsubscribes from previous subscription if switching businesses
+     * Uses incremental updates for better performance with large collections
      */
     subscribeToProducts() {
       const currentBusinessId = useLocalStorage('cBId', null);
@@ -775,19 +776,40 @@ export const useProductStore = defineStore("product", {
       this.isLoading = true;
       const productSchema = this._getProductSchema();
 
-      productUnsubscribe = productSchema.subscribe(
+      productUnsubscribe = productSchema.subscribeIncremental(
         {
           orderBy: [{ field: 'name', direction: 'asc' }]
         },
-        (data) => {
-          const products = data as Product[];
-          // Update both array and Map
-          this.productsByIdMap.clear();
-          products.forEach(product => {
-            this.productsByIdMap.set(product.id, product);
-          });
+        (changes) => {
+          for (const change of changes) {
+            const product = change.doc as Product;
 
-          this.products = products;
+            if (change.type === 'added') {
+              // Insert in sorted position by name
+              const insertIndex = this.products.findIndex(p => p.name.localeCompare(product.name) > 0);
+              if (insertIndex === -1) {
+                this.products.push(product);
+              } else {
+                this.products.splice(insertIndex, 0, product);
+              }
+              this.productsByIdMap.set(product.id, product);
+            }
+            else if (change.type === 'modified') {
+              const index = this.products.findIndex(p => p.id === product.id);
+              if (index >= 0) {
+                this.products[index] = product;
+              }
+              this.productsByIdMap.set(product.id, product);
+            }
+            else if (change.type === 'removed') {
+              const index = this.products.findIndex(p => p.id === product.id);
+              if (index >= 0) {
+                this.products.splice(index, 1);
+              }
+              this.productsByIdMap.delete(product.id);
+            }
+          }
+
           this.productsLoaded = true;
           this.isLoading = false;
         },

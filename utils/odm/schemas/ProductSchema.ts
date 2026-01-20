@@ -230,6 +230,35 @@ export class ProductSchema extends Schema {
     };
   }
 
+  // Validate unique product code (async - requires DB query)
+  async validateUniqueProductCode(productCode: string, excludeId?: string): Promise<ValidationResult> {
+    const errors: any[] = [];
+
+    if (!productCode || productCode.trim() === '') {
+      return { valid: true, errors: [] };
+    }
+
+    const result = await this.find({
+      where: [{ field: 'productCode', operator: '==', value: productCode.trim() }],
+      limit: 1
+    });
+
+    if (result.success && result.data && result.data.length > 0) {
+      const existingProduct = result.data[0];
+      if (!excludeId || existingProduct.id !== excludeId) {
+        errors.push({
+          field: 'productCode',
+          message: `Ya existe un producto con el código "${productCode}"`
+        });
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
   // Validate profit margin percentage
   validateProfitMargin(data: any): ValidationResult {
     const errors: any[] = [];
@@ -262,12 +291,23 @@ export class ProductSchema extends Schema {
 
   // Override create to add custom validations
   override async create(data: any, validateRefs = false) {
+    // Validate unique product code (async)
+    if (data.productCode) {
+      const productCodeValidation = await this.validateUniqueProductCode(data.productCode);
+      if (!productCodeValidation.valid) {
+        return {
+          success: false,
+          error: productCodeValidation.errors.map(e => e.message).join(', ')
+        };
+      }
+    }
+
     // Custom validations
     const trackingValidation = this.validateTrackingType(data);
     if (!trackingValidation.valid) {
-      return { 
-        success: false, 
-        error: `Tracking type validation failed: ${trackingValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Tracking type validation failed: ${trackingValidation.errors.map(e => e.message).join(', ')}`
       };
     }
     
@@ -308,6 +348,17 @@ export class ProductSchema extends Schema {
 
   // Override update to add custom validations
   override async update(id: string, data: any, validateRefs = false) {
+    // Validate unique product code (exclude current product)
+    if (data.productCode !== undefined) {
+      const productCodeValidation = await this.validateUniqueProductCode(data.productCode, id);
+      if (!productCodeValidation.valid) {
+        return {
+          success: false,
+          error: productCodeValidation.errors.map(e => e.message).join(', ')
+        };
+      }
+    }
+
     // Apply same custom validations on update
     if (data.trackingType) {
       const trackingValidation = this.validateTrackingType(data);

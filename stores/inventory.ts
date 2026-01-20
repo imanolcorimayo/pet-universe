@@ -1090,6 +1090,7 @@ export const useInventoryStore = defineStore("inventory", {
     /**
      * Subscribe to real-time inventory updates for the current business
      * Automatically unsubscribes from previous subscription if switching businesses
+     * Uses incremental updates for better performance with large collections
      */
     subscribeToInventory() {
       const currentBusinessId = useLocalStorage('cBId', null);
@@ -1110,17 +1111,32 @@ export const useInventoryStore = defineStore("inventory", {
       this.isLoading = true;
       const inventorySchema = this._getInventorySchema();
 
-      inventoryUnsubscribe = inventorySchema.subscribe(
+      inventoryUnsubscribe = inventorySchema.subscribeIncremental(
         {},
-        (data) => {
-          const inventoryItems = data as Inventory[];
-          // Update both array and Map
-          this.inventoryByProductId.clear();
-          inventoryItems.forEach(item => {
-            this.inventoryByProductId.set(item.productId, item);
-          });
+        (changes) => {
+          for (const change of changes) {
+            const item = change.doc as Inventory;
 
-          this.inventoryItems = inventoryItems;
+            if (change.type === 'added') {
+              this.inventoryItems.push(item);
+              this.inventoryByProductId.set(item.productId, item);
+            }
+            else if (change.type === 'modified') {
+              const index = this.inventoryItems.findIndex(i => i.id === item.id);
+              if (index >= 0) {
+                this.inventoryItems[index] = item;
+              }
+              this.inventoryByProductId.set(item.productId, item);
+            }
+            else if (change.type === 'removed') {
+              const index = this.inventoryItems.findIndex(i => i.id === item.id);
+              if (index >= 0) {
+                this.inventoryItems.splice(index, 1);
+              }
+              this.inventoryByProductId.delete(item.productId);
+            }
+          }
+
           this.inventoryLoaded = true;
           this.isLoading = false;
         },
