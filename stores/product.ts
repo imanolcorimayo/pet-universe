@@ -706,40 +706,47 @@ export const useProductStore = defineStore("product", {
 
 
     // Calculate pricing based on cost and margin
+    // Cash is rounded up first, then other prices are calculated from the rounded cash
     calculatePricing(cost: number, marginPercentage: number, unitWeight?: number, threePlusMarkupPercentage: number = 8) {
       if (cost <= 0) return null;
-      
-      const cash = cost * (1 + marginPercentage / 100);
-      const regular = cash * 1.25; // 25% markup over cash
+
+      const roundTo2Decimals = (num: number) => Math.round(num * 100) / 100;
+
+      // Round up cash first
+      const cashRaw = cost * (1 + marginPercentage / 100);
+      const cash = roundUpPrice(cashRaw);
+
+      // Calculate other prices from the rounded cash
+      const regular = roundTo2Decimals(cash * 1.25); // 25% markup over rounded cash
       const vip = cash; // Initially same as cash
       const bulk = cash; // Initially same as cash
-      
+
       const pricing = {
-        cash: roundUpPrice(cash),
-        regular: roundUpPrice(regular),
-        vip: roundUpPrice(vip),
-        bulk: roundUpPrice(bulk),
+        cash,
+        regular,
+        vip,
+        bulk,
       };
-      
+
       // For dual products, add kg pricing
       if (unitWeight && unitWeight > 0) {
-        const cashPerKg = cash / unitWeight;
-        const threePlusKg = cashPerKg * (1 + threePlusMarkupPercentage / 100);
-        const regularKg = threePlusKg * 1.11; // Fixed 11% markup over 3+ kg price
+        const cashPerKg = cash / unitWeight; // Use rounded cash for kg calculation
+        const threePlusKg = roundTo2Decimals(cashPerKg * (1 + threePlusMarkupPercentage / 100));
+        const regularKg = roundTo2Decimals(threePlusKg * 1.11); // Fixed 11% markup over 3+ kg price
         const vipKg = regularKg; // Initially same as regular
-        
+
         return {
           ...pricing,
           kg: {
-            regular: roundUpPrice(regularKg),
-            threePlusDiscount: roundUpPrice(threePlusKg),
-            vip: roundUpPrice(vipKg),
+            regular: regularKg,
+            threePlusDiscount: threePlusKg,
+            vip: vipKg,
           },
-          costPerKg: parseFloat((cost / unitWeight).toFixed(2)),
-          cashPerKg: parseFloat(cashPerKg.toFixed(2)),
+          costPerKg: roundTo2Decimals(cost / unitWeight),
+          cashPerKg: roundTo2Decimals(cashPerKg),
         };
       }
-      
+
       return pricing;
     },
 

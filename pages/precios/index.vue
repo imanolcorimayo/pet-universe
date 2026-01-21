@@ -132,7 +132,9 @@ import PricingTable from '~/components/Pricing/PricingTable.vue';
 import PricingBulkUpdateModal from '~/components/Pricing/PricingBulkUpdateModal.vue';
 import Loader from '~/components/Loader.vue';
 import { ToastEvents } from '~/interfaces';
-import { roundUpPrice } from '~/utils/index';
+
+// Helper for standard 2-decimal rounding (used for all prices except cash)
+const roundTo2Decimals = (num) => Math.round(num * 100) / 100;
 
 // Store composables
 const productStore = useProductStore();
@@ -302,54 +304,54 @@ async function handleBulkUpdate(productIds, updateData) {
         return Promise.resolve(false);
       }
       
-      // Calculate new prices - ensure all values are numbers and apply rounding
+      // Use calculated prices directly - calculatePricing already applies proper rounding
+      // (roundUpPrice for cash, roundTo2Decimals for other prices)
       const currentPrices = product.prices || {};
-      const cashPrice = roundUpPrice(calculatedPrices.cash);
-      
+
       // Preserve existing VIP and bulk prices if they exist and are different from cash price
-      let vipPrice = roundUpPrice(cashPrice);
-      let bulkPrice = roundUpPrice(cashPrice);
-      
+      let vipPrice = calculatedPrices.vip;
+      let bulkPrice = calculatedPrices.bulk;
+
       if (currentPrices.vip && typeof currentPrices.vip === 'number' && currentPrices.vip !== currentPrices.cash) {
-        vipPrice = roundUpPrice(currentPrices.vip);
+        vipPrice = roundTo2Decimals(currentPrices.vip);
       }
-      
+
       if (currentPrices.bulk && typeof currentPrices.bulk === 'number' && currentPrices.bulk !== currentPrices.cash) {
-        bulkPrice = roundUpPrice(currentPrices.bulk);
+        bulkPrice = roundTo2Decimals(currentPrices.bulk);
       }
-      
+
       // Final validation - ensure no undefined values
       const newPrices = {
-        cash: Number(cashPrice) || 0,
-        regular: Number(roundUpPrice(calculatedPrices.regular)) || 0,
+        cash: Number(calculatedPrices.cash) || 0,
+        regular: Number(calculatedPrices.regular) || 0,
         vip: Number(vipPrice) || 0,
         bulk: Number(bulkPrice) || 0,
       };
-      
+
       // Handle dual products (kg prices)
       if (product.trackingType === 'dual' && product.unitWeight > 0) {
         // Use calculated kg prices from productStore.calculatePricing
         let regularKgPrice = calculatedPrices.kg?.regular;
         let vipKgPrice = calculatedPrices.kg?.vip;
-        
+
         // If calculatedPrices doesn't have kg prices, calculate them manually
         if (!regularKgPrice) {
           const costPerKg = cost / product.unitWeight;
-          regularKgPrice = roundUpPrice(costPerKg * (1 + margin / 100));
+          regularKgPrice = roundTo2Decimals(costPerKg * (1 + margin / 100));
         }
-        
+
         // For bulk updates, recalculate VIP kg price based on new cost/margin
         if (!vipKgPrice && currentPrices.kg?.vip && typeof currentPrices.kg.vip === 'number') {
           // No changes applied, preserve existing VIP kg price
-          vipKgPrice = roundUpPrice(currentPrices.kg.vip);
+          vipKgPrice = roundTo2Decimals(currentPrices.kg.vip);
         } else if (!vipKgPrice) {
           // No existing VIP kg price, use regular kg price
-          vipKgPrice = roundUpPrice(regularKgPrice);
+          vipKgPrice = roundTo2Decimals(regularKgPrice);
         }
-        
+
         newPrices.kg = {
-          regular: Number(roundUpPrice(regularKgPrice)) || 0,
-          threePlusDiscount: Number(roundUpPrice(calculatedPrices.kg?.threePlusDiscount)) || 0,
+          regular: Number(regularKgPrice) || 0,
+          threePlusDiscount: Number(calculatedPrices.kg?.threePlusDiscount) || 0,
           vip: Number(vipKgPrice) || 0,
         };
       }

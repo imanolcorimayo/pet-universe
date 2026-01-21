@@ -315,7 +315,9 @@
 
 <script setup>
 import LucideRefreshCw from '~icons/lucide/refresh-cw';
-import { roundUpPrice } from '~/utils/index';
+
+// Helper for standard 2-decimal rounding (used for all prices except cash)
+const roundTo2Decimals = (num) => Math.round(num * 100) / 100;
 
 // Props
 const props = defineProps({
@@ -571,65 +573,65 @@ function updatePricesFromMargin() {
 function updateThreePlusMarkupFromPrice() {
   // When user changes the 3+kg price, calculate markup percentage and regular/kg
   if (!editValues.value.cash || !editValues.value.threePlusKgPrice || !props.product.unitWeight) return;
-  
+
   const cash = parseFloat(editValues.value.cash);
   const threePlusPrice = parseFloat(editValues.value.threePlusKgPrice);
   const cashPerKg = cash / props.product.unitWeight;
-  
+
   if (cashPerKg > 0) {
     // Calculate and update markup percentage
     const markupPercentage = ((threePlusPrice - cashPerKg) / cashPerKg) * 100;
     editValues.value.threePlusMarkup = parseFloat(Math.max(0, Math.min(200, markupPercentage)).toFixed(2));
   }
-  
+
   // Calculate regular/kg based on the new threePlusPrice (regular = 3+kg * 1.11)
-  editValues.value.regularKg = roundUpPrice(threePlusPrice * 1.11);
+  editValues.value.regularKg = roundTo2Decimals(threePlusPrice * 1.11);
 }
 
 // Update 3+ kg price and regular/kg when markup percentage changes
 function updateThreePlusKgFromMarkup() {
   // Calculate both 3+kg price and regular/kg from markup percentage
   if (!editValues.value.cash || !props.product.unitWeight) return;
-  
+
   const cash = parseFloat(editValues.value.cash);
   const markupPercentage = parseFloat(editValues.value.threePlusMarkup) || 0;
   const cashPerKg = cash / props.product.unitWeight;
-  
+
   // Calculate 3+kg price: cashPerKg * (1 + markup%)
-  editValues.value.threePlusKgPrice = roundUpPrice(cashPerKg * (1 + markupPercentage / 100));
-  
+  editValues.value.threePlusKgPrice = roundTo2Decimals(cashPerKg * (1 + markupPercentage / 100));
+
   // Calculate regular/kg: 3+kg * 1.11
-  editValues.value.regularKg = roundUpPrice(editValues.value.threePlusKgPrice * 1.11);
+  editValues.value.regularKg = roundTo2Decimals(editValues.value.threePlusKgPrice * 1.11);
 }
 
 // Update all prices when cash (efectivo) price changes
 function updatePricesFromCash() {
   if (!editValues.value.cash) return;
-  
+
   const cash = parseFloat(editValues.value.cash);
-  
+
   // Calculate unit prices based on cash price
-  editValues.value.regular = roundUpPrice(cash * 1.25); // Regular = cash * 1.25
-  
+  editValues.value.regular = roundTo2Decimals(cash * 1.25); // Regular = cash * 1.25
+
   // VIP and bulk remain unchanged unless they were equal to cash before
   if (!editValues.value.vip || editValues.value.vip === (cash / 1.25)) {
-    editValues.value.vip = cash;
+    editValues.value.vip = roundTo2Decimals(cash);
   }
   if (!editValues.value.bulk || editValues.value.bulk === (cash / 1.25)) {
-    editValues.value.bulk = cash;
+    editValues.value.bulk = roundTo2Decimals(cash);
   }
-  
+
   // Calculate kg prices for dual products
   if (props.product.trackingType === 'dual' && props.product.unitWeight > 0) {
     const markupPercentage = parseFloat(editValues.value.threePlusMarkup) || 8;
     const cashPerKg = cash / props.product.unitWeight;
-    
+
     // Calculate 3+kg price with markup
-    editValues.value.threePlusKgPrice = roundUpPrice(cashPerKg * (1 + markupPercentage / 100));
-    
+    editValues.value.threePlusKgPrice = roundTo2Decimals(cashPerKg * (1 + markupPercentage / 100));
+
     // Calculate regular/kg: 3+kg * 1.11
-    editValues.value.regularKg = roundUpPrice(editValues.value.threePlusKgPrice * 1.11);
-    
+    editValues.value.regularKg = roundTo2Decimals(editValues.value.threePlusKgPrice * 1.11);
+
     // VIP kg remains unchanged unless it was equal to regular kg before
     if (!editValues.value.vipKg || editValues.value.vipKg === editValues.value.regularKg) {
       editValues.value.vipKg = editValues.value.regularKg;

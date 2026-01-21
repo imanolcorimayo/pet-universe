@@ -4,6 +4,7 @@ import { useToast } from "~/composables/useToast";
 import { InventorySchema } from "~/utils/odm/schemas/InventorySchema";
 import { InventoryMovementSchema } from "~/utils/odm/schemas/InventoryMovementSchema";
 import { serverTimestamp } from "firebase/firestore";
+import { roundUpPrice } from "~/utils/index";
 
 // Module-level variable for inventory subscription (can't store functions in Pinia state)
 let inventoryUnsubscribe: (() => void) | null = null;
@@ -1038,39 +1039,47 @@ export const useInventoryStore = defineStore("inventory", {
     },
 
     // Calculate pricing based on cost and margin
-    calculatePricing(cost: number, marginPercentage: number, unitWeight?: number) {
+    // Cash is rounded up first, then other prices are calculated from the rounded cash
+    calculatePricing(cost: number, marginPercentage: number, unitWeight?: number, threePlusMarkupPercentage: number = 8) {
       if (cost <= 0) return null;
-      
-      const cash = cost * (1 + marginPercentage / 100);
-      const regular = cash * 1.25; // 25% markup over cash
+
+      const roundTo2Decimals = (num: number) => Math.round(num * 100) / 100;
+
+      // Round up cash first
+      const cashRaw = cost * (1 + marginPercentage / 100);
+      const cash = roundUpPrice(cashRaw);
+
+      // Calculate other prices from the rounded cash
+      const regular = roundTo2Decimals(cash * 1.25); // 25% markup over rounded cash
       const vip = cash; // Initially same as cash
       const bulk = cash; // Initially same as cash
-      
+
       const pricing = {
-        cash: Math.round(cash * 100) / 100,
-        regular: Math.round(regular * 100) / 100,
-        vip: Math.round(vip * 100) / 100,
-        bulk: Math.round(bulk * 100) / 100,
+        cash,
+        regular,
+        vip,
+        bulk,
       };
-      
+
       // For dual products, add kg pricing
       if (unitWeight && unitWeight > 0) {
-        const costPerKg = cost / unitWeight;
-        const cashKg = costPerKg * (1 + marginPercentage / 100);
-        const regularKg = cashKg * 1.25;
-        const vipKg = cashKg; // Initially same as cash
-        
+        const cashPerKg = cash / unitWeight; // Use rounded cash for kg calculation
+        const threePlusKg = roundTo2Decimals(cashPerKg * (1 + threePlusMarkupPercentage / 100));
+        const regularKg = roundTo2Decimals(threePlusKg * 1.11); // Fixed 11% markup over 3+ kg price
+        const vipKg = regularKg; // Initially same as regular
+
         return {
           ...pricing,
           kg: {
-            cash: Math.round(cashKg * 100) / 100,
-            regular: Math.round(regularKg * 100) / 100,
-            vip: Math.round(vipKg * 100) / 100,
+            regular: regularKg,
+            threePlusDiscount: threePlusKg,
+            vip: vipKg,
           },
-          costPerKg: Math.round(costPerKg * 100) / 100,
+          costPerKg: roundTo2Decimals(cost / unitWeight),
+          cashPerKg: roundTo2Decimals(cashPerKg),
         };
       }
-      
+
       return pricing;
     },
 
