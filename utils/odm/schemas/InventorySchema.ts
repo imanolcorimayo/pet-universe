@@ -18,9 +18,8 @@ export class InventorySchema extends Schema {
     },
     productName: {
       type: 'string',
-      required: true,
-      maxLength: 200,
-      minLength: 1
+      required: false,
+      maxLength: 200
     },
     unitsInStock: {
       type: 'number',

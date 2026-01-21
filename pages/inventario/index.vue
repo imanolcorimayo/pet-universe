@@ -186,7 +186,7 @@
                 <div class="flex items-center">
                   <div>
                     <div class="text-sm font-medium text-gray-900">
-                      <span v-if="item.product?.brand">{{ item.product.brand }} - </span>{{ item.productName }}<span v-if="item.product?.trackingType === 'dual' && item.product?.unitWeight"> - {{ item.product.unitWeight }}kg</span>
+                      <span v-if="item.product?.brand">{{ item.product.brand }} - </span>{{ item.product?.name }}<span v-if="item.product?.trackingType === 'dual' && item.product?.unitWeight"> - {{ item.product.unitWeight }}kg</span>
                     </div>
                     <div class="flex items-center gap-2 mt-1">
                       <span v-if="item.product?.productCode" class="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">
@@ -405,12 +405,12 @@ const enrichedInventory = computed(() => {
       isDual,
       // Search string pre-computed for filtering
       searchString: [
-        item.productName,
+        product?.name,
         product?.productCode,
         product?.brand,
         product?.description,
         isDual && unitWeight ? `${unitWeight}kg` : '',
-        product?.brand ? `${product.brand} - ${item.productName}` : ''
+        product?.brand ? `${product.brand} - ${product.name}` : ''
       ].filter(Boolean).join(' ').toLowerCase()
     };
   });
@@ -464,7 +464,7 @@ const filteredInventory = computed(() => {
   // Sort
   return [...result].sort((a, b) => {
     switch (sortBy.value) {
-      case 'name': return a.productName.localeCompare(b.productName);
+      case 'name': return (a.product?.name || '').localeCompare(b.product?.name || '');
       case 'stock': return b.unitsInStock - a.unitsInStock;
       case 'value': return b.inventoryValue - a.inventoryValue;
       case 'movement':

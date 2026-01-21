@@ -14,7 +14,6 @@ interface Inventory {
   id: string;
   businessId: string;
   productId: string;
-  productName: string;
   unitsInStock: number;
   openUnitsWeight: number;
   totalWeight: number;
@@ -242,16 +241,15 @@ export const useInventoryStore = defineStore("inventory", {
     },
     
     // Create a new inventory record for a product
-    async createInventory(productId: string, productName: string, minimumStock: number = 0): Promise<boolean> {
+    async createInventory(productId: string, minimumStock: number = 0): Promise<boolean> {
       try {
         this.isLoading = true;
-        
+
         const inventorySchema = this._getInventorySchema();
-        
+
         // Create new inventory record
         const result = await inventorySchema.create({
           productId: productId,
-          productName: productName,
           unitsInStock: 0,
           openUnitsWeight: 0,
           totalWeight: 0,
@@ -261,19 +259,19 @@ export const useInventoryStore = defineStore("inventory", {
           lastPurchaseCost: 0,
           totalCostValue: 0,
         });
-        
+
         if (!result.success) {
           if (result.error?.includes('already exists')) {
             useToast(ToastEvents.info, "Ya existe un registro de inventario para este producto");
             this.isLoading = false;
             return true; // Not an error, just already exists
           }
-          
+
           useToast(ToastEvents.error, result.error || "Hubo un error al crear el registro de inventario");
           this.isLoading = false;
           return false;
         }
-        
+
         // Add initial inventory movement
         await this.recordInventoryMovement({
           productId: productId,
@@ -291,9 +289,8 @@ export const useInventoryStore = defineStore("inventory", {
           weightBefore: 0,
           weightAfter: 0,
           notes: "Registro inicial de inventario",
-          productName: productName
         });
-        
+
         useToast(ToastEvents.success, "Inventario inicializado correctamente");
         this.isLoading = false;
         return true;
@@ -305,13 +302,13 @@ export const useInventoryStore = defineStore("inventory", {
       }
     },
     
-    // Update inventory basic info (product name, minimum stock)
-    async updateInventoryInfo(productId: string, productName: string, minimumStock: number): Promise<boolean> {
+    // Update inventory basic info (minimum stock)
+    async updateInventoryInfo(productId: string, minimumStock: number): Promise<boolean> {
       try {
         this.isLoading = true;
-        
+
         const inventorySchema = this._getInventorySchema();
-        
+
         // Find existing inventory record
         const existingResult = await inventorySchema.find({
           where: [{ field: 'productId', operator: '==', value: productId }],
@@ -319,17 +316,16 @@ export const useInventoryStore = defineStore("inventory", {
         });
         if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
           // Create new inventory if it doesn't exist
-          return await this.createInventory(productId, productName, minimumStock);
+          return await this.createInventory(productId, minimumStock);
         }
-        
+
         const existingInventory = existingResult.data[0];
-        
+
         // Update existing inventory
         const result = await inventorySchema.update(existingInventory.id, {
-          productName: productName,
           minimumStock: minimumStock,
         });
-        
+
         if (!result.success) {
           useToast(ToastEvents.error, result.error || "Hubo un error al actualizar la información de inventario");
           this.isLoading = false;
@@ -421,9 +417,8 @@ export const useInventoryStore = defineStore("inventory", {
           weightBefore: existingInventory.openUnitsWeight,
           weightAfter: newOpenUnitsWeight,
           notes: adjustmentData.notes,
-          productName: existingInventory.productName,
         });
-        
+
         this.isLoading = false;
         return success;
       } catch (error) {
@@ -451,15 +446,19 @@ export const useInventoryStore = defineStore("inventory", {
       weightBefore: number;
       weightAfter: number;
       notes: string;
-      productName: string;
     }): Promise<boolean> {
       try {
         const movementSchema = this._getInventoryMovementSchema();
-        
+
+        // Get product name from product store
+        const productStore = useProductStore();
+        const product = productStore.getProductById(data.productId);
+        const productName = product?.name || 'Producto desconocido';
+
         // Create movement record
         const result = await movementSchema.create({
           productId: data.productId,
-          productName: data.productName,
+          productName: productName,
           movementType: data.movementType,
           referenceType: data.referenceType,
           referenceId: data.referenceId,
@@ -588,9 +587,8 @@ export const useInventoryStore = defineStore("inventory", {
           weightBefore: currentWeight,
           weightAfter: newOpenUnitsWeight,
           notes: data.notes || `Adición de ${data.unitsChange} unidades al inventario`,
-          productName: existingInventory.productName,
         });
-        
+
         if (success) {
           useToast(ToastEvents.success, "Inventario actualizado exitosamente");
         }
@@ -681,7 +679,6 @@ export const useInventoryStore = defineStore("inventory", {
           weightBefore: currentWeight,
           weightAfter: newOpenUnitsWeight,
           notes: data.notes || `Pérdida de ${actualUnitsChange} unidades${data.reason ? ` por ${data.reason}` : ''}`,
-          productName: existingInventory.productName,
         });
 
         if (success) {
@@ -780,9 +777,8 @@ export const useInventoryStore = defineStore("inventory", {
           weightBefore: currentWeight,
           weightAfter: data.newWeight,
           notes: data.notes || `Ajuste manual de inventario a ${data.newUnits} unidades`,
-          productName: existingInventory.productName,
         });
-        
+
         if (success) {
           useToast(ToastEvents.success, "Inventario ajustado exitosamente");
         }
@@ -931,9 +927,8 @@ export const useInventoryStore = defineStore("inventory", {
           weightBefore: currentWeight,
           weightAfter: newOpenUnitsWeight,
           notes: data.notes || `Conversión de ${unitsToRemove} unidad(es) a ${weightToAdd.toFixed(2)} kg`,
-          productName: existingInventory.productName,
         });
-        
+
         if (success) {
           useToast(ToastEvents.success, "Conversión de unidades a peso completada exitosamente");
         }
