@@ -74,12 +74,6 @@
                 {{ formatCurrency(inventoryData?.lastPurchaseCost || 0) }}
               </p>
             </div>
-            <div>
-              <p class="text-sm text-gray-600">Costo Promedio</p>
-              <p class="font-semibold">
-                {{ formatCurrency(inventoryData?.averageCost || 0) }}
-              </p>
-            </div>
           </div>
         </div>
 
@@ -423,16 +417,8 @@
               <div class="flex justify-between">
                 <span class="text-sm font-medium">
                   {{ formatMovementType(movement.movementType) }}:
-                  <span
-                    :class="
-                      movement.quantityChange > 0
-                        ? 'text-green-600'
-                        : 'text-red-600'
-                    "
-                  >
-                    {{ movement.quantityChange > 0 ? "+" : ""
-                    }}{{ movement.quantityChange }}
-                    {{ product.unitType || "unidad" }}(s)
+                  <span :class="getMovementChangeColor(movement)">
+                    {{ formatMovementChange(movement) }}
                   </span>
                 </span>
                 <span class="text-xs text-gray-500">{{
@@ -631,7 +617,7 @@ const isFormValid = computed(() => {
 
 const costDifference = computed(() => {
   return (
-    calculatedValues.value.newCost - (inventoryData.value?.averageCost || 0)
+    calculatedValues.value.newCost - (inventoryData.value?.lastPurchaseCost || 0)
   );
 });
 
@@ -724,7 +710,7 @@ function calculateNewValues() {
 
   const currentUnits = inventoryData.value.unitsInStock || 0;
   const currentWeight = Number(inventoryData.value.openUnitsWeight || 0);
-  const currentCost = inventoryData.value.averageCost || 0;
+  const currentCost = inventoryData.value.lastPurchaseCost || 0;
 
   let newUnits = currentUnits;
   let newWeight = currentWeight;
@@ -734,19 +720,13 @@ function calculateNewValues() {
 
   switch (formData.value.movementType) {
     case "addition":
-      // Adding inventory
       unitsChange = Number(formData.value.unitsChange) || 0;
       weightChange = Number(formData.value.weightChange) || 0;
       newUnits = currentUnits + unitsChange;
       newWeight = currentWeight + weightChange;
 
-      // Calculate weighted average cost
       if (unitsChange > 0 && formData.value.unitCost > 0) {
-        const currentValue = currentUnits * currentCost;
-        const addedValue = unitsChange * formData.value.unitCost;
-        if (newUnits > 0) {
-          newCost = (currentValue + addedValue) / newUnits;
-        }
+        newCost = formData.value.unitCost;
       }
       break;
 
@@ -811,12 +791,11 @@ async function loadInventoryData() {
     // Get inventory data from store (main page already subscribes)
     inventoryData.value = inventoryStore.getInventoryByProductId(props.productId);
 
-    // Initialize calculated values
     if (inventoryData.value) {
       calculatedValues.value = {
         newUnits: inventoryData.value.unitsInStock,
         newWeight: Number(inventoryData.value.openUnitsWeight),
-        newCost: inventoryData.value.averageCost,
+        newCost: inventoryData.value.lastPurchaseCost,
         unitsChange: 0,
         weightChange: 0,
       };
@@ -896,6 +875,37 @@ function getDefaultMovementDescription(movement) {
   }
 }
 
+function formatMovementChange(movement) {
+  const parts = [];
+  if (movement.quantityChange !== 0) {
+    const sign = movement.quantityChange > 0 ? "+" : "";
+    parts.push(`${sign}${movement.quantityChange} ${product.value?.unitType || "unidad"}(s)`);
+  }
+  if (movement.weightChange !== 0) {
+    const sign = movement.weightChange > 0 ? "+" : "";
+    parts.push(`${sign}${movement.weightChange} kg`);
+  }
+  if (movement.unitCost && movement.previousCost !== null && movement.unitCost !== movement.previousCost) {
+    parts.push(`Costo: $${movement.previousCost} → $${movement.unitCost}`);
+  }
+  return parts.length > 0 ? parts.join(", ") : "Sin cambios";
+}
+
+function getMovementChangeColor(movement) {
+  const hasPositive = movement.quantityChange > 0 || movement.weightChange > 0;
+  const hasNegative = movement.quantityChange < 0 || movement.weightChange < 0;
+  if (hasPositive && !hasNegative) return "text-green-600";
+  if (hasNegative && !hasPositive) return "text-red-600";
+  return "text-gray-600";
+}
+
+function formatChangeDescription(units, weight, isDual) {
+  const parts = [];
+  if (units > 0) parts.push(`${units} unidades`);
+  if (isDual && weight > 0) parts.push(`${weight} kg`);
+  return parts.length > 0 ? parts.join(" y ") : "0";
+}
+
 function calculateConversion() {
   if (!product.value || product.value.trackingType !== 'dual') return;
   
@@ -910,12 +920,11 @@ function calculateConversion() {
     formData.value.unitsToConvert = maxUnits;
   }
   
-  // Calculate changes for preview
   calculatedValues.value = {
     newUnits: (inventoryData.value?.unitsInStock || 0) - formData.value.unitsToConvert,
-    newWeight: Number((inventoryData.value?.openUnitsWeight || 0) + 
+    newWeight: Number((inventoryData.value?.openUnitsWeight || 0) +
                (formData.value.unitsToConvert * formData.value.weightPerUnit)),
-    newCost: inventoryData.value?.averageCost || 0,
+    newCost: inventoryData.value?.lastPurchaseCost || 0,
     unitsChange: -formData.value.unitsToConvert,
     weightChange: formData.value.unitsToConvert * formData.value.weightPerUnit
   };
@@ -950,17 +959,21 @@ function onSupplierBlur() {
 async function saveAdjustment() {
   if (!isFormValid.value || isSubmitting.value || !props.productId) return;
 
-  // Confirmation message based on movement type
+  const isDual = product.value?.trackingType === "dual";
+  const additionChange = formatChangeDescription(formData.value.unitsChange, formData.value.weightChange, isDual);
+  const lossChange = formatChangeDescription(formData.value.unitsChange, formData.value.weightChange, isDual);
+  const adjustmentTarget = formatChangeDescription(formData.value.newStock, formData.value.newWeight, isDual);
+
   let confirmMessage;
   switch (formData.value.movementType) {
     case "addition":
-      confirmMessage = `¿Estás seguro de agregar ${formData.value.unitsChange} unidades al inventario?`;
+      confirmMessage = `¿Estás seguro de agregar ${additionChange} al inventario?`;
       break;
     case "loss":
-      confirmMessage = `¿Estás seguro de registrar una pérdida de ${formData.value.unitsChange} unidades?`;
+      confirmMessage = `¿Estás seguro de registrar una pérdida de ${lossChange}?`;
       break;
     case "adjustment":
-      confirmMessage = `¿Estás seguro de ajustar el inventario a ${formData.value.newStock} unidades?`;
+      confirmMessage = `¿Estás seguro de ajustar el inventario a ${adjustmentTarget}?`;
       break;
     case "convert":
       confirmMessage = `¿Estás seguro de abrir ${formData.value.unitsToConvert} unidad(es) y añadir ${calculateTotalWeight.value} kg al inventario de peso?`;

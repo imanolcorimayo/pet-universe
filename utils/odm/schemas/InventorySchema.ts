@@ -50,19 +50,7 @@ export class InventorySchema extends Schema {
       required: false,
       default: true
     },
-    averageCost: {
-      type: 'number',
-      required: false,
-      min: 0,
-      default: 0
-    },
     lastPurchaseCost: {
-      type: 'number',
-      required: false,
-      min: 0,
-      default: 0
-    },
-    totalCostValue: {
       type: 'number',
       required: false,
       min: 0,
@@ -152,28 +140,13 @@ export class InventorySchema extends Schema {
     };
   }
 
-  // Validate cost values
   validateCostValues(data: any): ValidationResult {
     const errors: any[] = [];
-
-    if (data.averageCost !== undefined && data.averageCost < 0) {
-      errors.push({
-        field: 'averageCost',
-        message: 'Average cost cannot be negative'
-      });
-    }
 
     if (data.lastPurchaseCost !== undefined && data.lastPurchaseCost < 0) {
       errors.push({
         field: 'lastPurchaseCost',
         message: 'Last purchase cost cannot be negative'
-      });
-    }
-
-    if (data.totalCostValue !== undefined && data.totalCostValue < 0) {
-      errors.push({
-        field: 'totalCostValue',
-        message: 'Total cost value cannot be negative'
       });
     }
 
@@ -230,14 +203,8 @@ export class InventorySchema extends Schema {
     };
   }
 
-  // Calculate if product is low in stock
   calculateLowStockStatus(unitsInStock: number, minimumStock: number): boolean {
     return minimumStock > 0 && unitsInStock < minimumStock;
-  }
-
-  // Calculate total cost value
-  calculateTotalCostValue(unitsInStock: number, averageCost: number): number {
-    return Math.round((unitsInStock * averageCost) * 100) / 100;
   }
 
   // Override create to add custom validations
@@ -278,15 +245,10 @@ export class InventorySchema extends Schema {
       }
     }
     
-    // Calculate derived fields
     if (data.unitsInStock !== undefined && data.minimumStock !== undefined) {
       data.isLowStock = this.calculateLowStockStatus(data.unitsInStock, data.minimumStock);
     }
-    
-    if (data.unitsInStock !== undefined && data.averageCost !== undefined) {
-      data.totalCostValue = this.calculateTotalCostValue(data.unitsInStock, data.averageCost);
-    }
-    
+
     return super.create(data, validateRefs);
   }
 
@@ -337,15 +299,10 @@ export class InventorySchema extends Schema {
     const currentData = currentResult.data;
     const updatedData = { ...currentData, ...data };
     
-    // Calculate derived fields
     if (updatedData.unitsInStock !== undefined && updatedData.minimumStock !== undefined) {
       data.isLowStock = this.calculateLowStockStatus(updatedData.unitsInStock, updatedData.minimumStock);
     }
-    
-    if (updatedData.unitsInStock !== undefined && updatedData.averageCost !== undefined) {
-      data.totalCostValue = this.calculateTotalCostValue(updatedData.unitsInStock, updatedData.averageCost);
-    }
-    
+
     return super.update(id, data, validateRefs);
   }
 

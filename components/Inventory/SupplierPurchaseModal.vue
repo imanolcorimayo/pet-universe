@@ -239,9 +239,9 @@
                     
                     <!-- Cost Info -->
                     <div class="flex items-center gap-2">
-                      <span class="text-sm text-blue-600">Costo promedio:</span>
+                      <span class="text-sm text-blue-600">Nuevo costo:</span>
                       <span class="font-semibold text-sm">
-                        {{ formatCurrency(calculateNewAverageCost(item)) }}/ud
+                        {{ formatCurrency(item.unitCost) }}/ud
                       </span>
                     </div>
                   </div>
@@ -739,29 +739,11 @@ function formatNewStock(item) {
 
 function formatStockChange(item) {
   if (!item.selectedProduct) return 'N/A';
-  
+
   const unitsChange = item.unitsChange || 0;
   const product = item.selectedProduct;
 
   return `${unitsChange} ${product.unitType || 'unidad'}${unitsChange !== 1 ? 'es' : ''}`;
-}
-
-function calculateNewAverageCost(item) {
-  if (!item.selectedProduct || !item.unitsChange || !item.unitCost) return 0;
-  
-  const inventory = getCurrentInventory(item.selectedProduct.id);
-  const currentUnits = inventory?.unitsInStock || 0;
-  const currentCost = inventory?.averageCost || 0;
-  
-  const newUnitsInStock = currentUnits + item.unitsChange;
-  
-  if (newUnitsInStock === 0) return 0;
-  
-  // Calculate weighted average cost
-  const currentValue = currentUnits * currentCost;
-  const addedValue = item.unitsChange * item.unitCost;
-  
-  return (currentValue + addedValue) / newUnitsInStock;
 }
 
 async function loadData() {

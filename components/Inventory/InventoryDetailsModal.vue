@@ -77,10 +77,6 @@
                 <p class="text-sm text-gray-600">Último Costo</p>
                 <p class="font-semibold">{{ formatCurrency(inventory.lastPurchaseCost || 0) }}</p>
               </div>
-              <div>
-                <p class="text-sm text-gray-600">Costo Promedio</p>
-                <p class="font-semibold">{{ formatCurrency(inventory.averageCost || 0) }}</p>
-              </div>
             </div>
           </div>
 

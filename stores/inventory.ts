@@ -20,9 +20,7 @@ interface Inventory {
   totalWeight: number;
   minimumStock: number;
   isLowStock: boolean;
-  averageCost: number;
   lastPurchaseCost: number;
-  totalCostValue: number;
   lastPurchaseAt?: string;
   originalLastPurchaseAt?: any;
   lastSupplierId?: string | null;
@@ -248,7 +246,6 @@ export const useInventoryStore = defineStore("inventory", {
 
         const inventorySchema = this._getInventorySchema();
 
-        // Create new inventory record
         const result = await inventorySchema.create({
           productId: productId,
           unitsInStock: 0,
@@ -256,9 +253,7 @@ export const useInventoryStore = defineStore("inventory", {
           totalWeight: 0,
           minimumStock: minimumStock,
           isLowStock: true,
-          averageCost: 0,
           lastPurchaseCost: 0,
-          totalCostValue: 0,
         });
 
         if (!result.success) {
@@ -527,35 +522,21 @@ export const useInventoryStore = defineStore("inventory", {
         
         const existingInventory = existingResult.data[0];
         
-        // Calculate new inventory values
         const currentUnits = existingInventory.unitsInStock || 0;
         const currentWeight = existingInventory.openUnitsWeight || 0;
-        const currentCost = existingInventory.averageCost || 0;
-        
+        const currentCost = existingInventory.lastPurchaseCost || 0;
+
         const newUnitsInStock = currentUnits + data.unitsChange;
         const newOpenUnitsWeight = currentWeight + data.weightChange;
-        
-        // Calculate new average cost (weighted average)
-        let newAverageCost = currentCost;
-        if (data.unitsChange > 0) {
-          const currentValue = currentUnits * currentCost;
-          const addedValue = data.unitsChange * data.unitCost;
-          if (newUnitsInStock > 0) {
-            newAverageCost = Math.round(((currentValue + addedValue) / newUnitsInStock) * 100) / 100;
-          }
-        }
-        
+
         // Calculate if product is low in stock
         const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
         
-        // Update inventory document using schema
         const { $dayjs } = useNuxtApp();
         const updateResult = await inventorySchema.update(existingInventory.id, {
           unitsInStock: newUnitsInStock,
           openUnitsWeight: newOpenUnitsWeight,
-          averageCost: newAverageCost,
           lastPurchaseCost: data.unitCost,
-          totalCostValue: newUnitsInStock * newAverageCost,
           isLowStock: isLowStock,
           lastPurchaseAt: $dayjs().toDate(),
           lastSupplierId: data.supplierId || null,
@@ -663,14 +644,22 @@ export const useInventoryStore = defineStore("inventory", {
           return false;
         }
         
-        // Record inventory movement
+        const generateLossNotes = () => {
+          if (data.notes) return data.notes;
+          const parts = [];
+          if (actualUnitsChange > 0) parts.push(`${actualUnitsChange} unidades`);
+          if (actualWeightChange > 0) parts.push(`${actualWeightChange} kg`);
+          const changeText = parts.length > 0 ? parts.join(' y ') : 'inventario';
+          return `Pérdida de ${changeText}${data.reason ? ` por ${data.reason}` : ''}`;
+        };
+
         const success = await this.recordInventoryMovement({
           productId: data.productId,
           movementType: "loss",
           referenceType: "manual_adjustment",
           referenceId: null,
-          quantityChange: -actualUnitsChange, // Negative for reductions
-          weightChange: -actualWeightChange, // Negative for reductions
+          quantityChange: -actualUnitsChange,
+          weightChange: -actualWeightChange,
           unitCost: null,
           previousCost: null,
           totalCost: null,
@@ -679,7 +668,7 @@ export const useInventoryStore = defineStore("inventory", {
           unitsAfter: newUnitsInStock,
           weightBefore: currentWeight,
           weightAfter: newOpenUnitsWeight,
-          notes: data.notes || `Pérdida de ${actualUnitsChange} unidades${data.reason ? ` por ${data.reason}` : ''}`,
+          notes: generateLossNotes(),
         });
 
         if (success) {
@@ -723,11 +712,10 @@ export const useInventoryStore = defineStore("inventory", {
         
         const existingInventory = existingResult.data[0];
         
-        // Calculate changes
         const currentUnits = existingInventory.unitsInStock || 0;
         const currentWeight = existingInventory.openUnitsWeight || 0;
-        const currentCost = existingInventory.averageCost || 0;
-        
+        const currentCost = existingInventory.lastPurchaseCost || 0;
+
         const unitsChange = data.newUnits - currentUnits;
         const weightChange = data.newWeight - currentWeight;
         
@@ -741,13 +729,11 @@ export const useInventoryStore = defineStore("inventory", {
         // Calculate if product is low in stock
         const isLowStock = (existingInventory.minimumStock || 0) > 0 && data.newUnits < (existingInventory.minimumStock || 0);
         
-        // Update inventory document using schema
         const { $dayjs } = useNuxtApp();
         const updateResult = await inventorySchema.update(existingInventory.id, {
           unitsInStock: data.newUnits,
           openUnitsWeight: data.newWeight,
-          averageCost: data.newCost,
-          totalCostValue: data.newUnits * data.newCost,
+          lastPurchaseCost: data.newCost,
           isLowStock: isLowStock,
           lastMovementAt: $dayjs().toDate(),
           lastMovementType: "adjustment",
@@ -761,7 +747,15 @@ export const useInventoryStore = defineStore("inventory", {
           return false;
         }
         
-        // Record inventory movement
+        const generateAdjustmentNotes = () => {
+          if (data.notes) return data.notes;
+          const parts = [];
+          if (data.newUnits !== currentUnits) parts.push(`${data.newUnits} unidades`);
+          if (data.newWeight !== currentWeight) parts.push(`${data.newWeight} kg`);
+          if (parts.length === 0) return 'Ajuste manual de inventario';
+          return `Ajuste manual de inventario a ${parts.join(' y ')}`;
+        };
+
         const success = await this.recordInventoryMovement({
           productId: data.productId,
           movementType: "adjustment",
@@ -777,7 +771,7 @@ export const useInventoryStore = defineStore("inventory", {
           unitsAfter: data.newUnits,
           weightBefore: currentWeight,
           weightAfter: data.newWeight,
-          notes: data.notes || `Ajuste manual de inventario a ${data.newUnits} unidades`,
+          notes: generateAdjustmentNotes(),
         });
 
         if (success) {
@@ -1010,15 +1004,9 @@ export const useInventoryStore = defineStore("inventory", {
         }
         
         const existingInventory = existingResult.data[0];
-        
-        // Recalculate total cost value
-        const unitsInStock = existingInventory.unitsInStock || 0;
-        const newTotalCostValue = unitsInStock * newCost;
-        
-        // Update inventory document using schema
+
         const updateResult = await inventorySchema.update(existingInventory.id, {
           lastPurchaseCost: newCost,
-          totalCostValue: newTotalCostValue,
         });
         
         if (!updateResult.success) {

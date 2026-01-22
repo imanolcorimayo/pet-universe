@@ -562,9 +562,7 @@ inventory/
     isLowStock: boolean          // Whether stock is below minimum    
     
     // Cost tracking
-    averageCost: number          // Weighted average cost per unit
     lastPurchaseCost: number     // Cost of last purchase
-    totalCostValue: number       // Total inventory value at cost
     profitMarginPercentage: number // Profit margin for pricing calculations (default 30%)
     
     // Purchase history summary
