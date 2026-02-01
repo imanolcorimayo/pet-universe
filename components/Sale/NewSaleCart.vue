@@ -378,7 +378,6 @@
                 </div>
 
                 <button
-                  v-if="paymentMethods.length > 1"
                   @click="removePaymentMethod(index)"
                   class="p-1.5 text-gray-400 hover:text-red-500"
                 >
@@ -398,64 +397,70 @@
 
           <!-- Payment Summary -->
           <div class="mt-3 p-2 bg-gray-50 rounded-md">
-            <div class="flex justify-between text-xs mb-0.5">
-              <span class="text-gray-600">Total a pagar</span>
-              <span class="font-medium">{{ formatCurrency(total) }}</span>
-            </div>
-            <div class="flex justify-between text-xs mb-0.5">
-              <span class="text-gray-600">Recibido</span>
-              <span :class="paymentTotal >= total ? 'text-green-600' : 'text-red-600'">
-                {{ formatCurrency(paymentTotal) }}
-              </span>
-            </div>
-            <div v-if="paymentDifference !== 0" class="flex justify-between text-xs font-medium">
-              <span>{{ paymentDifference > 0 ? 'Falta' : 'Cambio' }}</span>
-              <span :class="paymentDifference > 0 ? 'text-red-600' : 'text-green-600'">
-                {{ formatCurrency(Math.abs(paymentDifference)) }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Debt Warning - No client selected -->
-          <div
-            v-if="paymentDifference > 0 && !selectedClientId"
-            class="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md"
-          >
-            <div class="flex items-start gap-1.5">
-              <LucideAlertTriangle class="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
-              <div class="text-xs">
-                <p class="font-medium text-orange-800">Cliente requerido</p>
-                <p class="text-orange-700">Para crear una deuda, selecciona un cliente</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Debt Creation Form - Client selected and payment insufficient -->
-          <div
-            v-if="paymentDifference > 0 && selectedClientId"
-            class="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md"
-          >
-            <div class="flex items-start gap-2 mb-2">
-              <LucideAlertTriangle class="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div class="text-xs flex-1">
-                <p class="font-medium text-yellow-800">Pago Insuficiente</p>
-                <p class="text-yellow-700">
-                  Falta {{ formatCurrency(paymentDifference) }}. ¿Crear deuda?
-                </p>
+            <!-- Payment breakdown -->
+            <div v-if="paymentMethods.length > 0" class="space-y-0.5 mb-2 pb-2 border-b border-gray-200">
+              <div
+                v-for="(payment, index) in paymentMethods"
+                :key="index"
+                class="flex justify-between text-xs"
+              >
+                <span class="text-gray-600">{{ getPaymentMethodName(payment.paymentMethodId) }}</span>
+                <span class="text-gray-800">{{ formatCurrency(payment.amount) }}</span>
               </div>
             </div>
 
-            <label class="flex items-center gap-2 cursor-pointer mb-2">
+            <!-- Debt amount -->
+            <div v-if="createDebt && paymentDifference > 0" class="flex justify-between text-xs mb-2 pb-2 border-b border-gray-200">
+              <span class="text-yellow-700 font-medium">Deuda</span>
+              <span class="text-yellow-700 font-medium">{{ formatCurrency(paymentDifference) }}</span>
+            </div>
+
+            <!-- Total -->
+            <div class="flex justify-between text-xs font-medium">
+              <span class="text-gray-700">Total de venta</span>
+              <span class="text-gray-900">{{ formatCurrency(total) }}</span>
+            </div>
+
+            <!-- Balance check (only show if there's missing payment without debt) -->
+            <div v-if="paymentDifference > 0 && !createDebt" class="flex justify-between text-xs mt-1 pt-1 border-t border-gray-200">
+              <span class="text-red-600 font-medium">Falta</span>
+              <span class="text-red-600 font-medium">{{ formatCurrency(paymentDifference) }}</span>
+            </div>
+
+            <!-- Change -->
+            <div v-if="paymentDifference < 0" class="flex justify-between text-xs mt-1 pt-1 border-t border-gray-200">
+              <span class="text-green-600 font-medium">Cambio</span>
+              <span class="text-green-600 font-medium">{{ formatCurrency(Math.abs(paymentDifference)) }}</span>
+            </div>
+          </div>
+
+          <!-- Debt Creation Option -->
+          <div
+            v-if="selectedClientId"
+            :class="[
+              'mt-2 p-3 rounded-md border',
+              createDebt ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'
+            ]"
+          >
+            <label class="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 :checked="createDebt"
-                @change="$emit('update:create-debt', $event.target.checked)"
+                @change="handleCreateDebtChange($event.target.checked)"
                 class="rounded text-primary"
               />
-              <span class="text-xs font-medium text-yellow-800">Crear deuda por el saldo</span>
+              <span :class="['text-xs font-medium', createDebt ? 'text-yellow-800' : 'text-gray-700']">
+                Crear deuda por el saldo
+              </span>
+              <span v-if="createDebt && paymentDifference > 0" class="text-xs text-yellow-600">
+                ({{ formatCurrency(paymentDifference) }})
+              </span>
+              <span v-else-if="createDebt && paymentMethods.length === 0" class="text-xs text-yellow-600">
+                ({{ formatCurrency(total) }} - venta completa)
+              </span>
             </label>
 
-            <div v-if="createDebt" class="space-y-2">
+            <div v-if="createDebt" class="mt-3 space-y-2">
               <div>
                 <label class="block text-xs text-yellow-700 mb-1">Fecha vencimiento</label>
                 <input
@@ -474,6 +479,20 @@
                   placeholder="Motivo del crédito..."
                   class="w-full text-xs"
                 />
+              </div>
+            </div>
+          </div>
+
+          <!-- Debt Warning - No client selected but payment insufficient -->
+          <div
+            v-if="paymentDifference > 0 && !selectedClientId"
+            class="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md"
+          >
+            <div class="flex items-start gap-1.5">
+              <LucideAlertTriangle class="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+              <div class="text-xs">
+                <p class="font-medium text-orange-800">Cliente requerido</p>
+                <p class="text-orange-700">Para crear una deuda, selecciona un cliente</p>
               </div>
             </div>
           </div>
@@ -663,15 +682,18 @@ const nonReportedPaymentsCount = computed(() => {
 });
 
 const canSubmit = computed(() => {
-  // Must have valid payment methods (or no payment methods if full debt)
+  // Full debt sale: no payments needed if client selected and debt enabled
+  const isFullDebtSale = props.paymentMethods.length === 0 && props.selectedClientId && props.createDebt;
+
+  // Partial payment: all payment methods must be valid (have method and amount > 0)
   const hasValidPayments = props.paymentMethods.length === 0 ||
     props.paymentMethods.every(p => p.paymentMethodId && p.amount > 0);
 
-  // Payment must be exact or have a client AND debt creation enabled
+  // Payment must cover total OR have client with debt creation enabled
   const paymentOk = paymentDifference.value <= 0 ||
     (paymentDifference.value > 0 && props.selectedClientId && props.createDebt);
 
-  return hasValidPayments && paymentOk;
+  return (isFullDebtSale || hasValidPayments) && paymentOk;
 });
 
 // Stock alerts computed
@@ -714,6 +736,13 @@ const stockAlerts = computed(() => {
 
   return alerts;
 });
+
+// Helpers
+function getPaymentMethodName(paymentMethodId) {
+  if (!paymentMethodId) return 'Sin método';
+  const method = paymentMethodsStore.getPaymentMethodById(paymentMethodId);
+  return method?.name || 'Método desconocido';
+}
 
 // Methods
 function getPrice(index, priceType) {
@@ -906,6 +935,13 @@ function addPaymentMethod() {
 function removePaymentMethod(index) {
   const methods = props.paymentMethods.filter((_, i) => i !== index);
   emit('update:payment-methods', methods);
+}
+
+function handleCreateDebtChange(checked) {
+  emit('update:create-debt', checked);
+  if (checked) {
+    emit('update:payment-methods', []);
+  }
 }
 
 // Auto-update isReported based on payment methods
