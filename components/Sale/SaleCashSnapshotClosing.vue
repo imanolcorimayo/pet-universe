@@ -75,13 +75,12 @@
                 <div class="relative">
                   <span class="absolute left-3 top-2 text-gray-500">$</span>
                   <input
-                    type="number"
-                    v-model.number="closingBalances[balance.ownersAccountId]"
+                    type="text"
+                    inputmode="decimal"
+                    :value="closingBalances[balance.ownersAccountId]"
                     class="w-full !p-2 !pl-7 border rounded-md"
-                    min="0"
-                    step="0.01"
                     placeholder="0.00"
-                    @input="calculateDiscrepancy(balance.ownersAccountId)"
+                    @input="closingBalances[balance.ownersAccountId] = parseDecimal($event.target.value); calculateDiscrepancy(balance.ownersAccountId)"
                   />
                 </div>
                 <div class="text-xs mt-1" :class="getDiscrepancyClass(balance.ownersAccountId)">
@@ -154,8 +153,11 @@ import { ref, computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { ToastEvents } from '~/interfaces';
 import { formatCurrency } from '~/utils';
+import { useDecimalInput } from '~/composables/useDecimalInput';
 
 import LucideInfo from '~icons/lucide/info';
+
+const { parseDecimal } = useDecimalInput();
 
 // Refs to control modal visibility and state
 const modalRef = ref(null);

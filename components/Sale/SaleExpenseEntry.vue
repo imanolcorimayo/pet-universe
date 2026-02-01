@@ -36,12 +36,12 @@
         <div class="relative">
           <span class="absolute left-3 top-2 text-gray-500">$</span>
           <input
-            type="number"
-            v-model.number="amount"
+            type="text"
+            inputmode="decimal"
+            :value="amount"
+            @input="amount = parseDecimal($event.target.value)"
             class="w-full !p-2 !pl-7 border rounded-md"
             :disabled="isLoading"
-            min="0.01"
-            step="0.01"
             placeholder="0.00"
           />
         </div>
@@ -110,6 +110,9 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { ToastEvents } from '~/interfaces';
+import { useDecimalInput } from '~/composables/useDecimalInput';
+
+const { parseDecimal } = useDecimalInput();
 
 // Refs to control modal visibility and state
 const modalRef = ref(null);

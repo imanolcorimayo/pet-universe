@@ -125,11 +125,10 @@
                   <LucideMinus class="w-3.5 h-3.5" />
                 </button>
                 <input
-                  type="number"
+                  type="text"
+                  inputmode="decimal"
                   :value="item.quantity"
                   @input="updateQuantity(index, $event.target.value)"
-                  :step="item.unitType === 'kg' ? '0.1' : '1'"
-                  min="0"
                   class="!w-12 text-center !border-x !border-y-0 !border-gray-300 !py-1 !px-1 !text-xs !rounded-none !shadow-none"
                 />
                 <button
@@ -201,11 +200,10 @@
                   <label class="block text-xs font-medium text-gray-600 mb-1">Descuento</label>
                   <div class="flex gap-2">
                     <input
-                      type="number"
+                      type="text"
+                      inputmode="decimal"
                       :value="item.customDiscount"
                       @input="updateDiscount(index, $event.target.value)"
-                      min="0"
-                      step="0.01"
                       class="flex-1 min-w-0"
                       placeholder="0"
                     />
@@ -226,11 +224,10 @@
                   <div class="relative">
                     <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">$</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputmode="decimal"
                       :value="item.unitPrice"
                       @input="updateManualPrice(index, $event.target.value)"
-                      min="0"
-                      step="0.01"
                       class="!pl-6"
                     />
                   </div>
@@ -345,11 +342,10 @@
                   <div class="relative">
                     <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">$</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputmode="decimal"
                       :value="payment.amount"
-                      @input="updatePaymentMethod(index, 'amount', parseFloat($event.target.value) || 0)"
-                      min="0"
-                      step="0.01"
+                      @input="updatePaymentMethod(index, 'amount', parseDecimal($event.target.value))"
                       class="!pl-6"
                       placeholder="Monto"
                     />
@@ -561,6 +557,7 @@
 
 <script setup>
 import { formatCurrency } from '~/utils';
+import { useDecimalInput } from '~/composables/useDecimalInput';
 
 import LucideX from '~icons/lucide/x';
 import LucideShoppingCart from '~icons/lucide/shopping-cart';
@@ -638,6 +635,9 @@ const clientStore = useClientStore();
 const productStore = useProductStore();
 const paymentMethodsStore = usePaymentMethodsStore();
 const inventoryStore = useInventoryStore();
+
+// Decimal input handling (supports both comma and period as decimal separator)
+const { parseDecimal } = useDecimalInput();
 
 // Helpers
 function roundToTwo(value) {
@@ -836,7 +836,7 @@ function decrementQuantity(index) {
 }
 
 function updateQuantity(index, value) {
-  const qty = parseFloat(value) || 0;
+  const qty = parseDecimal(value);
   const item = props.cartItems[index];
 
   // Auto-apply 3+ kg discount when quantity >= 3 and selling by kg
@@ -896,7 +896,7 @@ function updatePriceType(index, priceType) {
 }
 
 function updateDiscount(index, value) {
-  const discount = parseFloat(value) || 0;
+  const discount = parseDecimal(value);
   emit('update-item', index, { customDiscount: discount });
 }
 
@@ -905,7 +905,7 @@ function updateDiscountType(index, discountType) {
 }
 
 function updateManualPrice(index, value) {
-  const price = parseFloat(value) || 0;
+  const price = parseDecimal(value);
   emit('update-item', index, { unitPrice: price });
 }
 

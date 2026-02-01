@@ -12,11 +12,10 @@
             <span class="label-text">Monto a extraer *</span>
           </label>
           <input
-            v-model.number="form.amount"
-            type="number"
-            step="0.01"
-            min="0"
-            :max="maxAmount"
+            :value="form.amount"
+            @input="form.amount = parseDecimal($event.target.value)"
+            type="text"
+            inputmode="decimal"
             class="input input-bordered w-full"
             placeholder="0.00"
             required
@@ -108,6 +107,9 @@
 <script setup>
 import { formatCurrency } from '~/utils'
 import { ToastEvents } from '~/interfaces'
+import { useDecimalInput } from '~/composables/useDecimalInput'
+
+const { parseDecimal } = useDecimalInput()
 
 // ----- Component Props -----
 const props = defineProps({

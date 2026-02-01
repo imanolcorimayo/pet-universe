@@ -59,13 +59,12 @@
             <div class="flex items-center gap-2">
               <input
                 ref="discountInput"
-                type="number"
-                v-model.number="localDiscount"
+                type="text"
+                inputmode="decimal"
+                :value="localDiscount"
                 class="flex-1 p-3 border rounded-md text-sm min-w-0"
-                min="0"
-                step="0.01"
                 placeholder="0"
-                @input="calculatePreview"
+                @input="localDiscount = parseDecimal($event.target.value); calculatePreview()"
                 @keydown.enter="handleEnterKey"
               />
               <select
@@ -127,6 +126,9 @@
 <script setup>
 import LucidePercent from '~icons/lucide/percent';
 import LucideInfo from '~icons/lucide/info';
+import { useDecimalInput } from '~/composables/useDecimalInput';
+
+const { parseDecimal } = useDecimalInput();
 
 // Props
 const props = defineProps({

@@ -98,13 +98,12 @@
                   </td>
                   <td class="px-3 py-2">
                     <input
-                      type="number"
-                      v-model.number="item.quantity"
+                      type="text"
+                      inputmode="decimal"
+                      :value="item.quantity"
                       class="w-full !p-1.5 border rounded-md text-sm text-center"
-                      step="1"
-                      min="0"
                       :disabled="isLoading || !item.productId"
-                      @input="updateItemTotal(index)"
+                      @input="handleQuantityInput(index, $event.target.value)"
                     />
                   </td>
                   <td class="px-3 py-2 text-center">
@@ -294,13 +293,12 @@
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Cantidad</label>
                   <input
-                    type="number"
-                    v-model.number="item.quantity"
+                    type="text"
+                    inputmode="decimal"
+                    :value="item.quantity"
                     class="w-full p-2 border rounded-md text-sm"
-                    min="0.01"
-                    step="0.01"
                     :disabled="isLoading || !item.productId"
-                    @input="updateItemTotal(index)"
+                    @input="handleQuantityInput(index, $event.target.value)"
                     placeholder="Ej: 2"
                   />
                 </div>
@@ -499,13 +497,12 @@
                 <div class="relative">
                   <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
                   <input
-                    type="number"
-                    v-model.number="payment.amount"
+                    type="text"
+                    inputmode="decimal"
+                    :value="payment.amount"
                     class="w-full !pl-7 border rounded-md"
                     :disabled="isLoading"
-                    min="0"
-                    step="0.01"
-                    @input="payment.amount = roundToTwo(payment.amount)"
+                    @input="handlePaymentAmountInput(index, $event.target.value)"
                   />
                 </div>
               </div>
@@ -682,9 +679,13 @@ import LucideAlertTriangle from '~icons/lucide/alert-triangle';
 import LucideFileText from '~icons/lucide/file-text';
 
 import { ToastEvents } from '~/interfaces';
+import { useDecimalInput } from '~/composables/useDecimalInput';
 import ProductSearchInput from '~/components/Product/ProductSearchInput.vue';
 import FinanceClientSelector from '~/components/Finance/ClientSelector.vue';
 import FinancePaymentMethodSelector from '~/components/Finance/PaymentMethodSelector.vue';
+
+// Decimal input handling (supports both comma and period as decimal separator)
+const { parseDecimal } = useDecimalInput();
 
 // Refs to control modal visibility and state
 const modalRef = ref(null);
@@ -1029,6 +1030,12 @@ function focusElementById(elementId) {
       }
     }
   });
+}
+
+function handleQuantityInput(index, value) {
+  const item = saleItems.value[index];
+  item.quantity = parseDecimal(value);
+  updateItemTotal(index);
 }
 
 function updateItemTotal(index) {
@@ -1452,6 +1459,10 @@ async function submitForm() {
 // Helper for rounding to 2 decimals
 function roundToTwo(value) {
   return Math.round((value || 0) * 100) / 100;
+}
+
+function handlePaymentAmountInput(index, value) {
+  paymentMethods.value[index].amount = roundToTwo(parseDecimal(value));
 }
 
 // Helper for formatting numbers

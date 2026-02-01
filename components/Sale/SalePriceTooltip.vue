@@ -73,11 +73,11 @@
               <span class="text-sm text-gray-500">$</span>
               <input
                 ref="customPriceInput"
-                type="number"
-                v-model.number="customPrice"
+                type="text"
+                inputmode="decimal"
+                :value="customPrice"
+                @input="customPrice = parseDecimal($event.target.value)"
                 class="flex-1 p-2 border rounded-md text-sm"
-                min="0"
-                step="0.01"
                 placeholder="0.00"
               />
             </div>
@@ -115,6 +115,9 @@
 <script setup>
 import LucideDollarSign from '~icons/lucide/dollar-sign';
 import LucideInfo from '~icons/lucide/info';
+import { useDecimalInput } from '~/composables/useDecimalInput';
+
+const { parseDecimal } = useDecimalInput();
 
 // Props
 const props = defineProps({

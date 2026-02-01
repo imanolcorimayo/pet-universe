@@ -27,12 +27,12 @@
               <div class="relative">
                 <span class="absolute left-3 top-2 text-gray-500">$</span>
                 <input
-                  type="number"
-                  v-model.number="openingBalances[code]"
+                  type="text"
+                  inputmode="decimal"
+                  :value="openingBalances[code]"
+                  @input="openingBalances[code] = parseDecimal($event.target.value)"
                   class="w-full !p-2 !pl-7 border rounded-md"
                   :disabled="isLoading"
-                  min="0"
-                  step="0.01"
                 />
               </div>
             </div>
@@ -76,6 +76,9 @@
 import { ref, computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { ToastEvents } from '~/interfaces';
+import { useDecimalInput } from '~/composables/useDecimalInput';
+
+const { parseDecimal } = useDecimalInput();
 
 // Refs to control modal visibility and state
 const modalRef = ref(null);
