@@ -517,18 +517,19 @@ function getProductPrice(product, priceType, unitType) {
 }
 
 function updateCartItemTotal(item) {
-  const baseTotal = item.quantity * item.unitPrice;
+  const round = (v) => Math.round((v || 0) * 100) / 100;
+  const baseTotal = round(item.quantity * item.unitPrice);
   let discount = 0;
 
   if (item.customDiscount > 0) {
     if (item.customDiscountType === 'percentage') {
-      discount = baseTotal * (item.customDiscount / 100);
+      discount = round(baseTotal * (item.customDiscount / 100));
     } else {
       discount = item.customDiscount;
     }
   }
 
-  item.totalPrice = Math.max(0, baseTotal - discount);
+  item.totalPrice = round(Math.max(0, baseTotal - discount));
 }
 
 function removeFromCart(index) {
@@ -607,13 +608,14 @@ async function submitSale() {
       clientName = client?.name || null;
     }
 
-    // Calculate totals
-    const total = cartItems.value.reduce((sum, item) => sum + item.totalPrice, 0);
-    const paymentTotal = paymentMethods.value.reduce((sum, p) => sum + (p.amount || 0), 0);
+    // Calculate totals (with rounding to avoid floating-point precision issues)
+    const roundToTwo = (value) => Math.round((value || 0) * 100) / 100;
+    const total = roundToTwo(cartItems.value.reduce((sum, item) => sum + item.totalPrice, 0));
+    const paymentTotal = roundToTwo(paymentMethods.value.reduce((sum, p) => sum + (p.amount || 0), 0));
     const isPaidInFull = Math.abs(total - paymentTotal) < 0.01;
 
     // Calculate payment difference
-    const paymentDifference = total - paymentTotal;
+    const paymentDifference = roundToTwo(total - paymentTotal);
 
     // Build sale data
     const saleData = {
@@ -638,7 +640,7 @@ async function submitSale() {
       notes: '',
       // Debt creation data
       createDebt: createDebt.value && paymentDifference > 0,
-      debtAmount: createDebt.value ? paymentDifference : 0,
+      debtAmount: createDebt.value ? roundToTwo(paymentDifference) : 0,
       dueDate: createDebt.value && debtDueDate.value ? new Date(debtDueDate.value) : null,
       debtNotes: debtNotes.value || ''
     };

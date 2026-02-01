@@ -639,6 +639,11 @@ const productStore = useProductStore();
 const paymentMethodsStore = usePaymentMethodsStore();
 const inventoryStore = useInventoryStore();
 
+// Helpers
+function roundToTwo(value) {
+  return Math.round((value || 0) * 100) / 100;
+}
+
 // Computed
 const availableClients = computed(() => {
   return clientStore.filteredClients.filter(c => c.isActive);
@@ -649,28 +654,32 @@ const availablePaymentMethods = computed(() => {
 });
 
 const subtotal = computed(() => {
-  return props.cartItems.reduce((sum, item) => {
-    return sum + (item.quantity * item.regularPrice);
+  const sum = props.cartItems.reduce((acc, item) => {
+    return acc + roundToTwo(item.quantity * item.regularPrice);
   }, 0);
+  return roundToTwo(sum);
 });
 
 const totalDiscount = computed(() => {
-  return props.cartItems.reduce((sum, item) => {
-    const original = item.quantity * item.regularPrice;
-    return sum + (original - item.totalPrice);
+  const sum = props.cartItems.reduce((acc, item) => {
+    const original = roundToTwo(item.quantity * item.regularPrice);
+    return acc + roundToTwo(original - item.totalPrice);
   }, 0);
+  return roundToTwo(sum);
 });
 
 const total = computed(() => {
-  return props.cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  const sum = props.cartItems.reduce((acc, item) => acc + item.totalPrice, 0);
+  return roundToTwo(sum);
 });
 
 const paymentTotal = computed(() => {
-  return props.paymentMethods.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const sum = props.paymentMethods.reduce((acc, p) => acc + (p.amount || 0), 0);
+  return roundToTwo(sum);
 });
 
 const paymentDifference = computed(() => {
-  return total.value - paymentTotal.value;
+  return roundToTwo(total.value - paymentTotal.value);
 });
 
 const reportedPaymentsCount = computed(() => {
@@ -737,7 +746,6 @@ const stockAlerts = computed(() => {
   return alerts;
 });
 
-// Helpers
 function getPaymentMethodName(paymentMethodId) {
   if (!paymentMethodId) return 'Sin método';
   const method = paymentMethodsStore.getPaymentMethodById(paymentMethodId);

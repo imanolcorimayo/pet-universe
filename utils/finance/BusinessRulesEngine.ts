@@ -208,6 +208,13 @@ export class BusinessRulesEngine {
   }
 
   /**
+   * Round a number to 2 decimal places to avoid floating-point precision issues
+   */
+  private roundToTwo(value: number): number {
+    return Math.round((value || 0) * 100) / 100;
+  }
+
+  /**
    * Validate transaction date against global cash register week boundaries
    * Uses cached global cash data from store - no Firestore calls
    */
@@ -315,9 +322,22 @@ export class BusinessRulesEngine {
       const globalCashId = globalCashIdResult.data;
 
       // 4. Populate sale data with wallet references and rename items to products
+      // Round all monetary values to avoid floating-point precision issues
+      const roundedProducts = data.saleData.items.map((item: any) => ({
+        ...item,
+        unitPrice: this.roundToTwo(item.unitPrice),
+        totalPrice: this.roundToTwo(item.totalPrice),
+        appliedDiscount: this.roundToTwo(item.appliedDiscount || 0),
+        customDiscount: this.roundToTwo(item.customDiscount || 0)
+      }));
+
       const saleDataForSchema = {
         ...data.saleData,
-        products: data.saleData.items, // Rename items to products for schema
+        products: roundedProducts,
+        amountTotal: this.roundToTwo(data.saleData.amountTotal),
+        discountTotal: this.roundToTwo(data.saleData.discountTotal || 0),
+        surcharge: this.roundToTwo(data.saleData.surcharge || 0),
+        debtAmount: this.roundToTwo(data.saleData.debtAmount || 0),
         dailyCashSnapshotId: data.dailyCashSnapshotId,
         cashRegisterId: data.cashRegisterId,
         cashRegisterName: data.cashRegisterName,
@@ -378,7 +398,7 @@ export class BusinessRulesEngine {
           ownersAccountId: accountInfo.ownersAccountId,
           ownersAccountName: accountInfo.ownersAccountName,
           saleId: saleId,
-          amount: walletTx.amount,
+          amount: this.roundToTwo(walletTx.amount),
           status: 'paid',
           isRegistered: walletTx.isReported ?? true, // Use per-payment isReported, default to true
           notes: walletTx.notes || null,
@@ -408,7 +428,7 @@ export class BusinessRulesEngine {
           cashRegisterName: data.cashRegisterName,
           saleId: saleId,
           type: 'sale',
-          amount: cashTx.amount,
+          amount: this.roundToTwo(cashTx.amount),
           isReported: cashTx.isReported ?? false, // Use per-payment isReported
           createdBy: cashTx.userId,
           createdByName: cashTx.userName
@@ -439,7 +459,7 @@ export class BusinessRulesEngine {
           dailyCashSnapshotId: data.dailyCashSnapshotId,
           cashRegisterId: data.cashRegisterId,
           cashRegisterName: data.cashRegisterName,
-          amountTotal: settlementTx.amount,
+          amountTotal: this.roundToTwo(settlementTx.amount),
           paymentMethodId: settlementTx.paymentMethodId,
           paymentMethodName: settlementTx.paymentMethodName,
           paymentProviderId: providerInfo.paymentProviderId,
@@ -461,7 +481,8 @@ export class BusinessRulesEngine {
       // 9. Create debt if partial payment
       let debtData = null;
       if (data.saleData.isPaidInFull === false && data.saleData.clientId) {
-        const remainingAmount = data.saleData.amountTotal - data.paymentTransactions.reduce((sum, pt) => sum + pt.amount, 0);
+        const paymentSum = data.paymentTransactions.reduce((sum, pt) => sum + pt.amount, 0);
+        const remainingAmount = this.roundToTwo(data.saleData.amountTotal - paymentSum);
 
         if (remainingAmount > 0.01) {
           const debtResult = await this.debtSchema.create({
@@ -625,7 +646,7 @@ export class BusinessRulesEngine {
           paymentProviderName: providerInfo?.paymentProviderName || null,
           ownersAccountId: accountInfo.ownersAccountId,
           ownersAccountName: accountInfo.ownersAccountName,
-          amount: walletTx.amount,
+          amount: this.roundToTwo(walletTx.amount),
           status: 'paid',
           isRegistered: true,
           notes: walletTx.notes || null,
@@ -656,7 +677,7 @@ export class BusinessRulesEngine {
             cashRegisterName: data.cashRegisterName,
             debtId: data.debtId,
             type: 'debt_payment',
-            amount: cashTx.amount,
+            amount: this.roundToTwo(cashTx.amount),
             createdBy: cashTx.userId,
             createdByName: cashTx.userName
           });
@@ -690,7 +711,7 @@ export class BusinessRulesEngine {
             dailyCashSnapshotId: data.dailyCashSnapshotId,
             cashRegisterId: data.cashRegisterId,
             cashRegisterName: data.cashRegisterName,
-            amountTotal: settlementTx.amount,
+            amountTotal: this.roundToTwo(settlementTx.amount),
             paymentMethodId: settlementTx.paymentMethodId,
             paymentMethodName: settlementTx.paymentMethodName,
             paymentProviderId: providerInfo.paymentProviderId,
@@ -713,8 +734,8 @@ export class BusinessRulesEngine {
       }
 
       // 10. Update debt record
-      const newPaidAmount = debt.paidAmount + totalPaymentAmount;
-      const newRemainingAmount = debt.originalAmount - newPaidAmount;
+      const newPaidAmount = this.roundToTwo(debt.paidAmount + totalPaymentAmount);
+      const newRemainingAmount = this.roundToTwo(debt.originalAmount - newPaidAmount);
 
       const updateData: any = {
         paidAmount: newPaidAmount,
@@ -818,13 +839,14 @@ export class BusinessRulesEngine {
       }
 
       // 2. Create single wallet transaction (Outcome)
+      const roundedAmount = this.roundToTwo(data.amount);
       const walletResult = await globalCashRegister.addWalletRecord({
         type: 'Outcome',
         globalCashId: globalCashId as string,
         supplierId: data.supplierId,
         ownersAccountId: data.accountTypeId,
         ownersAccountName: data.accountTypeName,
-        amount: data.amount,
+        amount: roundedAmount,
         status: 'paid',
         isRegistered: data.isRegistered ?? true,
         notes: data.notes || null,
@@ -841,7 +863,7 @@ export class BusinessRulesEngine {
         success: true,
         data: {
           walletTransactionId: walletResult.id,
-          amount: data.amount,
+          amount: roundedAmount,
           accountTypeId: data.accountTypeId,
           accountTypeName: data.accountTypeName,
           supplierId: data.supplierId,
@@ -906,6 +928,7 @@ export class BusinessRulesEngine {
         : null;
 
       // 5. Create single wallet transaction (Income) - NO settlement logic for generic income
+      const roundedAmount = this.roundToTwo(data.amount);
       const walletResult = await globalCashRegister.addWalletRecord({
         type: 'Income',
         globalCashId: globalCashId as string,
@@ -916,7 +939,7 @@ export class BusinessRulesEngine {
         paymentProviderName: provider?.name || null,
         ownersAccountId: account.id,
         ownersAccountName: account.name,
-        amount: data.amount,
+        amount: roundedAmount,
         status: 'paid',
         isRegistered: data.isRegistered,
         notes: data.notes?.trim() || null,
@@ -934,7 +957,7 @@ export class BusinessRulesEngine {
         data: {
           id: walletResult.id,
           walletTransactionId: walletResult.id,
-          amount: data.amount,
+          amount: roundedAmount,
           accountTypeId: account.id,
           accountTypeName: account.name,
           supplierId: data.supplierId,
@@ -977,6 +1000,7 @@ export class BusinessRulesEngine {
       }
 
       // 3. Create wallet transaction (outcome)
+      const roundedInvoiceTotal = this.roundToTwo(invoiceData.amountTotal);
       const walletResult = await this.walletSchema.create({
         type: 'Outcome',
         globalCashId: globalCashId,
@@ -984,7 +1008,7 @@ export class BusinessRulesEngine {
         supplierId: invoiceData.supplierId,
         ownersAccountId: invoiceData.ownersAccountId,
         ownersAccountName: invoiceData.ownersAccountName,
-        amount: invoiceData.amountTotal,
+        amount: roundedInvoiceTotal,
         status: 'paid',
         isRegistered: true,
         notes: invoiceData.notes || null,
@@ -997,8 +1021,8 @@ export class BusinessRulesEngine {
 
       // 4. Create supplier debt if partial payment
       if (invoiceData.isPaidInFull === false && invoiceData.supplierId) {
-        const paidAmount = invoiceData.amountPaid || 0;
-        const remainingAmount = invoiceData.amountTotal - paidAmount;
+        const paidAmount = this.roundToTwo(invoiceData.amountPaid || 0);
+        const remainingAmount = this.roundToTwo(roundedInvoiceTotal - paidAmount);
 
         if (remainingAmount > 0.01) {
           const debtResult = await this.debtSchema.create({
@@ -1068,11 +1092,12 @@ export class BusinessRulesEngine {
         return { success: false, error: 'Esta no es una deuda de cliente. Use el método para deudas de proveedor.' };
       }
 
-      // 3. Validate payment amount
-      if (data.amount > debt.remainingAmount + 0.01) {
+      // 3. Round and validate payment amount
+      const roundedAmount = this.roundToTwo(data.amount);
+      if (roundedAmount > debt.remainingAmount + 0.01) {
         return {
           success: false,
-          error: `Payment amount (${data.amount}) exceeds remaining debt (${debt.remainingAmount})`
+          error: `Payment amount (${roundedAmount}) exceeds remaining debt (${debt.remainingAmount})`
         };
       }
 
@@ -1126,7 +1151,7 @@ export class BusinessRulesEngine {
           cashRegisterName: data.cashRegisterName,
           debtId: data.debtId,
           type: 'debt_payment',
-          amount: data.amount,
+          amount: roundedAmount,
           createdBy: data.userId,
           createdByName: data.userName
         });
@@ -1149,7 +1174,7 @@ export class BusinessRulesEngine {
           dailyCashSnapshotId: data.dailyCashSnapshotId,
           cashRegisterId: data.cashRegisterId,
           cashRegisterName: data.cashRegisterName,
-          amountTotal: data.amount,
+          amountTotal: roundedAmount,
           paymentMethodId: data.paymentMethodId,
           paymentMethodName: data.paymentMethodName,
           paymentProviderId: providerInfo.paymentProviderId,
@@ -1181,7 +1206,7 @@ export class BusinessRulesEngine {
           paymentProviderName: providerInfo?.paymentProviderName || null,
           ownersAccountId: accountInfo.ownersAccountId,
           ownersAccountName: accountInfo.ownersAccountName,
-          amount: data.amount,
+          amount: roundedAmount,
           status: 'paid',
           isRegistered: true,
           notes: data.notes || null,
@@ -1200,8 +1225,8 @@ export class BusinessRulesEngine {
       }
 
       // 11. Update debt record
-      const newPaidAmount = debt.paidAmount + data.amount;
-      const newRemainingAmount = debt.originalAmount - newPaidAmount;
+      const newPaidAmount = this.roundToTwo(debt.paidAmount + roundedAmount);
+      const newRemainingAmount = this.roundToTwo(debt.originalAmount - newPaidAmount);
 
       const updateData: any = {
         paidAmount: newPaidAmount,
@@ -1294,11 +1319,12 @@ export class BusinessRulesEngine {
         return { success: false, error: 'Esta no es una deuda de proveedor. Use el método para deudas de cliente.' };
       }
 
-      // 3. Validate payment amount
-      if (data.amount > debt.remainingAmount + 0.01) {
+      // 3. Round and validate payment amount
+      const roundedAmount = this.roundToTwo(data.amount);
+      if (roundedAmount > debt.remainingAmount + 0.01) {
         return {
           success: false,
-          error: `Payment amount (${data.amount}) exceeds remaining debt (${debt.remainingAmount})`
+          error: `Payment amount (${roundedAmount}) exceeds remaining debt (${debt.remainingAmount})`
         };
       }
 
@@ -1328,7 +1354,7 @@ export class BusinessRulesEngine {
         supplierId: debt.supplierId,
         ownersAccountId: data.ownersAccountId,
         ownersAccountName: data.ownersAccountName,
-        amount: data.amount,
+        amount: roundedAmount,
         status: 'paid',
         isRegistered: true,
         notes: data.notes || null,
@@ -1341,8 +1367,8 @@ export class BusinessRulesEngine {
       }
 
       // 7. Update debt record
-      const newPaidAmount = debt.paidAmount + data.amount;
-      const newRemainingAmount = debt.originalAmount - newPaidAmount;
+      const newPaidAmount = this.roundToTwo(debt.paidAmount + roundedAmount);
+      const newRemainingAmount = this.roundToTwo(debt.originalAmount - newPaidAmount);
 
       const updateData: any = {
         paidAmount: newPaidAmount,
@@ -1371,7 +1397,7 @@ export class BusinessRulesEngine {
           debtId: data.debtId,
           walletTransactionId: walletResult.data?.id,
           remainingDebt: newRemainingAmount,
-          totalPaymentAmount: data.amount,
+          totalPaymentAmount: roundedAmount,
           warnings
         },
         warnings
@@ -1470,8 +1496,9 @@ export class BusinessRulesEngine {
       }
       const globalCashId = globalCashIdResult.data;
 
-      // 3. Get cash payment method and validate available balance
-      const cashValidation = await this.validateCashBalanceForTransfer(data.amount, 'inject');
+      // 3. Round amount and validate available balance
+      const roundedAmount = this.roundToTwo(data.amount);
+      const cashValidation = await this.validateCashBalanceForTransfer(roundedAmount, 'inject');
       if (!cashValidation.success) {
         return { success: false, error: cashValidation.error };
       }
@@ -1482,7 +1509,7 @@ export class BusinessRulesEngine {
         globalCashId: globalCashId,
         ownersAccountId: cashValidation.data.cashAccountId,
         ownersAccountName: cashValidation.data.cashAccountName,
-        amount: data.amount,
+        amount: roundedAmount,
         status: 'paid',
         isRegistered: false,
         notes: data.notes ? `Inyección a caja diaria "${cashValidation.data.cashAccountName}": ${data.notes}` : `Inyección de efectivo a caja diaria "${cashValidation.data.cashAccountName}"`,
@@ -1504,7 +1531,7 @@ export class BusinessRulesEngine {
         cashRegisterName: data.cashRegisterName,
         walletId: walletTransactionId,
         type: 'inject',
-        amount: data.amount,
+        amount: roundedAmount,
       });
 
       if (!dailyCashTxResult.success) {
@@ -1538,7 +1565,7 @@ export class BusinessRulesEngine {
         data: {
           walletTransactionId,
           dailyCashTransactionId: dailyCashTxResult.data?.id,
-          amount: data.amount,
+          amount: roundedAmount,
           globalCashId,
           dailyCashSnapshotId: data.dailyCashSnapshotId
         },
@@ -1591,14 +1618,15 @@ export class BusinessRulesEngine {
         });
       }
 
-      // 3. Calculate totals and validate amounts
-      const totalAmountSettled = data.settlementPayments.reduce((sum, p) => sum + p.amountSettled, 0);
-      const totalFees = data.totalAmountReceived - totalAmountSettled;
+      // 3. Calculate totals and validate amounts (with rounding)
+      const roundedTotalReceived = this.roundToTwo(data.totalAmountReceived);
+      const totalAmountSettled = this.roundToTwo(data.settlementPayments.reduce((sum, p) => sum + p.amountSettled, 0));
+      const totalFees = this.roundToTwo(roundedTotalReceived - totalAmountSettled);
 
-      if (totalAmountSettled > data.totalAmountReceived + 0.01) {
+      if (totalAmountSettled > roundedTotalReceived + 0.01) {
         return {
           success: false,
-          error: `Total amount settled (${totalAmountSettled}) exceeds amount received (${data.totalAmountReceived})`
+          error: `Total amount settled (${totalAmountSettled}) exceeds amount received (${roundedTotalReceived})`
         };
       }
 
@@ -1631,7 +1659,7 @@ export class BusinessRulesEngine {
         paymentProviderName: data.paymentProviderName,
         ownersAccountId: data.accountTypeId,
         ownersAccountName: data.accountTypeName,
-        amount: data.totalAmountReceived,
+        amount: roundedTotalReceived,
         status: 'paid',
         isRegistered: true,
         notes: data.notes || null,
@@ -1694,7 +1722,7 @@ export class BusinessRulesEngine {
         data: {
           walletTransactionId,
           updatedSettlements,
-          totalAmountReceived: data.totalAmountReceived,
+          totalAmountReceived: roundedTotalReceived,
           totalAmountSettled,
           totalFees,
           warnings
@@ -1953,8 +1981,9 @@ export class BusinessRulesEngine {
       }
       const globalCashId = globalCashIdResult.data;
 
-      // 3. Get cash payment method and validate available balance in daily register
-      const cashValidation = await this.validateCashBalanceForTransfer(data.amount, 'extract', data.dailyCashSnapshotId);
+      // 3. Round amount and validate available balance in daily register
+      const roundedAmount = this.roundToTwo(data.amount);
+      const cashValidation = await this.validateCashBalanceForTransfer(roundedAmount, 'extract', data.dailyCashSnapshotId);
       if (!cashValidation.success) {
         return { success: false, error: cashValidation.error };
       }
@@ -1965,7 +1994,7 @@ export class BusinessRulesEngine {
         globalCashId: globalCashId,
         ownersAccountId: cashValidation.data.cashAccountId,
         ownersAccountName: cashValidation.data.cashAccountName,
-        amount: data.amount,
+        amount: roundedAmount,
         status: 'paid',
         isRegistered: false,
         notes: data.notes ? `Extracción desde caja diaria "${data.cashRegisterName}": ${data.notes}` : `Extracción de efectivo desde caja diaria "${data.cashRegisterName}"`,
@@ -1987,7 +2016,7 @@ export class BusinessRulesEngine {
         cashRegisterName: data.cashRegisterName,
         walletId: walletTransactionId,
         type: 'extract',
-        amount: data.amount,
+        amount: roundedAmount,
       });
 
       if (!dailyCashTxResult.success) {
@@ -2021,7 +2050,7 @@ export class BusinessRulesEngine {
         data: {
           walletTransactionId,
           dailyCashTransactionId: dailyCashTxResult.data?.id,
-          amount: data.amount,
+          amount: roundedAmount,
           globalCashId,
           dailyCashSnapshotId: data.dailyCashSnapshotId
         },
