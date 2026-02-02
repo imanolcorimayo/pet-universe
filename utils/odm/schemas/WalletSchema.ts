@@ -1,4 +1,4 @@
-import { Schema } from '../schema';
+import { Schema, type TransactionOptions } from '../schema';
 import type { SchemaDefinition, ValidationResult } from '../types';
 import { getDoc, doc } from 'firebase/firestore';
 
@@ -145,7 +145,7 @@ export class WalletSchema extends Schema {
   /**
    * Custom validation for wallet transaction creation
    */
-  override async create(data: any, validateRefs = false) {
+  override async create(data: any, validateRefs = false, txOptions?: TransactionOptions) {
     // Default transactionDate to current date if not provided
     if (!data.transactionDate) {
       data.transactionDate = new Date();
@@ -160,8 +160,8 @@ export class WalletSchema extends Schema {
       };
     }
 
-    // Validate that global cash exists and is valid
-    if (validateRefs && data.globalCashId) {
+    // Validate that global cash exists and is valid (skip in transaction mode - validated before)
+    if (validateRefs && data.globalCashId && !txOptions) {
       const globalCashValidation = await this.validateGlobalCashReference(data.globalCashId);
       if (!globalCashValidation.valid) {
         return {
@@ -174,7 +174,7 @@ export class WalletSchema extends Schema {
     // NOTE: Transaction date validation is now handled in BusinessRulesEngine
     // to avoid repeated Firestore calls - it uses cached GlobalCash data from the store
 
-    return super.create(data, validateRefs);
+    return super.create(data, validateRefs, txOptions);
   }
 
   /**

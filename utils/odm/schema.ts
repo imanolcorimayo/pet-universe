@@ -12,8 +12,11 @@ import {
   limit as firestoreLimit,
   serverTimestamp,
   onSnapshot,
+  runTransaction,
   type Timestamp,
-  type Unsubscribe
+  type Unsubscribe,
+  type Transaction,
+  type Firestore
 } from 'firebase/firestore';
 import { Validator } from './validator';
 import type {
@@ -28,6 +31,23 @@ import type {
   FetchSingleResult,
   DocChange
 } from './types';
+
+export interface TransactionOptions {
+  transaction: Transaction;
+  existingData?: any;
+}
+
+export type TransactionCallback<T> = (txOptions: TransactionOptions) => Promise<T>;
+
+export async function executeTransaction<T>(
+  callback: TransactionCallback<T>
+): Promise<T> {
+  const db = useFirestore();
+  return runTransaction(db, async (transaction) => {
+    const txOptions: TransactionOptions = { transaction };
+    return callback(txOptions);
+  });
+}
 
 export abstract class Schema {
   protected abstract collectionName: string;
@@ -77,7 +97,8 @@ export abstract class Schema {
   }
 
   // Add businessId, createdBy, createdAt, updatedAt fields if missing and when required
-  protected addSystemFields(data: any): any {
+  // When inTransaction=true, use Date objects instead of serverTimestamp() sentinels
+  protected addSystemFields(data: any, inTransaction = false): any {
     const user = this.getCurrentUser();
     const businessId = this.getCurrentBusinessId();
 
@@ -99,9 +120,11 @@ export abstract class Schema {
       updatedData.updatedByName = user.value.displayName;
     }
 
-    // These fields will always be required
-    updatedData.createdAt = serverTimestamp();
-    updatedData.updatedAt = serverTimestamp();
+    // Use serverTimestamp() for normal operations, Date for transactions
+    // (serverTimestamp() sentinels can't be returned directly from transactions)
+    const timestamp = inTransaction ? new Date() : serverTimestamp();
+    updatedData.createdAt = timestamp;
+    updatedData.updatedAt = timestamp;
     if (!updatedData.businessId && businessId) {
       updatedData.businessId = businessId;
     }
@@ -258,8 +281,25 @@ export abstract class Schema {
     return result;
   }
 
+  // Format date fields in data object (for transaction returns)
+  protected formatDateFields(data: any): DocumentWithId {
+    const result: DocumentWithId = { ...data };
+
+    for (const [fieldName, definition] of Object.entries(this.schema)) {
+      if (definition.type === 'date' && data[fieldName]) {
+        result[`original${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}`] = data[fieldName];
+        result[fieldName] = this.formatDate(data[fieldName]);
+      } else if (definition.type === 'date' && data[fieldName] === null) {
+        result[fieldName] = null;
+        result[`original${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}`] = null;
+      }
+    }
+
+    return result;
+  }
+
   // Create a new document
-  async create(data: any, validateRefs = false): Promise<CreateResult> {
+  async create(data: any, validateRefs = false, txOptions?: TransactionOptions): Promise<CreateResult> {
     try {
       const db = this.getFirestore();
       const businessId = this.getCurrentBusinessId();
@@ -268,25 +308,25 @@ export abstract class Schema {
         return { success: false, error: 'Business ID is required' };
       }
 
-      // Add system fields
-      data = this.addSystemFields(data);
+      // Add system fields (use Date instead of serverTimestamp in transaction mode)
+      data = this.addSystemFields(data, !!txOptions);
 
       // Validate schema
       const validation = this.validate(data);
       if (!validation.valid) {
-        return { 
-          success: false, 
-          error: `Validation failed: ${validation.errors.map(e => e.message).join(', ')}` 
+        return {
+          success: false,
+          error: `Validation failed: ${validation.errors.map(e => e.message).join(', ')}`
         };
       }
 
-      // Validate references if requested
-      if (validateRefs) {
+      // Validate references if requested (skip in transaction - should be done before)
+      if (validateRefs && !txOptions) {
         const refValidation = await this.validateReferences(data);
         if (!refValidation.valid) {
-          return { 
-            success: false, 
-            error: `Reference validation failed: ${refValidation.errors.map(e => e.message).join(', ')}` 
+          return {
+            success: false,
+            error: `Reference validation failed: ${refValidation.errors.map(e => e.message).join(', ')}`
           };
         }
       }
@@ -294,7 +334,17 @@ export abstract class Schema {
       // Properly fixes date fields and updates the "Updated At" timestamp with correct values (when updating)
       const prepared = this.prepareForSave(data, false);
 
-      // Save to Firestore
+      // Transaction mode: use transaction.set() instead of addDoc
+      if (txOptions?.transaction) {
+        const newDocRef = doc(collection(db, this.collectionName));
+        txOptions.transaction.set(newDocRef, prepared);
+        return {
+          success: true,
+          data: this.formatDateFields({ id: newDocRef.id, ...prepared })
+        };
+      }
+
+      // Standard mode: use addDoc
       const docRef = await addDoc(collection(db, this.collectionName), prepared);
 
       // Return with ID
@@ -308,7 +358,7 @@ export abstract class Schema {
   }
 
   // Update an existing document
-  async update(id: string, data: any, validateRefs = false): Promise<UpdateResult> {
+  async update(id: string, data: any, validateRefs = false, txOptions?: TransactionOptions): Promise<UpdateResult> {
     try {
       const db = this.getFirestore();
       const businessId = this.getCurrentBusinessId();
@@ -317,15 +367,29 @@ export abstract class Schema {
         return { success: false, error: 'Business ID is required' };
       }
 
-      // Get existing document to verify ownership
       const docRef = doc(db, this.collectionName, id);
-      const docSnapshot = await getDoc(docRef);
+      let existingData: any;
 
-      if (!docSnapshot.exists()) {
-        return { success: false, error: 'Document not found' };
+      // In transaction mode, use provided existingData or fetch via transaction
+      if (txOptions?.transaction) {
+        if (txOptions.existingData) {
+          existingData = txOptions.existingData;
+        } else {
+          const docSnapshot = await txOptions.transaction.get(docRef);
+          if (!docSnapshot.exists()) {
+            return { success: false, error: 'Document not found' };
+          }
+          existingData = docSnapshot.data();
+        }
+      } else {
+        // Standard mode: fetch document directly
+        const docSnapshot = await getDoc(docRef);
+        if (!docSnapshot.exists()) {
+          return { success: false, error: 'Document not found' };
+        }
+        existingData = docSnapshot.data();
       }
 
-      const existingData = docSnapshot.data();
       if (existingData.businessId !== businessId) {
         return { success: false, error: 'No permission to update this document' };
       }
@@ -334,19 +398,19 @@ export abstract class Schema {
       const completeData = { ...existingData, ...data };
       const validation = this.validate(completeData);
       if (!validation.valid) {
-        return { 
-          success: false, 
-          error: `Validation failed: ${validation.errors.map(e => e.message).join(', ')}` 
+        return {
+          success: false,
+          error: `Validation failed: ${validation.errors.map(e => e.message).join(', ')}`
         };
       }
 
-      // Validate references if requested
-      if (validateRefs) {
+      // Validate references if requested (skip in transaction - should be done before)
+      if (validateRefs && !txOptions) {
         const refValidation = await this.validateReferences(completeData);
         if (!refValidation.valid) {
-          return { 
-            success: false, 
-            error: `Reference validation failed: ${refValidation.errors.map(e => e.message).join(', ')}` 
+          return {
+            success: false,
+            error: `Reference validation failed: ${refValidation.errors.map(e => e.message).join(', ')}`
           };
         }
       }
@@ -354,7 +418,16 @@ export abstract class Schema {
       // Properly fixes date fields and updates the "Updated At" timestamp with correct values (when updating)
       const prepared = this.prepareForSave(completeData, true);
 
-      // Update in Firestore
+      // Transaction mode: use transaction.update()
+      if (txOptions?.transaction) {
+        txOptions.transaction.update(docRef, prepared);
+        return {
+          success: true,
+          data: this.formatDateFields({ id, ...prepared })
+        };
+      }
+
+      // Standard mode: use updateDoc
       await updateDoc(docRef, prepared);
 
       return { success: true, data: this.addDocumentId(await getDoc(docRef)) };
@@ -365,7 +438,7 @@ export abstract class Schema {
   }
 
   // Delete a document
-  async delete(id: string): Promise<DeleteResult> {
+  async delete(id: string, txOptions?: TransactionOptions): Promise<DeleteResult> {
     try {
       const db = this.getFirestore();
       const businessId = this.getCurrentBusinessId();
@@ -374,20 +447,40 @@ export abstract class Schema {
         return { success: false, error: 'Business ID is required' };
       }
 
-      // Get existing document to verify ownership
       const docRef = doc(db, this.collectionName, id);
-      const docSnapshot = await getDoc(docRef);
+      let existingData: any;
 
-      if (!docSnapshot.exists()) {
-        return { success: false, error: 'Document not found' };
+      // In transaction mode, use provided existingData or fetch via transaction
+      if (txOptions?.transaction) {
+        if (txOptions.existingData) {
+          existingData = txOptions.existingData;
+        } else {
+          const docSnapshot = await txOptions.transaction.get(docRef);
+          if (!docSnapshot.exists()) {
+            return { success: false, error: 'Document not found' };
+          }
+          existingData = docSnapshot.data();
+        }
+      } else {
+        // Standard mode: fetch document directly
+        const docSnapshot = await getDoc(docRef);
+        if (!docSnapshot.exists()) {
+          return { success: false, error: 'Document not found' };
+        }
+        existingData = docSnapshot.data();
       }
 
-      const existingData = docSnapshot.data();
       if (existingData.businessId !== businessId) {
         return { success: false, error: 'No permission to delete this document' };
       }
 
-      // Delete from Firestore
+      // Transaction mode: use transaction.delete()
+      if (txOptions?.transaction) {
+        txOptions.transaction.delete(docRef);
+        return { success: true };
+      }
+
+      // Standard mode: use deleteDoc
       await deleteDoc(docRef);
 
       return { success: true };
@@ -398,23 +491,23 @@ export abstract class Schema {
   }
 
   // Archive a document (soft delete)
-  async archive(id: string): Promise<UpdateResult> {
+  async archive(id: string, txOptions?: TransactionOptions): Promise<UpdateResult> {
     return this.update(id, {
       isActive: false,
       archivedAt: serverTimestamp()
-    }, false);
+    }, false, txOptions);
   }
 
   // Restore an archived document
-  async restore(id: string): Promise<UpdateResult> {
+  async restore(id: string, txOptions?: TransactionOptions): Promise<UpdateResult> {
     return this.update(id, {
       isActive: true,
       archivedAt: null
-    }, false);
+    }, false, txOptions);
   }
 
   // Find by ID
-  async findById(id: string): Promise<FetchSingleResult> {
+  async findById(id: string, txOptions?: TransactionOptions): Promise<FetchSingleResult> {
     try {
       const db = this.getFirestore();
       const businessId = this.getCurrentBusinessId();
@@ -424,7 +517,14 @@ export abstract class Schema {
       }
 
       const docRef = doc(db, this.collectionName, id);
-      const docSnapshot = await getDoc(docRef);
+      let docSnapshot: any;
+
+      // Transaction mode: use transaction.get()
+      if (txOptions?.transaction) {
+        docSnapshot = await txOptions.transaction.get(docRef);
+      } else {
+        docSnapshot = await getDoc(docRef);
+      }
 
       if (!docSnapshot.exists()) {
         return { success: false, error: 'Document not found' };
@@ -435,9 +535,9 @@ export abstract class Schema {
         return { success: false, error: 'No permission to access this document' };
       }
 
-      return { 
-        success: true, 
-        data: this.addDocumentId(docSnapshot) 
+      return {
+        success: true,
+        data: this.addDocumentId(docSnapshot)
       };
     } catch (error) {
       console.error(`Error finding ${this.collectionName} by ID:`, error);

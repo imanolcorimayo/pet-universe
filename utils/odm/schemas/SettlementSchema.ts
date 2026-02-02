@@ -1,4 +1,4 @@
-import { Schema } from '../schema';
+import { Schema, type TransactionOptions } from '../schema';
 import type { SchemaDefinition, ValidationResult } from '../types';
 import { getDoc, doc } from 'firebase/firestore';
 
@@ -138,7 +138,7 @@ export class SettlementSchema extends Schema {
   /**
    * Custom validation for settlement creation
    */
-  override async create(data: any, validateRefs = false) {
+  override async create(data: any, validateRefs = false, txOptions?: TransactionOptions) {
     // Validate settlement-specific business rules
     const validation = await this.validateSettlementData(data);
     if (!validation.valid) {
@@ -148,8 +148,8 @@ export class SettlementSchema extends Schema {
       };
     }
 
-    // Validate sale reference if provided
-    if (validateRefs && data.saleId) {
+    // Validate sale reference if provided (skip in transaction mode - validated before)
+    if (validateRefs && data.saleId && !txOptions) {
       const saleValidation = await this.validateSaleReference(data.saleId, data.dailyCashSnapshotId);
       if (!saleValidation.valid) {
         return {
@@ -159,8 +159,8 @@ export class SettlementSchema extends Schema {
       }
     }
 
-    // Validate debt reference if provided
-    if (validateRefs && data.debtId) {
+    // Validate debt reference if provided (skip in transaction mode - validated before)
+    if (validateRefs && data.debtId && !txOptions) {
       const debtValidation = await this.validateDebtReference(data.debtId);
       if (!debtValidation.valid) {
         return {
@@ -170,7 +170,7 @@ export class SettlementSchema extends Schema {
       }
     }
 
-    return super.create(data, validateRefs);
+    return super.create(data, validateRefs, txOptions);
   }
 
   /**

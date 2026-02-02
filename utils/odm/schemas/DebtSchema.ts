@@ -1,4 +1,4 @@
-import { Schema } from '../schema';
+import { Schema, type TransactionOptions } from '../schema';
 import type { SchemaDefinition, ValidationResult } from '../types';
 import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 
@@ -131,7 +131,7 @@ export class DebtSchema extends Schema {
   /**
    * Custom validation for debt creation
    */
-  override async create(data: any, validateRefs = false) {
+  override async create(data: any, validateRefs = false, txOptions?: TransactionOptions) {
     // Validate debt-specific business rules
     const validation = this.validateDebtData(data);
     if (!validation.valid) {
@@ -146,8 +146,8 @@ export class DebtSchema extends Schema {
       data.remainingAmount = data.originalAmount;
     }
 
-    // Validate entity exists (client or supplier)
-    if (validateRefs) {
+    // Validate entity exists (client or supplier) - skip in transaction mode
+    if (validateRefs && !txOptions) {
       const entityValidation = await this.validateEntityReference(data);
       if (!entityValidation.valid) {
         return {
@@ -157,7 +157,7 @@ export class DebtSchema extends Schema {
       }
     }
 
-    return super.create(data, validateRefs);
+    return super.create(data, validateRefs, txOptions);
   }
 
   /**

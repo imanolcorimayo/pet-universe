@@ -1,4 +1,4 @@
-import { Schema } from '../schema';
+import { Schema, type TransactionOptions } from '../schema';
 import type { SchemaDefinition, ValidationResult } from '../types';
 import { getDoc, doc } from 'firebase/firestore';
 
@@ -115,7 +115,7 @@ export class SaleSchema extends Schema {
   /**
    * Custom validation for sale creation
    */
-  override async create(data: any, validateRefs = false) {
+  override async create(data: any, validateRefs = false, txOptions?: TransactionOptions) {
     // Validate sale-specific business rules
     const validation = this.validateSaleData(data);
     if (!validation.valid) {
@@ -125,8 +125,8 @@ export class SaleSchema extends Schema {
       };
     }
 
-    // Validate that daily cash snapshot is open
-    if (validateRefs) {
+    // Validate that daily cash snapshot is open (skip in transaction mode - validated before)
+    if (validateRefs && !txOptions) {
       const snapshotValidation = await this.validateDailyCashSnapshot(data.dailyCashSnapshotId);
       if (!snapshotValidation.valid) {
         return {
@@ -136,7 +136,7 @@ export class SaleSchema extends Schema {
       }
     }
 
-    return super.create(data, validateRefs);
+    return super.create(data, validateRefs, txOptions);
   }
 
   /**

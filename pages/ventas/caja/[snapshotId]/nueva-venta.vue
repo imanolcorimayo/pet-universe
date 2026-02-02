@@ -674,9 +674,9 @@ async function submitSale() {
       };
     });
 
-    // Process sale using BusinessRulesEngine
+    // Process sale using BusinessRulesEngine (includes atomic inventory update)
     const { BusinessRulesEngine } = await import('~/utils/finance/BusinessRulesEngine');
-    const businessEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore, cashRegisterStore);
+    const businessEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore, cashRegisterStore, inventoryStore);
 
     const result = await businessEngine.processSale({
       saleData,
@@ -685,13 +685,11 @@ async function submitSale() {
       cashRegisterId: snapshotData.value?.cashRegisterId,
       cashRegisterName: snapshotData.value?.cashRegisterName,
       userId: user.value.uid,
-      userName: user.value.displayName || user.value.email || 'Usuario'
+      userName: user.value.displayName || user.value.email || 'Usuario',
+      updateInventory: true
     });
 
     if (result.success) {
-      // Update inventory
-      await updateInventoryForSale(saleNumber);
-
       lastSaleNumber.value = saleNumber;
       showSuccessModal.value = true;
       showMobileCart.value = false;

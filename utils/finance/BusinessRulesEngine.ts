@@ -5,7 +5,11 @@ import { PurchaseInvoiceSchema } from '../odm/schemas/PurchaseInvoiceSchema';
 import { DailyCashSnapshotSchema } from '../odm/schemas/DailyCashSnapshotSchema';
 import { DailyCashTransactionSchema } from '../odm/schemas/DailyCashTransactionSchema';
 import { SettlementSchema } from '../odm/schemas/SettlementSchema';
+import { InventorySchema } from '../odm/schemas/InventorySchema';
+import { InventoryMovementSchema } from '../odm/schemas/InventoryMovementSchema';
+import { executeTransaction, type TransactionOptions } from '../odm/schema';
 import type { usePaymentMethodsStore } from '../../stores/paymentMethods';
+import type { useInventoryStore } from '../../stores/inventory';
 
 export interface BusinessRuleResult {
   success: boolean;
@@ -55,6 +59,8 @@ export interface SaleProcessingData {
   cashRegisterName: string;
   userId: string;
   userName: string;
+  updateInventory?: boolean;
+  inventoryData?: Map<string, any>;
 }
 
 export interface DebtPaymentData {
@@ -186,14 +192,18 @@ export class BusinessRulesEngine {
   private dailyCashTransactionSchema: DailyCashTransactionSchema;
   private settlementSchema: SettlementSchema;
   private purchaseInvoiceSchema: PurchaseInvoiceSchema;
+  private inventorySchema: InventorySchema;
+  private inventoryMovementSchema: InventoryMovementSchema;
   private paymentMethodsStore: ReturnType<typeof usePaymentMethodsStore>;
   private globalCashRegisterStore: ReturnType<typeof useGlobalCashRegisterStore>;
   private cashRegisterStore: ReturnType<typeof useCashRegisterStore>;
+  private inventoryStore?: ReturnType<typeof useInventoryStore>;
 
   constructor(
     paymentMethodsStore: ReturnType<typeof usePaymentMethodsStore>,
     globalCashRegisterStore: ReturnType<typeof useGlobalCashRegisterStore>,
-    cashRegisterStore: ReturnType<typeof useCashRegisterStore>
+    cashRegisterStore: ReturnType<typeof useCashRegisterStore>,
+    inventoryStore?: ReturnType<typeof useInventoryStore>
   ) {
     this.walletSchema = new WalletSchema();
     this.saleSchema = new SaleSchema();
@@ -202,9 +212,12 @@ export class BusinessRulesEngine {
     this.dailyCashTransactionSchema = new DailyCashTransactionSchema();
     this.settlementSchema = new SettlementSchema();
     this.purchaseInvoiceSchema = new PurchaseInvoiceSchema();
+    this.inventorySchema = new InventorySchema();
+    this.inventoryMovementSchema = new InventoryMovementSchema();
     this.paymentMethodsStore = paymentMethodsStore;
     this.globalCashRegisterStore = globalCashRegisterStore;
     this.cashRegisterStore = cashRegisterStore;
+    this.inventoryStore = inventoryStore;
   }
 
   /**
@@ -281,23 +294,25 @@ export class BusinessRulesEngine {
    * - Client exists if partial payment (debt creation requires customer)
    * - Daily cash snapshot exists and is open
    *
-   * PROCESSING FLOW:
-   * 1. Process wallet transactions first to get their IDs
-   * 2. Populate sale data with wallet references
-   * 3. Create sale record in Firestore with populated wallets array
-   * 4. Process cash and settlement transactions
-   * 5. Create customer debt record if partial payment
+   * PROCESSING FLOW (ATOMIC TRANSACTION):
+   * 1. Validate all data before transaction
+   * 2. Execute all writes in a single Firestore transaction
+   * 3. Update store caches after successful commit
    *
    * PAYMENT METHOD ROUTING:
    * - EFECTIVO: dailyCashTransaction only
    * - Cards/Postnet: settlement record (wallet created when settled)
    * - Other methods: direct wallet transaction
    * - Multiple methods: all processed in single sale
+   *
+   * ATOMICITY: All operations succeed or all fail together (automatic rollback)
    */
   async processSale(data: SaleProcessingData): Promise<BusinessRuleResult> {
     const warnings: string[] = [];
 
     try {
+      // ========== VALIDATION PHASE (before transaction) ==========
+
       // 0. Validate data structure
       if (!data.paymentTransactions || !Array.isArray(data.paymentTransactions)) {
         return { success: false, error: 'Las transacciones de pago son requeridas' };
@@ -321,8 +336,9 @@ export class BusinessRulesEngine {
       }
       const globalCashId = globalCashIdResult.data;
 
-      // 4. Populate sale data with wallet references and rename items to products
-      // Round all monetary values to avoid floating-point precision issues
+      // ========== PREPARE DATA (before transaction) ==========
+
+      // Prepare sale data with wallet references and rename items to products
       const roundedProducts = data.saleData.items.map((item: any) => ({
         ...item,
         unitPrice: this.roundToTwo(item.unitPrice),
@@ -344,22 +360,9 @@ export class BusinessRulesEngine {
         createdBy: data.userId,
         createdByName: data.userName,
       };
-
-      // Remove items field since we renamed it to products
       delete saleDataForSchema.items;
 
-      // 5. Create the sale record with populated wallets array
-      const saleResult = await this.saleSchema.create(saleDataForSchema);
-      if (!saleResult.success) {
-        return { success: false, error: `Sale creation failed: ${saleResult.error}` };
-      }
-
-      const saleId = saleResult.data?.id;
-      if (!saleId) {
-        return { success: false, error: 'La venta fue creada pero no se obtuvo el ID' };
-      }
-
-      // 3. Process wallet transactions
+      // Prepare payment transactions
       const preparedPayments = data.paymentTransactions.map(pt => ({
         ...pt,
         relatedEntityType: 'sale',
@@ -368,128 +371,173 @@ export class BusinessRulesEngine {
         categoryName: 'Venta desde caja diaria'
       }));
 
-      // Process non-cash and non-settlement payments → Wallet transactions FIRST
+      // Categorize payments
       const walletTransactions = preparedPayments.filter(pt =>
         pt.paymentMethodName.toLowerCase() !== 'efectivo' && !this.requiresSettlement(pt.paymentMethodId)
       );
+      const cashTransactions = preparedPayments.filter(pt => pt.paymentMethodName.toLowerCase() === 'efectivo');
+      const settlementTransactions = preparedPayments.filter(pt => this.requiresSettlement(pt.paymentMethodId));
 
-      const walletResults: any[] = [];
-
+      // Pre-validate all payment methods and get account/provider info
+      const walletTxPrepared: any[] = [];
       for (const walletTx of walletTransactions) {
-        // Get account information from payment method
         const accountInfo = this.getAccountFromPaymentMethod(walletTx.paymentMethodId);
         if (!accountInfo) {
           warnings.push(`Account information not found for payment method: ${walletTx.paymentMethodId}`);
           continue;
         }
-
-        // Get provider information if available
         const providerInfo = this.getPaymentProviderInfo(walletTx.paymentMethodId);
-
-        const walletResult = await this.walletSchema.create({
-          businessId: walletTx.businessId,
-          type: walletTx.type,
-          globalCashId: globalCashId,
-          dailyCashSnapshotId: data.dailyCashSnapshotId,
-          paymentMethodId: walletTx.paymentMethodId,
-          paymentMethodName: walletTx.paymentMethodName,
-          paymentProviderId: providerInfo?.paymentProviderId || null,
-          paymentProviderName: providerInfo?.paymentProviderName || null,
-          ownersAccountId: accountInfo.ownersAccountId,
-          ownersAccountName: accountInfo.ownersAccountName,
-          saleId: saleId,
-          amount: this.roundToTwo(walletTx.amount),
-          status: 'paid',
-          isRegistered: walletTx.isReported ?? true, // Use per-payment isReported, default to true
-          notes: walletTx.notes || null,
-          categoryCode: walletTx.categoryCode || null,
-          categoryName: walletTx.categoryName || null,
-          createdBy: walletTx.userId,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
-
-        if (!walletResult.success) {
-          warnings.push(`Wallet transaction failed: ${walletResult.error}`);
-        } else {
-          walletResults.push(walletResult.data);
-        }
+        walletTxPrepared.push({ walletTx, accountInfo, providerInfo });
       }
 
-      // 7. Process cash payments → Daily cash transactions
-      const cashTransactions = preparedPayments.filter(pt => pt.paymentMethodName.toLowerCase() === 'efectivo');
-      const dailyCashTxResults: any[] = [];
-
-      for (const cashTx of cashTransactions) {
-        const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
-          businessId: cashTx.businessId,
-          dailyCashSnapshotId: data.dailyCashSnapshotId,
-          cashRegisterId: data.cashRegisterId,
-          cashRegisterName: data.cashRegisterName,
-          saleId: saleId,
-          type: 'sale',
-          amount: this.roundToTwo(cashTx.amount),
-          isReported: cashTx.isReported ?? false, // Use per-payment isReported
-          createdBy: cashTx.userId,
-          createdByName: cashTx.userName
-        });
-
-        if (!dailyCashTxResult.success) {
-          warnings.push(`Daily cash transaction failed: ${dailyCashTxResult.error}`);
-        } else {
-          dailyCashTxResults.push(dailyCashTxResult.data);
-        }
-      }
-
-      // 8. Process payments that require settlement → Settlements
-      const settlementTransactions = preparedPayments.filter(pt => this.requiresSettlement(pt.paymentMethodId));
-      const settlementResults: any[] = [];
-
+      const settlementTxPrepared: any[] = [];
       for (const settlementTx of settlementTransactions) {
-        // Get provider information for settlement
         const providerInfo = this.getPaymentProviderInfo(settlementTx.paymentMethodId);
         if (!providerInfo) {
           warnings.push(`Payment provider not found for settlement payment method: ${settlementTx.paymentMethodId}`);
           continue;
         }
+        settlementTxPrepared.push({ settlementTx, providerInfo });
+      }
 
-        const settlementResult = await this.settlementSchema.create({
-          businessId: settlementTx.businessId,
-          saleId: saleId,
-          dailyCashSnapshotId: data.dailyCashSnapshotId,
-          cashRegisterId: data.cashRegisterId,
-          cashRegisterName: data.cashRegisterName,
-          amountTotal: this.roundToTwo(settlementTx.amount),
-          paymentMethodId: settlementTx.paymentMethodId,
-          paymentMethodName: settlementTx.paymentMethodName,
-          paymentProviderId: providerInfo.paymentProviderId,
-          paymentProviderName: providerInfo.paymentProviderName,
-          status: 'pending',
-          amountFee: 0, // Will be calculated dynamically when settlement is processed
-          percentageFee: 0, // Will be calculated dynamically when settlement is processed
-          createdBy: settlementTx.userId,
-          createdByName: settlementTx.userName
-        });
+      // Calculate debt amount if partial payment
+      let debtAmount = 0;
+      if (data.saleData.isPaidInFull === false && data.saleData.clientId) {
+        const paymentSum = data.paymentTransactions.reduce((sum, pt) => sum + pt.amount, 0);
+        debtAmount = this.roundToTwo(data.saleData.amountTotal - paymentSum);
+      }
 
-        if (!settlementResult.success) {
-          warnings.push(`Settlement creation failed: ${settlementResult.error}`);
+      // ========== INVENTORY PRE-FETCH (before transaction - reads must come first) ==========
+      const inventoryRecords = new Map<string, any>();
+      const updateInventory = data.updateInventory !== false; // Default to true
+
+      if (updateInventory) {
+        // Use provided inventory data or fetch from schema
+        if (data.inventoryData) {
+          data.inventoryData.forEach((inv, productId) => inventoryRecords.set(productId, inv));
         } else {
-          settlementResults.push(settlementResult.data);
+          // Fetch inventory records for all products in the sale
+          for (const product of roundedProducts) {
+            if (!product.productId) continue;
+
+            const invResult = await this.inventorySchema.find({
+              where: [{ field: 'productId', operator: '==', value: product.productId }],
+              limit: 1
+            });
+
+            if (invResult.success && invResult.data && invResult.data.length > 0) {
+              inventoryRecords.set(product.productId, invResult.data[0]);
+            }
+          }
         }
       }
 
-      // 9. Create debt if partial payment
-      let debtData = null;
-      if (data.saleData.isPaidInFull === false && data.saleData.clientId) {
-        const paymentSum = data.paymentTransactions.reduce((sum, pt) => sum + pt.amount, 0);
-        const remainingAmount = this.roundToTwo(data.saleData.amountTotal - paymentSum);
+      // ========== TRANSACTION PHASE (atomic) ==========
 
-        if (remainingAmount > 0.01) {
+      const transactionResult = await executeTransaction(async (txOptions: TransactionOptions) => {
+        const results = {
+          sale: null as any,
+          wallets: [] as any[],
+          dailyCashTxs: [] as any[],
+          settlements: [] as any[],
+          debt: null as any,
+          inventoryUpdates: [] as any[],
+          inventoryMovements: [] as any[]
+        };
+
+        // 1. Create the sale record
+        const saleResult = await this.saleSchema.create(saleDataForSchema, false, txOptions);
+        if (!saleResult.success) {
+          throw new Error(`Sale creation failed: ${saleResult.error}`);
+        }
+        results.sale = saleResult.data;
+        const saleId = saleResult.data?.id;
+
+        // 2. Create wallet transactions
+        for (const { walletTx, accountInfo, providerInfo } of walletTxPrepared) {
+          const walletResult = await this.walletSchema.create({
+            businessId: walletTx.businessId,
+            type: walletTx.type,
+            globalCashId: globalCashId,
+            dailyCashSnapshotId: data.dailyCashSnapshotId,
+            paymentMethodId: walletTx.paymentMethodId,
+            paymentMethodName: walletTx.paymentMethodName,
+            paymentProviderId: providerInfo?.paymentProviderId || null,
+            paymentProviderName: providerInfo?.paymentProviderName || null,
+            ownersAccountId: accountInfo.ownersAccountId,
+            ownersAccountName: accountInfo.ownersAccountName,
+            saleId: saleId,
+            amount: this.roundToTwo(walletTx.amount),
+            status: 'paid',
+            isRegistered: walletTx.isReported ?? true,
+            notes: walletTx.notes || null,
+            categoryCode: walletTx.categoryCode || null,
+            categoryName: walletTx.categoryName || null,
+            createdBy: walletTx.userId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }, false, txOptions);
+
+          if (!walletResult.success) {
+            throw new Error(`Wallet transaction failed: ${walletResult.error}`);
+          }
+          results.wallets.push(walletResult.data);
+        }
+
+        // 3. Create daily cash transactions
+        for (const cashTx of cashTransactions) {
+          const dailyCashTxResult = await this.dailyCashTransactionSchema.create({
+            businessId: cashTx.businessId,
+            dailyCashSnapshotId: data.dailyCashSnapshotId,
+            cashRegisterId: data.cashRegisterId,
+            cashRegisterName: data.cashRegisterName,
+            saleId: saleId,
+            type: 'sale',
+            amount: this.roundToTwo(cashTx.amount),
+            isReported: cashTx.isReported ?? false,
+            createdBy: cashTx.userId,
+            createdByName: cashTx.userName
+          }, false, txOptions);
+
+          if (!dailyCashTxResult.success) {
+            throw new Error(`Daily cash transaction failed: ${dailyCashTxResult.error}`);
+          }
+          results.dailyCashTxs.push(dailyCashTxResult.data);
+        }
+
+        // 4. Create settlement transactions
+        for (const { settlementTx, providerInfo } of settlementTxPrepared) {
+          const settlementResult = await this.settlementSchema.create({
+            businessId: settlementTx.businessId,
+            saleId: saleId,
+            dailyCashSnapshotId: data.dailyCashSnapshotId,
+            cashRegisterId: data.cashRegisterId,
+            cashRegisterName: data.cashRegisterName,
+            amountTotal: this.roundToTwo(settlementTx.amount),
+            paymentMethodId: settlementTx.paymentMethodId,
+            paymentMethodName: settlementTx.paymentMethodName,
+            paymentProviderId: providerInfo.paymentProviderId,
+            paymentProviderName: providerInfo.paymentProviderName,
+            status: 'pending',
+            amountFee: 0,
+            percentageFee: 0,
+            createdBy: settlementTx.userId,
+            createdByName: settlementTx.userName
+          }, false, txOptions);
+
+          if (!settlementResult.success) {
+            throw new Error(`Settlement creation failed: ${settlementResult.error}`);
+          }
+          results.settlements.push(settlementResult.data);
+        }
+
+        // 5. Create debt if partial payment
+        if (debtAmount > 0.01) {
           const debtResult = await this.debtSchema.create({
             clientId: data.saleData.clientId,
             clientName: data.saleData.clientName,
-            originalAmount: remainingAmount,
-            remainingAmount: remainingAmount,
+            originalAmount: debtAmount,
+            remainingAmount: debtAmount,
             paidAmount: 0,
             originType: 'sale',
             originId: saleId,
@@ -501,54 +549,141 @@ export class BusinessRulesEngine {
             notes: data.saleData.notes || '',
             createdBy: data.userId,
             createdByName: data.userName
-          });
+          }, false, txOptions);
 
           if (!debtResult.success) {
-            warnings.push(`Debt creation failed: ${debtResult.error}`);
-          } else {
-            debtData = debtResult.data;
+            throw new Error(`Debt creation failed: ${debtResult.error}`);
+          }
+          results.debt = debtResult.data;
+        }
+
+        // 6. Update inventory for each product in the sale
+        if (updateInventory && inventoryRecords.size > 0) {
+          for (const product of roundedProducts) {
+            if (!product.productId) continue;
+
+            const inventory = inventoryRecords.get(product.productId);
+            if (!inventory) continue;
+
+            // Calculate new inventory levels based on unit type
+            let newUnitsInStock = inventory.unitsInStock;
+            let newOpenUnitsWeight = inventory.openUnitsWeight;
+            let unitsChange = 0;
+            let weightChange = 0;
+
+            if (product.unitType === 'kg') {
+              weightChange = -product.quantity;
+              newOpenUnitsWeight = Math.max(0, inventory.openUnitsWeight + weightChange);
+            } else {
+              unitsChange = -product.quantity;
+              newUnitsInStock = Math.max(0, inventory.unitsInStock + unitsChange);
+            }
+
+            // Restore original timestamps from fetched data (formatted strings won't work)
+            const inventoryWithOriginalDates = {
+              ...inventory,
+              lastPurchaseAt: inventory.originalLastPurchaseAt || null,
+              lastMovementAt: inventory.originalLastMovementAt || null,
+              createdAt: inventory.originalCreatedAt || null,
+              updatedAt: inventory.originalUpdatedAt || null
+            };
+
+            // Update inventory record
+            const invUpdateResult = await this.inventorySchema.update(
+              inventory.id,
+              {
+                unitsInStock: newUnitsInStock,
+                openUnitsWeight: newOpenUnitsWeight,
+                lastMovementAt: new Date(),
+                lastMovementType: 'sale',
+                lastMovementBy: data.userId
+              },
+              false,
+              { transaction: txOptions.transaction, existingData: inventoryWithOriginalDates }
+            );
+
+            if (!invUpdateResult.success) {
+              throw new Error(`Inventory update failed for ${product.productName}: ${invUpdateResult.error}`);
+            }
+            results.inventoryUpdates.push(invUpdateResult.data);
+
+            // Calculate actual changes (may differ if clamped to 0)
+            const actualUnitsChange = newUnitsInStock - inventory.unitsInStock;
+            const actualWeightChange = newOpenUnitsWeight - inventory.openUnitsWeight;
+
+            // Create inventory movement record
+            const movementResult = await this.inventoryMovementSchema.create({
+              productId: product.productId,
+              productName: product.productName,
+              movementType: 'sale',
+              referenceType: 'sale',
+              referenceId: saleId,
+              quantityChange: actualUnitsChange,
+              weightChange: actualWeightChange,
+              unitCost: null,
+              previousCost: null,
+              totalCost: null,
+              supplierId: null,
+              unitsBefore: inventory.unitsInStock,
+              unitsAfter: newUnitsInStock,
+              weightBefore: inventory.openUnitsWeight,
+              weightAfter: newOpenUnitsWeight,
+              notes: `Venta #${data.saleData.saleNumber}`
+            }, false, txOptions);
+
+            if (!movementResult.success) {
+              throw new Error(`Inventory movement failed for ${product.productName}: ${movementResult.error}`);
+            }
+            results.inventoryMovements.push(movementResult.data);
           }
         }
-      }
 
-      // 10. Update store caches with newly created records
+        return results;
+      });
+
+      // ========== CACHE UPDATE PHASE (after successful commit) ==========
+
       // Add sale to cache
-      if (saleResult.data) {
-        this.cashRegisterStore.addSaleToCache(data.dailyCashSnapshotId, saleResult.data);
+      if (transactionResult.sale) {
+        this.cashRegisterStore.addSaleToCache(data.dailyCashSnapshotId, transactionResult.sale);
       }
 
       // Add wallet transactions to cache
-      walletResults.forEach(wallet => {
+      transactionResult.wallets.forEach(wallet => {
         if (wallet) {
           this.cashRegisterStore.addWalletToCache(data.dailyCashSnapshotId, wallet);
         }
       });
 
       // Add daily cash transactions to cache
-      dailyCashTxResults.forEach(transaction => {
+      transactionResult.dailyCashTxs.forEach(transaction => {
         if (transaction) {
           this.cashRegisterStore.addTransactionToCache(data.dailyCashSnapshotId, transaction);
         }
       });
 
       // Add settlement transactions to cache
-      settlementResults.forEach(settlement => {
+      transactionResult.settlements.forEach(settlement => {
         if (settlement) {
           this.cashRegisterStore.addSettlementToCache(data.dailyCashSnapshotId, settlement);
         }
       });
 
       // Add debt to cache if created
-      if (debtData) {
-        this.cashRegisterStore.addDebtToCache(data.dailyCashSnapshotId, debtData);
+      if (transactionResult.debt) {
+        this.cashRegisterStore.addDebtToCache(data.dailyCashSnapshotId, transactionResult.debt);
       }
+
+      // Note: Inventory cache updates automatically via Firestore subscription
 
       return {
         success: true,
         data: {
-          saleId,
-          walletTransactions: walletResults,
-          settlementTransactions: settlementResults,
+          saleId: transactionResult.sale?.id,
+          walletTransactions: transactionResult.wallets,
+          settlementTransactions: transactionResult.settlements,
+          inventoryUpdated: updateInventory && transactionResult.inventoryUpdates.length > 0,
+          inventoryUpdates: transactionResult.inventoryUpdates,
           warnings
         },
         warnings

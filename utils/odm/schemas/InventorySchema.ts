@@ -1,4 +1,4 @@
-import { Schema } from '../schema';
+import { Schema, type TransactionOptions } from '../schema';
 import type { SchemaDefinition, ValidationResult } from '../types';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 
@@ -208,102 +208,108 @@ export class InventorySchema extends Schema {
   }
 
   // Override create to add custom validations
-  override async create(data: any, validateRefs = false) {
+  override async create(data: any, validateRefs = false, txOptions?: TransactionOptions) {
     // Custom validations
     const movementTypeValidation = this.validateMovementType(data);
     if (!movementTypeValidation.valid) {
-      return { 
-        success: false, 
-        error: `Movement type validation failed: ${movementTypeValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Movement type validation failed: ${movementTypeValidation.errors.map(e => e.message).join(', ')}`
       };
     }
-    
+
     const stockValidation = this.validateStockQuantities(data);
     if (!stockValidation.valid) {
-      return { 
-        success: false, 
-        error: `Stock validation failed: ${stockValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Stock validation failed: ${stockValidation.errors.map(e => e.message).join(', ')}`
       };
     }
-    
+
     const costValidation = this.validateCostValues(data);
     if (!costValidation.valid) {
-      return { 
-        success: false, 
-        error: `Cost validation failed: ${costValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Cost validation failed: ${costValidation.errors.map(e => e.message).join(', ')}`
       };
     }
-    
-    // Validate unique product inventory
-    if (data.productId) {
+
+    // Validate unique product inventory (skip in transaction mode - should be validated before)
+    if (data.productId && !txOptions) {
       const uniqueValidation = await this.validateUniqueProductInventory(data.productId);
       if (!uniqueValidation.valid) {
-        return { 
-          success: false, 
-          error: `Uniqueness validation failed: ${uniqueValidation.errors.map(e => e.message).join(', ')}` 
+        return {
+          success: false,
+          error: `Uniqueness validation failed: ${uniqueValidation.errors.map(e => e.message).join(', ')}`
         };
       }
     }
-    
+
     if (data.unitsInStock !== undefined && data.minimumStock !== undefined) {
       data.isLowStock = this.calculateLowStockStatus(data.unitsInStock, data.minimumStock);
     }
 
-    return super.create(data, validateRefs);
+    return super.create(data, validateRefs, txOptions);
   }
 
   // Override update to add custom validations
-  override async update(id: string, data: any, validateRefs = false) {
+  override async update(id: string, data: any, validateRefs = false, txOptions?: TransactionOptions) {
     // Apply same custom validations on update
     const movementTypeValidation = this.validateMovementType(data);
     if (!movementTypeValidation.valid) {
-      return { 
-        success: false, 
-        error: `Movement type validation failed: ${movementTypeValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Movement type validation failed: ${movementTypeValidation.errors.map(e => e.message).join(', ')}`
       };
     }
-    
+
     const stockValidation = this.validateStockQuantities(data);
     if (!stockValidation.valid) {
-      return { 
-        success: false, 
-        error: `Stock validation failed: ${stockValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Stock validation failed: ${stockValidation.errors.map(e => e.message).join(', ')}`
       };
     }
-    
+
     const costValidation = this.validateCostValues(data);
     if (!costValidation.valid) {
-      return { 
-        success: false, 
-        error: `Cost validation failed: ${costValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Cost validation failed: ${costValidation.errors.map(e => e.message).join(', ')}`
       };
     }
-    
-    // Validate unique product inventory if productId is being updated
-    if (data.productId) {
+
+    // Validate unique product inventory if productId is being updated (skip in transaction mode)
+    if (data.productId && !txOptions) {
       const uniqueValidation = await this.validateUniqueProductInventory(data.productId, id);
       if (!uniqueValidation.valid) {
-        return { 
-          success: false, 
-          error: `Uniqueness validation failed: ${uniqueValidation.errors.map(e => e.message).join(', ')}` 
+        return {
+          success: false,
+          error: `Uniqueness validation failed: ${uniqueValidation.errors.map(e => e.message).join(', ')}`
         };
       }
     }
-    
+
     // Get current data to calculate derived fields
-    const currentResult = await this.findById(id);
-    if (!currentResult.success || !currentResult.data) {
-      return { success: false, error: 'Failed to fetch current inventory data' };
+    // In transaction mode, use existingData if provided, otherwise fetch via transaction
+    let currentData: any;
+    if (txOptions?.existingData) {
+      currentData = txOptions.existingData;
+    } else {
+      const currentResult = await this.findById(id, txOptions);
+      if (!currentResult.success || !currentResult.data) {
+        return { success: false, error: 'Failed to fetch current inventory data' };
+      }
+      currentData = currentResult.data;
     }
-    
-    const currentData = currentResult.data;
+
     const updatedData = { ...currentData, ...data };
-    
+
     if (updatedData.unitsInStock !== undefined && updatedData.minimumStock !== undefined) {
       data.isLowStock = this.calculateLowStockStatus(updatedData.unitsInStock, updatedData.minimumStock);
     }
 
-    return super.update(id, data, validateRefs);
+    return super.update(id, data, validateRefs, txOptions);
   }
 
 }

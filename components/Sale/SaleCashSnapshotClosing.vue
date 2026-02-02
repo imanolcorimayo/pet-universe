@@ -348,11 +348,11 @@ function getRegisterName(registerId) {
 
 function initializeClosingBalances() {
   if (!currentSnapshot.value?.openingBalances) return;
-  
+
   // Initialize closing balances with calculated values
   currentSnapshot.value.openingBalances.forEach(balance => {
     const calculated = getCalculatedBalance(balance.ownersAccountId, balance.amount);
-    closingBalances.value[balance.ownersAccountId] = calculated;
+    closingBalances.value[balance.ownersAccountId] = Math.round(calculated * 100) / 100;
     calculateDiscrepancy(balance.ownersAccountId);
   });
 }

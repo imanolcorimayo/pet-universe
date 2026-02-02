@@ -1,4 +1,4 @@
-import { Schema } from '../schema';
+import { Schema, type TransactionOptions } from '../schema';
 import type { SchemaDefinition, ValidationResult } from '../types';
 
 export class InventoryMovementSchema extends Schema {
@@ -257,48 +257,48 @@ export class InventoryMovementSchema extends Schema {
   }
 
   // Override create to add custom validations
-  override async create(data: any, validateRefs = false) {
+  override async create(data: any, validateRefs = false, txOptions?: TransactionOptions) {
     // Custom validations
     const movementTypeValidation = this.validateMovementType(data);
     if (!movementTypeValidation.valid) {
-      return { 
-        success: false, 
-        error: `Movement type validation failed: ${movementTypeValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Movement type validation failed: ${movementTypeValidation.errors.map(e => e.message).join(', ')}`
       };
     }
-    
+
     const referenceTypeValidation = this.validateReferenceType(data);
     if (!referenceTypeValidation.valid) {
-      return { 
-        success: false, 
-        error: `Reference type validation failed: ${referenceTypeValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Reference type validation failed: ${referenceTypeValidation.errors.map(e => e.message).join(', ')}`
       };
     }
-    
+
     const consistencyValidation = this.validateMovementConsistency(data);
     if (!consistencyValidation.valid) {
-      return { 
-        success: false, 
-        error: `Movement consistency validation failed: ${consistencyValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Movement consistency validation failed: ${consistencyValidation.errors.map(e => e.message).join(', ')}`
       };
     }
-    
+
     const costValidation = this.validateCostInformation(data);
     if (!costValidation.valid) {
-      return { 
-        success: false, 
-        error: `Cost validation failed: ${costValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Cost validation failed: ${costValidation.errors.map(e => e.message).join(', ')}`
       };
     }
-    
+
     const snapshotValidation = this.validateSnapshots(data);
     if (!snapshotValidation.valid) {
-      return { 
-        success: false, 
-        error: `Snapshot validation failed: ${snapshotValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Snapshot validation failed: ${snapshotValidation.errors.map(e => e.message).join(', ')}`
       };
     }
-    
+
     // Add created by name if not provided
     if (!data.createdByName) {
       const user = this.getCurrentUser();
@@ -306,8 +306,8 @@ export class InventoryMovementSchema extends Schema {
         data.createdByName = user.value.displayName || user.value.email || 'Unknown User';
       }
     }
-    
-    return super.create(data, validateRefs);
+
+    return super.create(data, validateRefs, txOptions);
   }
 
   // Override update to prevent modifications (movements should be immutable)
