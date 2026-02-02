@@ -303,9 +303,9 @@ export class SaleSchema extends Schema {
       return sum + (product.totalPrice || 0);
     }, 0);
 
-    // Calculate expected discount total from products
+    // Calculate expected discount total from products (appliedDiscount is per-unit, multiply by quantity)
     const calculatedDiscountTotal = data.products.reduce((sum: number, product: any) => {
-      return sum + (product.appliedDiscount || 0);
+      return sum + ((product.appliedDiscount || 0) * (product.quantity || 1));
     }, 0);
 
     // Validate discount total if provided

@@ -754,7 +754,9 @@ const subtotal = computed(() => {
 
 
 const totalDiscount = computed(() => {
-  return roundToTwo(saleItems.value.reduce((sum, item) => sum + getTotalItemDiscount(item), 0));
+  return roundToTwo(saleItems.value.reduce((sum, item) => {
+    return sum + ((item.appliedDiscount || 0) * (item.quantity || 1));
+  }, 0));
 });
 
 const total = computed(() => {
@@ -1375,25 +1377,34 @@ async function submitForm() {
     // Generate unique sale number for this daily cash snapshot
     const saleNumber = cashRegisterStore.generateNextSaleNumber();
     
+    // Prepare items first so we can calculate discountTotal from them directly
+    const preparedItems = saleItems.value.map(item => ({
+      productId: item.productId,
+      productName: item.productName,
+      quantity: roundToTwo(item.quantity),
+      unitType: item.unitType,
+      unitPrice: roundToTwo(item.unitPrice),
+      totalPrice: roundToTwo(item.totalPrice),
+      appliedDiscount: roundToTwo(item.appliedDiscount || 0),
+      priceType: item.priceType,
+      customDiscount: roundToTwo(item.customDiscount || 0),
+      customDiscountType: item.customDiscountType || 'amount'
+    }));
+
+    // Calculate discountTotal directly from prepared items to ensure consistency
+    const calculatedDiscountTotal = roundToTwo(
+      preparedItems.reduce((sum, item) => sum + (item.appliedDiscount * item.quantity), 0)
+    );
+
     // Prepare sale data using BusinessRulesEngine structure
     const saleData = {
       saleNumber,
       clientId: selectedClientId.value || null,
       clientName,
-      items: saleItems.value.map(item => ({
-        productId: item.productId,
-        productName: item.productName,
-        quantity: roundToTwo(item.quantity),
-        unitType: item.unitType,
-        unitPrice: roundToTwo(item.unitPrice),
-        totalPrice: roundToTwo(item.totalPrice),
-        appliedDiscount: roundToTwo(item.appliedDiscount || 0),
-        priceType: item.priceType,
-        customDiscount: roundToTwo(item.customDiscount || 0),
-        customDiscountType: item.customDiscountType || 'amount'
-      })),
+      items: preparedItems,
       amountTotal: roundToTwo(total.value),
-      discountTotal: roundToTwo(totalDiscount.value),
+      discountTotal: calculatedDiscountTotal,
+      isReported: isReported.value,
       isPaidInFull: paymentDifference.value <= 0.01,
       dueDate: createDebtForDifference.value && debtDueDate.value ? new Date(debtDueDate.value) : null,
       notes: notes.value || ''

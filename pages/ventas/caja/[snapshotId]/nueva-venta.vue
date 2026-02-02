@@ -617,24 +617,49 @@ async function submitSale() {
     // Calculate payment difference
     const paymentDifference = roundToTwo(total - paymentTotal);
 
+    // Build sale items with proper discount calculation
+    const saleItems = cartItems.value.map(item => {
+      // Calculate the per-unit discount amount
+      // This includes both price type discounts (regularPrice - unitPrice) and custom discounts
+      const baseTotal = roundToTwo(item.quantity * item.unitPrice);
+      let customDiscountAmount = 0;
+      if (item.customDiscount > 0) {
+        if (item.customDiscountType === 'percentage') {
+          customDiscountAmount = roundToTwo(baseTotal * (item.customDiscount / 100));
+        } else {
+          customDiscountAmount = roundToTwo(item.customDiscount);
+        }
+      }
+      // Per-unit applied discount
+      const appliedDiscount = item.quantity > 0 ? roundToTwo(customDiscountAmount / item.quantity) : 0;
+
+      return {
+        productId: item.productId,
+        productName: item.productName,
+        quantity: roundToTwo(item.quantity),
+        unitType: item.unitType,
+        unitPrice: roundToTwo(item.unitPrice),
+        totalPrice: roundToTwo(item.totalPrice),
+        appliedDiscount,
+        priceType: item.priceType,
+        customDiscount: roundToTwo(item.customDiscount || 0),
+        customDiscountType: item.customDiscountType || 'amount'
+      };
+    });
+
+    // Calculate discountTotal from prepared items
+    const discountTotal = roundToTwo(
+      saleItems.reduce((sum, item) => sum + (item.appliedDiscount * item.quantity), 0)
+    );
+
     // Build sale data
     const saleData = {
       saleNumber,
       clientId: selectedClientId.value || null,
       clientName,
-      items: cartItems.value.map(item => ({
-        productId: item.productId,
-        productName: item.productName,
-        quantity: item.quantity,
-        unitType: item.unitType,
-        unitPrice: item.unitPrice,
-        totalPrice: item.totalPrice,
-        appliedDiscount: item.customDiscount || 0,
-        priceType: item.priceType,
-        customDiscount: item.customDiscount || 0,
-        customDiscountType: item.customDiscountType || 'amount'
-      })),
+      items: saleItems,
       amountTotal: total,
+      discountTotal,
       isPaidInFull,
       isReported: isReported.value,
       notes: '',
