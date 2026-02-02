@@ -1393,6 +1393,7 @@ async function submitForm() {
         customDiscountType: item.customDiscountType || 'amount'
       })),
       amountTotal: roundToTwo(total.value),
+      discountTotal: roundToTwo(totalDiscount.value),
       isPaidInFull: paymentDifference.value <= 0.01,
       dueDate: createDebtForDifference.value && debtDueDate.value ? new Date(debtDueDate.value) : null,
       notes: notes.value || ''
