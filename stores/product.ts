@@ -545,12 +545,13 @@ export const useProductStore = defineStore("product", {
 
         // Add product to the local state
         const newProduct: Product = result.data as Product;
-        
+
         // Initialize inventory record using inventory store
         const inventoryStore = useInventoryStore();
         const inventoryCreated = await inventoryStore.createInventory(
           newProduct.id,
-          formData.minimumStock || 0
+          formData.minimumStock || 0,
+          newProduct.name
         );
 
         if (!inventoryCreated) {

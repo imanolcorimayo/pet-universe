@@ -7,13 +7,7 @@
     :click-propagation-filter="['confirm-dialogue-modal']"
   >
     <template #default>
-      <div v-if="loading" class="flex justify-center items-center py-12">
-        <div
-          class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"
-        ></div>
-      </div>
-
-      <div v-else-if="product" class="space-y-6">
+      <div v-if="product" class="space-y-6">
         <!-- Product Info Card -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-md font-medium mb-3">Producto</h3>
@@ -402,35 +396,13 @@
         </div>
 
         <!-- Stock Movement History -->
-        <div v-if="stockHistory.length > 0">
-          <div class="flex justify-between items-center mb-2">
-            <h3 class="font-medium text-gray-700">Historial reciente</h3>
-          </div>
-          <div
-            class="bg-gray-50 p-3 rounded-lg max-h-[200px] overflow-y-auto border border-gray-200"
-          >
-            <div
-              v-for="(movement, index) in stockHistory"
-              :key="index"
-              class="py-2 border-b border-gray-200 last:border-b-0"
-            >
-              <div class="flex justify-between">
-                <span class="text-sm font-medium">
-                  {{ formatMovementType(movement.movementType) }}:
-                  <span :class="getMovementChangeColor(movement)">
-                    {{ formatMovementChange(movement) }}
-                  </span>
-                </span>
-                <span class="text-xs text-gray-500">{{
-                  movement.createdAt
-                }}</span>
-              </div>
-              <div class="text-xs text-gray-600 mt-1">
-                {{ movement.notes || getDefaultMovementDescription(movement) }}
-              </div>
-            </div>
-          </div>
-        </div>
+        <InventoryMovementHistory
+          ref="movementHistoryRef"
+          :product-id="props.productId"
+          title="Historial reciente"
+          :items-per-page="10"
+          max-height="200px"
+        />
       </div>
 
       <div v-else class="text-center py-8">
@@ -500,16 +472,15 @@ const emit = defineEmits(["adjustment-saved"]);
 
 // ----- Define Refs ---------
 const mainModal = ref(null);
+const movementHistoryRef = ref(null);
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
 const suppliersStore = useSupplierStore();
 const globalCashRegisterStore = useGlobalCashRegisterStore();
 const paymentMethodsStore = usePaymentMethodsStore();
 const indexStore = useIndexStore();
-const loading = ref(false);
 const isSubmitting = ref(false);
 const inventoryData = ref(null);
-const stockHistory = ref([]);
 const showSupplierDropdown = ref(false);
 const filteredSuppliers = ref([]);
 const confirmDialog = ref(null);
@@ -780,58 +751,47 @@ function calculateFromTotal() {
   };
 }
 
-async function loadInventoryData() {
-  loading.value = true;
-  try {
-    // Load business config for payment methods
-    if (!indexStore.businessConfigFetched) {
-      await indexStore.loadBusinessConfig();
+// Load inventory data from cache (instant) and set up form
+function loadInventoryFromCache() {
+  // Get inventory data from store (main page already subscribes)
+  inventoryData.value = inventoryStore.getInventoryByProductId(props.productId);
+
+  if (inventoryData.value) {
+    calculatedValues.value = {
+      newUnits: inventoryData.value.unitsInStock,
+      newWeight: Number(inventoryData.value.openUnitsWeight),
+      newCost: inventoryData.value.lastPurchaseCost,
+      unitsChange: 0,
+      weightChange: 0,
+    };
+
+    // Set initial form values - use lastPurchaseCost as default
+    formData.value.unitCost = inventoryData.value.lastPurchaseCost;
+
+    // If adjustment type
+    if (formData.value.movementType === "adjustment") {
+      formData.value.newStock = inventoryData.value.unitsInStock;
+      formData.value.newWeight = inventoryData.value.openUnitsWeight;
+      formData.value.newCost = inventoryData.value.lastPurchaseCost;
     }
-
-    // Get inventory data from store (main page already subscribes)
-    inventoryData.value = inventoryStore.getInventoryByProductId(props.productId);
-
-    if (inventoryData.value) {
-      calculatedValues.value = {
-        newUnits: inventoryData.value.unitsInStock,
-        newWeight: Number(inventoryData.value.openUnitsWeight),
-        newCost: inventoryData.value.lastPurchaseCost,
-        unitsChange: 0,
-        weightChange: 0,
-      };
-
-      // Set initial form values - use lastPurchaseCost as default
-      formData.value.unitCost = inventoryData.value.lastPurchaseCost;
-
-      // If adjustment type
-      if (formData.value.movementType === "adjustment") {
-        formData.value.newStock = inventoryData.value.unitsInStock;
-        formData.value.newWeight = inventoryData.value.openUnitsWeight;
-        formData.value.newCost = inventoryData.value.lastPurchaseCost;
-      }
-    }
-
-    // Load movement history
-    await loadStockHistory();
-
-    // Load suppliers for autocomplete
-    await loadSuppliers();
-  } catch (error) {
-    console.error("Error loading inventory data:", error);
-    useToast(ToastEvents.error, "Error al cargar los datos de inventario");
-  } finally {
-    loading.value = false;
   }
 }
 
-async function loadStockHistory() {
+// Load async data (suppliers) - runs in background
+async function loadAsyncData() {
   try {
-    const movements = await inventoryStore.fetchMovementsForProduct(
-      props.productId
-    );
-    stockHistory.value = movements.slice(0, 5); // Show only the 5 most recent
+    // Load business config for payment methods if needed
+    if (!indexStore.businessConfigFetched) {
+      indexStore.loadBusinessConfig();
+    }
+
+    // Load suppliers for autocomplete
+    await loadSuppliers();
+
+    // Trigger movement history load via component ref
+    movementHistoryRef.value?.loadMovements();
   } catch (error) {
-    console.error("Error loading stock history:", error);
+    console.error("Error loading async data:", error);
   }
 }
 
@@ -841,62 +801,6 @@ async function loadSuppliers() {
   } catch (error) {
     console.error("Error loading suppliers:", error);
   }
-}
-
-function formatMovementType(type) {
-  const typeMap = {
-    sale: "Venta",
-    purchase: "Compra",
-    adjustment: "Ajuste",
-    opening: "Apertura",
-    addition: "Adición",
-    loss: "Pérdida",
-  };
-
-  return typeMap[type] || "Movimiento";
-}
-
-function getDefaultMovementDescription(movement) {
-  if (movement.notes) return movement.notes;
-
-  switch (movement.movementType) {
-    case "purchase":
-      return movement.supplierId
-        ? `Compra de proveedor`
-        : "Compra de inventario";
-    case "sale":
-      return "Venta de producto";
-    case "adjustment":
-      return "Ajuste manual de inventario";
-    case "opening":
-      return "Registro inicial de inventario";
-    default:
-      return "";
-  }
-}
-
-function formatMovementChange(movement) {
-  const parts = [];
-  if (movement.quantityChange !== 0) {
-    const sign = movement.quantityChange > 0 ? "+" : "";
-    parts.push(`${sign}${movement.quantityChange} ${product.value?.unitType || "unidad"}(s)`);
-  }
-  if (movement.weightChange !== 0) {
-    const sign = movement.weightChange > 0 ? "+" : "";
-    parts.push(`${sign}${movement.weightChange} kg`);
-  }
-  if (movement.unitCost && movement.previousCost !== null && movement.unitCost !== movement.previousCost) {
-    parts.push(`Costo: $${movement.previousCost} → $${movement.unitCost}`);
-  }
-  return parts.length > 0 ? parts.join(", ") : "Sin cambios";
-}
-
-function getMovementChangeColor(movement) {
-  const hasPositive = movement.quantityChange > 0 || movement.weightChange > 0;
-  const hasNegative = movement.quantityChange < 0 || movement.weightChange < 0;
-  if (hasPositive && !hasNegative) return "text-green-600";
-  if (hasNegative && !hasPositive) return "text-red-600";
-  return "text-gray-600";
 }
 
 function formatChangeDescription(units, weight, isDual) {
@@ -998,6 +902,7 @@ async function saveAdjustment() {
       case "addition":
         success = await inventoryStore.addInventory({
           productId: props.productId,
+          productName: product.value?.name || '',
           unitsChange: formData.value.unitsChange,
           weightChange: formData.value.weightChange,
           unitCost: formData.value.unitCost,
@@ -1010,16 +915,17 @@ async function saveAdjustment() {
       case "loss":
         success = await inventoryStore.reduceInventory({
           productId: props.productId,
+          productName: product.value?.name || '',
           unitsChange: formData.value.unitsChange,
           weightChange: formData.value.weightChange,
           notes: formData.value.notes,
-          isLoss: true,
         });
         break;
 
       case "adjustment":
         success = await inventoryStore.adjustInventoryToValues({
           productId: props.productId,
+          productName: product.value?.name || '',
           newUnits: formData.value.newStock,
           newWeight: formData.value.newWeight,
           newCost: formData.value.newCost,
@@ -1030,6 +936,8 @@ async function saveAdjustment() {
       case "convert":
         success = await inventoryStore.convertUnitsToWeight({
           productId: props.productId,
+          productName: product.value?.name || '',
+          trackingType: product.value?.trackingType || '',
           unitsToConvert: formData.value.unitsToConvert,
           weightPerUnit: formData.value.weightPerUnit,
           notes: formData.value.notes || `Conversión de ${formData.value.unitsToConvert} unidad(es) a ${calculateTotalWeight.value} kg`,
@@ -1037,6 +945,8 @@ async function saveAdjustment() {
     }
 
     if (success) {
+      // Refresh movement history for this product (clear cache)
+      movementHistoryRef.value?.refresh();
       emit("adjustment-saved");
       closeModal();
     }
@@ -1049,32 +959,32 @@ async function saveAdjustment() {
 }
 
 defineExpose({
-  showModal: async () => {
+  showModal: () => {
     resetForm();
-    await nextTick();
-    await loadInventoryData();
+    loadInventoryFromCache();
     mainModal.value?.showModal();
+    loadAsyncData();
   },
-  showAddInventoryModal: async () => {
+  showAddInventoryModal: () => {
     resetForm();
-    await nextTick();
-    await loadInventoryData();
+    loadInventoryFromCache();
     selectMovementType("addition");
     mainModal.value?.showModal();
+    loadAsyncData();
   },
-  showReduceInventoryModal: async () => {
+  showReduceInventoryModal: () => {
     resetForm();
-    await nextTick();
-    await loadInventoryData();
+    loadInventoryFromCache();
     selectMovementType("loss");
     mainModal.value?.showModal();
+    loadAsyncData();
   },
-  showAdjustInventoryModal: async () => {
+  showAdjustInventoryModal: () => {
     resetForm();
-    await nextTick();
-    await loadInventoryData();
+    loadInventoryFromCache();
     selectMovementType("adjustment");
     mainModal.value?.showModal();
+    loadAsyncData();
   }
 });
 </script>

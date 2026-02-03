@@ -1,8 +1,10 @@
 import { defineStore } from "pinia";
+import { useCurrentUser } from "vuefire";
 import { ToastEvents } from "~/interfaces";
 import { useToast } from "~/composables/useToast";
 import { InventorySchema } from "~/utils/odm/schemas/InventorySchema";
 import { InventoryMovementSchema } from "~/utils/odm/schemas/InventoryMovementSchema";
+import { executeTransaction, type TransactionOptions } from "~/utils/odm/schema";
 import { serverTimestamp } from "firebase/firestore";
 import { roundUpPrice } from "~/utils/index";
 
@@ -60,6 +62,7 @@ interface InventoryMovement {
 // Form interfaces
 interface InventoryAdjustmentData {
   productId: string;
+  productName?: string;
   unitsChange: number;
   weightChange: number;
   reason: string;
@@ -84,6 +87,7 @@ interface InventoryState {
  */
 interface InventoryAdditionData {
   productId: string;
+  productName?: string;
   unitsChange: number;
   weightChange: number;
   unitCost: number;
@@ -98,6 +102,7 @@ interface InventoryAdditionData {
 
 interface InventoryReductionData {
   productId: string;
+  productName?: string;
   unitsChange: number;
   weightChange: number;
   reason?: string | null;
@@ -106,6 +111,7 @@ interface InventoryReductionData {
 
 interface InventoryAdjustmentToValuesData {
   productId: string;
+  productName?: string;
   newUnits: number;
   newWeight: number;
   newCost: number;
@@ -113,6 +119,8 @@ interface InventoryAdjustmentToValuesData {
 }
 interface UnitConversionData {
   productId: string;
+  productName: string;
+  trackingType: string;
   unitsToConvert: number;
   weightPerUnit: number;
   notes?: string;
@@ -240,7 +248,7 @@ export const useInventoryStore = defineStore("inventory", {
     },
     
     // Create a new inventory record for a product
-    async createInventory(productId: string, minimumStock: number = 0): Promise<boolean> {
+    async createInventory(productId: string, minimumStock: number = 0, productName?: string): Promise<boolean> {
       try {
         this.isLoading = true;
 
@@ -271,6 +279,7 @@ export const useInventoryStore = defineStore("inventory", {
         // Add initial inventory movement
         await this.recordInventoryMovement({
           productId: productId,
+          productName: productName,
           movementType: "opening",
           referenceType: "manual_adjustment",
           referenceId: null,
@@ -299,23 +308,19 @@ export const useInventoryStore = defineStore("inventory", {
     },
     
     // Update inventory basic info (minimum stock)
+    // Uses cached inventory data for performance
     async updateInventoryInfo(productId: string, minimumStock: number): Promise<boolean> {
+      // Use cached inventory from real-time subscription
+      const existingInventory = this.inventoryByProductId.get(productId);
+
+      if (!existingInventory) {
+        // Create new inventory if it doesn't exist
+        return await this.createInventory(productId, minimumStock);
+      }
+
       try {
         this.isLoading = true;
-
         const inventorySchema = this._getInventorySchema();
-
-        // Find existing inventory record
-        const existingResult = await inventorySchema.find({
-          where: [{ field: 'productId', operator: '==', value: productId }],
-          limit: 1
-        });
-        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
-          // Create new inventory if it doesn't exist
-          return await this.createInventory(productId, minimumStock);
-        }
-
-        const existingInventory = existingResult.data[0];
 
         // Update existing inventory
         const result = await inventorySchema.update(existingInventory.id, {
@@ -339,84 +344,90 @@ export const useInventoryStore = defineStore("inventory", {
     },
     
     // Adjust inventory for a product
+    // Uses cached inventory data and atomic transaction for performance
     async adjustInventory(adjustmentData: InventoryAdjustmentData): Promise<boolean> {
+      const user = useCurrentUser();
+      if (!user.value?.uid) return false;
+
+      // Use cached inventory from real-time subscription
+      const existingInventory = this.inventoryByProductId.get(adjustmentData.productId);
+      if (!existingInventory) {
+        useToast(ToastEvents.error, "No se encontró el registro de inventario");
+        return false;
+      }
+
+      // Calculate new inventory levels
+      let newUnitsInStock = existingInventory.unitsInStock + adjustmentData.unitsChange;
+      let newOpenUnitsWeight = existingInventory.openUnitsWeight + adjustmentData.weightChange;
+
+      // Clamp to 0 if values would go negative and show warning
+      let showNegativeWarning = false;
+      if (newUnitsInStock < 0) {
+        newUnitsInStock = 0;
+        showNegativeWarning = true;
+      }
+      if (newOpenUnitsWeight < 0) {
+        newOpenUnitsWeight = 0;
+        showNegativeWarning = true;
+      }
+
+      if (showNegativeWarning) {
+        useToast(ToastEvents.warning, "El inventario se ajustó a 0 (la cantidad vendida excedía el stock disponible)");
+      }
+
+      // Calculate actual changes (may differ from requested if clamped)
+      const actualUnitsChange = newUnitsInStock - existingInventory.unitsInStock;
+      const actualWeightChange = newOpenUnitsWeight - existingInventory.openUnitsWeight;
+
       try {
         this.isLoading = true;
-        
-        const inventorySchema = this._getInventorySchema();
-        
-        // Get existing inventory record
-        const existingResult = await inventorySchema.find({
-          where: [{ field: 'productId', operator: '==', value: adjustmentData.productId }],
-          limit: 1
-        });
-        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
-          useToast(ToastEvents.error, "No se encontró el registro de inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        const existingInventory = existingResult.data[0];
+        const { $dayjs } = useNuxtApp();
 
-        // Calculate new inventory levels
-        let newUnitsInStock = existingInventory.unitsInStock + adjustmentData.unitsChange;
-        let newOpenUnitsWeight = existingInventory.openUnitsWeight + adjustmentData.weightChange;
+        // Execute inventory update + movement creation in a single atomic transaction
+        await executeTransaction(async (txOptions: TransactionOptions) => {
+          const inventorySchema = this._getInventorySchema();
+          const movementSchema = this._getInventoryMovementSchema();
 
-        // Clamp to 0 if values would go negative and show warning
-        let showNegativeWarning = false;
-        if (newUnitsInStock < 0) {
-          newUnitsInStock = 0;
-          showNegativeWarning = true;
-        }
-        if (newOpenUnitsWeight < 0) {
-          newOpenUnitsWeight = 0;
-          showNegativeWarning = true;
-        }
+          // Update inventory
+          const updateResult = await inventorySchema.update(existingInventory.id, {
+            unitsInStock: newUnitsInStock,
+            openUnitsWeight: newOpenUnitsWeight,
+            lastMovementAt: $dayjs().toDate(),
+            lastMovementType: "adjustment",
+            lastMovementBy: user.value!.uid,
+          }, false, txOptions);
 
-        if (showNegativeWarning) {
-          useToast(ToastEvents.warning, "El inventario se ajustó a 0 (la cantidad vendida excedía el stock disponible)");
-        }
+          if (!updateResult.success) {
+            throw new Error(updateResult.error || "Error al ajustar inventario");
+          }
 
-        // Update inventory using schema
-        const result = await inventorySchema.update(existingInventory.id, {
-          unitsInStock: newUnitsInStock,
-          openUnitsWeight: newOpenUnitsWeight,
-          lastMovementAt: serverTimestamp(),
-          lastMovementType: "adjustment",
-          lastMovementBy: useCurrentUser().value?.uid || '',
-        });
-        
-        if (!result.success) {
-          useToast(ToastEvents.error, result.error || "Hubo un error al ajustar el inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Calculate actual changes (may differ from requested if clamped)
-        const actualUnitsChange = newUnitsInStock - existingInventory.unitsInStock;
-        const actualWeightChange = newOpenUnitsWeight - existingInventory.openUnitsWeight;
+          // Create movement record
+          const movementResult = await movementSchema.create({
+            productId: adjustmentData.productId,
+            productName: adjustmentData.productName || 'Producto desconocido',
+            movementType: "adjustment",
+            referenceType: "manual_adjustment",
+            referenceId: null,
+            quantityChange: actualUnitsChange,
+            weightChange: actualWeightChange,
+            unitCost: null,
+            previousCost: null,
+            totalCost: null,
+            supplierId: null,
+            unitsBefore: existingInventory.unitsInStock,
+            unitsAfter: newUnitsInStock,
+            weightBefore: existingInventory.openUnitsWeight,
+            weightAfter: newOpenUnitsWeight,
+            notes: adjustmentData.notes,
+          }, false, txOptions);
 
-        // Record inventory movement with actual changes
-        const success = await this.recordInventoryMovement({
-          productId: adjustmentData.productId,
-          movementType: "adjustment",
-          referenceType: "manual_adjustment",
-          referenceId: null,
-          quantityChange: actualUnitsChange,
-          weightChange: actualWeightChange,
-          unitCost: null,
-          previousCost: null,
-          totalCost: null,
-          supplierId: null,
-          unitsBefore: existingInventory.unitsInStock,
-          unitsAfter: newUnitsInStock,
-          weightBefore: existingInventory.openUnitsWeight,
-          weightAfter: newOpenUnitsWeight,
-          notes: adjustmentData.notes,
+          if (!movementResult.success) {
+            throw new Error(movementResult.error || "Error al registrar movimiento");
+          }
         });
 
         this.isLoading = false;
-        return success;
+        return true;
       } catch (error) {
         console.error("Error adjusting inventory:", error);
         useToast(ToastEvents.error, "Hubo un error al ajustar el inventario. Por favor intenta nuevamente.");
@@ -428,6 +439,7 @@ export const useInventoryStore = defineStore("inventory", {
     // Record inventory movement
     async recordInventoryMovement(data: {
       productId: string;
+      productName?: string;
       movementType: "sale" | "purchase" | "adjustment" | "opening" | "loss";
       referenceType: "sale" | "purchase_order" | "manual_adjustment";
       referenceId: string | null;
@@ -446,15 +458,10 @@ export const useInventoryStore = defineStore("inventory", {
       try {
         const movementSchema = this._getInventoryMovementSchema();
 
-        // Get product name from product store
-        const productStore = useProductStore();
-        const product = productStore.getProductById(data.productId);
-        const productName = product?.name || 'Producto desconocido';
-
         // Create movement record
         const result = await movementSchema.create({
           productId: data.productId,
-          productName: productName,
+          productName: data.productName || 'Producto desconocido',
           movementType: data.movementType,
           referenceType: data.referenceType,
           referenceId: data.referenceId,
@@ -496,87 +503,83 @@ export const useInventoryStore = defineStore("inventory", {
     
     // Add inventory from purchases
     // Payment logic has been migrated to BusinessRulesEngine.ts (see SupplierPurchaseModal.vue)
+    // Uses cached inventory data and atomic transaction for performance
     async addInventory(data: InventoryAdditionData): Promise<boolean> {
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
 
+      // Use cached inventory from real-time subscription (no Firestore query needed)
+      const existingInventory = this.inventoryByProductId.get(data.productId);
+      if (!existingInventory) {
+        useToast(ToastEvents.error, "No se encontró el registro de inventario");
+        return false;
+      }
+
+      const currentUnits = existingInventory.unitsInStock || 0;
+      const currentWeight = existingInventory.openUnitsWeight || 0;
+      const currentCost = existingInventory.lastPurchaseCost || 0;
+
+      const newUnitsInStock = currentUnits + data.unitsChange;
+      const newOpenUnitsWeight = currentWeight + data.weightChange;
+
+      // Calculate if product is low in stock
+      const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
+
       try {
         this.isLoading = true;
-        
-        // Get existing inventory record using schema
-        const inventorySchema = this._getInventorySchema();
-        const existingResult = await inventorySchema.find({
-          where: [
-            { field: 'businessId', operator: '==', value: currentBusinessId.value },
-            { field: 'productId', operator: '==', value: data.productId }
-          ],
-          limit: 1
-        });
-        
-        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
-          useToast(ToastEvents.error, "No se encontró el registro de inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        const existingInventory = existingResult.data[0];
-        
-        const currentUnits = existingInventory.unitsInStock || 0;
-        const currentWeight = existingInventory.openUnitsWeight || 0;
-        const currentCost = existingInventory.lastPurchaseCost || 0;
-
-        const newUnitsInStock = currentUnits + data.unitsChange;
-        const newOpenUnitsWeight = currentWeight + data.weightChange;
-
-        // Calculate if product is low in stock
-        const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
-        
         const { $dayjs } = useNuxtApp();
-        const updateResult = await inventorySchema.update(existingInventory.id, {
-          unitsInStock: newUnitsInStock,
-          openUnitsWeight: newOpenUnitsWeight,
-          lastPurchaseCost: data.unitCost,
-          isLowStock: isLowStock,
-          lastPurchaseAt: $dayjs().toDate(),
-          lastSupplierId: data.supplierId || null,
-          lastMovementAt: $dayjs().toDate(),
-          lastMovementType: "purchase",
-          lastMovementBy: user.value.uid,
-        });
-        
-        if (!updateResult.success) {
-          console.error("Error updating inventory:", updateResult.error);
-          useToast(ToastEvents.error, updateResult.error || "Error al actualizar inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Record inventory movement
-        const success = await this.recordInventoryMovement({
-          productId: data.productId,
-          movementType: "purchase",
-          referenceType: "manual_adjustment",
-          referenceId: null,
-          quantityChange: data.unitsChange,
-          weightChange: data.weightChange,
-          unitCost: data.unitCost,
-          previousCost: currentCost,
-          totalCost: data.unitsChange * data.unitCost,
-          supplierId: data.supplierId || null,
-          unitsBefore: currentUnits,
-          unitsAfter: newUnitsInStock,
-          weightBefore: currentWeight,
-          weightAfter: newOpenUnitsWeight,
-          notes: data.notes || `Adición de ${data.unitsChange} unidades al inventario`,
+
+        // Execute inventory update + movement creation in a single atomic transaction
+        await executeTransaction(async (txOptions: TransactionOptions) => {
+          const inventorySchema = this._getInventorySchema();
+          const movementSchema = this._getInventoryMovementSchema();
+
+          // Update inventory
+          const updateResult = await inventorySchema.update(existingInventory.id, {
+            unitsInStock: newUnitsInStock,
+            openUnitsWeight: newOpenUnitsWeight,
+            lastPurchaseCost: data.unitCost,
+            isLowStock: isLowStock,
+            lastPurchaseAt: $dayjs().toDate(),
+            lastSupplierId: data.supplierId || null,
+            lastMovementAt: $dayjs().toDate(),
+            lastMovementType: "purchase",
+            lastMovementBy: user.value!.uid,
+          }, false, txOptions);
+
+          if (!updateResult.success) {
+            throw new Error(updateResult.error || "Error al actualizar inventario");
+          }
+
+          // Create movement record
+          const movementResult = await movementSchema.create({
+            productId: data.productId,
+            productName: data.productName || 'Producto desconocido',
+            movementType: "purchase",
+            referenceType: "manual_adjustment",
+            referenceId: null,
+            quantityChange: data.unitsChange,
+            weightChange: data.weightChange,
+            unitCost: data.unitCost,
+            previousCost: currentCost,
+            totalCost: data.unitsChange * data.unitCost,
+            supplierId: data.supplierId || null,
+            unitsBefore: currentUnits,
+            unitsAfter: newUnitsInStock,
+            weightBefore: currentWeight,
+            weightAfter: newOpenUnitsWeight,
+            notes: data.notes || `Adición de ${data.unitsChange} unidades al inventario`,
+          }, false, txOptions);
+
+          if (!movementResult.success) {
+            throw new Error(movementResult.error || "Error al registrar movimiento");
+          }
         });
 
-        if (success) {
-          useToast(ToastEvents.success, "Inventario actualizado exitosamente");
-        }
-
+        useToast(ToastEvents.success, "Inventario actualizado exitosamente");
         this.isLoading = false;
-        return success;
+        return true;
       } catch (error) {
         console.error("Error adding inventory:", error);
         useToast(ToastEvents.error, "Hubo un error al agregar inventario. Por favor intenta nuevamente.");
@@ -586,97 +589,93 @@ export const useInventoryStore = defineStore("inventory", {
     },
     
     // Record inventory loss (damage, theft, expiration, etc.)
+    // Uses cached inventory data and atomic transaction for performance
     async reduceInventory(data: InventoryReductionData): Promise<boolean> {
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
 
+      // Use cached inventory from real-time subscription (no Firestore query needed)
+      const existingInventory = this.inventoryByProductId.get(data.productId);
+      if (!existingInventory) {
+        useToast(ToastEvents.error, "No se encontró el registro de inventario");
+        return false;
+      }
+
+      // Calculate new inventory values
+      const currentUnits = existingInventory.unitsInStock || 0;
+      const currentWeight = existingInventory.openUnitsWeight || 0;
+
+      // Cap to avoid negative inventory
+      const actualUnitsChange = Math.min(data.unitsChange, currentUnits);
+      const actualWeightChange = Math.min(data.weightChange, currentWeight);
+
+      const newUnitsInStock = currentUnits - actualUnitsChange;
+      const newOpenUnitsWeight = currentWeight - actualWeightChange;
+
+      // Calculate if product is low in stock
+      const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
+
+      const generateLossNotes = () => {
+        if (data.notes) return data.notes;
+        const parts = [];
+        if (actualUnitsChange > 0) parts.push(`${actualUnitsChange} unidades`);
+        if (actualWeightChange > 0) parts.push(`${actualWeightChange} kg`);
+        const changeText = parts.length > 0 ? parts.join(' y ') : 'inventario';
+        return `Pérdida de ${changeText}${data.reason ? ` por ${data.reason}` : ''}`;
+      };
+
       try {
         this.isLoading = true;
-        
-        // Get existing inventory record using schema
-        const inventorySchema = this._getInventorySchema();
-        const existingResult = await inventorySchema.find({
-          where: [
-            { field: 'businessId', operator: '==', value: currentBusinessId.value },
-            { field: 'productId', operator: '==', value: data.productId }
-          ],
-          limit: 1
-        });
-        
-        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
-          useToast(ToastEvents.error, "No se encontró el registro de inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        const existingInventory = existingResult.data[0];
-        
-        // Calculate new inventory values
-        const currentUnits = existingInventory.unitsInStock || 0;
-        const currentWeight = existingInventory.openUnitsWeight || 0;
-        
-        // Cap to avoid negative inventory
-        const actualUnitsChange = Math.min(data.unitsChange, currentUnits);
-        const actualWeightChange = Math.min(data.weightChange, currentWeight);
-        
-        const newUnitsInStock = currentUnits - actualUnitsChange;
-        const newOpenUnitsWeight = currentWeight - actualWeightChange;
-        
-        // Calculate if product is low in stock
-        const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
-        
-        // Update inventory document using schema
         const { $dayjs } = useNuxtApp();
-        const updateResult = await inventorySchema.update(existingInventory.id, {
-          unitsInStock: newUnitsInStock,
-          openUnitsWeight: newOpenUnitsWeight,
-          isLowStock: isLowStock,
-          lastMovementAt: $dayjs().toDate(),
-          lastMovementType: "loss",
-          lastMovementBy: user.value.uid,
+
+        // Execute inventory update + movement creation in a single atomic transaction
+        await executeTransaction(async (txOptions: TransactionOptions) => {
+          const inventorySchema = this._getInventorySchema();
+          const movementSchema = this._getInventoryMovementSchema();
+
+          // Update inventory
+          const updateResult = await inventorySchema.update(existingInventory.id, {
+            unitsInStock: newUnitsInStock,
+            openUnitsWeight: newOpenUnitsWeight,
+            isLowStock: isLowStock,
+            lastMovementAt: $dayjs().toDate(),
+            lastMovementType: "loss",
+            lastMovementBy: user.value!.uid,
+          }, false, txOptions);
+
+          if (!updateResult.success) {
+            throw new Error(updateResult.error || "Error al actualizar inventario");
+          }
+
+          // Create movement record
+          const movementResult = await movementSchema.create({
+            productId: data.productId,
+            productName: data.productName || 'Producto desconocido',
+            movementType: "loss",
+            referenceType: "manual_adjustment",
+            referenceId: null,
+            quantityChange: -actualUnitsChange,
+            weightChange: -actualWeightChange,
+            unitCost: null,
+            previousCost: null,
+            totalCost: null,
+            supplierId: null,
+            unitsBefore: currentUnits,
+            unitsAfter: newUnitsInStock,
+            weightBefore: currentWeight,
+            weightAfter: newOpenUnitsWeight,
+            notes: generateLossNotes(),
+          }, false, txOptions);
+
+          if (!movementResult.success) {
+            throw new Error(movementResult.error || "Error al registrar movimiento");
+          }
         });
-        
-        if (!updateResult.success) {
-          console.error("Error updating inventory:", updateResult.error);
-          useToast(ToastEvents.error, updateResult.error || "Error al actualizar inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        const generateLossNotes = () => {
-          if (data.notes) return data.notes;
-          const parts = [];
-          if (actualUnitsChange > 0) parts.push(`${actualUnitsChange} unidades`);
-          if (actualWeightChange > 0) parts.push(`${actualWeightChange} kg`);
-          const changeText = parts.length > 0 ? parts.join(' y ') : 'inventario';
-          return `Pérdida de ${changeText}${data.reason ? ` por ${data.reason}` : ''}`;
-        };
 
-        const success = await this.recordInventoryMovement({
-          productId: data.productId,
-          movementType: "loss",
-          referenceType: "manual_adjustment",
-          referenceId: null,
-          quantityChange: -actualUnitsChange,
-          weightChange: -actualWeightChange,
-          unitCost: null,
-          previousCost: null,
-          totalCost: null,
-          supplierId: null,
-          unitsBefore: currentUnits,
-          unitsAfter: newUnitsInStock,
-          weightBefore: currentWeight,
-          weightAfter: newOpenUnitsWeight,
-          notes: generateLossNotes(),
-        });
-
-        if (success) {
-          useToast(ToastEvents.success, "Pérdida de inventario registrada exitosamente");
-        }
-
+        useToast(ToastEvents.success, "Pérdida de inventario registrada exitosamente");
         this.isLoading = false;
-        return success;
+        return true;
       } catch (error) {
         console.error("Error reducing inventory:", error);
         useToast(ToastEvents.error, "Hubo un error al registrar la pérdida de inventario. Por favor intenta nuevamente.");
@@ -686,100 +685,96 @@ export const useInventoryStore = defineStore("inventory", {
     },
     
     // New action for adjusting inventory to specific values
+    // Uses cached inventory data and atomic transaction for performance
     async adjustInventoryToValues(data: InventoryAdjustmentToValuesData): Promise<boolean> {
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
 
+      // Use cached inventory from real-time subscription (no Firestore query needed)
+      const existingInventory = this.inventoryByProductId.get(data.productId);
+      if (!existingInventory) {
+        useToast(ToastEvents.error, "No se encontró el registro de inventario");
+        return false;
+      }
+
+      const currentUnits = existingInventory.unitsInStock || 0;
+      const currentWeight = existingInventory.openUnitsWeight || 0;
+      const currentCost = existingInventory.lastPurchaseCost || 0;
+
+      const unitsChange = data.newUnits - currentUnits;
+      const weightChange = data.newWeight - currentWeight;
+
+      // Validate new values
+      if (data.newUnits < 0 || data.newWeight < 0) {
+        useToast(ToastEvents.error, "No se pueden establecer valores negativos para el inventario");
+        return false;
+      }
+
+      // Calculate if product is low in stock
+      const isLowStock = (existingInventory.minimumStock || 0) > 0 && data.newUnits < (existingInventory.minimumStock || 0);
+
+      const generateAdjustmentNotes = () => {
+        if (data.notes) return data.notes;
+        const parts = [];
+        if (data.newUnits !== currentUnits) parts.push(`${data.newUnits} unidades`);
+        if (data.newWeight !== currentWeight) parts.push(`${data.newWeight} kg`);
+        if (parts.length === 0) return 'Ajuste manual de inventario';
+        return `Ajuste manual de inventario a ${parts.join(' y ')}`;
+      };
+
       try {
         this.isLoading = true;
-        
-        // Get existing inventory record using schema
-        const inventorySchema = this._getInventorySchema();
-        const existingResult = await inventorySchema.find({
-          where: [
-            { field: 'businessId', operator: '==', value: currentBusinessId.value },
-            { field: 'productId', operator: '==', value: data.productId }
-          ],
-          limit: 1
-        });
-        
-        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
-          useToast(ToastEvents.error, "No se encontró el registro de inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        const existingInventory = existingResult.data[0];
-        
-        const currentUnits = existingInventory.unitsInStock || 0;
-        const currentWeight = existingInventory.openUnitsWeight || 0;
-        const currentCost = existingInventory.lastPurchaseCost || 0;
-
-        const unitsChange = data.newUnits - currentUnits;
-        const weightChange = data.newWeight - currentWeight;
-        
-        // Validate new values
-        if (data.newUnits < 0 || data.newWeight < 0) {
-          useToast(ToastEvents.error, "No se pueden establecer valores negativos para el inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Calculate if product is low in stock
-        const isLowStock = (existingInventory.minimumStock || 0) > 0 && data.newUnits < (existingInventory.minimumStock || 0);
-        
         const { $dayjs } = useNuxtApp();
-        const updateResult = await inventorySchema.update(existingInventory.id, {
-          unitsInStock: data.newUnits,
-          openUnitsWeight: data.newWeight,
-          lastPurchaseCost: data.newCost,
-          isLowStock: isLowStock,
-          lastMovementAt: $dayjs().toDate(),
-          lastMovementType: "adjustment",
-          lastMovementBy: user.value.uid,
+
+        // Execute inventory update + movement creation in a single atomic transaction
+        await executeTransaction(async (txOptions: TransactionOptions) => {
+          const inventorySchema = this._getInventorySchema();
+          const movementSchema = this._getInventoryMovementSchema();
+
+          // Update inventory
+          const updateResult = await inventorySchema.update(existingInventory.id, {
+            unitsInStock: data.newUnits,
+            openUnitsWeight: data.newWeight,
+            lastPurchaseCost: data.newCost,
+            isLowStock: isLowStock,
+            lastMovementAt: $dayjs().toDate(),
+            lastMovementType: "adjustment",
+            lastMovementBy: user.value!.uid,
+          }, false, txOptions);
+
+          if (!updateResult.success) {
+            throw new Error(updateResult.error || "Error al actualizar inventario");
+          }
+
+          // Create movement record
+          const movementResult = await movementSchema.create({
+            productId: data.productId,
+            productName: data.productName || 'Producto desconocido',
+            movementType: "adjustment",
+            referenceType: "manual_adjustment",
+            referenceId: null,
+            quantityChange: unitsChange,
+            weightChange: weightChange,
+            unitCost: data.newCost,
+            previousCost: currentCost,
+            totalCost: null,
+            supplierId: null,
+            unitsBefore: currentUnits,
+            unitsAfter: data.newUnits,
+            weightBefore: currentWeight,
+            weightAfter: data.newWeight,
+            notes: generateAdjustmentNotes(),
+          }, false, txOptions);
+
+          if (!movementResult.success) {
+            throw new Error(movementResult.error || "Error al registrar movimiento");
+          }
         });
-        
-        if (!updateResult.success) {
-          console.error("Error updating inventory:", updateResult.error);
-          useToast(ToastEvents.error, updateResult.error || "Error al actualizar inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        const generateAdjustmentNotes = () => {
-          if (data.notes) return data.notes;
-          const parts = [];
-          if (data.newUnits !== currentUnits) parts.push(`${data.newUnits} unidades`);
-          if (data.newWeight !== currentWeight) parts.push(`${data.newWeight} kg`);
-          if (parts.length === 0) return 'Ajuste manual de inventario';
-          return `Ajuste manual de inventario a ${parts.join(' y ')}`;
-        };
 
-        const success = await this.recordInventoryMovement({
-          productId: data.productId,
-          movementType: "adjustment",
-          referenceType: "manual_adjustment",
-          referenceId: null,
-          quantityChange: unitsChange,
-          weightChange: weightChange,
-          unitCost: data.newCost,
-          previousCost: currentCost,
-          totalCost: null,
-          supplierId: null,
-          unitsBefore: currentUnits,
-          unitsAfter: data.newUnits,
-          weightBefore: currentWeight,
-          weightAfter: data.newWeight,
-          notes: generateAdjustmentNotes(),
-        });
-
-        if (success) {
-          useToast(ToastEvents.success, "Inventario ajustado exitosamente");
-        }
-
+        useToast(ToastEvents.success, "Inventario ajustado exitosamente");
         this.isLoading = false;
-        return success;
+        return true;
       } catch (error) {
         console.error("Error adjusting inventory to values:", error);
         useToast(ToastEvents.error, "Hubo un error al ajustar el inventario. Por favor intenta nuevamente.");
@@ -818,118 +813,106 @@ export const useInventoryStore = defineStore("inventory", {
       }
     },
 
+    // Uses cached inventory data and atomic transaction for performance
     async convertUnitsToWeight(data: UnitConversionData): Promise<boolean> {
       const user = useCurrentUser();
       const currentBusinessId = useLocalStorage('cBId', null);
       if (!user.value?.uid || !currentBusinessId.value) return false;
-    
+
+      // Verify it's dual tracking type (caller must provide this)
+      if (data.trackingType !== 'dual') {
+        useToast(ToastEvents.error, "Este producto no permite conversión de unidades a peso");
+        return false;
+      }
+
+      // Use cached inventory from real-time subscription (no Firestore query needed)
+      const existingInventory = this.inventoryByProductId.get(data.productId);
+      if (!existingInventory) {
+        useToast(ToastEvents.error, "No se encontró el registro de inventario");
+        return false;
+      }
+
+      // Calculate values
+      const currentUnits = existingInventory.unitsInStock || 0;
+      const currentWeight = existingInventory.openUnitsWeight || 0;
+
+      // Validate conversion
+      if (data.unitsToConvert <= 0) {
+        useToast(ToastEvents.error, "Debe convertir al menos una unidad");
+        return false;
+      }
+
+      if (data.unitsToConvert > currentUnits) {
+        useToast(ToastEvents.error, "No hay suficientes unidades para convertir");
+        return false;
+      }
+
+      if (data.weightPerUnit <= 0) {
+        useToast(ToastEvents.error, "El peso por unidad debe ser mayor a cero");
+        return false;
+      }
+
+      // Calculate new values
+      const unitsToRemove = data.unitsToConvert;
+      const weightToAdd = data.unitsToConvert * data.weightPerUnit;
+
+      const newUnitsInStock = currentUnits - unitsToRemove;
+      const newOpenUnitsWeight = currentWeight + weightToAdd;
+
+      // Calculate if product is low in stock
+      const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
+
       try {
         this.isLoading = true;
-        
-        // Get existing inventory record using schema
-        const inventorySchema = this._getInventorySchema();
-        const existingResult = await inventorySchema.find({
-          where: [
-            { field: 'businessId', operator: '==', value: currentBusinessId.value },
-            { field: 'productId', operator: '==', value: data.productId }
-          ],
-          limit: 1
-        });
-        
-        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
-          useToast(ToastEvents.error, "No se encontró el registro de inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        const existingInventory = existingResult.data[0];
-        
-        // Get product to verify it's dual tracking type
-        const productStore = useProductStore();
-        const product = productStore.getProductById(data.productId);
-        
-        if (!product || product.trackingType !== 'dual') {
-          useToast(ToastEvents.error, "Este producto no permite conversión de unidades a peso");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Calculate values
-        const currentUnits = existingInventory.unitsInStock || 0;
-        const currentWeight = existingInventory.openUnitsWeight || 0;
-        
-        // Validate conversion
-        if (data.unitsToConvert <= 0) {
-          useToast(ToastEvents.error, "Debe convertir al menos una unidad");
-          this.isLoading = false;
-          return false;
-        }
-        
-        if (data.unitsToConvert > currentUnits) {
-          useToast(ToastEvents.error, "No hay suficientes unidades para convertir");
-          this.isLoading = false;
-          return false;
-        }
-        
-        if (data.weightPerUnit <= 0) {
-          useToast(ToastEvents.error, "El peso por unidad debe ser mayor a cero");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Calculate new values
-        const unitsToRemove = data.unitsToConvert;
-        const weightToAdd = data.unitsToConvert * data.weightPerUnit;
-        
-        const newUnitsInStock = currentUnits - unitsToRemove;
-        const newOpenUnitsWeight = currentWeight + weightToAdd;
-        
-        // Calculate if product is low in stock
-        const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
-        
-        // Update inventory document using schema
         const { $dayjs } = useNuxtApp();
-        const updateResult = await inventorySchema.update(existingInventory.id, {
-          unitsInStock: newUnitsInStock,
-          openUnitsWeight: newOpenUnitsWeight,
-          isLowStock: isLowStock,
-          lastMovementAt: $dayjs().toDate(),
-          lastMovementType: "conversion",
-          lastMovementBy: user.value.uid,
-        });
-        
-        if (!updateResult.success) {
-          console.error("Error updating inventory:", updateResult.error);
-          useToast(ToastEvents.error, updateResult.error || "Error al actualizar inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Record inventory movement
-        const success = await this.recordInventoryMovement({
-          productId: data.productId,
-          movementType: "adjustment", // Use adjustment as the base type
-          referenceType: "manual_adjustment",
-          referenceId: null,
-          quantityChange: -unitsToRemove, // Negative for units being converted
-          weightChange: weightToAdd, // Positive for weight being added
-          unitCost: null, // No cost change in conversion
-          previousCost: null,
-          totalCost: null,
-          supplierId: null,
-          unitsBefore: currentUnits,
-          unitsAfter: newUnitsInStock,
-          weightBefore: currentWeight,
-          weightAfter: newOpenUnitsWeight,
-          notes: data.notes || `Conversión de ${unitsToRemove} unidad(es) a ${weightToAdd.toFixed(2)} kg`,
+
+        // Execute inventory update + movement creation in a single atomic transaction
+        await executeTransaction(async (txOptions: TransactionOptions) => {
+          const inventorySchema = this._getInventorySchema();
+          const movementSchema = this._getInventoryMovementSchema();
+
+          // Update inventory
+          const updateResult = await inventorySchema.update(existingInventory.id, {
+            unitsInStock: newUnitsInStock,
+            openUnitsWeight: newOpenUnitsWeight,
+            isLowStock: isLowStock,
+            lastMovementAt: $dayjs().toDate(),
+            lastMovementType: "conversion",
+            lastMovementBy: user.value!.uid,
+          }, false, txOptions);
+
+          if (!updateResult.success) {
+            throw new Error(updateResult.error || "Error al actualizar inventario");
+          }
+
+          // Create movement record
+          const movementResult = await movementSchema.create({
+            productId: data.productId,
+            productName: data.productName || 'Producto desconocido',
+            movementType: "adjustment",
+            referenceType: "manual_adjustment",
+            referenceId: null,
+            quantityChange: -unitsToRemove,
+            weightChange: weightToAdd,
+            unitCost: null,
+            previousCost: null,
+            totalCost: null,
+            supplierId: null,
+            unitsBefore: currentUnits,
+            unitsAfter: newUnitsInStock,
+            weightBefore: currentWeight,
+            weightAfter: newOpenUnitsWeight,
+            notes: data.notes || `Conversión de ${unitsToRemove} unidad(es) a ${weightToAdd.toFixed(2)} kg`,
+          }, false, txOptions);
+
+          if (!movementResult.success) {
+            throw new Error(movementResult.error || "Error al registrar movimiento");
+          }
         });
 
-        if (success) {
-          useToast(ToastEvents.success, "Conversión de unidades a peso completada exitosamente");
-        }
-
+        useToast(ToastEvents.success, "Conversión de unidades a peso completada exitosamente");
         this.isLoading = false;
-        return success;
+        return true;
       } catch (error) {
         console.error("Error converting units to weight:", error);
         useToast(ToastEvents.error, "Hubo un error al convertir unidades a peso. Por favor intenta nuevamente.");
@@ -979,36 +962,26 @@ export const useInventoryStore = defineStore("inventory", {
     },
 
     // Update last purchase cost for a product
+    // Uses cached inventory data for performance
     async updateLastPurchaseCost(productId: string, newCost: number): Promise<boolean> {
       const user = useCurrentUser();
-      const currentBusinessId = useLocalStorage('cBId', null);
-      if (!user.value?.uid || !currentBusinessId.value) return false;
+      if (!user.value?.uid) return false;
+
+      // Use cached inventory from real-time subscription
+      const existingInventory = this.inventoryByProductId.get(productId);
+      if (!existingInventory) {
+        useToast(ToastEvents.error, "No se encontró el registro de inventario");
+        return false;
+      }
 
       try {
         this.isLoading = true;
-        
-        // Find inventory record using schema
         const inventorySchema = this._getInventorySchema();
-        const existingResult = await inventorySchema.find({
-          where: [
-            { field: 'businessId', operator: '==', value: currentBusinessId.value },
-            { field: 'productId', operator: '==', value: productId }
-          ],
-          limit: 1
-        });
-        
-        if (!existingResult.success || !existingResult.data || existingResult.data.length === 0) {
-          useToast(ToastEvents.error, "No se encontró el registro de inventario");
-          this.isLoading = false;
-          return false;
-        }
-        
-        const existingInventory = existingResult.data[0];
 
         const updateResult = await inventorySchema.update(existingInventory.id, {
           lastPurchaseCost: newCost,
         });
-        
+
         if (!updateResult.success) {
           console.error("Error updating inventory:", updateResult.error);
           useToast(ToastEvents.error, updateResult.error || "Error al actualizar el costo");
