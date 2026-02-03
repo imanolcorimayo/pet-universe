@@ -174,6 +174,42 @@ export interface CashExtractionData {
   notes?: string;
 }
 
+export interface SupplierPurchaseProductItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitCost: number;
+}
+
+export interface SupplierPurchaseData {
+  supplierId: string;
+  supplierName: string;
+  products: SupplierPurchaseProductItem[];
+
+  // Inventory data from store (pre-loaded via subscription)
+  inventoryData: Map<string, any>;
+
+  // Invoice information (optional)
+  invoiceNumber?: string;
+  invoiceDate?: Date;
+  invoiceType?: string;
+  additionalCharges?: number;
+
+  // Payment information
+  paymentType: 'full' | 'partial' | 'deferred';
+  paymentAmount: number;
+  debtAmount: number;
+  ownersAccountId?: string;
+  ownersAccountName?: string;
+  isReported?: boolean;
+  dueDate?: Date;
+
+  // General
+  notes?: string;
+  userId: string;
+  userName: string;
+}
+
 /**
  * Central Business Rules Engine for coordinating financial operations
  *
@@ -1105,6 +1141,268 @@ export class BusinessRulesEngine {
       return {
         success: false,
         error: `Generic income processing failed: ${error}`
+      };
+    }
+  }
+
+  /**
+   * Process supplier purchase with atomic transactions
+   *
+   * SUPPLIER PURCHASE PROCESSING FLOW:
+   * 1. Pre-fetch all inventory records for products in the purchase
+   * 2. Within a single atomic transaction:
+   *    - Create PurchaseInvoice record (if invoice data provided)
+   *    - Update each Inventory record
+   *    - Create each InventoryMovement record
+   *    - Create Wallet transaction (if payment > 0)
+   *    - Create Debt record (if debt > 0)
+   * 3. All operations succeed or all fail together (automatic rollback)
+   *
+   * PERFORMANCE: Uses batch operations within a single Firestore transaction
+   * instead of individual sequential calls.
+   */
+  async processSupplierPurchase(data: SupplierPurchaseData): Promise<BusinessRuleResult> {
+    const warnings: string[] = [];
+
+    try {
+      // ========== VALIDATION PHASE (before transaction) ==========
+
+      if (!data.products || data.products.length === 0) {
+        return { success: false, error: 'Se requiere al menos un producto' };
+      }
+
+      if (!data.supplierId || !data.supplierName) {
+        return { success: false, error: 'Se requiere información del proveedor' };
+      }
+
+      // Validate payment data
+      if (data.paymentType !== 'deferred' && data.paymentAmount > 0) {
+        if (!data.ownersAccountId || !data.ownersAccountName) {
+          return { success: false, error: 'Se requiere una cuenta de pago para pagos inmediatos' };
+        }
+      }
+
+      // Get global cash ID if payment is needed
+      let globalCashId: string | null = null;
+      if (data.paymentAmount > 0) {
+        const globalCashIdResult = await this.getCurrentGlobalCashId();
+        if (!globalCashIdResult.success) {
+          return { success: false, error: globalCashIdResult.error };
+        }
+        globalCashId = globalCashIdResult.data;
+      }
+
+      // ========== VALIDATE INVENTORY DATA ==========
+
+      for (const product of data.products) {
+        if (!product.productId) continue;
+        const inventory = data.inventoryData.get(product.productId);
+        if (!inventory) {
+          return {
+            success: false,
+            error: `No se encontró registro de inventario para el producto: ${product.productName}`
+          };
+        }
+      }
+
+      // ========== PREPARE DATA (before transaction) ==========
+
+      const totalProductsCost = data.products.reduce((sum, p) => sum + (p.quantity * p.unitCost), 0);
+      const totalAmount = this.roundToTwo(totalProductsCost + (data.additionalCharges || 0));
+      const roundedPaymentAmount = this.roundToTwo(data.paymentAmount);
+      const roundedDebtAmount = this.roundToTwo(data.debtAmount);
+
+      // Prepare invoice data if invoice info provided
+      const hasInvoiceData = data.invoiceNumber?.trim() || data.invoiceDate || data.invoiceType;
+
+      // ========== TRANSACTION PHASE (atomic) ==========
+
+      const transactionResult = await executeTransaction(async (txOptions: TransactionOptions) => {
+        const results = {
+          invoice: null as any,
+          wallet: null as any,
+          debt: null as any,
+          inventoryUpdates: [] as any[],
+          inventoryMovements: [] as any[]
+        };
+
+        // 1. Create purchase invoice if invoice data provided
+        let invoiceId: string | null = null;
+        if (hasInvoiceData) {
+          const invoiceData = {
+            supplierId: data.supplierId,
+            supplierName: data.supplierName,
+            invoiceNumber: data.invoiceNumber?.trim() || '',
+            invoiceDate: data.invoiceDate || new Date(),
+            invoiceType: data.invoiceType || '',
+            notes: data.notes || '',
+            amountAdditional: data.additionalCharges || 0,
+            amountTotal: totalAmount,
+            products: data.products.map(item => ({
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              unitCost: item.unitCost,
+              totalCost: item.quantity * item.unitCost
+            }))
+          };
+
+          const invoiceResult = await this.purchaseInvoiceSchema.create(invoiceData, false, txOptions);
+          if (!invoiceResult.success) {
+            throw new Error(`Error al crear factura: ${invoiceResult.error}`);
+          }
+          results.invoice = invoiceResult.data;
+          invoiceId = invoiceResult.data?.id || null;
+        }
+
+        // 2. Update inventory for each product
+        for (const product of data.products) {
+          const inventory = data.inventoryData.get(product.productId);
+          if (!inventory) continue;
+
+          const currentUnits = inventory.unitsInStock || 0;
+          const currentWeight = inventory.openUnitsWeight || 0;
+          const currentCost = inventory.lastPurchaseCost || 0;
+
+          const newUnitsInStock = currentUnits + product.quantity;
+          const isLowStock = (inventory.minimumStock || 0) > 0 && newUnitsInStock < (inventory.minimumStock || 0);
+
+          // Restore original timestamps from fetched data
+          const inventoryWithOriginalDates = {
+            ...inventory,
+            lastPurchaseAt: inventory.originalLastPurchaseAt || null,
+            lastMovementAt: inventory.originalLastMovementAt || null,
+            createdAt: inventory.originalCreatedAt || null,
+            updatedAt: inventory.originalUpdatedAt || null
+          };
+
+          const invUpdateResult = await this.inventorySchema.update(
+            inventory.id,
+            {
+              unitsInStock: newUnitsInStock,
+              openUnitsWeight: currentWeight,
+              lastPurchaseCost: product.unitCost,
+              isLowStock: isLowStock,
+              lastPurchaseAt: new Date(),
+              lastSupplierId: data.supplierId,
+              lastMovementAt: new Date(),
+              lastMovementType: 'purchase',
+              lastMovementBy: data.userId
+            },
+            false,
+            { transaction: txOptions.transaction, existingData: inventoryWithOriginalDates }
+          );
+
+          if (!invUpdateResult.success) {
+            throw new Error(`Error al actualizar inventario de ${product.productName}: ${invUpdateResult.error}`);
+          }
+          results.inventoryUpdates.push(invUpdateResult.data);
+
+          // 3. Create inventory movement record
+          const movementResult = await this.inventoryMovementSchema.create({
+            productId: product.productId,
+            productName: product.productName,
+            movementType: 'purchase',
+            referenceType: 'purchase_order',
+            referenceId: invoiceId,
+            quantityChange: product.quantity,
+            weightChange: 0,
+            unitCost: product.unitCost,
+            previousCost: currentCost,
+            totalCost: product.quantity * product.unitCost,
+            supplierId: data.supplierId,
+            unitsBefore: currentUnits,
+            unitsAfter: newUnitsInStock,
+            weightBefore: currentWeight,
+            weightAfter: currentWeight,
+            notes: data.notes || `Compra de proveedor: ${data.supplierName}`
+          }, false, txOptions);
+
+          if (!movementResult.success) {
+            throw new Error(`Error al registrar movimiento de ${product.productName}: ${movementResult.error}`);
+          }
+          results.inventoryMovements.push(movementResult.data);
+        }
+
+        // 4. Create wallet transaction if payment > 0
+        if (roundedPaymentAmount > 0 && globalCashId && data.ownersAccountId) {
+          const walletResult = await this.walletSchema.create({
+            type: 'Outcome',
+            globalCashId: globalCashId,
+            purchaseInvoiceId: invoiceId,
+            supplierId: data.supplierId,
+            ownersAccountId: data.ownersAccountId,
+            ownersAccountName: data.ownersAccountName,
+            amount: roundedPaymentAmount,
+            status: 'paid',
+            isRegistered: data.isReported ?? true,
+            notes: data.invoiceNumber?.trim()
+              ? `Factura ${data.invoiceNumber} - ${data.notes || 'Compra de inventario'}`
+              : data.notes || 'Compra de inventario',
+            categoryCode: 'COMPRAS',
+            categoryName: 'Compras de Inventario',
+            createdBy: data.userId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }, false, txOptions);
+
+          if (!walletResult.success) {
+            throw new Error(`Error al registrar pago: ${walletResult.error}`);
+          }
+          results.wallet = walletResult.data;
+        }
+
+        // 5. Create debt if debt amount > 0
+        if (roundedDebtAmount > 0.01) {
+          const purchaseDescription = data.invoiceNumber?.trim()
+            ? `Factura ${data.invoiceNumber} - ${data.supplierName}`
+            : `Compra de productos - ${data.supplierName}`;
+
+          const debtResult = await this.debtSchema.create({
+            supplierId: data.supplierId,
+            supplierName: data.supplierName,
+            originalAmount: roundedDebtAmount,
+            remainingAmount: roundedDebtAmount,
+            paidAmount: 0,
+            originType: invoiceId ? 'purchaseInvoice' : 'manual',
+            originId: invoiceId,
+            originDescription: purchaseDescription,
+            dueDate: data.dueDate || null,
+            notes: data.notes || '',
+            createdBy: data.userId,
+            createdByName: data.userName
+          }, false, txOptions);
+
+          if (!debtResult.success) {
+            throw new Error(`Error al crear deuda: ${debtResult.error}`);
+          }
+          results.debt = debtResult.data;
+        }
+
+        return results;
+      });
+
+      // ========== SUCCESS RESPONSE ==========
+
+      return {
+        success: true,
+        data: {
+          invoiceId: transactionResult.invoice?.id,
+          walletTransactionId: transactionResult.wallet?.id,
+          debtId: transactionResult.debt?.id,
+          productsUpdated: transactionResult.inventoryUpdates.length,
+          movementsCreated: transactionResult.inventoryMovements.length,
+          totalAmount,
+          paymentAmount: roundedPaymentAmount,
+          debtAmount: roundedDebtAmount
+        },
+        warnings
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Error al procesar compra de proveedor: ${error}`
       };
     }
   }

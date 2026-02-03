@@ -1,4 +1,4 @@
-import { Schema } from '../schema';
+import { Schema, type TransactionOptions } from '../schema';
 import type { SchemaDefinition, ValidationResult } from '../types';
 import { collection, getDocs, query, where, getDoc, doc } from 'firebase/firestore';
 
@@ -383,40 +383,44 @@ export class PurchaseInvoiceSchema extends Schema {
   }
 
   // Override create to add custom validations
-  override async create(data: any, validateRefs = false) {
-    // Validate invoice number uniqueness
-    const invoiceNumberValidation = await this.validateInvoiceNumber(data.invoiceNumber, data.supplierId);
-    if (!invoiceNumberValidation.valid) {
-      return { 
-        success: false, 
-        error: `Invoice number validation failed: ${invoiceNumberValidation.errors.map(e => e.message).join(', ')}` 
-      };
+  override async create(data: any, validateRefs = false, txOptions?: TransactionOptions) {
+    // Validate invoice number uniqueness (skip in transaction mode to avoid extra reads)
+    if (!txOptions) {
+      const invoiceNumberValidation = await this.validateInvoiceNumber(data.invoiceNumber, data.supplierId);
+      if (!invoiceNumberValidation.valid) {
+        return {
+          success: false,
+          error: `Invoice number validation failed: ${invoiceNumberValidation.errors.map(e => e.message).join(', ')}`
+        };
+      }
     }
 
     // Validate products array
     const productsValidation = this.validateProducts(data.products);
     if (!productsValidation.valid) {
-      return { 
-        success: false, 
-        error: `Products validation failed: ${productsValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Products validation failed: ${productsValidation.errors.map(e => e.message).join(', ')}`
       };
     }
 
-    // Validate supplier reference
-    const supplierValidation = await this.validateSupplierReference(data.supplierId);
-    if (!supplierValidation.valid) {
-      return { 
-        success: false, 
-        error: `Supplier validation failed: ${supplierValidation.errors.map(e => e.message).join(', ')}` 
-      };
+    // Validate supplier reference (skip in transaction mode to avoid extra reads)
+    if (!txOptions) {
+      const supplierValidation = await this.validateSupplierReference(data.supplierId);
+      if (!supplierValidation.valid) {
+        return {
+          success: false,
+          error: `Supplier validation failed: ${supplierValidation.errors.map(e => e.message).join(', ')}`
+        };
+      }
     }
 
     // Validate total calculations
     const totalValidation = this.validateTotalCalculations(data.products, data.amountTotal, data.amountAdditional);
     if (!totalValidation.valid) {
-      return { 
-        success: false, 
-        error: `Total calculation validation failed: ${totalValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Total calculation validation failed: ${totalValidation.errors.map(e => e.message).join(', ')}`
       };
     }
 
@@ -424,9 +428,9 @@ export class PurchaseInvoiceSchema extends Schema {
     if (data.status === 'cancelled') {
       const cancellationValidation = this.validateCancellationData(data);
       if (!cancellationValidation.valid) {
-        return { 
-          success: false, 
-          error: `Cancellation validation failed: ${cancellationValidation.errors.map(e => e.message).join(', ')}` 
+        return {
+          success: false,
+          error: `Cancellation validation failed: ${cancellationValidation.errors.map(e => e.message).join(', ')}`
         };
       }
     }
@@ -434,13 +438,13 @@ export class PurchaseInvoiceSchema extends Schema {
     // Validate invoice type
     const typeValidation = this.validateInvoiceType(data.invoiceType);
     if (!typeValidation.valid) {
-      return { 
-        success: false, 
-        error: `Invoice type validation failed: ${typeValidation.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `Invoice type validation failed: ${typeValidation.errors.map(e => e.message).join(', ')}`
       };
     }
 
-    return super.create(data, validateRefs);
+    return super.create(data, validateRefs, txOptions);
   }
 
   // Override update to add custom validations

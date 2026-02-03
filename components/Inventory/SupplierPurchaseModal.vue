@@ -782,7 +782,7 @@ async function savePurchase() {
 
   // Show confirmation dialog
   let confirmMessage = `¿Estás seguro de registrar esta compra de ${validProductItems.value.length} producto(s) por ${formatCurrency(totalAmount)}?`;
-  
+
   if (paymentType.value === 'partial') {
     confirmMessage += `\n\nPago inmediato: ${formatCurrency(paymentAmount)}\nSaldo pendiente: ${formatCurrency(debtAmount)}`;
   } else if (paymentType.value === 'deferred') {
@@ -799,118 +799,51 @@ async function savePurchase() {
   if (!confirmed) return;
 
   isSubmitting.value = true;
-  let successCount = 0;
-  let invoiceId = null;
 
   try {
-    // 1. Create invoice first if invoice data is provided
-    if (invoiceNumber.value.trim() || invoiceDate.value || invoiceType.value) {
-      const invoiceData = {
-        supplierId: selectedSupplier.value.id,
-        supplierName: selectedSupplier.value.name,
-        invoiceNumber: invoiceNumber.value.trim(),
-        invoiceDate: invoiceDate.value ? new Date(invoiceDate.value) : new Date(),
-        invoiceType: invoiceType.value,
-        notes: purchaseNotes.value || '',
-        amountAdditional: additionalCharges.value || 0,
-        amountTotal: totalAmount,
-        products: validProductItems.value.map(item => ({
-          productId: item.selectedProduct.id,
-          productName: item.selectedProduct.name,
-          quantity: item.unitsChange,
-          unitCost: item.unitCost,
-          totalCost: item.unitsChange * item.unitCost
-        }))
-      };
+    const { BusinessRulesEngine } = await import('~/utils/finance/BusinessRulesEngine');
+    const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore, useCashRegisterStore());
 
-      const invoiceResult = await purchaseInvoiceStore.createInvoice(invoiceData);
-      if (invoiceResult) {
-        invoiceId = invoiceResult.id;
-      } else {
-        useToast(ToastEvents.warning, 'No se pudo crear el registro de factura');
-      }
-    }
-
-    // 2. Process each product item for inventory (no payment parameters)
-    for (const item of validProductItems.value) {
-      const success = await inventoryStore.addInventory({
+    const user = useCurrentUser();
+    const result = await businessRulesEngine.processSupplierPurchase({
+      supplierId: selectedSupplier.value.id,
+      supplierName: selectedSupplier.value.name,
+      products: validProductItems.value.map(item => ({
         productId: item.selectedProduct.id,
-        unitsChange: item.unitsChange,
-        weightChange: 0,
-        unitCost: item.unitCost,
-        supplierId: selectedSupplier.value.id,
-        supplierName: selectedSupplier.value.name,
-        notes: purchaseNotes.value || `Compra de proveedor: ${selectedSupplier.value.name}`,
-      });
+        productName: item.selectedProduct.name,
+        quantity: item.unitsChange,
+        unitCost: item.unitCost
+      })),
+      inventoryData: inventoryStore.inventoryByProductId,
+      invoiceNumber: invoiceNumber.value.trim() || undefined,
+      invoiceDate: invoiceDate.value ? new Date(invoiceDate.value) : undefined,
+      invoiceType: invoiceType.value || undefined,
+      additionalCharges: additionalCharges.value || 0,
+      paymentType: paymentType.value,
+      paymentAmount: paymentAmount,
+      debtAmount: debtAmount,
+      ownersAccountId: ownersAccountId.value || undefined,
+      ownersAccountName: ownersAccountName.value || undefined,
+      isReported: isReported.value,
+      dueDate: dueDate.value ? new Date(dueDate.value) : undefined,
+      notes: purchaseNotes.value || undefined,
+      userId: user.value?.uid || '',
+      userName: user.value?.displayName || ''
+    });
 
-      if (success) {
-        successCount++;
-      }
-    }
-
-    // 3. Create payment transaction via BusinessRulesEngine if there's immediate payment
-    if (paymentAmount > 0 && ownersAccountId.value) {
-      const { BusinessRulesEngine } = await import('~/utils/finance/BusinessRulesEngine');
-      const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore, useCashRegisterStore());
-
-      const expenseResult = await businessRulesEngine.processGenericExpense({
-        category: 'COMPRAS',
-        categoryCode: 'COMPRAS',
-        categoryName: 'Compras de Inventario',
-        amount: paymentAmount,
-        accountTypeId: ownersAccountId.value,
-        accountTypeName: ownersAccountName.value,
-        supplierId: selectedSupplier.value.id,
-        supplierName: selectedSupplier.value.name,
-        notes: invoiceNumber.value.trim()
-          ? `Factura ${invoiceNumber.value} - ${purchaseNotes.value || 'Compra de inventario'}`
-          : purchaseNotes.value || 'Compra de inventario',
-      });
-
-      if (!expenseResult.success) {
-        useToast(ToastEvents.warning, 'Inventario actualizado pero no se pudo registrar el pago en caja global');
-      }
-    }
-
-    // 4. Create debt if there's remaining amount
-    if (debtAmount > 0) {
-      const debtStore = useDebtStore();
-      const purchaseDescription = invoiceNumber.value.trim()
-        ? `Factura ${invoiceNumber.value} - ${selectedSupplier.value.name}`
-        : `Compra de productos - ${selectedSupplier.value.name}`;
-
-      const debtResult = await debtStore.createDebt({
-        type: 'supplier',
-        entityId: selectedSupplier.value.id,
-        entityName: selectedSupplier.value.name,
-        originalAmount: debtAmount,
-        originType: invoiceId ? 'purchaseInvoice' : 'manual',
-        originId: invoiceId,
-        originDescription: purchaseDescription,
-        dueDate: dueDate.value ? new Date(dueDate.value) : undefined,
-        notes: purchaseNotes.value || ''
-      });
-
-      if (!debtResult) {
-        useToast(ToastEvents.warning, 'Compra registrada pero no se pudo crear la deuda pendiente');
-      }
-    }
-
-    if (successCount === validProductItems.value.length) {
+    if (result.success) {
+      const data = result.data;
       if (paymentType.value === 'deferred') {
-        useToast(ToastEvents.success, `Compra registrada exitosamente: ${successCount} producto(s) actualizados. Deuda creada por ${formatCurrency(debtAmount)}`);
+        useToast(ToastEvents.success, `Compra registrada exitosamente: ${data.productsUpdated} producto(s) actualizados. Deuda creada por ${formatCurrency(debtAmount)}`);
       } else if (paymentType.value === 'partial') {
-        useToast(ToastEvents.success, `Compra registrada exitosamente: ${successCount} producto(s) actualizados. Pago registrado: ${formatCurrency(paymentAmount)}, Deuda pendiente: ${formatCurrency(debtAmount)}`);
+        useToast(ToastEvents.success, `Compra registrada exitosamente: ${data.productsUpdated} producto(s) actualizados. Pago registrado: ${formatCurrency(paymentAmount)}, Deuda pendiente: ${formatCurrency(debtAmount)}`);
       } else {
-        useToast(ToastEvents.success, `Compra registrada exitosamente: ${successCount} producto(s) actualizados`);
+        useToast(ToastEvents.success, `Compra registrada exitosamente: ${data.productsUpdated} producto(s) actualizados`);
       }
       emit("purchase-saved");
       closeModal();
-    } else if (successCount > 0) {
-      useToast(ToastEvents.warning, `Compra parcialmente registrada: ${successCount} de ${validProductItems.value.length} productos actualizados`);
-      emit("purchase-saved");
     } else {
-      useToast(ToastEvents.error, "No se pudo registrar ningún producto de la compra");
+      useToast(ToastEvents.error, result.error || "Error al registrar la compra");
     }
   } catch (error) {
     console.error("Error saving purchase:", error);
