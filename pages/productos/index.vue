@@ -208,13 +208,29 @@
                 </div>
               </td>
             </tr>
+            <!-- Show More -->
+            <tr v-if="hasMoreProducts">
+              <td colspan="6" class="px-6 py-3 text-center">
+                <button
+                  @click="showMoreProducts"
+                  class="text-sm text-primary hover:text-primary/80 font-medium"
+                >
+                  Mostrar más productos ({{ localFilteredProducts.length - displayedProducts.length }} restantes)
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
+      <!-- Product Count -->
+      <div class="px-4 py-2 bg-gray-50 border-t text-sm text-gray-500">
+        {{ localFilteredProducts.length }} productos
+        <template v-if="hasMoreProducts"> (mostrando {{ displayedProducts.length }})</template>
+      </div>
     </div>
-    
+
     <!-- Empty State -->
-    <div v-else-if="!initialLoading && displayedProducts.length === 0" class="bg-white rounded-lg shadow p-8 text-center">
+    <div v-else-if="!initialLoading && localFilteredProducts.length === 0" class="bg-white rounded-lg shadow p-8 text-center">
       <div class="flex justify-center mb-4">
         <TablerPackages class="h-12 w-12 text-gray-400" />
       </div>
@@ -264,25 +280,46 @@ const isEditing = ref(false);
 const selectedProductData = ref(null);
 const selectedProductId = ref(null);
 const searchQuery = ref('');
+const debouncedQuery = refDebounced(searchQuery, 200);
 const selectedCategory = ref('all');
 const loadingProduct = ref(false);
 const noCodeFilter = ref(false);
 
 // Computed for applying local no-code filter on top of store filtering
-const displayedProducts = computed(() => {
+const localFilteredProducts = computed(() => {
   if (!noCodeFilter.value) {
     return filteredProducts.value;
   }
   return filteredProducts.value.filter(product => !product.productCode);
 });
 
+// Display limit to avoid rendering 900+ DOM rows
+const PRODUCTS_PER_PAGE = 50;
+const displayLimit = ref(PRODUCTS_PER_PAGE);
+
+const displayedProducts = computed(() => {
+  return localFilteredProducts.value.slice(0, displayLimit.value);
+});
+
+const hasMoreProducts = computed(() => {
+  return localFilteredProducts.value.length > displayLimit.value;
+});
+
+function showMoreProducts() {
+  displayLimit.value += PRODUCTS_PER_PAGE;
+}
+
 // Watched values
-watch(searchQuery, (newValue) => {
+watch(debouncedQuery, (newValue) => {
   productStore.setSearchQuery(newValue);
 });
 
 watch(selectedCategory, (newValue) => {
   productStore.setCategoryFilter(newValue);
+});
+
+watch([debouncedQuery, selectedCategory, productFilter, noCodeFilter], () => {
+  displayLimit.value = PRODUCTS_PER_PAGE;
 });
 
 // Methods

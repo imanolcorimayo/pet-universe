@@ -76,6 +76,7 @@
           <div class="flex items-center">
             <span class="text-sm text-gray-500">
               {{ filteredProducts.length }} productos
+              <template v-if="hasMoreProducts"> (mostrando {{ displayedProducts.length }})</template>
             </span>
           </div>
         </div>
@@ -103,7 +104,7 @@
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr
-                v-for="product in filteredProducts"
+                v-for="product in displayedProducts"
                 :key="product.id"
                 :class="[
                   'transition-colors',
@@ -209,6 +210,16 @@
                     class="p-2 rounded-lg transition-colors bg-primary text-white hover:bg-primary/90"
                   >
                     <LucidePlus class="w-5 h-5" />
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="hasMoreProducts">
+                <td colspan="4" class="px-4 py-3 text-center">
+                  <button
+                    @click="showMoreProducts"
+                    class="text-sm text-primary hover:text-primary/80 font-medium"
+                  >
+                    Mostrar más productos ({{ filteredProducts.length - displayedProducts.length }} restantes)
                   </button>
                 </td>
               </tr>
@@ -370,6 +381,7 @@ const isLoading = ref(false);
 
 // Product filters
 const searchQuery = ref('');
+const debouncedQuery = refDebounced(searchQuery, 200);
 const selectedCategory = ref('all');
 
 // Cart state
@@ -403,42 +415,77 @@ const isResizing = ref(false);
 // Computed
 const productCategories = computed(() => productStore.categories || []);
 
-const filteredProducts = computed(() => {
-  let products = productStore.products.filter(p => p.isActive);
+// Pre-compute search strings + category names once (recomputes only when products change, not on every keystroke)
+const activeProducts = computed(() => {
+  const categoryNameCache = new Map();
+  return productStore.products
+    .filter(p => p.isActive)
+    .map(p => {
+      if (!categoryNameCache.has(p.category)) {
+        categoryNameCache.set(p.category, productStore.getCategoryName(p.category));
+      }
+      return {
+        ...p,
+        categoryName: categoryNameCache.get(p.category),
+        _searchString: `${p.brand || ''} ${p.name} ${p.productCode || ''} ${p.description || ''}`.toLowerCase()
+      };
+    });
+});
 
-  // Category filter
+const filteredProducts = computed(() => {
+  let products = activeProducts.value;
+
   if (selectedCategory.value !== 'all') {
     products = products.filter(p => p.category === selectedCategory.value);
   }
 
-  // Search filter
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    products = products.filter(p => {
-      const searchString = `${p.brand || ''} ${p.name} ${p.productCode || ''} ${p.description || ''}`.toLowerCase();
-      return searchString.includes(query);
-    });
+  if (debouncedQuery.value) {
+    const query = debouncedQuery.value.toLowerCase();
+    products = products.filter(p => p._searchString.includes(query));
   }
 
-  // Add category name for display
-  return products.map(p => ({
-    ...p,
-    categoryName: productStore.getCategoryName(p.category)
-  }));
+  return products;
 });
 
-// Methods
+// Display limit to avoid rendering 900+ DOM rows
+const PRODUCTS_PER_PAGE = 50;
+const displayLimit = ref(PRODUCTS_PER_PAGE);
+
+const displayedProducts = computed(() => {
+  return filteredProducts.value.slice(0, displayLimit.value);
+});
+
+const hasMoreProducts = computed(() => {
+  return filteredProducts.value.length > displayLimit.value;
+});
+
+function showMoreProducts() {
+  displayLimit.value += PRODUCTS_PER_PAGE;
+}
+
+watch([debouncedQuery, selectedCategory], () => {
+  displayLimit.value = PRODUCTS_PER_PAGE;
+});
+
+// Cart lookup Map for O(1) access
+const cartItemsByProductId = computed(() => {
+  const map = new Map();
+  for (const item of cartItems.value) {
+    map.set(item.productId, item);
+  }
+  return map;
+});
+
 function isProductInCart(productId) {
-  return cartItems.value.some(item => item.productId === productId);
+  return cartItemsByProductId.value.has(productId);
 }
 
 function getCartQuantity(productId) {
-  const item = cartItems.value.find(item => item.productId === productId);
-  return item ? item.quantity : 0;
+  return cartItemsByProductId.value.get(productId)?.quantity || 0;
 }
 
 function getProductInventory(productId) {
-  return inventoryStore.inventoryItems.find(i => i.productId === productId);
+  return inventoryStore.inventoryByProductId.get(productId);
 }
 
 function formatStock(product) {

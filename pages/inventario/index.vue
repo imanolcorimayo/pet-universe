@@ -181,7 +181,7 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="item in filteredInventory" :key="item.productId" class="hover:bg-gray-50">
+            <tr v-for="item in displayedInventory" :key="item.productId" class="hover:bg-gray-50">
               <td class="px-6 py-4">
                 <div class="flex items-center">
                   <div>
@@ -266,11 +266,27 @@
                 </button>
               </td>
             </tr>
+            <!-- Show More -->
+            <tr v-if="hasMoreItems">
+              <td colspan="6" class="px-6 py-3 text-center">
+                <button
+                  @click="showMoreItems"
+                  class="text-sm text-primary hover:text-primary/80 font-medium"
+                >
+                  Mostrar más productos ({{ filteredInventory.length - displayedInventory.length }} restantes)
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
+      <!-- Item Count -->
+      <div class="px-4 py-2 bg-gray-50 border-t text-sm text-gray-500">
+        {{ filteredInventory.length }} productos
+        <template v-if="hasMoreItems"> (mostrando {{ displayedInventory.length }})</template>
+      </div>
     </div>
-    
+
     <!-- Empty State -->
     <div v-else class="bg-white rounded-lg shadow p-8 text-center">
       <div class="flex justify-center mb-4">
@@ -325,6 +341,7 @@ const supplierPurchaseModal = ref(null);
 
 const selectedProductId = ref(null);
 const searchQuery = ref('');
+const debouncedQuery = refDebounced(searchQuery, 200);
 const stockFilter = ref('all');
 const sortBy = ref('name');
 const loadingDetailsFor = ref(null);
@@ -456,8 +473,8 @@ const filteredInventory = computed(() => {
     result = result.filter(item => item.isLowStock);
   }
 
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
+  if (debouncedQuery.value) {
+    const query = debouncedQuery.value.toLowerCase();
     result = result.filter(item => item.searchString.includes(query));
   }
 
@@ -474,6 +491,26 @@ const filteredInventory = computed(() => {
       default: return 0;
     }
   });
+});
+
+// Display limit to avoid rendering 900+ DOM rows
+const ITEMS_PER_PAGE = 50;
+const displayLimit = ref(ITEMS_PER_PAGE);
+
+const displayedInventory = computed(() => {
+  return filteredInventory.value.slice(0, displayLimit.value);
+});
+
+const hasMoreItems = computed(() => {
+  return filteredInventory.value.length > displayLimit.value;
+});
+
+function showMoreItems() {
+  displayLimit.value += ITEMS_PER_PAGE;
+}
+
+watch([debouncedQuery, stockFilter, sortBy], () => {
+  displayLimit.value = ITEMS_PER_PAGE;
 });
 
 async function viewInventoryDetails(productId) {
