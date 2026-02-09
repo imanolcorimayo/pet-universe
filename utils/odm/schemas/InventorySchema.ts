@@ -39,12 +39,6 @@ export class InventorySchema extends Schema {
       min: 0,
       default: 0
     },
-    minimumStock: {
-      type: 'number',
-      required: false,
-      min: 0,
-      default: 0
-    },
     isLowStock: {
       type: 'boolean',
       required: false,
@@ -245,10 +239,6 @@ export class InventorySchema extends Schema {
       }
     }
 
-    if (data.unitsInStock !== undefined && data.minimumStock !== undefined) {
-      data.isLowStock = this.calculateLowStockStatus(data.unitsInStock, data.minimumStock);
-    }
-
     return super.create(data, validateRefs, txOptions);
   }
 
@@ -288,25 +278,6 @@ export class InventorySchema extends Schema {
           error: `Uniqueness validation failed: ${uniqueValidation.errors.map(e => e.message).join(', ')}`
         };
       }
-    }
-
-    // Get current data to calculate derived fields
-    // In transaction mode, use existingData if provided, otherwise fetch via transaction
-    let currentData: any;
-    if (txOptions?.existingData) {
-      currentData = txOptions.existingData;
-    } else {
-      const currentResult = await this.findById(id, txOptions);
-      if (!currentResult.success || !currentResult.data) {
-        return { success: false, error: 'Failed to fetch current inventory data' };
-      }
-      currentData = currentResult.data;
-    }
-
-    const updatedData = { ...currentData, ...data };
-
-    if (updatedData.unitsInStock !== undefined && updatedData.minimumStock !== undefined) {
-      data.isLowStock = this.calculateLowStockStatus(updatedData.unitsInStock, updatedData.minimumStock);
     }
 
     return super.update(id, data, validateRefs, txOptions);

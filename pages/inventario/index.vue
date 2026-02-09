@@ -342,7 +342,7 @@ const MOVEMENT_LABELS = {
 const enrichedInventory = computed(() => {
   return inventoryStore.inventoryItems.map(item => {
     const product = productStore.getProductById(item.productId);
-    const minStock = product?.minimumStock || item.minimumStock || 0;
+    const minStock = product?.minimumStock || 0;
     const baseCost = item.lastPurchaseCost || 0;
     const isDual = product?.trackingType === 'dual';
     const isWeight = product?.trackingType === 'weight';
@@ -375,7 +375,7 @@ const enrichedInventory = computed(() => {
     } else if (isWeight) {
       formattedStock = `${item.unitsInStock} kg`;
     } else if (isDual) {
-      formattedStock = `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 'es' : ''} + ${openWeight} kg`;
+      formattedStock = `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 'es' : ''} + ${Math.round(openWeight * 100) / 100} kg`;
     } else {
       formattedStock = `${item.unitsInStock} ${product.unitType}${item.unitsInStock !== 1 ? 'es' : ''}`;
     }

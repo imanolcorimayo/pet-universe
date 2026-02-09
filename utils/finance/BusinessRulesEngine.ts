@@ -179,6 +179,7 @@ export interface SupplierPurchaseProductItem {
   productName: string;
   quantity: number;
   unitCost: number;
+  minimumStock?: number;
 }
 
 export interface SupplierPurchaseData {
@@ -609,7 +610,7 @@ export class BusinessRulesEngine {
 
             if (product.unitType === 'kg') {
               weightChange = -product.quantity;
-              newOpenUnitsWeight = Math.max(0, inventory.openUnitsWeight + weightChange);
+              newOpenUnitsWeight = Math.max(0, Math.round((inventory.openUnitsWeight + weightChange) * 100) / 100);
             } else {
               unitsChange = -product.quantity;
               newUnitsInStock = Math.max(0, inventory.unitsInStock + unitsChange);
@@ -1265,7 +1266,8 @@ export class BusinessRulesEngine {
           const currentCost = inventory.lastPurchaseCost || 0;
 
           const newUnitsInStock = currentUnits + product.quantity;
-          const isLowStock = (inventory.minimumStock || 0) > 0 && newUnitsInStock < (inventory.minimumStock || 0);
+          const minimumStock = product.minimumStock || 0;
+          const isLowStock = minimumStock > 0 && newUnitsInStock < minimumStock;
 
           // Restore original timestamps from fetched data
           const inventoryWithOriginalDates = {

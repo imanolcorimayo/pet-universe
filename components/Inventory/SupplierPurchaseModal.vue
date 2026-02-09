@@ -713,9 +713,9 @@ function formatCurrentStock(item) {
   
   const product = item.selectedProduct;
   if (product.trackingType === 'weight') {
-    return `${inventory.openUnitsWeight || 0} kg`;
+    return `${Math.round((inventory.openUnitsWeight || 0) * 100) / 100} kg`;
   } else if (product.trackingType === 'dual') {
-    return `${inventory.unitsInStock || 0} ${product.unitType || 'unidad'}${(inventory.unitsInStock || 0) !== 1 ? 'es' : ''} + ${inventory.openUnitsWeight || 0} kg`;
+    return `${inventory.unitsInStock || 0} ${product.unitType || 'unidad'}${(inventory.unitsInStock || 0) !== 1 ? 'es' : ''} + ${Math.round((inventory.openUnitsWeight || 0) * 100) / 100} kg`;
   } else {
     return `${inventory.unitsInStock || 0} ${product.unitType || 'unidad'}${(inventory.unitsInStock || 0) !== 1 ? 'es' : ''}`;
   }
@@ -813,7 +813,8 @@ async function savePurchase() {
         productId: item.selectedProduct.id,
         productName: item.selectedProduct.name,
         quantity: item.unitsChange,
-        unitCost: item.unitCost
+        unitCost: item.unitCost,
+        minimumStock: item.selectedProduct.minimumStock || 0
       })),
       inventoryData: inventoryStore.inventoryByProductId,
       invoiceNumber: invoiceNumber.value.trim() || undefined,

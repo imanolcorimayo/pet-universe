@@ -8,6 +8,8 @@ import { executeTransaction, type TransactionOptions } from "~/utils/odm/schema"
 import { serverTimestamp } from "firebase/firestore";
 import { roundUpPrice } from "~/utils/index";
 
+const roundWeight = (value: number) => Math.round(value * 100) / 100;
+
 // Module-level variable for inventory subscription (can't store functions in Pinia state)
 let inventoryUnsubscribe: (() => void) | null = null;
 let subscribedInventoryBusinessId: string | null = null;
@@ -20,7 +22,6 @@ interface Inventory {
   unitsInStock: number;
   openUnitsWeight: number;
   totalWeight: number;
-  minimumStock: number;
   isLowStock: boolean;
   lastPurchaseCost: number;
   lastPurchaseAt?: string;
@@ -248,7 +249,7 @@ export const useInventoryStore = defineStore("inventory", {
     },
     
     // Create a new inventory record for a product
-    async createInventory(productId: string, minimumStock: number = 0, productName?: string): Promise<boolean> {
+    async createInventory(productId: string, productName?: string): Promise<boolean> {
       try {
         this.isLoading = true;
 
@@ -259,7 +260,6 @@ export const useInventoryStore = defineStore("inventory", {
           unitsInStock: 0,
           openUnitsWeight: 0,
           totalWeight: 0,
-          minimumStock: minimumStock,
           isLowStock: true,
           lastPurchaseCost: 0,
         });
@@ -307,42 +307,6 @@ export const useInventoryStore = defineStore("inventory", {
       }
     },
     
-    // Update inventory basic info (minimum stock)
-    // Uses cached inventory data for performance
-    async updateInventoryInfo(productId: string, minimumStock: number): Promise<boolean> {
-      // Use cached inventory from real-time subscription
-      const existingInventory = this.inventoryByProductId.get(productId);
-
-      if (!existingInventory) {
-        // Create new inventory if it doesn't exist
-        return await this.createInventory(productId, minimumStock);
-      }
-
-      try {
-        this.isLoading = true;
-        const inventorySchema = this._getInventorySchema();
-
-        // Update existing inventory
-        const result = await inventorySchema.update(existingInventory.id, {
-          minimumStock: minimumStock,
-        });
-
-        if (!result.success) {
-          useToast(ToastEvents.error, result.error || "Hubo un error al actualizar la información de inventario");
-          this.isLoading = false;
-          return false;
-        }
-
-        this.isLoading = false;
-        return true;
-      } catch (error) {
-        console.error("Error updating inventory info:", error);
-        useToast(ToastEvents.error, "Hubo un error al actualizar la información de inventario");
-        this.isLoading = false;
-        return false;
-      }
-    },
-    
     // Adjust inventory for a product
     // Uses cached inventory data and atomic transaction for performance
     async adjustInventory(adjustmentData: InventoryAdjustmentData): Promise<boolean> {
@@ -358,7 +322,7 @@ export const useInventoryStore = defineStore("inventory", {
 
       // Calculate new inventory levels
       let newUnitsInStock = existingInventory.unitsInStock + adjustmentData.unitsChange;
-      let newOpenUnitsWeight = existingInventory.openUnitsWeight + adjustmentData.weightChange;
+      let newOpenUnitsWeight = roundWeight(existingInventory.openUnitsWeight + adjustmentData.weightChange);
 
       // Clamp to 0 if values would go negative and show warning
       let showNegativeWarning = false;
@@ -521,10 +485,12 @@ export const useInventoryStore = defineStore("inventory", {
       const currentCost = existingInventory.lastPurchaseCost || 0;
 
       const newUnitsInStock = currentUnits + data.unitsChange;
-      const newOpenUnitsWeight = currentWeight + data.weightChange;
+      const newOpenUnitsWeight = roundWeight(currentWeight + data.weightChange);
 
-      // Calculate if product is low in stock
-      const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
+      // Calculate if product is low in stock using product.minimumStock as source of truth
+      const productData = useProductStore().getProductById(data.productId);
+      const minimumStock = productData?.minimumStock || 0;
+      const isLowStock = minimumStock > 0 && newUnitsInStock < minimumStock;
 
       try {
         this.isLoading = true;
@@ -611,10 +577,12 @@ export const useInventoryStore = defineStore("inventory", {
       const actualWeightChange = Math.min(data.weightChange, currentWeight);
 
       const newUnitsInStock = currentUnits - actualUnitsChange;
-      const newOpenUnitsWeight = currentWeight - actualWeightChange;
+      const newOpenUnitsWeight = roundWeight(currentWeight - actualWeightChange);
 
-      // Calculate if product is low in stock
-      const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
+      // Calculate if product is low in stock using product.minimumStock as source of truth
+      const productData = useProductStore().getProductById(data.productId);
+      const minimumStock = productData?.minimumStock || 0;
+      const isLowStock = minimumStock > 0 && newUnitsInStock < minimumStock;
 
       const generateLossNotes = () => {
         if (data.notes) return data.notes;
@@ -711,8 +679,10 @@ export const useInventoryStore = defineStore("inventory", {
         return false;
       }
 
-      // Calculate if product is low in stock
-      const isLowStock = (existingInventory.minimumStock || 0) > 0 && data.newUnits < (existingInventory.minimumStock || 0);
+      // Calculate if product is low in stock using product.minimumStock as source of truth
+      const productData = useProductStore().getProductById(data.productId);
+      const minimumStock = productData?.minimumStock || 0;
+      const isLowStock = minimumStock > 0 && data.newUnits < minimumStock;
 
       const generateAdjustmentNotes = () => {
         if (data.notes) return data.notes;
@@ -854,13 +824,15 @@ export const useInventoryStore = defineStore("inventory", {
 
       // Calculate new values
       const unitsToRemove = data.unitsToConvert;
-      const weightToAdd = data.unitsToConvert * data.weightPerUnit;
+      const weightToAdd = roundWeight(data.unitsToConvert * data.weightPerUnit);
 
       const newUnitsInStock = currentUnits - unitsToRemove;
-      const newOpenUnitsWeight = currentWeight + weightToAdd;
+      const newOpenUnitsWeight = roundWeight(currentWeight + weightToAdd);
 
-      // Calculate if product is low in stock
-      const isLowStock = (existingInventory.minimumStock || 0) > 0 && newUnitsInStock < (existingInventory.minimumStock || 0);
+      // Calculate if product is low in stock using product.minimumStock as source of truth
+      const productData = useProductStore().getProductById(data.productId);
+      const minimumStock = productData?.minimumStock || 0;
+      const isLowStock = minimumStock > 0 && newUnitsInStock < minimumStock;
 
       try {
         this.isLoading = true;

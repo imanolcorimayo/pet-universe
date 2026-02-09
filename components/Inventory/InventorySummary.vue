@@ -22,7 +22,7 @@
         <div class="border p-3 rounded-lg">
           <div class="text-sm text-gray-500">Stock Mínimo</div>
           <div class="text-lg font-semibold mt-1">
-            {{ inventory.minimumStock }} {{ product?.unitType || 'unidades' }}
+            {{ product?.minimumStock || 0 }} {{ product?.unitType || 'unidades' }}
           </div>
         </div>
       </div>
@@ -98,9 +98,9 @@ function formatStock(inventory, product) {
   if (!inventory) return 'N/A';
   
   if (product?.trackingType === 'weight') {
-    return `${inventory.openUnitsWeight} kg`;
+    return `${Math.round(inventory.openUnitsWeight * 100) / 100} kg`;
   } else if (product?.trackingType === 'dual') {
-    return `${inventory.unitsInStock} ${product.unitType || 'unidades'}${inventory.unitsInStock !== 1 ? 's' : ''} + ${inventory.openUnitsWeight} kg`;
+    return `${inventory.unitsInStock} ${product.unitType || 'unidades'}${inventory.unitsInStock !== 1 ? 's' : ''} + ${Math.round(inventory.openUnitsWeight * 100) / 100} kg`;
   } else {
     return `${inventory.unitsInStock} ${product?.unitType || 'unidades'}${inventory.unitsInStock !== 1 ? 's' : ''}`;
   }

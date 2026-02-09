@@ -550,7 +550,6 @@ export const useProductStore = defineStore("product", {
         const inventoryStore = useInventoryStore();
         const inventoryCreated = await inventoryStore.createInventory(
           newProduct.id,
-          formData.minimumStock || 0,
           newProduct.name
         );
 

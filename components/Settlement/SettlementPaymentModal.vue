@@ -66,10 +66,8 @@
                   <td class="px-4 py-2">
                     <input
                       v-if="isSelected(settlement.id)"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      :max="settlement.amountTotal"
+                      type="text"
+                      inputmode="decimal"
                       :value="getSettledAmount(settlement.id)"
                       @input="updateSettledAmount(settlement.id, $event)"
                       class="w-full px-2 py-1 text-sm text-right border rounded focus:ring-2 focus:ring-blue-500"
@@ -199,6 +197,7 @@ const settlementStore = useSettlementStore();
 const paymentMethodsStore = usePaymentMethodsStore();
 const globalCashRegisterStore = useGlobalCashRegisterStore();
 const { $dayjs } = useNuxtApp();
+const { parseDecimal } = useDecimalInput();
 
 // State
 const selectedSettlements = ref<Map<string, number>>(new Map());
@@ -315,7 +314,8 @@ const getSettledAmount = (settlementId: string): number => {
 
 const updateSettledAmount = (settlementId: string, event: Event) => {
   const target = event.target as HTMLInputElement;
-  const value = parseFloat(target.value) || 0;
+  const parsed = parseDecimal(target.value);
+  const value = typeof parsed === 'string' ? parseFloat(parsed) || 0 : parsed;
   selectedSettlements.value.set(settlementId, value);
 };
 

@@ -50,7 +50,7 @@
               </div>
               <div v-if="product.trackingType !== 'unit'">
                 <p class="text-sm text-gray-600">Peso Disponible</p>
-                <p class="font-semibold">{{ inventory.openUnitsWeight || 0 }} kg</p>
+                <p class="font-semibold">{{ Math.round((inventory.openUnitsWeight || 0) * 100) / 100 }} kg</p>
               </div>
               <div>
                 <p class="text-sm text-gray-600">Stock Mínimo</p>
@@ -142,7 +142,7 @@ const movementHistoryRef = ref(null);
 
 const product = computed(() => productStore.getProductById(props.productId));
 const inventory = computed(() => inventoryStore.getInventoryByProductId(props.productId));
-const minimumStock = computed(() => product.value?.minimumStock || inventory.value?.minimumStock || 0);
+const minimumStock = computed(() => product.value?.minimumStock || 0);
 const isLowStock = computed(() => inventory.value && minimumStock.value > 0 && inventory.value.unitsInStock < minimumStock.value);
 
 function closeModal() {

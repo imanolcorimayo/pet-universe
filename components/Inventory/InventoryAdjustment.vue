@@ -59,7 +59,7 @@
             <div v-if="product.trackingType !== 'unit'">
               <p class="text-sm text-gray-600">Peso Disponible</p>
               <p class="font-semibold">
-                {{ inventoryData?.openUnitsWeight || 0 }} kg
+                {{ Math.round((inventoryData?.openUnitsWeight || 0) * 100) / 100 }} kg
               </p>
             </div>
             <div>

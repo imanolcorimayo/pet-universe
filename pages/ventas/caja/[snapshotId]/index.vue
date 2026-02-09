@@ -209,13 +209,28 @@
                   <td class="px-4 py-3 whitespace-nowrap text-right">
                     <span class="text-sm text-gray-700">{{ formatCurrency(balance.openingAmount) }}</span>
                   </td>
-                  <td class="px-4 py-3 whitespace-nowrap text-right">
+                  <td class="px-4 py-3 text-right">
                     <span
-                      class="text-sm font-medium"
+                      class="text-sm font-medium whitespace-nowrap"
                       :class="balance.movementAmount >= 0 ? 'text-green-600' : 'text-red-600'"
                     >
                       {{ balance.movementAmount >= 0 ? '+' : '' }}{{ formatCurrency(balance.movementAmount) }}
                     </span>
+                    <div
+                      v-if="isCashAccount(balance.ownersAccountName)"
+                      class="text-xs text-gray-500 mt-1 whitespace-nowrap"
+                    >
+                      Ventas: {{ formatCurrency(cashTransactionBreakdown.sales) }}
+                      <template v-if="cashTransactionBreakdown.injections > 0">
+                        · Iny: +{{ formatCurrency(cashTransactionBreakdown.injections) }}
+                      </template>
+                      <template v-if="cashTransactionBreakdown.extractions > 0">
+                        · Ext: -{{ formatCurrency(cashTransactionBreakdown.extractions) }}
+                      </template>
+                      <template v-if="cashTransactionBreakdown.debtPayments > 0">
+                        · Deudas: +{{ formatCurrency(cashTransactionBreakdown.debtPayments) }}
+                      </template>
+                    </div>
                   </td>
                 </template>
                 <!-- Closed snapshot data -->
@@ -821,7 +836,28 @@ const walletsTotal = computed(() => {
   return total;
 });
 
+const cashTransactionBreakdown = computed(() => {
+  const sales = transactions.value
+    .filter(t => t.type === 'sale')
+    .reduce((sum, t) => sum + t.amount, 0);
+  const debtPayments = transactions.value
+    .filter(t => t.type === 'debt_payment')
+    .reduce((sum, t) => sum + t.amount, 0);
+  const injections = transactions.value
+    .filter(t => t.type === 'inject')
+    .reduce((sum, t) => sum + t.amount, 0);
+  const extractions = transactions.value
+    .filter(t => t.type === 'extract')
+    .reduce((sum, t) => sum + t.amount, 0);
+  return { sales, debtPayments, injections, extractions };
+});
+
 // Methods
+
+function isCashAccount(accountName) {
+  const name = accountName.toLowerCase();
+  return name.includes('efectivo') || name.includes('cash');
+}
 
 function getTransactionTypeName(type) {
   const types = {

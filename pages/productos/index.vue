@@ -112,7 +112,7 @@
                 Precios
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Stock Mínimo
+                Stock
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Estado
@@ -156,8 +156,11 @@
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">
-                  {{ product.minimumStock }} {{ product.unitType }}{{ product.minimumStock !== 1 ? 'es' : '' }}
+                <div class="text-sm font-medium" :class="getStockClass(product)">
+                  {{ getFormattedStock(product) }}
+                </div>
+                <div v-if="getMinimumStock(product) > 0" class="text-xs text-gray-500">
+                  Mín: {{ getMinimumStock(product) }}
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
@@ -246,6 +249,7 @@ import LucideSearch from '~icons/lucide/search';
 import LucidePlus from '~icons/lucide/plus';
 
 const productStore = useProductStore();
+const inventoryStore = useInventoryStore();
 const { filteredProducts, productFilter, activeCategories } = storeToRefs(productStore);
 
 const initialLoading = ref(true);
@@ -288,6 +292,35 @@ function setFilter(filter) {
 
 function toggleNoCodeFilter() {
   noCodeFilter.value = !noCodeFilter.value;
+}
+
+function getFormattedStock(product) {
+  const inventory = inventoryStore.getInventoryByProductId(product.id);
+  if (!inventory) return 'Sin inventario';
+
+  const units = inventory.unitsInStock;
+  const isDual = product.trackingType === 'dual';
+  const openWeight = inventory.openUnitsWeight || 0;
+
+  if (isDual && openWeight > 0) {
+    return `${units} ${product.unitType}${units !== 1 ? 'es' : ''} + ${Math.round(openWeight * 100) / 100} kg`;
+  }
+  if (product.trackingType === 'weight') {
+    return `${units} kg`;
+  }
+  return `${units} ${product.unitType}${units !== 1 ? 'es' : ''}`;
+}
+
+function getMinimumStock(product) {
+  return product.minimumStock || 0;
+}
+
+function getStockClass(product) {
+  const inventory = inventoryStore.getInventoryByProductId(product.id);
+  if (!inventory) return 'text-gray-400';
+  const minStock = getMinimumStock(product);
+  if (minStock > 0 && inventory.unitsInStock < minStock) return 'text-red-600';
+  return 'text-gray-900';
 }
 
 // Removed getCategoryName function - now using productStore.getCategoryName directly
@@ -348,6 +381,7 @@ function onProductSaved() {
 
 onMounted(async () => {
   productStore.subscribeToProducts();
+  inventoryStore.subscribeToInventory();
 
   if (!productStore.categoriesLoaded) {
     await productStore.fetchCategories();

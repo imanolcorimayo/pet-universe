@@ -149,8 +149,8 @@
                     >
                       {{ formatStock(product) }}
                     </span>
-                    <span v-if="getProductInventory(product.id)?.minimumStock" class="text-xs text-gray-500">
-                      Mín: {{ getProductInventory(product.id).minimumStock }}
+                    <span v-if="product.minimumStock" class="text-xs text-gray-500">
+                      Mín: {{ product.minimumStock }}
                     </span>
                   </div>
                 </td>
