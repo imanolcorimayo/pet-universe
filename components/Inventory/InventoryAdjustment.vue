@@ -457,6 +457,7 @@
 </template>
 
 <script setup>
+import { nextTick } from "vue";
 import { ToastEvents } from "~/interfaces";
 
 // ----- Define Props ---------
@@ -959,27 +960,31 @@ async function saveAdjustment() {
 }
 
 defineExpose({
-  showModal: () => {
+  showModal: async () => {
+    await nextTick();
     resetForm();
     loadInventoryFromCache();
     mainModal.value?.showModal();
     loadAsyncData();
   },
-  showAddInventoryModal: () => {
+  showAddInventoryModal: async () => {
+    await nextTick();
     resetForm();
     loadInventoryFromCache();
     selectMovementType("addition");
     mainModal.value?.showModal();
     loadAsyncData();
   },
-  showReduceInventoryModal: () => {
+  showReduceInventoryModal: async () => {
+    await nextTick();
     resetForm();
     loadInventoryFromCache();
     selectMovementType("loss");
     mainModal.value?.showModal();
     loadAsyncData();
   },
-  showAdjustInventoryModal: () => {
+  showAdjustInventoryModal: async () => {
+    await nextTick();
     resetForm();
     loadInventoryFromCache();
     selectMovementType("adjustment");
