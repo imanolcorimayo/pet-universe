@@ -29,7 +29,16 @@ export function useDecimalInput() {
     }
 
     const parsed = parseFloat(normalized);
-    return isNaN(parsed) ? 0 : parsed;
+    if (isNaN(parsed)) return 0;
+
+    // Preserve the raw string when trailing zeros after decimal would be lost
+    // e.g. "3.0" → parseFloat → 3 → toString → "3" ≠ "3.0", so keep "3.0"
+    // This lets the user type "3.025" without "3.0" collapsing to "3"
+    if (normalized.includes('.') && parsed.toString() !== normalized) {
+      return normalized;
+    }
+
+    return parsed;
   }
 
   /**

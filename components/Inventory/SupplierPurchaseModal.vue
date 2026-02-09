@@ -66,12 +66,12 @@
             <div class="relative">
               <span class="absolute left-3 top-3 text-gray-500">$</span>
               <input
-                type="number"
-                v-model.number="additionalCharges"
+                type="text"
+                inputmode="decimal"
+                :value="additionalCharges"
+                @input="additionalCharges = parseDecimal($event.target.value)"
                 class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 !pl-8"
                 placeholder="0.00"
-                min="0"
-                step="0.01"
                 :disabled="isSubmitting"
               />
             </div>
@@ -189,12 +189,12 @@
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-gray-700">Cantidad</label>
                   <input
-                    type="number"
-                    v-model.number="item.unitsChange"
+                    type="text"
+                    inputmode="decimal"
+                    :value="item.unitsChange"
+                    @input="item.unitsChange = parseDecimal($event.target.value)"
                     class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-base"
                     placeholder="Ej: 10"
-                    min="0"
-                    step="1"
                     :disabled="isSubmitting"
                   />
                 </div>
@@ -205,12 +205,12 @@
                   <div class="relative">
                     <span class="absolute left-3 top-3 text-gray-500">$</span>
                     <input
-                      type="number"
-                      v-model.number="item.unitCost"
+                      type="text"
+                      inputmode="decimal"
+                      :value="item.unitCost"
+                      @input="item.unitCost = parseDecimal($event.target.value)"
                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 !pl-8 text-base"
                       placeholder="Ej: 1500.00"
-                      min="0"
-                      step="0.01"
                       :disabled="isSubmitting"
                     />
                   </div>
@@ -375,13 +375,12 @@
             <div class="relative">
               <span class="absolute left-3 top-3 text-gray-500">$</span>
               <input
-                type="number"
-                v-model.number="paidAmount"
+                type="text"
+                inputmode="decimal"
+                :value="paidAmount"
+                @input="paidAmount = parseDecimal($event.target.value)"
                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 !pl-8"
                 placeholder="0.00"
-                min="0"
-                :max="totalPurchaseAmount"
-                step="0.01"
                 :disabled="isSubmitting"
               />
             </div>
@@ -500,6 +499,8 @@ import TablerInfoCircle from '~icons/tabler/info-circle';
 import TablerAlertCircle from '~icons/tabler/alert-circle';
 import TablerReceipt from '~icons/tabler/receipt';
 import ProductSearchInput from '~/components/Product/ProductSearchInput.vue';
+
+const { parseDecimal } = useDecimalInput();
 
 // ----- Define Emits ---------
 const emit = defineEmits(["purchase-saved"]);

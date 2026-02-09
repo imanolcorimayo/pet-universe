@@ -1079,26 +1079,39 @@ export const useInventoryStore = defineStore("inventory", {
       inventoryUnsubscribe = inventorySchema.subscribeIncremental(
         {},
         (changes) => {
-          for (const change of changes) {
-            const item = change.doc as Inventory;
+          // Bulk load: initial snapshot where all changes are 'added' and array is empty
+          const isBulkLoad = this.inventoryItems.length === 0 && changes.length > 1 && changes.every(c => c.type === 'added');
 
-            if (change.type === 'added') {
-              this.inventoryItems.push(item);
-              this.inventoryByProductId.set(item.productId, item);
+          if (isBulkLoad) {
+            const newItems = changes.map(c => c.doc as Inventory);
+            const newMap = new Map<string, Inventory>();
+            for (const item of newItems) {
+              newMap.set(item.productId, item);
             }
-            else if (change.type === 'modified') {
-              const index = this.inventoryItems.findIndex(i => i.id === item.id);
-              if (index >= 0) {
-                this.inventoryItems[index] = item;
+            this.inventoryItems = newItems;
+            this.inventoryByProductId = newMap;
+          } else {
+            for (const change of changes) {
+              const item = change.doc as Inventory;
+
+              if (change.type === 'added') {
+                this.inventoryItems.push(item);
+                this.inventoryByProductId.set(item.productId, item);
               }
-              this.inventoryByProductId.set(item.productId, item);
-            }
-            else if (change.type === 'removed') {
-              const index = this.inventoryItems.findIndex(i => i.id === item.id);
-              if (index >= 0) {
-                this.inventoryItems.splice(index, 1);
+              else if (change.type === 'modified') {
+                const index = this.inventoryItems.findIndex(i => i.id === item.id);
+                if (index >= 0) {
+                  this.inventoryItems[index] = item;
+                }
+                this.inventoryByProductId.set(item.productId, item);
               }
-              this.inventoryByProductId.delete(item.productId);
+              else if (change.type === 'removed') {
+                const index = this.inventoryItems.findIndex(i => i.id === item.id);
+                if (index >= 0) {
+                  this.inventoryItems.splice(index, 1);
+                }
+                this.inventoryByProductId.delete(item.productId);
+              }
             }
           }
 

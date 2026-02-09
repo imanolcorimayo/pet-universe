@@ -55,12 +55,12 @@
           <div class="relative">
             <span class="absolute left-3 top-3 text-gray-500">$</span>
             <input
-              type="number"
-              v-model.number="formData.additionalCharges"
+              type="text"
+              inputmode="decimal"
+              :value="formData.additionalCharges"
+              @input="formData.additionalCharges = parseDecimal($event.target.value)"
               class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 !pl-8"
               placeholder="0.00"
-              min="0"
-              step="0.01"
               :disabled="isSubmitting"
             />
           </div>
@@ -107,6 +107,8 @@
 
 <script setup>
 import { ToastEvents } from "~/interfaces";
+
+const { parseDecimal } = useDecimalInput();
 
 // Props
 const props = defineProps({

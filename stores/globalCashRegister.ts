@@ -333,8 +333,9 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
         return;
       }
 
-      // Unsubscribe from previous if exists
+      // Unsubscribe from previous if exists and clear stale data
       this.unsubscribeFromWalletTransactions();
+      this.walletTransactions = [];
 
       this.isWalletLoading = true;
       const schema = new WalletSchema();
@@ -548,7 +549,8 @@ export const useGlobalCashRegisterStore = defineStore('globalCashRegister', {
       if (!forceRefresh &&
           this.currentGlobalCash?.id === id &&
           !this.needsCacheRefresh) {
-        // Return cached data without Firebase call
+        // Still ensure wallet subscription is active for this register
+        this.subscribeToWalletTransactions(id);
         return this.currentGlobalCash;
       }
 

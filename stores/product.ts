@@ -788,32 +788,46 @@ export const useProductStore = defineStore("product", {
           orderBy: [{ field: 'name', direction: 'asc' }]
         },
         (changes) => {
-          for (const change of changes) {
-            const product = change.doc as Product;
+          // Bulk load: initial snapshot where all changes are 'added' and products array is empty
+          const isBulkLoad = this.products.length === 0 && changes.length > 1 && changes.every(c => c.type === 'added');
 
-            if (change.type === 'added') {
-              // Insert in sorted position by name
-              const insertIndex = this.products.findIndex(p => p.name.localeCompare(product.name) > 0);
-              if (insertIndex === -1) {
-                this.products.push(product);
-              } else {
-                this.products.splice(insertIndex, 0, product);
-              }
-              this.productsByIdMap.set(product.id, product);
+          if (isBulkLoad) {
+            // Firestore already returns ordered by name, assign in one shot
+            const newProducts = changes.map(c => c.doc as Product);
+            const newMap = new Map<string, Product>();
+            for (const p of newProducts) {
+              newMap.set(p.id, p);
             }
-            else if (change.type === 'modified') {
-              const index = this.products.findIndex(p => p.id === product.id);
-              if (index >= 0) {
-                this.products[index] = product;
+            this.products = newProducts;
+            this.productsByIdMap = newMap;
+          } else {
+            for (const change of changes) {
+              const product = change.doc as Product;
+
+              if (change.type === 'added') {
+                // Insert in sorted position by name
+                const insertIndex = this.products.findIndex(p => p.name.localeCompare(product.name) > 0);
+                if (insertIndex === -1) {
+                  this.products.push(product);
+                } else {
+                  this.products.splice(insertIndex, 0, product);
+                }
+                this.productsByIdMap.set(product.id, product);
               }
-              this.productsByIdMap.set(product.id, product);
-            }
-            else if (change.type === 'removed') {
-              const index = this.products.findIndex(p => p.id === product.id);
-              if (index >= 0) {
-                this.products.splice(index, 1);
+              else if (change.type === 'modified') {
+                const index = this.products.findIndex(p => p.id === product.id);
+                if (index >= 0) {
+                  this.products[index] = product;
+                }
+                this.productsByIdMap.set(product.id, product);
               }
-              this.productsByIdMap.delete(product.id);
+              else if (change.type === 'removed') {
+                const index = this.products.findIndex(p => p.id === product.id);
+                if (index >= 0) {
+                  this.products.splice(index, 1);
+                }
+                this.productsByIdMap.delete(product.id);
+              }
             }
           }
 

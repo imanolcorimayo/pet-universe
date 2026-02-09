@@ -301,8 +301,13 @@
         </div>
       </div>
 
+      <!-- Transactions Loading -->
+      <div v-if="globalCashStore.isWalletLoading" class="flex justify-center items-center py-8">
+        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      </div>
+
       <!-- Transactions List -->
-      <div v-if="filteredTransactions.length > 0">
+      <div v-else-if="filteredTransactions.length > 0">
         <h2 class="font-semibold text-lg mb-3">Transacciones de la Semana</h2>
         <div class="overflow-x-auto">
           <table class="min-w-full bg-white rounded-lg shadow overflow-hidden">
@@ -419,22 +424,23 @@
                 </td>
                 <!-- Actions -->
                 <td class="px-4 py-4 whitespace-nowrap text-right">
-                  <button
-                    v-if="transaction.status !== 'cancelled' && canEditTransaction"
-                    @click="editTransaction(transaction)"
-                    class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
-                  >
-                    <LucideEdit class="w-3 h-3" />
-                    Editar
-                  </button>
-                  <span
-                    v-else-if="transaction.status === 'cancelled'"
-                    class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 rounded-md cursor-not-allowed"
-                    title="No se puede editar una transacción cancelada"
-                  >
-                    <LucideEdit class="w-3 h-3" />
-                    Editar
-                  </span>
+                  <div class="flex items-center justify-end gap-2">
+                    <button
+                      @click="viewTransactionDetails(transaction)"
+                      class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 rounded-md hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                    >
+                      <LucideEye class="w-3 h-3" />
+                      Ver
+                    </button>
+                    <button
+                      v-if="transaction.status !== 'cancelled' && canEditTransaction"
+                      @click="editTransaction(transaction)"
+                      class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
+                    >
+                      <LucideEdit class="w-3 h-3" />
+                      Editar
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -480,6 +486,11 @@
       :transaction-to-edit="transactionToEdit"
     />
 
+    <GlobalCashTransactionDetails
+      ref="transactionDetailsModal"
+      :transaction="selectedTransactionForDetails"
+    />
+
     <GlobalCashCloseModal
       ref="closeModal"
       :register-to-close="registerData"
@@ -495,6 +506,7 @@ import { ToastEvents } from '~/interfaces';
 import LucideHistory from '~icons/lucide/history';
 import LucidePlus from '~icons/lucide/plus';
 import LucideEdit from '~icons/lucide/edit';
+import LucideEye from '~icons/lucide/eye';
 import LucideLock from '~icons/lucide/lock';
 import LucideAlertCircle from '~icons/lucide/alert-circle';
 import LucideAlertTriangle from '~icons/lucide/alert-triangle';
@@ -509,7 +521,9 @@ const registerId = route.params.registerId;
 // Component refs
 const transactionModal = ref(null);
 const closeModal = ref(null);
+const transactionDetailsModal = ref(null);
 const transactionToEdit = ref(null);
+const selectedTransactionForDetails = ref(null);
 
 // Data refs
 const registerData = ref(null);
@@ -705,6 +719,11 @@ const getSupplierName = (supplierId) => {
 const openTransactionModal = () => {
   transactionToEdit.value = null;
   transactionModal.value?.showModal();
+};
+
+const viewTransactionDetails = (transaction) => {
+  selectedTransactionForDetails.value = transaction;
+  transactionDetailsModal.value?.showModal();
 };
 
 const editTransaction = (transaction) => {
