@@ -602,13 +602,21 @@ export const useProductStore = defineStore("product", {
           productUpdates.threePlusMarkupPercentage = updates.threePlusMarkupPercentage;
         }
         if (updates.prices !== undefined) {
-          // Merge with existing prices to avoid overwriting entire object
+          // Deep merge to preserve nested kg prices
           const currentProduct = this.getProductById(productId);
           if (currentProduct) {
-            productUpdates.prices = {
+            const mergedPrices = {
               ...currentProduct.prices,
               ...updates.prices,
             };
+            // Preserve existing kg sub-fields when partially updating
+            if (updates.prices.kg && currentProduct.prices?.kg) {
+              mergedPrices.kg = {
+                ...currentProduct.prices.kg,
+                ...updates.prices.kg,
+              };
+            }
+            productUpdates.prices = mergedPrices;
           } else {
             productUpdates.prices = updates.prices;
           }

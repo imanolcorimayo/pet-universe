@@ -371,6 +371,7 @@ const productStore = useProductStore();
 // Reactive data
 const isExpanded = ref(false);
 const preserveEditValues = ref(false); // Flag to preserve edit values during updates
+const initialEditValues = ref({}); // Snapshot of values at edit start for diff comparison
 const editValues = ref({
   cost: 0,
   margin: 30,
@@ -450,13 +451,13 @@ const displayPrices = computed(() => {
     };
   }
   
-  // Use stored product prices, fallback to freshly calculated if not available
+  // Use stored product prices, fallback to freshly calculated only if not set
   const storedPrices = props.product.prices || {};
   return {
-    cash: storedPrices.cash || freshlyCalculatedPrices.value.cash,
-    regular: storedPrices.regular || freshlyCalculatedPrices.value.regular,
-    vip: storedPrices.vip || freshlyCalculatedPrices.value.vip,
-    bulk: storedPrices.bulk || freshlyCalculatedPrices.value.bulk,
+    cash: storedPrices.cash ?? freshlyCalculatedPrices.value.cash,
+    regular: storedPrices.regular ?? freshlyCalculatedPrices.value.regular,
+    vip: storedPrices.vip ?? freshlyCalculatedPrices.value.vip,
+    bulk: storedPrices.bulk ?? freshlyCalculatedPrices.value.bulk,
   };
 });
 
@@ -472,14 +473,14 @@ const displayKgPrices = computed(() => {
     };
   }
   
-  // Use stored product kg prices, fallback to freshly calculated if not available
+  // Use stored product kg prices, fallback to freshly calculated only if not set
   const storedKgPrices = props.product.prices?.kg || {};
   const freshKgPrices = freshlyCalculatedPrices.value.kg || {};
-  
+
   return {
-    regular: storedKgPrices.regular || freshKgPrices.regular || 0,
-    vip: storedKgPrices.vip || freshKgPrices.vip || 0,
-    threePlusDiscount: storedKgPrices.threePlusDiscount || freshKgPrices.threePlusDiscount || 0,
+    regular: storedKgPrices.regular ?? freshKgPrices.regular ?? 0,
+    vip: storedKgPrices.vip ?? freshKgPrices.vip ?? 0,
+    threePlusDiscount: storedKgPrices.threePlusDiscount ?? freshKgPrices.threePlusDiscount ?? 0,
   };
 });
 
@@ -532,7 +533,7 @@ function toggleExpanded() {
 
 function startEditing() {
   // Initialize edit values with current stored prices (not calculated ones)
-  editValues.value = {
+  const values = {
     cost: currentCost.value,
     margin: currentMargin.value,
     cash: displayPrices.value.cash,
@@ -544,10 +545,12 @@ function startEditing() {
     threePlusMarkup: currentThreePlusMarkup.value,
     threePlusKgPrice: displayKgPrices.value?.threePlusDiscount || 0,
   };
-  
+  editValues.value = { ...values };
+  initialEditValues.value = { ...values };
+
   // Auto-expand the row to show all input fields
   isExpanded.value = true;
-  
+
   preserveEditValues.value = false;
   emit('edit-product', props.product.id);
 }
@@ -689,62 +692,65 @@ function saveChanges() {
   const vipKgValue = parseFloat(editValues.value.vipKg) || 0;
   const threePlusMarkupValue = parseFloat(editValues.value.threePlusMarkup) || 0;
   const threePlusKgPriceValue = parseFloat(editValues.value.threePlusKgPrice) || 0;
-  
+
+  // Compare against initial values (what was loaded when edit started)
+  // This ensures only fields the user actually changed get sent
+  const initial = initialEditValues.value;
+
   // Preserve edit values during async operations to prevent "refresh" behavior
   preserveEditValues.value = true;
-  
+
   // Handle cost updates separately (inventory store)
-  if (Math.abs(costValue - currentCost.value) > 0.001) {
+  if (Math.abs(costValue - parseFloat(initial.cost)) > 0.001) {
     emit('update-cost', props.product.id, costValue);
   }
-  
+
   // Build product updates object
   const productUpdates = {};
-  
+
   // Handle margin updates
-  if (Math.abs(marginValue - currentMargin.value) > 0.001) {
+  if (Math.abs(marginValue - parseFloat(initial.margin)) > 0.001) {
     productUpdates.profitMarginPercentage = marginValue;
   }
-  
+
   // Handle three plus markup updates
-  if (Math.abs(threePlusMarkupValue - currentThreePlusMarkup.value) > 0.001) {
+  if (Math.abs(threePlusMarkupValue - parseFloat(initial.threePlusMarkup)) > 0.001) {
     productUpdates.threePlusMarkupPercentage = threePlusMarkupValue;
   }
-  
+
   // Build pricing update object
   const pricingData = {};
-  const currentPrices = props.product.prices || {};
-  
-  if (Math.abs(cashValue - (currentPrices.cash || 0)) > 0.001) {
+
+  if (Math.abs(cashValue - parseFloat(initial.cash)) > 0.001) {
     pricingData.cash = cashValue;
   }
-  if (Math.abs(regularValue - (currentPrices.regular || 0)) > 0.001) {
+  if (Math.abs(regularValue - parseFloat(initial.regular)) > 0.001) {
     pricingData.regular = regularValue;
   }
-  if (Math.abs(vipValue - (currentPrices.vip || 0)) > 0.001) {
+  if (Math.abs(vipValue - parseFloat(initial.vip)) > 0.001) {
     pricingData.vip = vipValue;
   }
-  if (Math.abs(bulkValue - (currentPrices.bulk || 0)) > 0.001) {
+  if (Math.abs(bulkValue - parseFloat(initial.bulk)) > 0.001) {
     pricingData.bulk = bulkValue;
   }
-  
+
   // Handle kg prices for dual products
   if (props.product.trackingType === 'dual') {
-    const currentRegularKg = currentPrices.kg?.regular || 0;
-    const currentVipKg = currentPrices.kg?.vip || 0;
-    const currentThreePlusKg = currentPrices.kg?.threePlusDiscount || 0;
-    
-    if (Math.abs(regularKgValue - currentRegularKg) > 0.001 ||
-        Math.abs(vipKgValue - currentVipKg) > 0.001 ||
-        Math.abs(threePlusKgPriceValue - currentThreePlusKg) > 0.001) {
+    const initialRegularKg = parseFloat(initial.regularKg) || 0;
+    const initialVipKg = parseFloat(initial.vipKg) || 0;
+    const initialThreePlusKg = parseFloat(initial.threePlusKgPrice) || 0;
+
+    if (Math.abs(regularKgValue - initialRegularKg) > 0.001 ||
+        Math.abs(vipKgValue - initialVipKg) > 0.001 ||
+        Math.abs(threePlusKgPriceValue - initialThreePlusKg) > 0.001) {
       pricingData.kg = {};
-      if (Math.abs(regularKgValue - currentRegularKg) > 0.001) {
+      if (Math.abs(regularKgValue - initialRegularKg) > 0.001) {
         pricingData.kg.regular = regularKgValue;
       }
-      if (Math.abs(threePlusKgPriceValue - currentThreePlusKg) > 0.001) {
+      if (Math.abs(threePlusKgPriceValue - initialThreePlusKg) > 0.001) {
         pricingData.kg.threePlusDiscount = threePlusKgPriceValue;
       }
-      if (Math.abs(vipKgValue - currentVipKg) > 0.001) {
+      if (Math.abs(vipKgValue - initialVipKg) > 0.001) {
         pricingData.kg.vip = vipKgValue;
       }
     }
