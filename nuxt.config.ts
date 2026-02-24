@@ -5,11 +5,12 @@ export default defineNuxtConfig({
   ssr: false,
   css: ["~/assets/css/main.css", "vue3-toastify/dist/index.css"],
   modules: [
-    "@pinia/nuxt", 
+    "@pinia/nuxt",
     "nuxt-vuefire",
     "unplugin-icons/nuxt",
     '@vueuse/nuxt',
     "dayjs-nuxt",
+    "@sentry/nuxt/module",
   ],
 
   vite: {
@@ -28,8 +29,20 @@ export default defineNuxtConfig({
       firebaseStorageBucket: process.env.FIREBASE_STORAGE_BUCKET,
       firebaseMessagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
       firebaseAppId: process.env.FIREBASE_APP_ID,
-      firebaseMeasurementId: process.env.FIREBASE_MEASUREMENT_ID
+      firebaseMeasurementId: process.env.FIREBASE_MEASUREMENT_ID,
+      sentryDsn: process.env.SENTRY_DSN,
     }
+  },
+
+  sentry: {
+    sourceMapsUploadOptions: {
+      org: "pet-universe",
+      project: "javascript-nuxt",
+    },
+  },
+
+  sourcemap: {
+    client: "hidden",
   },
 
   vuefire: {

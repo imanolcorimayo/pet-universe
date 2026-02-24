@@ -381,12 +381,13 @@ onMounted(async () => {
   if (width.value > 768) showSideBar.value = true;
   
   // Load cash register data for dynamic navigation
-  try {
-    await cashRegisterStore.loadRegisters();
-    // Load snapshots for all registers to show current status
-    await cashRegisterStore.loadAllRegisterSnapshots();
-  } catch (error) {
-    console.error('Error loading cash register data for navigation:', error);
+  if (indexStore.currentBusiness.id) {
+    try {
+      await cashRegisterStore.loadRegisters();
+      await cashRegisterStore.loadAllRegisterSnapshots();
+    } catch (error) {
+      console.error('Error loading cash register data for navigation:', error);
+    }
   }
 });
 
