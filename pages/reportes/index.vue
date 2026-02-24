@@ -1,80 +1,85 @@
 <template>
-  <div class="min-h-[80vh] w-full flex items-center justify-center px-4">
-    <div class="text-center max-w-3xl mx-auto">
-      <div class="mb-8 relative">
-        <IcTwotonePets class="w-36 h-36 text-primary mx-auto" />
-        <div class="absolute top-0 right-0">
-          <div class="animate-ping absolute inline-flex h-12 w-12 rounded-full bg-primary opacity-20"></div>
-          <div class="relative inline-flex rounded-full h-12 w-12 bg-primary items-center justify-center">
-            <span class="text-white font-bold text-xs">Soon</span>
-          </div>
-        </div>
+  <div class="w-full p-4">
+    <div class="w-full max-w-7xl mx-auto">
+      <!-- Header -->
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">Reportes</h1>
+        <p class="text-gray-600">Analiza el rendimiento de tu negocio</p>
       </div>
-      
-      <h1 class="text-4xl md:text-5xl font-bold mb-6 text-gray-900">
-        ¡Próximamente!
-      </h1>
 
-      <p class="text-xl text-gray-600 mb-8">
-        Estamos trabajando en un sistema completo para gestionar tu negocio de mascotas.
-      </p>
-      
-      <div class="space-y-6 mb-8">
-        <div class="flex items-center justify-center gap-2">
-          <div class="h-1.5 w-1.5 rounded-full bg-primary"></div>
-          <div class="h-1.5 w-1.5 rounded-full bg-primary"></div>
-          <div class="h-1.5 w-1.5 rounded-full bg-primary"></div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-          <div class="p-6 rounded-lg bg-gray-50 shadow-sm hover:shadow-md transition-shadow">
-            <MaterialSymbolsInventory2Outline class="h-10 w-10 text-primary mb-4" />
-            <h3 class="font-semibold text-lg mb-2">Control de Stock</h3>
-            <p class="text-gray-600">Gestiona fácilmente tu inventario de alimentos y accesorios para mascotas.</p>
-          </div>
-          
-          <div class="p-6 rounded-lg bg-gray-50 shadow-sm hover:shadow-md transition-shadow">
-            <MaterialSymbolsReceiptLongOutline class="h-10 w-10 text-primary mb-4" />
-            <h3 class="font-semibold text-lg mb-2">Seguimiento de Compras y Ventas</h3>
-            <p class="text-gray-600">Realiza un seguimiento de tus compras y proveedores como asi tambien de tus  ventas y mantén tu inventario actualizado.</p>
-          </div>
-          
-          <div class="p-6 rounded-lg bg-gray-50 shadow-sm hover:shadow-md transition-shadow">
-            <IcRoundInsights class="h-10 w-10 text-primary mb-4" />
-            <h3 class="font-semibold text-lg mb-2">Estadísticas y Reportes</h3>
-            <p class="text-gray-600">Analiza tus datos con gráficos intuitivos y reportes detallados.</p>
-          </div>
-        </div>
+      <!-- Date Range -->
+      <div class="mb-4">
+        <ReportDateRange
+          :from="reportStore.dateRange.from"
+          :to="reportStore.dateRange.to"
+          @change="onDateRangeChange"
+        />
       </div>
-      
-      <div class="mt-10">
-        <NuxtLink 
-          to="/dashboard" 
-          class="inline-flex items-center gap-2 text-primary hover:underline"
-        >
-          <PhArrowLeft class="h-4 w-4" />
-          Volver al Dashboard
-        </NuxtLink>
+
+      <!-- Tabs + Content -->
+      <div class="bg-white rounded-lg shadow overflow-hidden">
+        <!-- Tab bar -->
+        <div class="border-b overflow-x-auto">
+          <nav class="flex -mb-px min-w-max">
+            <button
+              v-for="tab in tabs"
+              :key="tab.id"
+              @click="reportStore.activeTab = tab.id"
+              class="px-5 py-3 border-b-2 font-medium text-sm whitespace-nowrap transition-colors"
+              :class="
+                reportStore.activeTab === tab.id
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              "
+            >
+              <component :is="tab.icon" class="h-4 w-4 inline-block mr-1.5 -mt-0.5" />
+              {{ tab.label }}
+            </button>
+          </nav>
+        </div>
+
+        <!-- Tab content (lazy rendered) -->
+        <div class="p-6">
+          <ReportDailySales v-if="reportStore.activeTab === 'daily-sales'" />
+          <ReportPaymentMethods v-if="reportStore.activeTab === 'payment-methods'" />
+          <ReportPurchases v-if="reportStore.activeTab === 'purchases'" />
+          <ReportEconomic v-if="reportStore.activeTab === 'economic'" />
+          <ReportFinancial v-if="reportStore.activeTab === 'financial'" />
+          <ReportIncomeCategories v-if="reportStore.activeTab === 'income-categories'" />
+          <ReportExpenseCategories v-if="reportStore.activeTab === 'expense-categories'" />
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import IcTwotonePets from '~icons/ic/twotone-pets';
-import PhArrowLeft from '~icons/ph/arrow-left';
-import MaterialSymbolsInventory2Outline from '~icons/material-symbols/inventory-2-outline';
-import MaterialSymbolsReceiptLongOutline from '~icons/material-symbols/receipt-long-outline';
 import IcRoundInsights from '~icons/ic/round-insights';
+import MaterialSymbolsPointOfSale from '~icons/material-symbols/point-of-sale';
+import MaterialSymbolsCreditCard from '~icons/material-symbols/credit-card';
+import MaterialSymbolsReceiptLongOutline from '~icons/material-symbols/receipt-long-outline';
+import MaterialSymbolsAccountBalance from '~icons/material-symbols/account-balance';
+import MaterialSymbolsTrendingUp from '~icons/material-symbols/trending-up';
+import MaterialSymbolsArrowUpward from '~icons/material-symbols/arrow-upward';
+import MaterialSymbolsArrowDownward from '~icons/material-symbols/arrow-downward';
+
+const reportStore = useReportStore();
+
+const tabs = [
+  { id: 'daily-sales', label: 'Ventas Diarias', icon: MaterialSymbolsPointOfSale },
+  { id: 'payment-methods', label: 'Medios de Pago', icon: MaterialSymbolsCreditCard },
+  { id: 'purchases', label: 'Compras y Facturas', icon: MaterialSymbolsReceiptLongOutline },
+  { id: 'economic', label: 'Económico', icon: MaterialSymbolsAccountBalance },
+  { id: 'financial', label: 'Financiero', icon: MaterialSymbolsTrendingUp },
+  { id: 'income-categories', label: 'Ingresos', icon: MaterialSymbolsArrowUpward },
+  { id: 'expense-categories', label: 'Egresos', icon: MaterialSymbolsArrowDownward },
+];
+
+function onDateRangeChange(range) {
+  reportStore.setDateRange(range);
+}
 
 useHead({
-  title: "Próximamente - Pet Universe",
-  meta: [
-    {
-      name: "description",
-      content: "Nuestra funciones estarán disponible pronto en Pet Universe"
-    }
-  ]
+  title: 'Reportes - Pet Universe',
 });
-
 </script>

@@ -1,0 +1,147 @@
+<template>
+  <!-- Loading -->
+  <div v-if="reportStore.dailySales.loading" class="flex justify-center py-16">
+    <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+  </div>
+
+  <!-- Empty -->
+  <div v-else-if="reportStore.dailySales.data.length === 0" class="text-center py-16 text-gray-500">
+    <IcRoundInsights class="h-12 w-12 mx-auto mb-3 text-gray-300" />
+    <p>No hay ventas para el período seleccionado</p>
+  </div>
+
+  <!-- Content -->
+  <div v-else>
+    <!-- Summary cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-blue-50 rounded-lg p-4">
+        <p class="text-sm text-blue-600 font-medium">Total Ventas</p>
+        <p class="text-2xl font-bold text-blue-800">{{ totalSales }}</p>
+      </div>
+      <div class="bg-green-50 rounded-lg p-4">
+        <p class="text-sm text-green-600 font-medium">Monto Total</p>
+        <p class="text-2xl font-bold text-green-800">{{ formattedTotal }}</p>
+      </div>
+      <div class="bg-purple-50 rounded-lg p-4">
+        <p class="text-sm text-purple-600 font-medium">Promedio por Venta</p>
+        <p class="text-2xl font-bold text-purple-800">{{ formattedAverage }}</p>
+      </div>
+      <div class="bg-amber-50 rounded-lg p-4">
+        <p class="text-sm text-amber-600 font-medium">Descuentos</p>
+        <p class="text-2xl font-bold text-amber-800">{{ formattedDiscounts }}</p>
+      </div>
+    </div>
+
+    <!-- Period selector -->
+    <div class="flex justify-end mb-4">
+      <div class="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+        <button
+          v-for="p in periods"
+          :key="p.id"
+          @click="selectedPeriod = p.id"
+          :class="[
+            'px-3 py-1 text-xs font-medium rounded-md transition-colors',
+            selectedPeriod === p.id
+              ? 'bg-white text-primary shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          ]"
+        >
+          {{ p.label }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Timeline chart -->
+    <div class="mb-6">
+      <ClientOnly>
+        <apexchart
+          type="line"
+          height="350"
+          :options="timelineOptions"
+          :series="timelineSeries"
+        />
+      </ClientOnly>
+    </div>
+
+    <!-- Count chart -->
+    <div>
+      <ClientOnly>
+        <apexchart
+          type="bar"
+          height="300"
+          :options="countChartOptions"
+          :series="countSeries"
+        />
+      </ClientOnly>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import IcRoundInsights from '~icons/ic/round-insights';
+import {
+  aggregateByPeriod,
+  buildTimelineChartOptions,
+  buildBarChartOptions,
+  type PeriodType,
+} from '~/utils/reportHelpers';
+
+const { $dayjs } = useNuxtApp();
+const reportStore = useReportStore();
+
+const periods = [
+  { id: 'day', label: 'Día' },
+  { id: 'week', label: 'Semana' },
+  { id: 'month', label: 'Mes' },
+  { id: 'year', label: 'Año' },
+];
+const selectedPeriod = ref<PeriodType>('day');
+
+onMounted(() => reportStore.fetchDailySales());
+watch(() => reportStore.dateRange, () => reportStore.fetchDailySales(), { deep: true });
+
+const sales = computed(() => reportStore.dailySales.data);
+
+const totalSales = computed(() => sales.value.length);
+const totalAmount = computed(() => sales.value.reduce((sum: number, s: any) => sum + (s.amountTotal || 0), 0));
+const totalDiscounts = computed(() => sales.value.reduce((sum: number, s: any) => sum + (s.discountTotal || 0), 0));
+const formattedTotal = computed(() => formatCurrency(totalAmount.value));
+const formattedAverage = computed(() => formatCurrency(totalSales.value > 0 ? totalAmount.value / totalSales.value : 0));
+const formattedDiscounts = computed(() => formatCurrency(totalDiscounts.value));
+
+const aggregated = computed(() =>
+  aggregateByPeriod(
+    sales.value,
+    (s: any) => s.originalCreatedAt?.toDate?.() || s.originalCreatedAt || s.createdAt,
+    selectedPeriod.value,
+    (s: any) => ({ amount: s.amountTotal || 0, count: 1 }),
+    $dayjs
+  )
+);
+
+const timelineOptions = computed(() =>
+  buildTimelineChartOptions(
+    [],
+    aggregated.value.map(b => b.label),
+    'Montos de Venta'
+  )
+);
+
+const timelineSeries = computed(() => [
+  { name: 'Monto', data: aggregated.value.map(b => Math.round(b.values.amount || 0)) },
+]);
+
+const countChartOptions = computed(() =>
+  buildBarChartOptions(
+    [],
+    aggregated.value.map(b => b.label),
+    'Cantidad de Ventas (Clientes)',
+    false,
+    false
+  )
+);
+
+const countSeries = computed(() => [
+  { name: 'Ventas', data: aggregated.value.map(b => b.values.count || 0) },
+]);
+</script>
