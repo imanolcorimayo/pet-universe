@@ -502,14 +502,12 @@ const handlePaymentMethodChange = (data) => {
 };
 
 const handleAccountChange = (data) => {
-  // Auto-set transaction reporting based on account type for outcome transactions
-  // Use data.account directly to avoid timing issues with v-model updates
-  if (data.account) {
-    // Use account.type for reliable detection instead of string matching
-    const isCashAccount = data.account.type === 'cash';
-    form.isReported = !isCashAccount; // cash = false (black), others = true (white)
+  const account = data?.account || paymentMethodsStore.getOwnersAccountById(form.ownersAccountId);
+  if (account) {
+    const isCashAccount = account.type === 'cash';
+    form.isReported = !isCashAccount;
   } else {
-    form.isReported = true; // Default to white when no account
+    form.isReported = true;
   }
 };
 
