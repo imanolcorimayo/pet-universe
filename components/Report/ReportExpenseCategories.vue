@@ -12,6 +12,33 @@
 
   <!-- Content -->
   <div v-else>
+    <ReportHeader
+      title="Egresos"
+      subtitle="Todos los egresos pagados agrupados por categoría de gasto"
+    >
+      <template #info>
+        <div class="space-y-3 text-sm text-gray-700">
+          <p>Muestra <strong>todos los movimientos de billetera tipo egreso con status pagado</strong>, agrupados por su categoría. Incluye pagos a proveedores, gastos de servicios, alquiler y cualquier otro egreso — a diferencia del reporte de Compras que solo muestra egresos con proveedor asignado.</p>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Tarjetas resumen</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li><strong>Total Egresos:</strong> Suma de todos los egresos pagados en el período</li>
+              <li>Las siguientes 3 tarjetas muestran las <strong>categorías con mayor gasto</strong>, con su total y porcentaje sobre el total</li>
+            </ul>
+          </div>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Gráficos</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li><strong>Egresos por Categoría:</strong> Línea de tiempo con una línea por cada categoría, mostrando su evolución individual</li>
+              <li><strong>Distribución de Egresos:</strong> Proporción de cada categoría sobre el total de egresos pagados</li>
+            </ul>
+          </div>
+        </div>
+      </template>
+    </ReportHeader>
+
     <!-- Summary cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div class="bg-red-50 rounded-lg p-4">

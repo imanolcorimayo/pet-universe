@@ -12,6 +12,33 @@
 
   <!-- Content -->
   <div v-else>
+    <ReportHeader
+      title="Ingresos"
+      subtitle="Ingresos cobrados agrupados por categoría de ingreso"
+    >
+      <template #info>
+        <div class="space-y-3 text-sm text-gray-700">
+          <p>Muestra todos los <strong>movimientos de billetera tipo ingreso con status pagado</strong>, agrupados por su categoría. Incluye cobros de ventas, cobros de deudas, ingresos extras y cualquier otro ingreso efectivamente recibido.</p>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Tarjetas resumen</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li><strong>Total Ingresos:</strong> Suma de todos los ingresos cobrados en el período</li>
+              <li>Las siguientes 3 tarjetas muestran las <strong>categorías con mayor monto</strong>, con su total y porcentaje sobre el total</li>
+            </ul>
+          </div>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Gráficos</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li><strong>Ingresos por Categoría:</strong> Línea de tiempo con una línea por cada categoría, mostrando su evolución individual</li>
+              <li><strong>Distribución de Ingresos:</strong> Proporción de cada categoría sobre el total de ingresos cobrados</li>
+            </ul>
+          </div>
+        </div>
+      </template>
+    </ReportHeader>
+
     <!-- Summary cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div class="bg-green-50 rounded-lg p-4">

@@ -7,27 +7,61 @@
   <!-- Empty -->
   <div v-else-if="reportStore.purchases.data.length === 0" class="text-center py-16 text-gray-500">
     <IcRoundInsights class="h-12 w-12 mx-auto mb-3 text-gray-300" />
-    <p>No hay egresos para el período seleccionado</p>
+    <p>No hay compras para el período seleccionado</p>
   </div>
 
   <!-- Content -->
   <div v-else>
+    <ReportHeader
+      title="Compras y Facturas"
+      subtitle="Análisis de compras realizadas a proveedores"
+    >
+      <template #info>
+        <div class="space-y-3 text-sm text-gray-700">
+          <p>Muestra <strong>egresos de billetera (status pagado) que tienen un proveedor asignado</strong>. Los gastos sin proveedor (alquiler, servicios generales, etc.) se encuentran en el reporte de Egresos.</p>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Tarjetas resumen</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li><strong>Total Compras:</strong> Cantidad de registros y monto acumulado en el período</li>
+              <li><strong>Proveedores:</strong> Cantidad de proveedores distintos con compras en el período</li>
+              <li><strong>Deudas Pendientes:</strong> Saldo total adeudado a proveedores actualmente (independiente del rango de fechas)</li>
+            </ul>
+          </div>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Filtros disponibles</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li><strong>Tipo de proveedor:</strong> Filtra por categoría del proveedor (Servicios, Alimentos, Accesorios)</li>
+              <li><strong>Proveedor:</strong> Selección múltiple entre los proveedores que aparecen en los datos actuales</li>
+              <li><strong>Período:</strong> Agrupa la línea de tiempo por día, semana, mes o año</li>
+            </ul>
+          </div>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Gráficos</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li><strong>Línea de tiempo:</strong> Evolución del monto de compras agrupado por período</li>
+              <li><strong>Por proveedor:</strong> Los 8 proveedores con mayor gasto (el resto se agrupa en "Otros")</li>
+              <li><strong>Por tipo de proveedor:</strong> Distribución entre Servicios, Alimentos y Accesorios</li>
+              <li><strong>Por categoría:</strong> Clasificación según la categoría de gasto del movimiento de billetera</li>
+              <li><strong>Por cuenta:</strong> Desde qué cuentas del negocio se realizaron los pagos</li>
+            </ul>
+          </div>
+        </div>
+      </template>
+    </ReportHeader>
+
     <!-- Summary cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-3 gap-4 mb-6">
       <div class="bg-blue-50 rounded-lg p-4">
-        <p class="text-sm text-blue-600 font-medium">Total Egresos</p>
+        <p class="text-sm text-blue-600 font-medium">Total Compras</p>
         <p class="text-2xl font-bold text-blue-800">{{ records.length }}</p>
         <p class="text-xs text-blue-500 mt-1">{{ formatCurrency(totalAmount) }}</p>
       </div>
       <div class="bg-emerald-50 rounded-lg p-4">
-        <p class="text-sm text-emerald-600 font-medium">Con Proveedor</p>
-        <p class="text-2xl font-bold text-emerald-800">{{ supplierCount }}</p>
-        <p class="text-xs text-emerald-500 mt-1">{{ formatCurrency(supplierAmount) }}</p>
-      </div>
-      <div class="bg-amber-50 rounded-lg p-4">
-        <p class="text-sm text-amber-600 font-medium">Gastos Directos</p>
-        <p class="text-2xl font-bold text-amber-800">{{ directCount }}</p>
-        <p class="text-xs text-amber-500 mt-1">{{ formatCurrency(directAmount) }}</p>
+        <p class="text-sm text-emerald-600 font-medium">Proveedores</p>
+        <p class="text-2xl font-bold text-emerald-800">{{ uniqueSupplierCount }}</p>
       </div>
       <div class="bg-red-50 rounded-lg p-4">
         <p class="text-sm text-red-600 font-medium">Deudas Pendientes</p>
@@ -94,17 +128,6 @@
 
           <!-- Provider list -->
           <div class="max-h-56 overflow-y-auto">
-            <!-- "Sin proveedor" option -->
-            <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="selectedProviderIds.has('__none__')"
-                @change="toggleProvider('__none__')"
-                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span class="ml-2 text-sm text-gray-600 italic">Sin proveedor</span>
-            </label>
-
             <label
               v-for="s in filteredProviderOptions"
               :key="s.id"
@@ -311,7 +334,6 @@ function toggleProvider(id: string) {
 
 function selectAllProviders() {
   const next = new Set<string>();
-  next.add('__none__');
   for (const s of activeProviderOptions.value) next.add(s.id);
   selectedProviderIds.value = next;
 }
@@ -335,23 +357,14 @@ const records = computed(() => {
 
   // Provider multi-select filter
   if (hasProviderFilter.value) {
-    data = data.filter((r: any) => {
-      if (!r.supplierId) return selectedProviderIds.value.has('__none__');
-      return selectedProviderIds.value.has(r.supplierId);
-    });
+    data = data.filter((r: any) => selectedProviderIds.value.has(r.supplierId));
   }
 
   return data;
 });
 
 const totalAmount = computed(() => records.value.reduce((sum: number, r: any) => sum + (r.amount || 0), 0));
-
-const withSupplier = computed(() => records.value.filter((r: any) => r.supplierId));
-const withoutSupplier = computed(() => records.value.filter((r: any) => !r.supplierId));
-const supplierCount = computed(() => withSupplier.value.length);
-const supplierAmount = computed(() => withSupplier.value.reduce((sum: number, r: any) => sum + (r.amount || 0), 0));
-const directCount = computed(() => withoutSupplier.value.length);
-const directAmount = computed(() => withoutSupplier.value.reduce((sum: number, r: any) => sum + (r.amount || 0), 0));
+const uniqueSupplierCount = computed(() => new Set(records.value.map((r: any) => r.supplierId)).size);
 
 // Pending debts
 const activeDebts = computed(() => debtStore.activeSupplierDebts || []);
@@ -397,7 +410,7 @@ const supplierGroups = computed(() => {
   const groups = new Map<string, number>();
   for (const r of records.value) {
     const supplier = supplierMap.value.get(r.supplierId);
-    const name = supplier?.name || 'Sin proveedor';
+    const name = supplier?.name || r.supplierId;
     groups.set(name, (groups.get(name) || 0) + (r.amount || 0));
   }
   const sorted = Array.from(groups.entries())

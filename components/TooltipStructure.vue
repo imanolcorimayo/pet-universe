@@ -5,22 +5,17 @@
     
     <!-- Tooltip dropdown with Teleport -->
     <Teleport to="body">
-      <Transition
-        name="tooltip"
-        appear
-        @enter="onEnter"
-        @leave="onLeave"
-      >
+      <Transition name="tooltip" appear>
         <div
           v-if="isOpen"
           ref="tooltipContainer"
-          class="fixed bg-white rounded-lg shadow-xl border min-w-80 max-w-sm tooltip-namespace"
-          :class="[tooltipClass, animationClass]"
+          class="fixed bg-white rounded-xl border border-gray-200/80 min-w-80 max-w-sm tooltip-namespace"
+          :class="tooltipClass"
           :style="computedStyle"
           @click.stop
         >
           <!-- Header -->
-          <div class="flex items-center justify-between p-3 border-b bg-gray-50">
+          <div class="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50/80">
             <h3 class="text-sm font-semibold text-gray-800">{{ title }}</h3>
             <button
               @click="closeTooltip"
@@ -30,26 +25,28 @@
               <LucideX class="w-4 h-4" />
             </button>
           </div>
-          
+
           <!-- Content -->
           <div class="p-3 max-h-96 overflow-y-auto">
             <slot name="content" :close-tooltip="closeTooltip" />
           </div>
-          
+
           <!-- Footer (optional) -->
-          <div v-if="$slots.footer" class="border-t bg-gray-50 px-3 py-2">
+          <div v-if="$slots.footer" class="border-t border-gray-100 bg-gray-50/80 px-3 py-2">
             <slot name="footer" :close-tooltip="closeTooltip" />
           </div>
         </div>
       </Transition>
-      
+
       <!-- Backdrop for click-outside detection -->
-      <div
-        v-if="isOpen"
-        class="fixed inset-0 tooltip-backdrop"
-        :style="{ zIndex: zIndexBackdrop }"
-        @click.stop="closeTooltip"
-      ></div>
+      <Transition name="backdrop">
+        <div
+          v-if="isOpen"
+          class="fixed inset-0 tooltip-backdrop"
+          :style="{ zIndex: zIndexBackdrop, background: 'rgba(0,0,0,0.04)' }"
+          @click.stop="closeTooltip"
+        ></div>
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -82,19 +79,30 @@ const triggerContainer = ref(null);
 const tooltipContainer = ref(null);
 const tooltipPosition = ref({ x: 0, y: 0 });
 const actualPosition = ref(props.position);
-const animationClass = ref('');
 
 // Z-index management for layering
 const zIndexTooltip = 9999;
 const zIndexBackdrop = zIndexTooltip - 1;
 
 // Computed styles
-const computedStyle = computed(() => ({
-  left: `${tooltipPosition.value.x}px`,
-  top: `${tooltipPosition.value.y}px`,
-  zIndex: zIndexTooltip,
-  transformOrigin: getTransformOrigin(),
-}));
+const computedStyle = computed(() => {
+  const slideVars = getSlideDirection();
+  return {
+    left: `${tooltipPosition.value.x}px`,
+    top: `${tooltipPosition.value.y}px`,
+    zIndex: zIndexTooltip,
+    transformOrigin: getTransformOrigin(),
+    '--slide-x': slideVars.x,
+    '--slide-y': slideVars.y,
+  };
+});
+
+function getSlideDirection() {
+  const pos = actualPosition.value;
+  if (pos.includes('bottom')) return { x: '0px', y: '-6px' };
+  if (pos.includes('top')) return { x: '0px', y: '6px' };
+  return { x: '0px', y: '-6px' };
+}
 
 // Transform origin for smooth animations
 function getTransformOrigin() {
@@ -192,17 +200,6 @@ function closeTooltip() {
   emit('close-tooltip');
 }
 
-// Animation event handlers
-function onEnter(el) {
-  // Force reflow for smooth animation
-  el.offsetHeight;
-  animationClass.value = 'tooltip-enter-active';
-}
-
-function onLeave(el) {
-  animationClass.value = 'tooltip-leave-active';
-}
-
 // Keyboard event handling
 function handleKeydown(event) {
   if (event.key === 'Escape' && isOpen.value) {
@@ -240,28 +237,47 @@ defineExpose({
 </script>
 
 <style scoped>
-/* Subtle tooltip animations */
+/* Direction-aware slide animation */
 .tooltip-enter-active {
-  transition: all 0.15s ease-out;
+  transition: opacity 0.2s cubic-bezier(0.32, 0.72, 0, 1),
+              transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .tooltip-leave-active {
-  transition: all 0.1s ease-in;
+  transition: opacity 0.12s cubic-bezier(0.32, 0.72, 0, 1),
+              transform 0.12s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .tooltip-enter-from {
   opacity: 0;
-  transform: scale(0.96);
+  transform: translate(var(--slide-x, 0px), var(--slide-y, -6px));
 }
 
 .tooltip-leave-to {
   opacity: 0;
-  transform: scale(0.98);
+  transform: translate(var(--slide-x, 0px), var(--slide-y, -6px));
 }
 
-/* Enhanced shadow for better depth */
+/* Backdrop fade */
+.backdrop-enter-active {
+  transition: opacity 0.2s ease;
+}
+
+.backdrop-leave-active {
+  transition: opacity 0.12s ease;
+}
+
+.backdrop-enter-from,
+.backdrop-leave-to {
+  opacity: 0;
+}
+
+/* Layered shadow for realistic depth */
 .tooltip-namespace {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 8px 20px -4px rgba(0, 0, 0, 0.12),
+    0 20px 50px -12px rgba(0, 0, 0, 0.08);
 }
 
 /* Smooth focus transitions */

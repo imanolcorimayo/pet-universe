@@ -12,6 +12,41 @@
 
   <!-- Content -->
   <div v-else>
+    <ReportHeader
+      title="Medios de Pago"
+      subtitle="Distribución de ingresos según la forma de pago utilizada"
+    >
+      <template #info>
+        <div class="space-y-3 text-sm text-gray-700">
+          <p>Muestra <strong>todos los ingresos cobrados</strong> (status pagado) agrupados por medio de pago. Incluye cobros de ventas, cobros de deudas e ingresos extras — no solo ventas.</p>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Tarjetas resumen</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li>Los <strong>4 medios de pago con mayor monto</strong>, cada uno con su total acumulado y cantidad de transacciones</li>
+            </ul>
+          </div>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Gráficos</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li><strong>Ingresos por Medio de Pago:</strong> Línea de tiempo con una línea por cada medio de pago, mostrando su evolución</li>
+              <li><strong>Distribución:</strong> Proporción que representa cada medio de pago sobre el total de ingresos cobrados</li>
+            </ul>
+          </div>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Movimientos internos</p>
+            <p class="text-gray-600 mb-1">Algunos ingresos no tienen un medio de pago tradicional:</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li><strong>Extracción de Caja:</strong> Dinero trasladado desde la caja diaria a la caja global. Es un movimiento interno, no un cobro a cliente</li>
+              <li><strong>Depósito de Procesadora de Pagos:</strong> Depósito que realiza una procesadora de pagos (ej: Visa, Mastercard) por las transacciones acumuladas ya liquidadas</li>
+            </ul>
+          </div>
+        </div>
+      </template>
+    </ReportHeader>
+
     <!-- Summary cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div
@@ -100,11 +135,18 @@ watch(() => reportStore.dateRange, () => reportStore.fetchPaymentMethods(), { de
 
 const data = computed(() => reportStore.paymentMethods.data);
 
+function getMethodLabel(record: any): string {
+  if (record.paymentMethodName) return record.paymentMethodName;
+  if (record.settlementIds?.length) return 'Depósito de Procesadora de Pagos';
+  if (record.isRegistered === false) return 'Extracción de Caja';
+  return 'Sin método';
+}
+
 // Group by payment method
 const methodGroups = computed(() => {
   const groups = new Map<string, { name: string; total: number; count: number }>();
   for (const record of data.value) {
-    const name = record.paymentMethodName || 'Sin método';
+    const name = getMethodLabel(record);
     if (!groups.has(name)) {
       groups.set(name, { name, total: 0, count: 0 });
     }
@@ -123,7 +165,7 @@ const methodNames = computed(() => methodGroups.value.map(m => m.name));
 const aggregated = computed(() => {
   const byMethod: Record<string, any[]> = {};
   for (const name of methodNames.value) {
-    byMethod[name] = data.value.filter((r: any) => (r.paymentMethodName || 'Sin método') === name);
+    byMethod[name] = data.value.filter((r: any) => getMethodLabel(r) === name);
   }
 
   // Get all period labels from full dataset

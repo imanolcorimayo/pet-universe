@@ -170,12 +170,15 @@
             <div class="bg-pink-500/10 p-2 rounded-lg">
               <PhCakeFill class="text-pink-500 w-5 h-5" />
             </div>
-            <h2 class="font-semibold text-gray-800">Cumpleaños de Clientes</h2>
+            <div>
+              <h2 class="font-semibold text-gray-800">Cumpleaños de Clientes</h2>
+              <p class="text-xs text-gray-400">Próximos {{ BIRTHDAY_WINDOW_MONTHS }} meses</p>
+            </div>
           </div>
 
           <div v-if="upcomingClientBirthdays.length === 0" class="text-center py-8 text-gray-500">
             <PhCakeFill class="w-10 h-10 mx-auto mb-2 text-gray-300" />
-            <p class="text-sm">No hay cumpleaños este mes ni el próximo</p>
+            <p class="text-sm">No hay cumpleaños en los próximos {{ BIRTHDAY_WINDOW_MONTHS }} meses</p>
           </div>
 
           <div v-else class="space-y-2">
@@ -218,12 +221,15 @@
             <div class="bg-orange-500/10 p-2 rounded-lg">
               <PhPawPrintFill class="text-orange-500 w-5 h-5" />
             </div>
-            <h2 class="font-semibold text-gray-800">Cumpleaños de Mascotas</h2>
+            <div>
+              <h2 class="font-semibold text-gray-800">Cumpleaños de Mascotas</h2>
+              <p class="text-xs text-gray-400">Próximos {{ BIRTHDAY_WINDOW_MONTHS }} meses</p>
+            </div>
           </div>
 
           <div v-if="upcomingPetBirthdays.length === 0" class="text-center py-8 text-gray-500">
             <PhPawPrintFill class="w-10 h-10 mx-auto mb-2 text-gray-300" />
-            <p class="text-sm">No hay cumpleaños este mes ni el próximo</p>
+            <p class="text-sm">No hay cumpleaños en los próximos {{ BIRTHDAY_WINDOW_MONTHS }} meses</p>
           </div>
 
           <div v-else class="space-y-2">
@@ -475,35 +481,21 @@ const calculateDaysUntilBirthday = (birthdate: string): number => {
   return nextBirthday.diff(today, 'day');
 };
 
-const isWithinThisOrNextMonth = (birthdate: string): boolean => {
+const BIRTHDAY_WINDOW_MONTHS = 4;
+
+const isWithinBirthdayWindow = (birthdate: string): boolean => {
+  const daysUntil = calculateDaysUntilBirthday(birthdate);
   const today = $dayjs();
-  const birth = $dayjs(birthdate, 'YYYY-MM-DD');
-
-  // Get the birthday for this year
-  let nextBirthday = birth.year(today.year());
-  if (nextBirthday.isBefore(today, 'day')) {
-    nextBirthday = nextBirthday.add(1, 'year');
-  }
-
-  const currentMonth = today.month();
-  const nextMonth = (currentMonth + 1) % 12;
-  const birthdayMonth = nextBirthday.month();
-
-  // Check if birthday is in current month or next month
-  // Handle year wrap (e.g., current = December, next = January)
-  if (currentMonth === 11 && nextMonth === 0) {
-    // December -> January wrap
-    return birthdayMonth === currentMonth || (birthdayMonth === nextMonth && nextBirthday.year() === today.year() + 1);
-  }
-
-  return birthdayMonth === currentMonth || birthdayMonth === nextMonth;
+  const windowEnd = today.add(BIRTHDAY_WINDOW_MONTHS, 'month');
+  const maxDays = windowEnd.diff(today, 'day');
+  return daysUntil <= maxDays;
 };
 
 const upcomingClientBirthdays = computed((): BirthdayEntry[] => {
   const clients = clientStore.clients.filter(c => c.isActive && c.birthdate);
 
   return clients
-    .filter(client => isWithinThisOrNextMonth(client.birthdate!))
+    .filter(client => isWithinBirthdayWindow(client.birthdate!))
     .map(client => {
       const daysUntil = calculateDaysUntilBirthday(client.birthdate!);
 
@@ -528,7 +520,7 @@ const upcomingPetBirthdays = computed((): BirthdayEntry[] => {
 
     client.pets.forEach(pet => {
       if (!pet.isActive || !pet.birthdate) return;
-      if (!isWithinThisOrNextMonth(pet.birthdate)) return;
+      if (!isWithinBirthdayWindow(pet.birthdate)) return;
 
       const daysUntil = calculateDaysUntilBirthday(pet.birthdate);
 

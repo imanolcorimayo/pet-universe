@@ -12,6 +12,37 @@
 
   <!-- Content -->
   <div v-else>
+    <ReportHeader
+      title="Ventas Diarias"
+      subtitle="Resumen y evolución de ventas en el período seleccionado"
+    >
+      <template #info>
+        <div class="space-y-3 text-sm text-gray-700">
+          <p>Muestra <strong>todas las ventas registradas</strong> en el período, sin importar su estado de pago (cobradas, fiadas o parciales). Los montos corresponden al total de cada venta, no a lo efectivamente cobrado.</p>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Tarjetas resumen</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li><strong>Total Ventas:</strong> Cantidad de ventas registradas</li>
+              <li><strong>Monto Total:</strong> Suma de los montos totales de cada venta</li>
+              <li><strong>Promedio por Venta:</strong> Monto total dividido entre cantidad de ventas</li>
+              <li><strong>Descuentos:</strong> Suma de todos los descuentos aplicados en ventas</li>
+              <li><strong>Promedio Monto por Período:</strong> Monto total dividido entre la cantidad de períodos del rango (cambia según Día/Semana/Mes/Año)</li>
+              <li><strong>Promedio Ventas por Período:</strong> Cantidad de ventas dividida entre la cantidad de períodos</li>
+            </ul>
+          </div>
+
+          <div>
+            <p class="font-semibold text-gray-800 mb-1">Gráficos</p>
+            <ul class="space-y-0.5 text-gray-600">
+              <li><strong>Montos de Venta:</strong> Línea de tiempo con el monto total vendido agrupado por período</li>
+              <li><strong>Cantidad de Ventas:</strong> Barras con la cantidad de ventas (clientes) por período</li>
+            </ul>
+          </div>
+        </div>
+      </template>
+    </ReportHeader>
+
     <!-- Summary cards -->
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
       <div class="bg-blue-50 rounded-lg p-4">

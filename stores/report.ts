@@ -139,8 +139,7 @@ export const useReportStore = defineStore('report', {
           orderBy: [{ field: 'createdAt', direction: 'asc' }],
         });
         const raw = result.success ? result.data : [];
-        // Exclude internal transfers (cash injections marked as not registered)
-        this.purchases.data = raw.filter((r: any) => r.isRegistered !== false);
+        this.purchases.data = raw.filter((r: any) => r.supplierId);
         this.purchases.fetched = true;
       } catch (e) {
         console.error('Error fetching purchases:', e);
