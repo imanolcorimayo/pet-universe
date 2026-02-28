@@ -66,7 +66,7 @@
           ${{ formatNumber(displayPrices.cash) }}
         </div>
         <div class="text-xs text-green-600 font-medium">
-          +{{ getMarginFromPrice(displayPrices.cash) }}%
+          {{ formatMargin(displayPrices.cash) }}
         </div>
       </div>
       <div v-else>
@@ -89,7 +89,7 @@
           ${{ formatNumber(displayPrices.regular) }}
         </div>
         <div class="text-xs text-blue-600 font-medium">
-          +{{ getMarginFromPrice(displayPrices.regular) }}%
+          {{ formatMargin(displayPrices.regular) }}
         </div>
       </div>
       <div v-else>
@@ -112,7 +112,7 @@
           ${{ formatNumber(displayPrices.bulk) }}
         </div>
         <div class="text-xs text-orange-600 font-medium">
-          +{{ getMarginFromPrice(displayPrices.bulk) }}%
+          {{ formatMargin(displayPrices.bulk) }}
         </div>
       </div>
       <div v-else>
@@ -138,10 +138,10 @@
             </div>
             <div class="flex flex-col items-start" style="font-size: 10px; line-height: 1.2;">
               <div class="text-blue-600 font-medium">
-                vs Costo/kg: +{{ getMarginFromPrice(displayKgPrices?.regular || 0, costPerKg) }}%
+                vs Costo/kg: {{ formatMargin(displayKgPrices?.regular || 0, costPerKg) }}
               </div>
               <div class="text-green-600 font-medium">
-                vs Efectivo/kg: +{{ getMarginFromPrice(displayKgPrices?.regular || 0, cashPerKg) }}%
+                vs Efectivo/kg: {{ formatMargin(displayKgPrices?.regular || 0, cashPerKg) }}
               </div>
             </div>
           </div>
@@ -168,10 +168,10 @@
             </div>
             <div class="flex flex-col items-start" style="font-size: 10px; line-height: 1.2;">
               <div class="text-blue-600 font-medium">
-                vs Costo/kg: +{{ getMarginFromPrice(displayKgPrices?.threePlusDiscount || 0, costPerKg) }}%
+                vs Costo/kg: {{ formatMargin(displayKgPrices?.threePlusDiscount || 0, costPerKg) }}
               </div>
               <div class="text-green-600 font-medium">
-                vs Efectivo/kg: +{{ getMarginFromPrice(displayKgPrices?.threePlusDiscount || 0, cashPerKg) }}%
+                vs Efectivo/kg: {{ formatMargin(displayKgPrices?.threePlusDiscount || 0, cashPerKg) }}
               </div>
             </div>
           </div>
@@ -275,10 +275,10 @@
                 <span class="text-xs font-medium text-gray-900">${{ formatNumber(displayKgPrices?.vip || 0) }}</span>
                 <div class="flex flex-col items-start" style="font-size: 10px; line-height: 1.2;">
                   <div class="text-blue-600 font-medium">
-                    vs Costo/kg: +{{ getMarginFromPrice(displayKgPrices?.vip || 0, costPerKg) }}%
+                    vs Costo/kg: {{ formatMargin(displayKgPrices?.vip || 0, costPerKg) }}
                   </div>
                   <div class="text-green-600 font-medium">
-                    vs Efectivo/kg: +{{ getMarginFromPrice(displayKgPrices?.vip || 0, cashPerKg) }}%
+                    vs Efectivo/kg: {{ formatMargin(displayKgPrices?.vip || 0, cashPerKg) }}
                   </div>
                 </div>
               </div>
@@ -527,6 +527,11 @@ function getMarginFromPrice(price, cost = currentCost.value) {
   return productStore.calculateMarginFromPrice(price, cost);
 }
 
+function formatMargin(price, cost = currentCost.value) {
+  const margin = getMarginFromPrice(price, cost);
+  return margin >= 0 ? `+${margin}%` : `${margin}%`;
+}
+
 function toggleExpanded() {
   isExpanded.value = !isExpanded.value;
 }
@@ -622,7 +627,7 @@ function updateThreePlusMarkupFromPrice() {
   if (cashPerKg > 0) {
     // Calculate and update markup percentage
     const markupPercentage = ((threePlusPrice - cashPerKg) / cashPerKg) * 100;
-    editValues.value.threePlusMarkup = parseFloat(Math.max(0, Math.min(200, markupPercentage)).toFixed(2));
+    editValues.value.threePlusMarkup = parseFloat(markupPercentage.toFixed(2));
   }
 
   // Calculate regular/kg based on the new threePlusPrice (regular = 3+kg * 1.11)

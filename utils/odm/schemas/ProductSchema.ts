@@ -100,7 +100,7 @@ export class ProductSchema extends Schema {
     threePlusMarkupPercentage: {
       type: 'number',
       required: false,
-      min: 0,
+      min: -100,
       max: 200,
       default: 8
     },
@@ -135,7 +135,7 @@ export class ProductSchema extends Schema {
     if (data.trackingType && !validTrackingTypes.includes(data.trackingType)) {
       errors.push({
         field: 'trackingType',
-        message: 'Tracking type must be one of: unit, weight, dual'
+        message: 'El tipo de seguimiento debe ser: unit, weight o dual'
       });
     }
     
@@ -153,7 +153,7 @@ export class ProductSchema extends Schema {
       if (!data.unitWeight || data.unitWeight <= 0) {
         errors.push({
           field: 'unitWeight',
-          message: 'Unit weight is required and must be greater than 0 for dual tracking products'
+          message: 'El peso unitario es requerido y debe ser mayor a 0 para productos con seguimiento dual'
         });
       }
       
@@ -161,7 +161,7 @@ export class ProductSchema extends Schema {
       if (data.allowsLooseSales === false) {
         errors.push({
           field: 'allowsLooseSales',
-          message: 'Dual tracking products should allow loose sales'
+          message: 'Los productos con seguimiento dual deben permitir venta suelta'
         });
       }
     }
@@ -218,7 +218,7 @@ export class ProductSchema extends Schema {
         if (typeof supplierId !== 'string' || supplierId.trim() === '') {
           errors.push({
             field: `supplierIds[${index}]`,
-            message: 'Each supplier ID must be a non-empty string'
+            message: 'Cada ID de proveedor debe ser un texto no vacío'
           });
         }
       });
@@ -267,18 +267,18 @@ export class ProductSchema extends Schema {
       if (typeof data.profitMarginPercentage !== 'number' || data.profitMarginPercentage < 0) {
         errors.push({
           field: 'profitMarginPercentage',
-          message: 'Profit margin percentage must be a non-negative number'
+          message: 'El porcentaje de margen de ganancia debe ser un número no negativo'
         });
       }
     }
     
     if (data.threePlusMarkupPercentage !== undefined) {
-      if (typeof data.threePlusMarkupPercentage !== 'number' || 
-          data.threePlusMarkupPercentage < 0 || 
+      if (typeof data.threePlusMarkupPercentage !== 'number' ||
+          data.threePlusMarkupPercentage < -100 ||
           data.threePlusMarkupPercentage > 200) {
         errors.push({
           field: 'threePlusMarkupPercentage',
-          message: 'Three plus markup percentage must be between 0 and 200'
+          message: 'El porcentaje de markup 3+ debe estar entre -100 y 200'
         });
       }
     }

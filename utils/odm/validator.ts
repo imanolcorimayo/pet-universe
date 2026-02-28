@@ -17,7 +17,7 @@ export class Validator {
     if (definition.required && (value === undefined) && !Object.hasOwn(definition, "default")) {
       errors.push({
         field: fieldName,
-        message: `${fieldName} is required`,
+        message: `${fieldName} es requerido`,
         value
       });
       return errors; // If required and missing, skip other validations
@@ -27,7 +27,7 @@ export class Validator {
     if (definition.required && (value === null || value === '')) {
       errors.push({
         field: fieldName,
-        message: `${fieldName} is required`,
+        message: `${fieldName} es requerido`,
         value
       });
       return errors; // If required and missing, skip other validations
@@ -49,25 +49,25 @@ export class Validator {
         if (typeof value !== 'string') {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be a string`,
+            message: `${fieldName} debe ser texto`,
             value
           });
           break;
         }
-        
+
         // String length validations
         if (definition.maxLength && value.length > definition.maxLength) {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be at most ${definition.maxLength} characters`,
+            message: `${fieldName} debe tener como máximo ${definition.maxLength} caracteres`,
             value
           });
         }
-        
+
         if (definition.minLength && value.length < definition.minLength) {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be at least ${definition.minLength} characters`,
+            message: `${fieldName} debe tener al menos ${definition.minLength} caracteres`,
             value
           });
         }
@@ -77,25 +77,25 @@ export class Validator {
         if (typeof value !== 'number' || isNaN(value)) {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be a number`,
+            message: `${fieldName} debe ser un número`,
             value
           });
           break;
         }
-        
+
         // Number range validations
         if (definition.max !== undefined && value > definition.max) {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be at most ${definition.max}`,
+            message: `${fieldName} debe ser como máximo ${definition.max}`,
             value
           });
         }
-        
+
         if (definition.min !== undefined && value < definition.min) {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be at least ${definition.min}`,
+            message: `${fieldName} debe ser al menos ${definition.min}`,
             value
           });
         }
@@ -105,7 +105,7 @@ export class Validator {
         if (typeof value !== 'boolean') {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be a boolean`,
+            message: `${fieldName} debe ser verdadero o falso`,
             value
           });
         }
@@ -115,7 +115,7 @@ export class Validator {
         if (!Array.isArray(value)) {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be an array`,
+            message: `${fieldName} debe ser una lista`,
             value
           });
           break;
@@ -138,7 +138,7 @@ export class Validator {
         if (typeof value !== 'object' || Array.isArray(value) || value === null) {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be an object`,
+            message: `${fieldName} debe ser un objeto`,
             value
           });
         }
@@ -154,7 +154,7 @@ export class Validator {
         if (!isDayjs && !isDate && !isTimestamp && !isServerTimestamp) {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be a Date or Timestamp`,
+            message: `${fieldName} debe ser una fecha válida`,
             value
           });
         }
@@ -164,7 +164,7 @@ export class Validator {
         if (typeof value !== 'string' || value.trim() === '') {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be a valid reference ID`,
+            message: `${fieldName} debe ser una referencia válida`,
             value
           });
         }
@@ -174,16 +174,16 @@ export class Validator {
         if (!definition.enum || definition.enum.length === 0) {
           errors.push({
             field: fieldName,
-            message: `${fieldName} enum definition is missing or empty`,
+            message: `${fieldName} no tiene opciones definidas`,
             value
           });
           break;
         }
-        
+
         if (!definition.enum.includes(value)) {
           errors.push({
             field: fieldName,
-            message: `${fieldName} must be one of: ${definition.enum.join(', ')}`,
+            message: `${fieldName} debe ser uno de: ${definition.enum.join(', ')}`,
             value
           });
         }

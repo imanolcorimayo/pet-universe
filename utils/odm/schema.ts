@@ -151,7 +151,7 @@ export abstract class Schema {
     if (!businessId) {
       errors.push({
         field: 'businessId',
-        message: 'Business ID is required'
+        message: 'Se requiere el ID del negocio'
       });
       return { valid: false, errors };
     }
@@ -172,7 +172,7 @@ export abstract class Schema {
           if (!referencedDoc.exists()) {
             errors.push({
               field: fieldName,
-              message: `Referenced ${definition.referenceTo} with ID ${referenceId} does not exist`
+              message: `La referencia ${definition.referenceTo} con ID ${referenceId} no existe`
             });
           } else {
             // Cache the reference
@@ -181,7 +181,7 @@ export abstract class Schema {
         } catch (error) {
           errors.push({
             field: fieldName,
-            message: `Failed to validate reference ${fieldName}: ${error}`
+            message: `Error al validar referencia ${fieldName}: ${error instanceof Error ? error.message : String(error)}`
           });
         }
       }
@@ -305,7 +305,7 @@ export abstract class Schema {
       const businessId = this.getCurrentBusinessId();
 
       if (!businessId) {
-        return { success: false, error: 'Business ID is required' };
+        return { success: false, error: 'Se requiere el ID del negocio' };
       }
 
       // Add system fields (use Date instead of serverTimestamp in transaction mode)
@@ -316,7 +316,7 @@ export abstract class Schema {
       if (!validation.valid) {
         return {
           success: false,
-          error: `Validation failed: ${validation.errors.map(e => e.message).join(', ')}`
+          error: `Error de validación: ${validation.errors.map(e => e.message).join(', ')}`
         };
       }
 
@@ -326,7 +326,7 @@ export abstract class Schema {
         if (!refValidation.valid) {
           return {
             success: false,
-            error: `Reference validation failed: ${refValidation.errors.map(e => e.message).join(', ')}`
+            error: `Error de referencia: ${refValidation.errors.map(e => e.message).join(', ')}`
           };
         }
       }
@@ -353,7 +353,7 @@ export abstract class Schema {
       return { success: true, data: created };
     } catch (error) {
       console.error(`Error creating ${this.collectionName}:`, error);
-      return { success: false, error: `Failed to create document: ${error}` };
+      return { success: false, error: `Error al crear documento: ${error instanceof Error ? error.message : String(error)}` };
     }
   }
 
@@ -364,7 +364,7 @@ export abstract class Schema {
       const businessId = this.getCurrentBusinessId();
 
       if (!businessId) {
-        return { success: false, error: 'Business ID is required' };
+        return { success: false, error: 'Se requiere el ID del negocio' };
       }
 
       const docRef = doc(db, this.collectionName, id);
@@ -377,7 +377,7 @@ export abstract class Schema {
         } else {
           const docSnapshot = await txOptions.transaction.get(docRef);
           if (!docSnapshot.exists()) {
-            return { success: false, error: 'Document not found' };
+            return { success: false, error: 'Documento no encontrado' };
           }
           existingData = docSnapshot.data();
         }
@@ -385,13 +385,13 @@ export abstract class Schema {
         // Standard mode: fetch document directly
         const docSnapshot = await getDoc(docRef);
         if (!docSnapshot.exists()) {
-          return { success: false, error: 'Document not found' };
+          return { success: false, error: 'Documento no encontrado' };
         }
         existingData = docSnapshot.data();
       }
 
       if (existingData.businessId !== businessId) {
-        return { success: false, error: 'No permission to update this document' };
+        return { success: false, error: 'Sin permiso para actualizar este documento' };
       }
 
       // Validate schema (only for provided fields)
@@ -400,7 +400,7 @@ export abstract class Schema {
       if (!validation.valid) {
         return {
           success: false,
-          error: `Validation failed: ${validation.errors.map(e => e.message).join(', ')}`
+          error: `Error de validación: ${validation.errors.map(e => e.message).join(', ')}`
         };
       }
 
@@ -410,7 +410,7 @@ export abstract class Schema {
         if (!refValidation.valid) {
           return {
             success: false,
-            error: `Reference validation failed: ${refValidation.errors.map(e => e.message).join(', ')}`
+            error: `Error de referencia: ${refValidation.errors.map(e => e.message).join(', ')}`
           };
         }
       }
@@ -433,7 +433,7 @@ export abstract class Schema {
       return { success: true, data: this.addDocumentId(await getDoc(docRef)) };
     } catch (error) {
       console.error(`Error updating ${this.collectionName}:`, error);
-      return { success: false, error: `Failed to update document: ${error}` };
+      return { success: false, error: `Error al actualizar documento: ${error instanceof Error ? error.message : String(error)}` };
     }
   }
 
@@ -444,7 +444,7 @@ export abstract class Schema {
       const businessId = this.getCurrentBusinessId();
 
       if (!businessId) {
-        return { success: false, error: 'Business ID is required' };
+        return { success: false, error: 'Se requiere el ID del negocio' };
       }
 
       const docRef = doc(db, this.collectionName, id);
@@ -457,7 +457,7 @@ export abstract class Schema {
         } else {
           const docSnapshot = await txOptions.transaction.get(docRef);
           if (!docSnapshot.exists()) {
-            return { success: false, error: 'Document not found' };
+            return { success: false, error: 'Documento no encontrado' };
           }
           existingData = docSnapshot.data();
         }
@@ -465,13 +465,13 @@ export abstract class Schema {
         // Standard mode: fetch document directly
         const docSnapshot = await getDoc(docRef);
         if (!docSnapshot.exists()) {
-          return { success: false, error: 'Document not found' };
+          return { success: false, error: 'Documento no encontrado' };
         }
         existingData = docSnapshot.data();
       }
 
       if (existingData.businessId !== businessId) {
-        return { success: false, error: 'No permission to delete this document' };
+        return { success: false, error: 'Sin permiso para eliminar este documento' };
       }
 
       // Transaction mode: use transaction.delete()
@@ -486,7 +486,7 @@ export abstract class Schema {
       return { success: true };
     } catch (error) {
       console.error(`Error deleting ${this.collectionName}:`, error);
-      return { success: false, error: `Failed to delete document: ${error}` };
+      return { success: false, error: `Error al eliminar documento: ${error instanceof Error ? error.message : String(error)}` };
     }
   }
 
@@ -513,7 +513,7 @@ export abstract class Schema {
       const businessId = this.getCurrentBusinessId();
 
       if (!businessId) {
-        return { success: false, error: 'Business ID is required' };
+        return { success: false, error: 'Se requiere el ID del negocio' };
       }
 
       const docRef = doc(db, this.collectionName, id);
@@ -527,12 +527,12 @@ export abstract class Schema {
       }
 
       if (!docSnapshot.exists()) {
-        return { success: false, error: 'Document not found' };
+        return { success: false, error: 'Documento no encontrado' };
       }
 
       const data = docSnapshot.data();
       if (data.businessId !== businessId) {
-        return { success: false, error: 'No permission to access this document' };
+        return { success: false, error: 'Sin permiso para acceder a este documento' };
       }
 
       return {
@@ -541,7 +541,7 @@ export abstract class Schema {
       };
     } catch (error) {
       console.error(`Error finding ${this.collectionName} by ID:`, error);
-      return { success: false, error: `Failed to find document: ${error}` };
+      return { success: false, error: `Error al buscar documento: ${error instanceof Error ? error.message : String(error)}` };
     }
   }
 
@@ -552,7 +552,7 @@ export abstract class Schema {
       const businessId = this.getCurrentBusinessId();
 
       if (!businessId) {
-        return { success: false, error: 'Business ID is required' };
+        return { success: false, error: 'Se requiere el ID del negocio' };
       }
 
       // Build query
@@ -588,7 +588,7 @@ export abstract class Schema {
       return { success: true, data: documents };
     } catch (error) {
       console.error(`Error finding ${this.collectionName}:`, error);
-      return { success: false, error: `Failed to find documents: ${error}` };
+      return { success: false, error: `Error al buscar documentos: ${error instanceof Error ? error.message : String(error)}` };
     }
   }
 
@@ -628,7 +628,7 @@ export abstract class Schema {
     const businessId = this.getCurrentBusinessId();
 
     if (!businessId) {
-      onError?.(new Error('Business ID is required'));
+      onError?.(new Error('Se requiere el ID del negocio'));
       return () => {}; // Return no-op unsubscribe
     }
 
@@ -683,7 +683,7 @@ export abstract class Schema {
     const businessId = this.getCurrentBusinessId();
 
     if (!businessId) {
-      onError?.(new Error('Business ID is required'));
+      onError?.(new Error('Se requiere el ID del negocio'));
       return () => {};
     }
 
