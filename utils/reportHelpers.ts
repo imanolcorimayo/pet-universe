@@ -205,6 +205,9 @@ export function buildBarChartOptions(
         formatter: (val: number) => formatAsCurrency ? formatCurrency(val) : val.toLocaleString('es-AR'),
       },
     },
+    dataLabels: {
+      formatter: (val: number) => formatAsCurrency ? formatCurrency(val) : val.toLocaleString('es-AR'),
+    },
     legend: {
       position: 'top',
     },

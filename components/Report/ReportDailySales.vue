@@ -13,7 +13,7 @@
   <!-- Content -->
   <div v-else>
     <!-- Summary cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
       <div class="bg-blue-50 rounded-lg p-4">
         <p class="text-sm text-blue-600 font-medium">Total Ventas</p>
         <p class="text-2xl font-bold text-blue-800">{{ totalSales }}</p>
@@ -29,6 +29,14 @@
       <div class="bg-amber-50 rounded-lg p-4">
         <p class="text-sm text-amber-600 font-medium">Descuentos</p>
         <p class="text-2xl font-bold text-amber-800">{{ formattedDiscounts }}</p>
+      </div>
+      <div class="bg-cyan-50 rounded-lg p-4">
+        <p class="text-sm text-cyan-600 font-medium">Promedio Monto por {{ periodLabel }}</p>
+        <p class="text-2xl font-bold text-cyan-800">{{ formattedAvgAmountPerPeriod }}</p>
+      </div>
+      <div class="bg-indigo-50 rounded-lg p-4">
+        <p class="text-sm text-indigo-600 font-medium">Promedio Ventas por {{ periodLabel }}</p>
+        <p class="text-2xl font-bold text-indigo-800">{{ avgSalesPerPeriod }}</p>
       </div>
     </div>
 
@@ -97,6 +105,9 @@ const periods = [
 ];
 const selectedPeriod = ref<PeriodType>('day');
 
+const periodLabels: Record<PeriodType, string> = { day: 'Día', week: 'Semana', month: 'Mes', year: 'Año' };
+const periodLabel = computed(() => periodLabels[selectedPeriod.value]);
+
 onMounted(() => reportStore.fetchDailySales());
 watch(() => reportStore.dateRange, () => reportStore.fetchDailySales(), { deep: true });
 
@@ -108,6 +119,11 @@ const totalDiscounts = computed(() => sales.value.reduce((sum: number, s: any) =
 const formattedTotal = computed(() => formatCurrency(totalAmount.value));
 const formattedAverage = computed(() => formatCurrency(totalSales.value > 0 ? totalAmount.value / totalSales.value : 0));
 const formattedDiscounts = computed(() => formatCurrency(totalDiscounts.value));
+
+const numberOfBuckets = computed(() => aggregated.value.length);
+const avgAmountPerPeriod = computed(() => numberOfBuckets.value > 0 ? totalAmount.value / numberOfBuckets.value : 0);
+const avgSalesPerPeriod = computed(() => numberOfBuckets.value > 0 ? Math.round(totalSales.value / numberOfBuckets.value) : 0);
+const formattedAvgAmountPerPeriod = computed(() => formatCurrency(avgAmountPerPeriod.value));
 
 const aggregated = computed(() =>
   aggregateByPeriod(

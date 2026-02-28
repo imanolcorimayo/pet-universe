@@ -1781,7 +1781,7 @@ export class BusinessRulesEngine {
       }
 
       // 6. Create wallet Outcome transaction
-      const walletResult = await this.walletSchema.create({
+      const walletPayload: any = {
         businessId: debt.businessId,
         type: 'Outcome',
         globalCashId: globalCashId,
@@ -1795,7 +1795,14 @@ export class BusinessRulesEngine {
         notes: data.notes || null,
         categoryCode: 'debt_payment',
         categoryName: 'Pago de Deuda a Proveedor',
-      });
+      };
+
+      // Forward the purchase invoice reference if the debt originated from one
+      if (debt.originType === 'purchaseInvoice' && debt.originId) {
+        walletPayload.purchaseInvoiceId = debt.originId;
+      }
+
+      const walletResult = await this.walletSchema.create(walletPayload);
 
       if (!walletResult.success) {
         return { success: false, error: `Wallet transaction failed: ${walletResult.error}` };

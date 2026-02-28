@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { SaleSchema } from '~/utils/odm/schemas/SaleSchema';
 import { WalletSchema } from '~/utils/odm/schemas/WalletSchema';
-import { PurchaseInvoiceSchema } from '~/utils/odm/schemas/PurchaseInvoiceSchema';
+import { PurchaseInvoiceSchema } from '~/utils/odm/schemas/PurchaseInvoiceSchema'; // used by financial report
 import { SettlementSchema } from '~/utils/odm/schemas/SettlementSchema';
 
 // --- Interfaces ---
@@ -123,20 +123,24 @@ export const useReportStore = defineStore('report', {
       }
     },
 
-    // --- Purchases & Invoices ---
+    // --- Purchases (Wallet Outcome = source of truth for all money out) ---
     async fetchPurchases() {
       if (this.purchases.fetched) return;
       this.purchases.loading = true;
       try {
-        const schema = new PurchaseInvoiceSchema();
+        const schema = new WalletSchema();
         const result = await schema.find({
           where: [
-            { field: 'invoiceDate', operator: '>=', value: toFirestoreDate(this.dateRange.from) },
-            { field: 'invoiceDate', operator: '<=', value: toFirestoreDate(this.dateRange.to, true) },
+            { field: 'type', operator: '==', value: 'Outcome' },
+            { field: 'status', operator: '==', value: 'paid' },
+            { field: 'createdAt', operator: '>=', value: toFirestoreDate(this.dateRange.from) },
+            { field: 'createdAt', operator: '<=', value: toFirestoreDate(this.dateRange.to, true) },
           ],
-          orderBy: [{ field: 'invoiceDate', direction: 'asc' }],
+          orderBy: [{ field: 'createdAt', direction: 'asc' }],
         });
-        this.purchases.data = result.success ? result.data : [];
+        const raw = result.success ? result.data : [];
+        // Exclude internal transfers (cash injections marked as not registered)
+        this.purchases.data = raw.filter((r: any) => r.isRegistered !== false);
         this.purchases.fetched = true;
       } catch (e) {
         console.error('Error fetching purchases:', e);

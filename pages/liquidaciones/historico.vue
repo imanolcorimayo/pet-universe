@@ -26,7 +26,7 @@
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-lg border p-4">
+    <div class="bg-white rounded-lg border p-4 flex flex-col gap-4">
       <div class="flex flex-col md:flex-row gap-4">
         <!-- Status Filter -->
         <div class="flex-1">
@@ -61,6 +61,16 @@
             <LucideSearch class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           </div>
         </div>
+      </div>
+
+      <!-- Date Range -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Período</label>
+        <ReportDateRange
+          :from="dateFrom"
+          :to="dateTo"
+          @change="onDateRangeChange"
+        />
       </div>
     </div>
 
@@ -329,8 +339,16 @@ const isLoading = ref(true);
 const cancelModal = ref();
 
 // Filters
+const { $dayjs } = useNuxtApp();
 const selectedStatus = ref('all');
 const searchQuery = ref('');
+const dateFrom = ref($dayjs().startOf('month').format('YYYY-MM-DD'));
+const dateTo = ref($dayjs().format('YYYY-MM-DD'));
+
+const onDateRangeChange = (range) => {
+  dateFrom.value = range.from;
+  dateTo.value = range.to;
+};
 
 const statusOptions = [
   { value: 'all', label: 'Todas' },
@@ -344,9 +362,17 @@ const currentPage = ref(1);
 const itemsPerPage = 20;
 
 // Computed
+const dateFilteredSettlements = computed(() => {
+  const rangeStart = $dayjs(dateFrom.value).startOf('day');
+  const rangeEnd = $dayjs(dateTo.value).endOf('day');
+  return settlementStore.settlements.filter(s => {
+    const created = $dayjs(s.createdAt, 'DD/MM/YYYY HH:mm');
+    return created.isAfter(rangeStart.subtract(1, 'millisecond')) && created.isBefore(rangeEnd.add(1, 'millisecond'));
+  });
+});
+
 const filteredSettlements = computed(() => {
-  const { $dayjs } = useNuxtApp();
-  let settlements = settlementStore.settlements;
+  let settlements = dateFilteredSettlements.value;
 
   // Filter by status
   if (selectedStatus.value !== 'all') {
@@ -386,9 +412,9 @@ const filteredSettlements = computed(() => {
 });
 
 const stats = computed(() => {
-  const pending = settlementStore.settlements.filter(s => s.status === 'pending');
-  const settled = settlementStore.settlements.filter(s => s.status === 'settled');
-  const cancelled = settlementStore.settlements.filter(s => s.status === 'cancelled');
+  const pending = dateFilteredSettlements.value.filter(s => s.status === 'pending');
+  const settled = dateFilteredSettlements.value.filter(s => s.status === 'settled');
+  const cancelled = dateFilteredSettlements.value.filter(s => s.status === 'cancelled');
 
   return {
     pending: {
@@ -407,8 +433,8 @@ const stats = computed(() => {
 });
 
 const commissionStats = computed(() => {
-  // Only calculate for settled settlements
-  const settledSettlements = settlementStore.settlements.filter(
+  // Only calculate for settled settlements within the date range
+  const settledSettlements = dateFilteredSettlements.value.filter(
     s => s.status === 'settled'
   );
 
@@ -605,7 +631,7 @@ onMounted(async () => {
 });
 
 // Reset page when filters change
-watch([selectedStatus, searchQuery], () => {
+watch([selectedStatus, searchQuery, dateFrom, dateTo], () => {
   currentPage.value = 1;
 });
 </script>

@@ -19,7 +19,7 @@
     </div>
 
     <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="bg-white rounded-lg border p-4">
         <div class="flex items-center justify-between">
           <div>
@@ -50,19 +50,6 @@
             <p class="text-xs text-gray-500">deudas activas</p>
           </div>
           <LucideFileText class="w-8 h-8 text-gray-500" />
-        </div>
-      </div>
-      
-      <div class="bg-white rounded-lg border p-4">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600">Deuda más Antigua</p>
-            <p class="text-lg font-semibold text-gray-900">
-              {{ summary.oldestDebt ? formatRelativeDate(summary.oldestDebt.createdAt) : 'N/A' }}
-            </p>
-            <p class="text-xs text-gray-500">{{ summary.oldestDebt ? (summary.oldestDebt.clientName || summary.oldestDebt.supplierName) : '' }}</p>
-          </div>
-          <LucideCalendar class="w-8 h-8 text-gray-500" />
         </div>
       </div>
     </div>
@@ -337,12 +324,6 @@ function formatNumber(value) {
   return Number(value || 0).toFixed(2);
 }
 
-
-function formatRelativeDate(date) {
-  if (!date) return 'N/A';
-  const { $dayjs } = useNuxtApp();
-  return $dayjs(date.toDate ? date.toDate() : date).fromNow();
-}
 
 function getStatusLabel(status) {
   const labels = {

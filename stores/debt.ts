@@ -292,13 +292,7 @@ export const useDebtStore = defineStore('debt', {
         customerDebts: customerDebts.length,
         supplierDebts: supplierDebts.length,
         totalCustomerAmount: customerDebts.reduce((sum, debt) => sum + debt.remainingAmount, 0),
-        totalSupplierAmount: supplierDebts.reduce((sum, debt) => sum + debt.remainingAmount, 0),
-        oldestDebt: activeDebts.reduce((oldest, debt) => {
-          if (!oldest || debt.createdAt < oldest.createdAt) {
-            return debt;
-          }
-          return oldest;
-        }, null as Debt | null)
+        totalSupplierAmount: supplierDebts.reduce((sum, debt) => sum + debt.remainingAmount, 0)
       };
     },
   }
