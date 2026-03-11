@@ -638,6 +638,45 @@ export const useProductStore = defineStore("product", {
       }
     },
 
+    // Archive a product and its inventory (soft delete)
+    async archiveProduct(productId: string): Promise<boolean> {
+      try {
+        this.isLoading = true;
+
+        const productSchema = this._getProductSchema();
+        const result = await productSchema.archive(productId);
+
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Hubo un error al borrar el producto");
+          this.isLoading = false;
+          return false;
+        }
+
+        // Remove from local state (subscription filter will also exclude it)
+        const index = this.products.findIndex(p => p.id === productId);
+        if (index >= 0) {
+          this.products.splice(index, 1);
+        }
+        this.productsByIdMap.delete(productId);
+
+        if (this.selectedProduct?.id === productId) {
+          this.selectedProduct = null;
+        }
+
+        // Cascade: archive the product's inventory
+        const inventoryStore = useInventoryStore();
+        await inventoryStore.archiveInventoryByProductId(productId);
+
+        this.isLoading = false;
+        return true;
+      } catch (error) {
+        console.error("Error archiving product:", error);
+        useToast(ToastEvents.error, "Hubo un error al borrar el producto. Por favor intenta nuevamente.");
+        this.isLoading = false;
+        return false;
+      }
+    },
+
     // Select a product to view details
     selectProduct(productId: string) {
       this.selectedProduct = this.products.find(p => p.id === productId) || null;

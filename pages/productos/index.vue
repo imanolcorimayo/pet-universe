@@ -161,6 +161,13 @@
                   >
                     Editar
                   </button>
+
+                  <button
+                    @click="confirmDeleteProduct(product)"
+                    class="text-red-600 hover:text-red-800"
+                  >
+                    Borrar
+                  </button>
                 </div>
               </td>
             </tr>
@@ -207,12 +214,15 @@
     
     <!-- Modals -->
     <ProductFormModal ref="productFormModal" :edit-mode="isEditing" :product-data="selectedProductData" @product-saved="onProductSaved" />
-    <ProductDetailsModal ref="productDetailsModal" :product-id="selectedProductId" />
+    <ProductDetailsModal ref="productDetailsModal" :product-id="selectedProductId" @deleted="onProductDeleted" />
+
+    <ConfirmDialogue ref="confirmDialogue" />
   </div>
 </template>
 
 <script setup>
 import { formatCurrency } from '~/utils';
+import { ToastEvents } from '~/interfaces';
 
 import TablerPackages from '~icons/tabler/packages';
 import LucideSearch from '~icons/lucide/search';
@@ -227,6 +237,7 @@ const initialLoading = ref(true);
 // Component refs
 const productFormModal = ref(null);
 const productDetailsModal = ref(null);
+const confirmDialogue = ref(null);
 // Local state
 const isEditing = ref(false);
 const selectedProductData = ref(null);
@@ -323,6 +334,25 @@ function addNewProduct() {
   isEditing.value = false;
   selectedProductData.value = null;
   productFormModal.value.showModal();
+}
+
+function confirmDeleteProduct(product) {
+  confirmDialogue.value.openDialog({
+    message: `¿Estás seguro de que deseas borrar "${product.name}"? Esta acción no se puede deshacer.`,
+    textConfirmButton: 'Borrar',
+    textCancelButton: 'Cancelar',
+  }).then(async (confirmed) => {
+    if (confirmed) {
+      const success = await productStore.archiveProduct(product.id);
+      if (success) {
+        useToast(ToastEvents.success, `Producto "${product.name}" borrado exitosamente`);
+      }
+    }
+  });
+}
+
+function onProductDeleted() {
+  productDetailsModal.value?.closeModal?.();
 }
 
 function onProductSaved() {

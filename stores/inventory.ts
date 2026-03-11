@@ -34,6 +34,7 @@ interface Inventory {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  isActive?: boolean;
 }
 
 interface InventoryMovement {
@@ -1049,7 +1050,9 @@ export const useInventoryStore = defineStore("inventory", {
       const inventorySchema = this._getInventorySchema();
 
       inventoryUnsubscribe = inventorySchema.subscribeIncremental(
-        {},
+        {
+          where: [{ field: 'isActive', operator: '==', value: true }]
+        },
         (changes) => {
           // Bulk load: initial snapshot where all changes are 'added' and array is empty
           const isBulkLoad = this.inventoryItems.length === 0 && changes.length > 1 && changes.every(c => c.type === 'added');
@@ -1107,6 +1110,36 @@ export const useInventoryStore = defineStore("inventory", {
         inventoryUnsubscribe();
         inventoryUnsubscribe = null;
         subscribedInventoryBusinessId = null;
+      }
+    },
+
+    /**
+     * Archive inventory for a specific product (called when a product is archived)
+     */
+    async archiveInventoryByProductId(productId: string): Promise<boolean> {
+      try {
+        const inventory = this.inventoryByProductId.get(productId);
+        if (!inventory) return true;
+
+        const inventorySchema = this._getInventorySchema();
+        const result = await inventorySchema.archive(inventory.id);
+
+        if (!result.success) {
+          console.error('Error archiving inventory:', result.error);
+          return false;
+        }
+
+        // Remove from local state
+        const index = this.inventoryItems.findIndex(i => i.id === inventory.id);
+        if (index >= 0) {
+          this.inventoryItems.splice(index, 1);
+        }
+        this.inventoryByProductId.delete(productId);
+
+        return true;
+      } catch (error) {
+        console.error('Error archiving inventory for product:', error);
+        return false;
       }
     },
 

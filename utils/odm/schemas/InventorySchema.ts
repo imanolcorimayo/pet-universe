@@ -81,6 +81,15 @@ export class InventorySchema extends Schema {
     updatedAt: {
       type: 'date',
       required: true
+    },
+    isActive: {
+      type: 'boolean',
+      required: false,
+      default: true
+    },
+    archivedAt: {
+      type: 'date',
+      required: false
     }
   };
 

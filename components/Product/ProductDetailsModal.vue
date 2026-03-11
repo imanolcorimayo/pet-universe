@@ -246,7 +246,16 @@
     </template>
 
     <template #footer>
-      <div class="flex justify-end w-full">
+      <div class="flex justify-between w-full">
+        <button
+          v-if="product"
+          type="button"
+          @click="confirmDeleteProduct"
+          class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+        >
+          Borrar
+        </button>
+
         <div class="flex space-x-2">
           <button
             v-if="product"
@@ -293,11 +302,13 @@
     @product-saved="onProductSaved"
   />
 
-
+  <!-- Confirmation Dialog -->
+  <ConfirmDialogue ref="confirmDialogue" />
 </template>
 
 <script setup>
 import { formatCurrency } from "~/utils";
+import { ToastEvents } from "~/interfaces";
 
 // ----- Define Props ---------
 const props = defineProps({
@@ -311,6 +322,7 @@ const props = defineProps({
 const emit = defineEmits([
   "updated",
   "adjustment-saved",
+  "deleted",
 ]);
 
 // ----- Define Refs ---------
@@ -318,6 +330,7 @@ const inventoryStore = useInventoryStore();
 const mainModal = ref(null);
 const inventoryAdjustmentModal = ref(null);
 const productFormModal = ref(null);
+const confirmDialogue = ref(null);
 const loading = ref(false);
 const productStore = useProductStore();
 const inventoryData = ref(null);
@@ -347,6 +360,23 @@ function loadInventoryData() {
   // Subscribe to real-time inventory updates and get data from store
   inventoryStore.subscribeToInventory();
   inventoryData.value = inventoryStore.getInventoryByProductId(props.productId);
+}
+
+function confirmDeleteProduct() {
+  confirmDialogue.value.openDialog({
+    message: `¿Estás seguro de que deseas borrar "${product.value.name}"? Esta acción no se puede deshacer.`,
+    textConfirmButton: 'Borrar',
+    textCancelButton: 'Cancelar',
+  }).then(async (confirmed) => {
+    if (confirmed) {
+      const success = await productStore.archiveProduct(product.value.id);
+      if (success) {
+        useToast(ToastEvents.success, `Producto "${product.value.name}" borrado exitosamente`);
+        closeModal();
+        emit('deleted');
+      }
+    }
+  });
 }
 
 function editProduct() {
