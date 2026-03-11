@@ -1,0 +1,210 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helpers ────────────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(businessId) {
+      return isAuth()
+        && exists(/databases/$(database)/documents/userBusiness/$(businessId))
+        && get(/databases/$(database)/documents/userBusiness/$(businessId)).data.ownerUid == request.auth.uid;
+    }
+
+    function hasMembership(businessId) {
+      return isAuth()
+        && exists(/databases/$(database)/documents/businessMembers/$(businessId)/members/$(request.auth.uid));
+    }
+
+    function belongsToBusiness(businessId) {
+      return isOwner(businessId) || hasMembership(businessId);
+    }
+
+    // Ensure businessId cannot be changed on updates
+    function businessIdUnchanged() {
+      return request.resource.data.businessId == resource.data.businessId;
+    }
+
+    // ─── User & Business collections ────────────────────────────
+
+    // Business master data - owners can manage, members can read
+    match /userBusiness/{businessId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if isOwner(businessId);
+      allow delete: if false;
+    }
+
+    // Business membership cache for security rules (see MIGRATION note below)
+    match /businessMembers/{businessId}/members/{userId} {
+      allow read:   if isAuth() && (request.auth.uid == userId || isOwner(businessId));
+      allow write:  if isOwner(businessId);
+      allow delete: if isOwner(businessId);
+    }
+
+    // User roles - users can read their own, owners can manage
+    match /userRole/{roleId} {
+      allow read:   if isAuth()
+                    && (resource.data.userUid == request.auth.uid
+                        || isOwner(resource.data.businessId));
+      allow create: if isAuth() && isOwner(request.resource.data.businessId);
+      allow update: if isAuth()
+                    && (resource.data.userUid == request.auth.uid
+                        || isOwner(resource.data.businessId));
+      allow delete: if false;
+    }
+
+    // Business configuration
+    match /businessConfig/{configId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    // ─── Business-scoped collections ────────────────────────────
+    // All require authentication + business membership.
+    // businessId is immutable after creation.
+
+    match /product/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /productCategory/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if isAuth() && belongsToBusiness(resource.data.businessId);
+    }
+
+    match /inventory/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /inventoryMovement/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /sale/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /settlement/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /debt/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /wallet/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /cashRegister/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /dailyCashSnapshot/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /dailyCashTransaction/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /globalCash/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /purchaseInvoice/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /client/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /pet/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /supplier/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /paymentMethod/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /paymentProvider/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    match /ownersAccount/{docId} {
+      allow read:   if isAuth() && belongsToBusiness(resource.data.businessId);
+      allow create: if isAuth() && belongsToBusiness(request.resource.data.businessId);
+      allow update: if isAuth() && belongsToBusiness(resource.data.businessId) && businessIdUnchanged();
+      allow delete: if false;
+    }
+
+    // Legacy collections (SaleRegisterDetails.vue raw queries)
+    match /salesRegisterExpense/{docId} {
+      allow read:   if isAuth();
+      allow write:  if false;
+    }
+  }
+}

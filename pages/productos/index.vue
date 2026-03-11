@@ -62,36 +62,20 @@
           <!-- Status Filter -->
           <div class="flex gap-2">
             <button
-              @click="setFilter('all')"
+              @click="noCodeFilter = false"
               class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              :class="productFilter === 'all' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+              :class="!noCodeFilter ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             >
               Todos
             </button>
             <button
-              @click="setFilter('active')"
+              @click="noCodeFilter = true"
               class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              :class="productFilter === 'active' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+              :class="noCodeFilter ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             >
-              Activos
-            </button>
-            <button
-              @click="setFilter('archived')"
-              class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              :class="productFilter === 'archived' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-            >
-              Archivados
+              Sin Código
             </button>
           </div>
-
-          <!-- No Code Filter -->
-          <button
-            @click="toggleNoCodeFilter"
-            class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            :class="noCodeFilter ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-          >
-            Sin Código
-          </button>
         </div>
       </div>
     </div>
@@ -113,9 +97,6 @@
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Stock
-              </th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estado
               </th>
               <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Acciones
@@ -163,14 +144,6 @@
                   Mín: {{ getMinimumStock(product) }}
                 </div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span v-if="product.isActive" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                  Activo
-                </span>
-                <span v-else class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                  Archivado
-                </span>
-              </td>
               <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <div class="flex justify-end gap-3">
                   <button
@@ -183,27 +156,10 @@
                   <span v-else class="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary"></span>
 
                   <button
-                    v-if="product.isActive"
                     @click="editProduct(product)"
                     class="text-blue-600 hover:text-blue-800"
                   >
                     Editar
-                  </button>
-
-                  <button
-                    v-if="product.isActive"
-                    @click="confirmArchiveProduct(product)"
-                    class="text-red-600 hover:text-red-800"
-                  >
-                    Archivar
-                  </button>
-
-                  <button
-                    v-else
-                    @click="confirmRestoreProduct(product)"
-                    class="text-green-600 hover:text-green-800"
-                  >
-                    Restaurar
                   </button>
                 </div>
               </td>
@@ -252,12 +208,10 @@
     <!-- Modals -->
     <ProductFormModal ref="productFormModal" :edit-mode="isEditing" :product-data="selectedProductData" @product-saved="onProductSaved" />
     <ProductDetailsModal ref="productDetailsModal" :product-id="selectedProductId" />
-    <ConfirmDialogue ref="confirmDialogue" />
   </div>
 </template>
 
 <script setup>
-import { ToastEvents } from '~/interfaces';
 import { formatCurrency } from '~/utils';
 
 import TablerPackages from '~icons/tabler/packages';
@@ -266,15 +220,13 @@ import LucidePlus from '~icons/lucide/plus';
 
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
-const { filteredProducts, productFilter, activeCategories } = storeToRefs(productStore);
+const { filteredProducts, activeCategories } = storeToRefs(productStore);
 
 const initialLoading = ref(true);
 
 // Component refs
 const productFormModal = ref(null);
 const productDetailsModal = ref(null);
-const confirmDialogue = ref(null);
-
 // Local state
 const isEditing = ref(false);
 const selectedProductData = ref(null);
@@ -318,19 +270,11 @@ watch(selectedCategory, (newValue) => {
   productStore.setCategoryFilter(newValue);
 });
 
-watch([debouncedQuery, selectedCategory, productFilter, noCodeFilter], () => {
+watch([debouncedQuery, selectedCategory, noCodeFilter], () => {
   displayLimit.value = PRODUCTS_PER_PAGE;
 });
 
 // Methods
-function setFilter(filter) {
-  productStore.setProductFilter(filter);
-}
-
-function toggleNoCodeFilter() {
-  noCodeFilter.value = !noCodeFilter.value;
-}
-
 function getFormattedStock(product) {
   const inventory = inventoryStore.getInventoryByProductId(product.id);
   if (!inventory) return 'Sin inventario';
@@ -373,36 +317,6 @@ function editProduct(product) {
   isEditing.value = true;
   selectedProductData.value = product;
   productFormModal.value.showModal();
-}
-
-function confirmArchiveProduct(product) {
-  confirmDialogue.value.openDialog({
-    message: `¿Estás seguro de que deseas archivar "${product.name}"? Este producto ya no estará disponible para ventas.`,
-    textConfirmButton: 'Archivar',
-    textCancelButton: 'Cancelar',
-  }).then(async (confirmed) => {
-    if (confirmed) {
-      const success = await productStore.archiveProduct(product.id);
-      if (success) {
-        useToast(ToastEvents.success, `Producto "${product.name}" archivado exitosamente`);
-      }
-    }
-  });
-}
-
-function confirmRestoreProduct(product) {
-  confirmDialogue.value.openDialog({
-    message: `¿Estás seguro de que deseas restaurar "${product.name}"?`,
-    textConfirmButton: 'Restaurar',
-    textCancelButton: 'Cancelar',
-  }).then(async (confirmed) => {
-    if (confirmed) {
-      const success = await productStore.restoreProduct(product.id);
-      if (success) {
-        useToast(ToastEvents.success, `Producto "${product.name}" restaurado exitosamente`);
-      }
-    }
-  });
 }
 
 function addNewProduct() {

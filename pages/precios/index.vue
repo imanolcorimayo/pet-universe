@@ -158,7 +158,7 @@ const inventoryItems = computed(() => {
 });
 
 const filteredProducts = computed(() => {
-  let products = [...productStore.products].filter(p => p.isActive);
+  let products = [...productStore.products];
   
   // Apply search filter
   if (searchQuery.value) {

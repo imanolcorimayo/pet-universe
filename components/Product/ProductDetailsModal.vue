@@ -4,7 +4,6 @@
     :title="'Detalle de Producto'"
     :click-propagation-filter="[
       'inventory-adjustment-modal',
-      'confirm-dialogue-modal',
     ]"
   >
     <template #default>
@@ -237,16 +236,6 @@
               <p class="text-sm text-gray-600">Última Actualización</p>
               <p class="font-semibold">{{ product.updatedAt }}</p>
             </div>
-            <div>
-              <p class="text-sm text-gray-600">Estado</p>
-              <p class="font-semibold">
-                {{ product.isActive ? "Activo" : "Archivado" }}
-              </p>
-            </div>
-            <div v-if="!product.isActive">
-              <p class="text-sm text-gray-600">Archivado</p>
-              <p class="font-semibold">{{ product.archivedAt }}</p>
-            </div>
           </div>
         </div>
       </div>
@@ -257,29 +246,10 @@
     </template>
 
     <template #footer>
-      <div class="flex justify-between w-full">
-        <div v-if="product">
-          <button
-            v-if="!product.isActive"
-            type="button"
-            @click="restoreProduct"
-            class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 mr-2"
-          >
-            Restaurar Producto
-          </button>
-          <button
-            v-else
-            type="button"
-            @click="archiveProduct"
-            class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 mr-2"
-          >
-            Archivar Producto
-          </button>
-        </div>
-
+      <div class="flex justify-end w-full">
         <div class="flex space-x-2">
           <button
-            v-if="product && product.isActive"
+            v-if="product"
             type="button"
             @click="openAdjustInventory"
             class="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
@@ -288,7 +258,7 @@
           </button>
 
           <button
-            v-if="product && product.isActive"
+            v-if="product"
             type="button"
             @click="editProduct"
             class="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
@@ -323,12 +293,10 @@
     @product-saved="onProductSaved"
   />
 
-  <!-- Confirmation Dialog -->
-  <ConfirmDialogue ref="confirmDialogue" />
+
 </template>
 
 <script setup>
-import { ToastEvents } from "~/interfaces";
 import { formatCurrency } from "~/utils";
 
 // ----- Define Props ---------
@@ -341,8 +309,6 @@ const props = defineProps({
 
 // ----- Emit Events ---------
 const emit = defineEmits([
-  "archived",
-  "restored",
   "updated",
   "adjustment-saved",
 ]);
@@ -352,7 +318,6 @@ const inventoryStore = useInventoryStore();
 const mainModal = ref(null);
 const inventoryAdjustmentModal = ref(null);
 const productFormModal = ref(null);
-const confirmDialogue = ref(null);
 const loading = ref(false);
 const productStore = useProductStore();
 const inventoryData = ref(null);
@@ -392,53 +357,6 @@ async function openAdjustInventory() {
   loading.value = true;
   await inventoryAdjustmentModal.value.showModal();
   loading.value = false;
-}
-
-async function archiveProduct() {
-  if (!product.value) return;
-
-  confirmDialogue.value
-    .openDialog({
-      message: `¿Estás seguro de que deseas archivar el producto "${product.value.name}"? Este producto ya no estará disponible para ventas.`,
-      textConfirmButton: "Archivar",
-      textCancelButton: "Cancelar",
-    })
-    .then(async (confirmed) => {
-      if (confirmed) {
-        const success = await productStore.archiveProduct(props.productId);
-        if (success) {
-          useToast(
-            ToastEvents.success,
-            `Producto "${product.value.name}" archivado exitosamente`
-          );
-          emit("archived");
-          closeModal();
-        }
-      }
-    });
-}
-
-async function restoreProduct() {
-  if (!product.value) return;
-
-  confirmDialogue.value
-    .openDialog({
-      message: `¿Estás seguro de que deseas restaurar el producto "${product.value.name}"?`,
-      textConfirmButton: "Restaurar",
-      textCancelButton: "Cancelar",
-    })
-    .then(async (confirmed) => {
-      if (confirmed) {
-        const success = await productStore.restoreProduct(props.productId);
-        if (success) {
-          useToast(
-            ToastEvents.success,
-            `Producto "${product.value.name}" restaurado exitosamente`
-          );
-          emit("restored");
-        }
-      }
-    });
 }
 
 function onProductSaved() {

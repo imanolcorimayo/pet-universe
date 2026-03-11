@@ -88,7 +88,6 @@ interface ProductFormData {
 }
 
 // Enums
-type ProductFilter = "all" | "active" | "archived";
 type ProductCategoryFilter = "all" | string;
 
 // Store state interface
@@ -98,7 +97,6 @@ interface ProductState {
   productsLoaded: boolean;
   isLoading: boolean;
   selectedProduct: Product | null;
-  productFilter: ProductFilter;
   categoryFilter: ProductCategoryFilter;
   searchQuery: string;
   
@@ -116,7 +114,6 @@ export const useProductStore = defineStore("product", {
     productsLoaded: false,
     isLoading: false,
     selectedProduct: null,
-    productFilter: "active",
     categoryFilter: "all",
     searchQuery: "",
     
@@ -131,14 +128,7 @@ export const useProductStore = defineStore("product", {
     // Filter products based on active filters and search query
     filteredProducts: (state) => {
       let filtered = [...state.products];
-      
-      // Apply active/archived filter
-      if (state.productFilter === "active") {
-        filtered = filtered.filter((product) => product.isActive);
-      } else if (state.productFilter === "archived") {
-        filtered = filtered.filter((product) => !product.isActive);
-      }
-      
+
       // Apply category filter
       if (state.categoryFilter !== "all") {
         filtered = filtered.filter((product) => product.category === state.categoryFilter);
@@ -223,11 +213,6 @@ export const useProductStore = defineStore("product", {
 
     _getProductCategorySchema() {
       return new ProductCategorySchema();
-    },
-
-    // Set product filter
-    setProductFilter(filter: ProductFilter) {
-      this.productFilter = filter;
     },
 
     // Set category filter
@@ -464,6 +449,7 @@ export const useProductStore = defineStore("product", {
         
         const productSchema = this._getProductSchema();
         const result = await productSchema.find({
+          where: [{ field: 'isActive', operator: '==', value: true }],
           orderBy: [{ field: 'name', direction: 'asc' }]
         });
 
@@ -652,59 +638,6 @@ export const useProductStore = defineStore("product", {
       }
     },
 
-    // Archive a product (soft delete)
-    async archiveProduct(productId: string): Promise<boolean> {
-      try {
-        this.isLoading = true;
-        
-        const productSchema = this._getProductSchema();
-        const result = await productSchema.archive(productId);
-        
-        if (!result.success) {
-          useToast(ToastEvents.error, result.error || "Hubo un error al archivar el producto");
-          this.isLoading = false;
-          return false;
-        }
-
-        if (this.selectedProduct && this.selectedProduct.id === productId) {
-          this.selectedProduct = null;
-        }
-
-        this.isLoading = false;
-        return true;
-      } catch (error) {
-        console.error("Error archiving product:", error);
-        useToast(ToastEvents.error, "Hubo un error al archivar el producto. Por favor intenta nuevamente.");
-        this.isLoading = false;
-        return false;
-      }
-    },
-
-    // Restore an archived product
-    async restoreProduct(productId: string): Promise<boolean> {
-      try {
-        this.isLoading = true;
-        
-        const productSchema = this._getProductSchema();
-        const result = await productSchema.restore(productId);
-        
-        if (!result.success) {
-          useToast(ToastEvents.error, result.error || "Hubo un error al restaurar el producto");
-          this.isLoading = false;
-          return false;
-        }
-
-        useToast(ToastEvents.success, "Producto restaurado exitosamente");
-        this.isLoading = false;
-        return true;
-      } catch (error) {
-        console.error("Error restoring product:", error);
-        useToast(ToastEvents.error, "Hubo un error al restaurar el producto. Por favor intenta nuevamente.");
-        this.isLoading = false;
-        return false;
-      }
-    },
-
     // Select a product to view details
     selectProduct(productId: string) {
       this.selectedProduct = this.products.find(p => p.id === productId) || null;
@@ -792,6 +725,7 @@ export const useProductStore = defineStore("product", {
 
       productUnsubscribe = productSchema.subscribeIncremental(
         {
+          where: [{ field: 'isActive', operator: '==', value: true }],
           orderBy: [{ field: 'name', direction: 'asc' }]
         },
         (changes) => {
@@ -875,7 +809,6 @@ export const useProductStore = defineStore("product", {
       this.productsLoaded = false;
       this.isLoading = false;
       this.selectedProduct = null;
-      this.productFilter = "active";
       this.categoryFilter = "all";
       this.searchQuery = "";
       this.categories = [];
