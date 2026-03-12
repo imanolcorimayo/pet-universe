@@ -205,12 +205,22 @@
                   </div>
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <button
-                    @click="addToCart(product)"
-                    class="p-2 rounded-lg transition-colors bg-primary text-white hover:bg-primary/90"
-                  >
-                    <LucidePlus class="w-5 h-5" />
-                  </button>
+                  <div class="flex items-center justify-center gap-1">
+                    <button
+                      v-if="product.trackingType === 'dual' && (getProductInventory(product.id)?.unitsInStock || 0) > 0"
+                      @click="openBag(product)"
+                      class="p-2 rounded-lg transition-colors bg-amber-500 text-white hover:bg-amber-600"
+                      title="Abrir bolsa"
+                    >
+                      <LucideScissors class="w-5 h-5" />
+                    </button>
+                    <button
+                      @click="addToCart(product)"
+                      class="p-2 rounded-lg transition-colors bg-primary text-white hover:bg-primary/90"
+                    >
+                      <LucidePlus class="w-5 h-5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
               <tr v-if="hasMoreProducts">
@@ -273,6 +283,7 @@
         @continue-to-payment="goToPaymentStep"
         @back-to-cart="backToCart"
         @submit-sale="submitSale"
+        @open-bag="openBagFromCart"
       />
     </div>
 
@@ -306,6 +317,7 @@
             @continue-to-payment="goToPaymentStep"
             @back-to-cart="backToCart"
             @submit-sale="submitSale"
+            @open-bag="openBagFromCart"
             @close="showMobileCart = false"
           />
         </div>
@@ -345,6 +357,7 @@
         </div>
       </Transition>
     </Teleport>
+    <ConfirmDialogue ref="confirmDialogue" />
   </div>
 </template>
 
@@ -362,6 +375,7 @@ import LucidePlus from '~icons/lucide/plus';
 import LucideShoppingCart from '~icons/lucide/shopping-cart';
 import LucidePackageSearch from '~icons/lucide/package-search';
 import LucideCheck from '~icons/lucide/check';
+import LucideScissors from '~icons/lucide/scissors';
 
 // Route
 const route = useRoute();
@@ -835,6 +849,46 @@ function handleBack() {
   } else {
     goBackToSnapshot();
   }
+}
+
+// Confirm dialogue
+const confirmDialogue = ref(null);
+
+async function openBag(product) {
+  const confirmed = await confirmDialogue.value.openDialog({
+    title: 'Abrir bolsa',
+    message: `Se abrirá 1 bolsa de ${product.name} (${product.unitWeight}kg se agregarán a peso suelto)`,
+    textConfirmButton: 'Abrir',
+    textCancelButton: 'Cancelar',
+    edit: true,
+  });
+
+  if (!confirmed) return;
+
+  try {
+    const success = await inventoryStore.convertUnitsToWeight({
+      productId: product.id,
+      productName: product.name,
+      trackingType: 'dual',
+      unitsToConvert: 1,
+      weightPerUnit: product.unitWeight,
+      notes: 'Apertura rápida desde venta',
+    });
+
+    if (success) {
+      useToast(ToastEvents.success, `Bolsa de ${product.name} abierta (${product.unitWeight}kg agregados)`);
+    } else {
+      useToast(ToastEvents.error, 'Error al abrir la bolsa');
+    }
+  } catch (error) {
+    console.error('Error opening bag:', error);
+    useToast(ToastEvents.error, 'Error al abrir la bolsa: ' + error.message);
+  }
+}
+
+function openBagFromCart(productId) {
+  const product = productStore.getProductById(productId);
+  if (product) openBag(product);
 }
 
 // Sidebar resize functions

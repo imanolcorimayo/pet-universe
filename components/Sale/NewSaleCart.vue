@@ -140,24 +140,34 @@
               </div>
 
               <!-- Unit Type Toggle (for dual products) -->
-              <div v-if="item.trackingType === 'dual'" class="flex rounded-md border border-gray-300 overflow-hidden">
+              <div v-if="item.trackingType === 'dual'" class="flex items-center gap-1">
+                <div class="flex rounded-md border border-gray-300 overflow-hidden">
+                  <button
+                    @click="updateUnitType(index, 'unit')"
+                    :class="[
+                      'px-2 py-1 text-xs font-medium transition-colors',
+                      item.unitType === 'unit' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                    ]"
+                  >
+                    U
+                  </button>
+                  <button
+                    @click="updateUnitType(index, 'kg')"
+                    :class="[
+                      'px-2 py-1 text-xs font-medium transition-colors',
+                      item.unitType === 'kg' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                    ]"
+                  >
+                    Kg
+                  </button>
+                </div>
                 <button
-                  @click="updateUnitType(index, 'unit')"
-                  :class="[
-                    'px-2 py-1 text-xs font-medium transition-colors',
-                    item.unitType === 'unit' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-                  ]"
+                  v-if="getItemUnitsInStock(item.productId) > 0"
+                  @click="emit('open-bag', item.productId)"
+                  class="p-1 rounded text-amber-600 hover:bg-amber-50 transition-colors"
+                  title="Abrir bolsa"
                 >
-                  U
-                </button>
-                <button
-                  @click="updateUnitType(index, 'kg')"
-                  :class="[
-                    'px-2 py-1 text-xs font-medium transition-colors',
-                    item.unitType === 'kg' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-                  ]"
-                >
-                  Kg
+                  <LucideScissors class="w-3.5 h-3.5" />
                 </button>
               </div>
 
@@ -570,6 +580,7 @@ import LucideArrowLeft from '~icons/lucide/arrow-left';
 import LucideCheck from '~icons/lucide/check';
 import LucideAlertTriangle from '~icons/lucide/alert-triangle';
 import LucideFileText from '~icons/lucide/file-text';
+import LucideScissors from '~icons/lucide/scissors';
 
 const props = defineProps({
   cartItems: {
@@ -627,6 +638,7 @@ const emit = defineEmits([
   'continue-to-payment',
   'back-to-cart',
   'submit-sale',
+  'open-bag',
   'close'
 ]);
 
@@ -745,6 +757,11 @@ const stockAlerts = computed(() => {
 
   return alerts;
 });
+
+function getItemUnitsInStock(productId) {
+  const inventory = inventoryStore.inventoryByProductId.get(productId);
+  return inventory?.unitsInStock || 0;
+}
 
 function getPaymentMethodName(paymentMethodId) {
   if (!paymentMethodId) return 'Sin método';
