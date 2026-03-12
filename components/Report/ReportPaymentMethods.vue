@@ -15,6 +15,7 @@
     <ReportHeader
       title="Medios de Pago"
       subtitle="Distribución de ingresos según la forma de pago utilizada"
+      :on-export="handleExport"
     >
       <template #info>
         <div class="space-y-3 text-sm text-gray-700">
@@ -105,6 +106,7 @@
 
 <script setup lang="ts">
 import IcRoundInsights from '~icons/ic/round-insights';
+import { ToastEvents } from '~/interfaces';
 import {
   aggregateByPeriod,
   buildTimelineChartOptions,
@@ -114,6 +116,7 @@ import {
 
 const { $dayjs } = useNuxtApp();
 const reportStore = useReportStore();
+const { generateCSV, downloadCSV } = useCSVExport();
 
 const periods = [
   { id: 'day', label: 'Día' },
@@ -134,6 +137,12 @@ onMounted(() => reportStore.fetchPaymentMethods());
 watch(() => reportStore.dateRange, () => reportStore.fetchPaymentMethods(), { deep: true });
 
 const data = computed(() => reportStore.paymentMethods.data);
+
+function handleExport() {
+  const { columns, rows, filename } = exportPaymentMethods(data.value, reportStore.dateRange, $dayjs);
+  downloadCSV(filename, generateCSV(columns, rows));
+  useToast(ToastEvents.success, 'CSV descargado');
+}
 
 function getMethodLabel(record: any): string {
   if (record.paymentMethodName) return record.paymentMethodName;

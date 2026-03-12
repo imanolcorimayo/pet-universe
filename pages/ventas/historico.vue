@@ -18,29 +18,29 @@
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-lg shadow p-4 mb-4">
+    <div class="border border-gray-200 rounded-xl bg-gray-50/60 p-4 mb-4">
       <div class="flex flex-col md:flex-row gap-4 items-end">
         <div class="md:flex-1">
-          <label for="dateFrom" class="block text-sm font-medium text-gray-700 mb-2">Desde</label>
+          <label for="dateFrom" class="text-xs text-gray-500 mb-1 block">Desde</label>
           <input
             id="dateFrom"
             v-model="filters.dateFrom"
             type="date"
-            class="w-full rounded-lg border border-gray-300 py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            class="focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
         <div class="md:flex-1">
-          <label for="dateTo" class="block text-sm font-medium text-gray-700 mb-2">Hasta</label>
+          <label for="dateTo" class="text-xs text-gray-500 mb-1 block">Hasta</label>
           <input
             id="dateTo"
             v-model="filters.dateTo"
             type="date"
-            class="w-full rounded-lg border border-gray-300 py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            class="focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
         <div class="md:flex-none">
-          <button 
-            @click="loadHistory" 
+          <button
+            @click="loadHistory"
             class="w-full md:w-auto px-4 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
           >
             <BiSearch class="h-4 w-4" />

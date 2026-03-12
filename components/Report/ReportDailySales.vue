@@ -15,6 +15,7 @@
     <ReportHeader
       title="Ventas Diarias"
       subtitle="Resumen y evolución de ventas en el período seleccionado"
+      :on-export="handleExport"
     >
       <template #info>
         <div class="space-y-3 text-sm text-gray-700">
@@ -118,6 +119,7 @@
 
 <script setup lang="ts">
 import IcRoundInsights from '~icons/ic/round-insights';
+import { ToastEvents } from '~/interfaces';
 import {
   aggregateByPeriod,
   buildTimelineChartOptions,
@@ -127,6 +129,7 @@ import {
 
 const { $dayjs } = useNuxtApp();
 const reportStore = useReportStore();
+const { generateCSV, downloadCSV } = useCSVExport();
 
 const periods = [
   { id: 'day', label: 'Día' },
@@ -143,6 +146,12 @@ onMounted(() => reportStore.fetchDailySales());
 watch(() => reportStore.dateRange, () => reportStore.fetchDailySales(), { deep: true });
 
 const sales = computed(() => reportStore.dailySales.data);
+
+function handleExport() {
+  const { columns, rows, filename } = exportDailySales(sales.value, reportStore.dateRange, $dayjs);
+  downloadCSV(filename, generateCSV(columns, rows));
+  useToast(ToastEvents.success, 'CSV descargado');
+}
 
 const totalSales = computed(() => sales.value.length);
 const totalAmount = computed(() => sales.value.reduce((sum: number, s: any) => sum + (s.amountTotal || 0), 0));

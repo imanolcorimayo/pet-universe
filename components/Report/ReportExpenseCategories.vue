@@ -15,6 +15,7 @@
     <ReportHeader
       title="Egresos"
       subtitle="Todos los egresos pagados agrupados por categoría de gasto"
+      :on-export="handleExport"
     >
       <template #info>
         <div class="space-y-3 text-sm text-gray-700">
@@ -101,6 +102,7 @@
 
 <script setup lang="ts">
 import IcRoundInsights from '~icons/ic/round-insights';
+import { ToastEvents } from '~/interfaces';
 import {
   aggregateByPeriod,
   buildTimelineChartOptions,
@@ -110,6 +112,7 @@ import {
 
 const { $dayjs } = useNuxtApp();
 const reportStore = useReportStore();
+const { generateCSV, downloadCSV } = useCSVExport();
 
 const periods = [
   { id: 'day', label: 'Día' },
@@ -130,6 +133,12 @@ watch(() => reportStore.dateRange, () => reportStore.fetchExpenseCategories(), {
 
 const data = computed(() => reportStore.expenseCategories.data);
 const totalExpenses = computed(() => data.value.reduce((s: number, r: any) => s + (r.amount || 0), 0));
+
+function handleExport() {
+  const { columns, rows, filename } = exportExpenseCategories(data.value, reportStore.dateRange, $dayjs);
+  downloadCSV(filename, generateCSV(columns, rows));
+  useToast(ToastEvents.success, 'CSV descargado');
+}
 
 // Group by category
 const categoryGroups = computed(() => {

@@ -124,7 +124,7 @@
           type="date"
           :min="minPaymentDate"
           :max="maxPaymentDate"
-          class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+          class="focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
         />
         <p class="text-xs text-gray-500 mt-1">
           Fecha en que se recibió el pago del proveedor (semana actual o anterior si está abierta)

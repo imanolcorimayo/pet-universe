@@ -115,7 +115,7 @@ input[type="date"],
 input[type="datetime-local"],
 select,
 textarea {
-  @apply border border-gray-300 rounded px-3 py-[0.625rem] text-base text-black w-full shadow-md;
+  @apply border border-gray-300 rounded-lg px-3 py-[0.625rem] text-base text-black w-full shadow-sm;
 }
 
 /* Compact Input Styles - Use .input-compact class on inputs or parent container */

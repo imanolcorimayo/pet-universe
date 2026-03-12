@@ -7,22 +7,25 @@
     </div>
 
     <!-- Filters & Search Row -->
-    <div class="bg-white rounded-lg shadow p-4 mb-4">
-      <div class="flex flex-col lg:flex-row gap-4 justify-between items-center">
-        <div class="flex flex-col md:flex-row gap-4 md:items-center flex-grow">
+    <div class="border border-gray-200 rounded-xl bg-gray-50/60 p-4 mb-4">
+      <div class="flex flex-col lg:flex-row gap-4 justify-between items-end">
+        <div class="flex flex-col md:flex-row gap-4 md:items-end flex-grow">
           <!-- Search -->
-          <div class="relative flex-grow md:max-w-md">
-            <input
-              type="text"
-              v-model="searchQuery"
-              placeholder="Buscar por proveedor o número de factura..."
-              class="w-full !pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
-            <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-              <LucideSearch class="w-5 h-5" />
+          <div class="flex flex-col flex-grow md:max-w-md">
+            <label class="text-xs text-gray-500 mb-1">Buscar</label>
+            <div class="relative">
+              <input
+                type="text"
+                v-model="searchQuery"
+                placeholder="Proveedor o nº de factura..."
+                class="w-full !pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+              <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                <LucideSearch class="w-5 h-5" />
+              </div>
             </div>
           </div>
-          
+
           <!-- Date Range Filter -->
           <div class="flex gap-2">
             <div class="flex flex-col">
@@ -30,7 +33,7 @@
               <input
                 type="date"
                 v-model="dateRange.start"
-                class="px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                class="focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
             <div class="flex flex-col">
@@ -38,7 +41,7 @@
               <input
                 type="date"
                 v-model="dateRange.end"
-                class="px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                class="focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
           </div>
@@ -48,7 +51,7 @@
         <button
           v-if="hasActiveFilters"
           @click="clearFilters"
-          class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 flex items-center gap-1"
+          class="px-4 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-100 hover:text-gray-800 transition-colors flex items-center gap-1.5"
         >
           <LucideX class="h-4 w-4" />
           Limpiar filtros

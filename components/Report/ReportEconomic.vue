@@ -15,6 +15,7 @@
     <ReportHeader
       title="Económico"
       subtitle="Flujo de caja real: excluye deudas impagas y pagos de tarjeta no liquidados"
+      :on-export="handleExport"
     >
       <template #info>
         <div class="space-y-3 text-sm text-gray-700">
@@ -149,6 +150,7 @@
 
 <script setup lang="ts">
 import IcRoundInsights from '~icons/ic/round-insights';
+import { ToastEvents } from '~/interfaces';
 import {
   aggregateByPeriod,
   buildTimelineChartOptions,
@@ -158,6 +160,7 @@ import {
 
 const { $dayjs } = useNuxtApp();
 const reportStore = useReportStore();
+const { generateCSV, downloadCSV } = useCSVExport();
 
 const periods = [
   { id: 'month', label: 'Mes' },
@@ -170,6 +173,12 @@ watch(() => reportStore.dateRange, () => reportStore.fetchEconomic(), { deep: tr
 
 const income = computed(() => reportStore.economic.data.income);
 const outcome = computed(() => reportStore.economic.data.outcome);
+
+function handleExport() {
+  const { columns, rows, filename } = exportEconomic(income.value, outcome.value, reportStore.dateRange, $dayjs);
+  downloadCSV(filename, generateCSV(columns, rows));
+  useToast(ToastEvents.success, 'CSV descargado');
+}
 
 const hasNoData = computed(() => income.value.length === 0 && outcome.value.length === 0);
 

@@ -26,7 +26,7 @@
     </div>
 
     <!-- Search & Filters -->
-    <div v-if="!initialLoading" class="bg-white rounded-lg shadow p-4 mb-4">
+    <div v-if="!initialLoading" class="border border-gray-200 rounded-xl bg-gray-50/60 p-4 mb-4">
       <div class="flex flex-col md:flex-row gap-4 justify-between">
         <!-- Search -->
         <div class="relative flex-grow md:max-w-md h-fit">

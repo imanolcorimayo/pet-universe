@@ -15,6 +15,7 @@
     <ReportHeader
       title="Compras y Facturas"
       subtitle="Análisis de compras realizadas a proveedores"
+      :on-export="handleExport"
     >
       <template #info>
         <div class="space-y-3 text-sm text-gray-700">
@@ -231,6 +232,7 @@
 
 <script setup lang="ts">
 import IcRoundInsights from '~icons/ic/round-insights';
+import { ToastEvents } from '~/interfaces';
 import IcRoundStorefront from '~icons/ic/round-storefront';
 import IcRoundExpandMore from '~icons/ic/round-expand-more';
 import {
@@ -245,6 +247,7 @@ const { $dayjs } = useNuxtApp();
 const reportStore = useReportStore();
 const supplierStore = useSupplierStore();
 const debtStore = useDebtStore();
+const { generateCSV, downloadCSV } = useCSVExport();
 
 const periods = [
   { id: 'day', label: 'Día' },
@@ -303,6 +306,16 @@ const supplierMap = computed(() => {
   }
   return map;
 });
+
+function handleExport() {
+  const nameMap = new Map<string, string>();
+  for (const [id, info] of supplierMap.value) {
+    nameMap.set(id, info.name);
+  }
+  const { columns, rows, filename } = exportPurchases(reportStore.purchases.data, reportStore.dateRange, $dayjs, nameMap);
+  downloadCSV(filename, generateCSV(columns, rows));
+  useToast(ToastEvents.success, 'CSV descargado');
+}
 
 // Unique suppliers that appear in current data
 const activeProviderOptions = computed(() => {

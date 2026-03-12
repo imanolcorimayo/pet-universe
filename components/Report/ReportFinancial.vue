@@ -15,6 +15,7 @@
     <ReportHeader
       title="Financiero"
       subtitle="Visión total del negocio: incluye todas las operaciones sin importar su estado de pago"
+      :on-export="handleExport"
     >
       <template #info>
         <div class="space-y-3 text-sm text-gray-700">
@@ -150,6 +151,7 @@
 
 <script setup lang="ts">
 import IcRoundInsights from '~icons/ic/round-insights';
+import { ToastEvents } from '~/interfaces';
 import {
   aggregateByPeriod,
   buildTimelineChartOptions,
@@ -159,6 +161,7 @@ import {
 
 const { $dayjs } = useNuxtApp();
 const reportStore = useReportStore();
+const { generateCSV, downloadCSV } = useCSVExport();
 
 const periods = [
   { id: 'month', label: 'Mes' },
@@ -173,6 +176,15 @@ const salesData = computed(() => reportStore.financial.data.sales);
 const incomeData = computed(() => reportStore.financial.data.income);
 const purchasesData = computed(() => reportStore.financial.data.purchases);
 const expensesData = computed(() => reportStore.financial.data.expenses);
+
+function handleExport() {
+  const { columns, rows, filename } = exportFinancial(
+    salesData.value, incomeData.value, purchasesData.value, expensesData.value,
+    reportStore.dateRange, $dayjs,
+  );
+  downloadCSV(filename, generateCSV(columns, rows));
+  useToast(ToastEvents.success, 'CSV descargado');
+}
 
 const hasNoData = computed(() =>
   salesData.value.length === 0 && incomeData.value.length === 0 &&

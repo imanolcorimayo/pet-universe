@@ -135,9 +135,9 @@
           v-model="form.transactionDate"
           :disabled="isSubmitting || editMode"
           :class="[
-            'w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary',
-            editMode ? 'border-gray-300 bg-gray-100 cursor-not-allowed' : 'border-gray-300',
-            !selectedGlobalCashId && !editMode ? 'border-red-500' : ''
+            'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
+            editMode ? 'bg-gray-100' : '',
+            !selectedGlobalCashId && !editMode ? '!border-red-500' : ''
           ]"
         />
         <p class="text-xs text-gray-500 mt-1">

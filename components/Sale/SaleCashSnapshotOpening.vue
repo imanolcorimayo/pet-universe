@@ -18,7 +18,7 @@
         <input
           type="date"
           v-model="openingDate"
-          class="w-full p-2 border rounded-md"
+          class="focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           :disabled="isLoading"
         />
       </div>

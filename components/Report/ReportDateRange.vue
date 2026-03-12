@@ -22,14 +22,14 @@
       <input
         v-model="localFrom"
         type="date"
-        class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+        class="py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
         @change="onManualChange"
       />
       <span class="text-gray-400 text-sm">—</span>
       <input
         v-model="localTo"
         type="date"
-        class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+        class="py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
         @change="onManualChange"
       />
     </div>

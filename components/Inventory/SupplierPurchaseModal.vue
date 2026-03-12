@@ -40,7 +40,7 @@
               <input
                 type="date"
                 v-model="invoiceDate"
-                class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                class="mt-1 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 :disabled="isSubmitting"
               />
             </div>
@@ -392,7 +392,7 @@
             <input
               type="date"
               v-model="dueDate"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              class="focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               :disabled="isSubmitting"
             />
           </div>

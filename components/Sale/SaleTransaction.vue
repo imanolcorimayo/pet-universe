@@ -604,7 +604,7 @@
                   <input
                     type="date"
                     v-model="debtDueDate"
-                    class="w-full p-2 border rounded-md text-sm"
+                    class="text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     :disabled="isLoading"
                   />
                 </div>
