@@ -46,20 +46,30 @@
       <!-- Client Selection -->
       <div class="p-4 border-b border-gray-200">
         <label class="block text-xs font-medium text-gray-700 mb-1">Cliente</label>
-        <select
-          :value="selectedClientId"
-          @change="$emit('update:selected-client-id', $event.target.value)"
-        >
-          <option value="">Cliente Casual</option>
-          <option
-            v-for="client in availableClients"
-            :key="client.id"
-            :value="client.id"
+        <div class="flex items-center gap-1">
+          <select
+            :value="selectedClientId"
+            @change="$emit('update:selected-client-id', $event.target.value)"
+            class="flex-1"
           >
-            {{ client.name }}
-            <span v-if="client.isVip">(VIP)</span>
-          </option>
-        </select>
+            <option value="">Cliente Casual</option>
+            <option
+              v-for="client in availableClients"
+              :key="client.id"
+              :value="client.id"
+            >
+              {{ client.name }}
+              <span v-if="client.isVip">(VIP)</span>
+            </option>
+          </select>
+          <button
+            @click="$emit('create-client')"
+            class="p-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors flex-shrink-0"
+            title="Nuevo cliente"
+          >
+            <LucidePlus class="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <!-- Cart Items -->
@@ -99,6 +109,14 @@
                     ]"
                   >
                     {{ getPriceTypeLabel(item.priceType) }}
+                  </span>
+                  <span
+                    :class="[
+                      'text-xs',
+                      getRemainingStock(item) < 0 ? 'text-red-500' : 'text-gray-400'
+                    ]"
+                  >
+                    Quedan: {{ formatRemainingStock(item) }}
                   </span>
                 </div>
                 <!-- Discount info -->
@@ -335,19 +353,12 @@
             >
               <div class="flex items-start gap-2">
                 <div class="flex-1 space-y-2">
-                  <select
-                    :value="payment.paymentMethodId"
-                    @change="updatePaymentMethod(index, 'paymentMethodId', $event.target.value)"
-                  >
-                    <option value="">Seleccionar método</option>
-                    <option
-                      v-for="method in availablePaymentMethods"
-                      :key="method.id"
-                      :value="method.id"
-                    >
-                      {{ method.name }}
-                    </option>
-                  </select>
+                  <FinancePaymentMethodSelector
+                    :model-value="payment.paymentMethodId"
+                    label=""
+                    placeholder="Buscar método de pago..."
+                    @update:model-value="updatePaymentMethod(index, 'paymentMethodId', $event)"
+                  />
 
                   <div class="relative">
                     <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">$</span>
@@ -639,6 +650,7 @@ const emit = defineEmits([
   'back-to-cart',
   'submit-sale',
   'open-bag',
+  'create-client',
   'close'
 ]);
 
@@ -757,6 +769,21 @@ const stockAlerts = computed(() => {
 
   return alerts;
 });
+
+function getRemainingStock(item) {
+  const inventory = inventoryStore.inventoryByProductId.get(item.productId);
+  if (!inventory) return -item.quantity;
+  if (item.unitType === 'kg') {
+    return (inventory.openUnitsWeight || 0) - item.quantity;
+  }
+  return (inventory.unitsInStock || 0) - item.quantity;
+}
+
+function formatRemainingStock(item) {
+  const remaining = getRemainingStock(item);
+  const suffix = item.unitType === 'kg' ? 'kg' : 'u';
+  return `${item.unitType === 'kg' ? remaining.toFixed(1) : remaining}${suffix}`;
+}
 
 function getItemUnitsInStock(productId) {
   const inventory = inventoryStore.inventoryByProductId.get(productId);

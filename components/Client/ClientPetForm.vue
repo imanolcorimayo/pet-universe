@@ -1,26 +1,24 @@
 <template>
-  <ModalStructure 
-    ref="mainModal" 
+  <ModalStructure
+    ref="mainModal"
     :title="editMode ? 'Editar Mascota' : 'Nueva Mascota'"
-    modal-class="pet-form-modal"
+    modal-class="pet-form-modal max-w-md"
   >
     <template #default>
-      <form @submit.prevent="savePet" class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Name Field -->
-          <div class="col-span-2">
+      <form @submit.prevent="savePet" class="space-y-3">
+        <!-- Primary Fields: Name + Species -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
             <label for="petName" class="block text-sm font-medium text-gray-700 mb-1">Nombre*</label>
             <input
               id="petName"
               v-model="formData.name"
               type="text"
               class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              placeholder="Nombre de la mascota"
+              placeholder="Nombre"
               required
             >
           </div>
-
-          <!-- Species Field -->
           <div>
             <label for="species" class="block text-sm font-medium text-gray-700 mb-1">Especie*</label>
             <select
@@ -29,7 +27,7 @@
               class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
               required
             >
-              <option value="">Seleccionar especie</option>
+              <option value="">Seleccionar</option>
               <option value="dog">Perro</option>
               <option value="cat">Gato</option>
               <option value="bird">Ave</option>
@@ -40,92 +38,102 @@
               <option value="other">Otro</option>
             </select>
           </div>
-
-          <!-- Breed Field -->
-          <div>
-            <label for="breed" class="block text-sm font-medium text-gray-700 mb-1">Raza</label>
-            <input
-              id="breed"
-              v-model="formData.breed"
-              type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              placeholder="Raza de la mascota"
-            >
-          </div>
-
-          <!-- Birthdate Field -->
-          <div>
-            <label for="petBirthdate" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento</label>
-            <input
-              id="petBirthdate"
-              v-model="formData.birthdate"
-              type="date"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            >
-          </div>
-
-          <!-- Weight Field -->
-          <div>
-            <label for="weight" class="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
-            <input
-              id="weight"
-              v-model.number="formData.weight"
-              type="number"
-              step="0.1"
-              min="0"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-              placeholder="0.0"
-            >
-          </div>
         </div>
 
-        <!-- Dietary Restrictions Field -->
+        <!-- Collapsible: More Details -->
         <div>
-          <label for="dietaryRestrictions" class="block text-sm font-medium text-gray-700 mb-1">Restricciones Dietéticas</label>
-          <textarea
-            id="dietaryRestrictions"
-            v-model="formData.dietaryRestrictions"
-            rows="2"
-            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            placeholder="Alergias, intolerancias, etc."
-          ></textarea>
-        </div>
-
-        <!-- Food Preferences Field -->
-        <div>
-          <label for="foodPreferences" class="block text-sm font-medium text-gray-700 mb-1">Preferencias de Comida</label>
-          <input
-            id="foodPreferences"
-            v-model="foodPreferencesInput"
-            type="text"
-            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            placeholder="Marcas o tipos preferidos (separados por comas)"
+          <button
+            type="button"
+            @click="showMoreDetails = !showMoreDetails"
+            class="w-full text-xs text-primary hover:text-primary/80 flex items-center justify-center gap-1 py-1.5"
           >
-          <p class="text-xs text-gray-500 mt-1">Separa múltiples preferencias con comas</p>
-        </div>
+            <span>{{ showMoreDetails ? 'Ocultar detalles' : 'Más detalles' }}</span>
+            <LucideChevronDown
+              :class="['w-4 h-4 transition-transform', showMoreDetails ? 'rotate-180' : '']"
+            />
+          </button>
 
-        <!-- Feeding Schedule Field -->
-        <div>
-          <label for="feedingSchedule" class="block text-sm font-medium text-gray-700 mb-1">Horario de Alimentación</label>
-          <input
-            id="feedingSchedule"
-            v-model="formData.feedingSchedule"
-            type="text"
-            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            placeholder="Ej: 8:00 AM y 6:00 PM"
-          >
-        </div>
+          <Transition name="expand">
+            <div v-if="showMoreDetails" class="space-y-3 pt-2 border-t border-gray-100">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label for="breed" class="block text-sm font-medium text-gray-700 mb-1">Raza</label>
+                  <input
+                    id="breed"
+                    v-model="formData.breed"
+                    type="text"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                    placeholder="Raza"
+                  >
+                </div>
+                <div>
+                  <label for="weight" class="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
+                  <input
+                    id="weight"
+                    v-model.number="formData.weight"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                    placeholder="0.0"
+                  >
+                </div>
+                <div class="col-span-2">
+                  <label for="petBirthdate" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento</label>
+                  <input
+                    id="petBirthdate"
+                    v-model="formData.birthdate"
+                    type="date"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                  >
+                </div>
+              </div>
 
-        <!-- Notes Field -->
-        <div>
-          <label for="petNotes" class="block text-sm font-medium text-gray-700 mb-1">Notas Adicionales</label>
-          <textarea
-            id="petNotes"
-            v-model="formData.notes"
-            rows="3"
-            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-            placeholder="Comportamiento, características especiales, etc."
-          ></textarea>
+              <div>
+                <label for="dietaryRestrictions" class="block text-sm font-medium text-gray-700 mb-1">Restricciones Dietéticas</label>
+                <textarea
+                  id="dietaryRestrictions"
+                  v-model="formData.dietaryRestrictions"
+                  rows="2"
+                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                  placeholder="Alergias, intolerancias, etc."
+                ></textarea>
+              </div>
+
+              <div>
+                <label for="foodPreferences" class="block text-sm font-medium text-gray-700 mb-1">Preferencias de Comida</label>
+                <input
+                  id="foodPreferences"
+                  v-model="foodPreferencesInput"
+                  type="text"
+                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                  placeholder="Marcas o tipos (separados por comas)"
+                >
+              </div>
+
+              <div>
+                <label for="feedingSchedule" class="block text-sm font-medium text-gray-700 mb-1">Horario de Alimentación</label>
+                <input
+                  id="feedingSchedule"
+                  v-model="formData.feedingSchedule"
+                  type="text"
+                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                  placeholder="Ej: 8:00 AM y 6:00 PM"
+                >
+              </div>
+
+              <div>
+                <label for="petNotes" class="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+                <textarea
+                  id="petNotes"
+                  v-model="formData.notes"
+                  rows="2"
+                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                  placeholder="Comportamiento, características especiales..."
+                ></textarea>
+              </div>
+            </div>
+          </Transition>
         </div>
       </form>
     </template>
@@ -153,6 +161,8 @@
 </template>
 
 <script setup>
+import LucideChevronDown from '~icons/lucide/chevron-down';
+
 // Props
 const props = defineProps({
   editMode: {
@@ -180,6 +190,7 @@ const { $dayjs } = useNuxtApp();
 const mainModal = ref(null);
 
 // Local state
+const showMoreDetails = ref(false);
 const formData = ref({
   name: '',
   species: '',
@@ -202,6 +213,7 @@ const isFormValid = computed(() => {
 
 // Methods
 function resetForm() {
+  showMoreDetails.value = false;
   formData.value = {
     name: '',
     species: '',
@@ -218,7 +230,7 @@ function resetForm() {
 
 function populateForm() {
   if (!props.petData) return;
-  
+
   formData.value = {
     name: props.petData.name || '',
     species: props.petData.species || '',
@@ -230,8 +242,13 @@ function populateForm() {
     feedingSchedule: props.petData.feedingSchedule || '',
     notes: props.petData.notes || ''
   };
-  
+
   foodPreferencesInput.value = formData.value.foodPreferences.join(', ');
+
+  // Auto-expand if editing and there's extra data
+  if (props.editMode) {
+    showMoreDetails.value = true;
+  }
 }
 
 // TODO: Remove this function once PetSchema is implemented in the 'pet' collection
@@ -251,16 +268,16 @@ function formatDateForInput(date) {
 
 async function savePet() {
   if (!isFormValid.value) return;
-  
+
   isSaving.value = true;
-  
+
   try {
     // Process food preferences
     const foodPreferences = foodPreferencesInput.value
       .split(',')
       .map(pref => pref.trim())
       .filter(pref => pref !== '');
-    
+
     // Convert form data to the right format
     const petFormData = {
       ...formData.value,
@@ -268,23 +285,20 @@ async function savePet() {
       foodPreferences,
       weight: formData.value.weight || null
     };
-    
+
     if (props.clientId && props.editMode && props.petData) {
-      // Update existing pet
       const success = await clientStore.updatePet(props.petData.id, petFormData);
       if (success) {
         emit('saved', { ...petFormData, id: props.petData.id });
         closeModal();
       }
     } else if (props.clientId && !props.editMode) {
-      // Create new pet for existing client
       const success = await clientStore.createPet(props.clientId, petFormData);
       if (success) {
         emit('saved', petFormData);
         closeModal();
       }
     } else {
-      // Return pet data for wizard mode (no client ID yet)
       emit('saved', petFormData);
       closeModal();
     }
@@ -315,3 +329,23 @@ defineExpose({
   }
 });
 </script>
+
+<style scoped>
+.expand-enter-active,
+.expand-leave-active {
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+.expand-enter-to,
+.expand-leave-from {
+  opacity: 1;
+  max-height: 600px;
+}
+</style>

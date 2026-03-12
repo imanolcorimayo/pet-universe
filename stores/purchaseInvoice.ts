@@ -103,23 +103,15 @@ export const usePurchaseInvoiceStore = defineStore("purchaseInvoice", {
       }
       
       // Apply date range filter
-      if (state.dateRange.start) {
+      // invoiceDate is "DD/MM/YYYY HH:mm", dateRange is "YYYY-MM-DD"
+      if (state.dateRange.start || state.dateRange.end) {
         filtered = filtered.filter((invoice) => {
+          const parts = invoice.invoiceDate.split(' ')[0].split('/');
+          const invoiceDateYMD = `${parts[2]}-${parts[1]}-${parts[0]}`;
 
-          // Check if dateRange.start is not null
-          if (!state.dateRange.start) return true;
-
-          return invoice.invoiceDate >= state.dateRange.start;
-        });
-      }
-      
-      if (state.dateRange.end) {
-        filtered = filtered.filter((invoice) => {
-
-          // Check if dateRange.end is not null
-          if (!state.dateRange.end) return true;
-
-          return invoice.invoiceDate <= state.dateRange.end;
+          if (state.dateRange.start && invoiceDateYMD < state.dateRange.start) return false;
+          if (state.dateRange.end && invoiceDateYMD > state.dateRange.end) return false;
+          return true;
         });
       }
       

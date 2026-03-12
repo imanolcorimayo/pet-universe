@@ -284,6 +284,7 @@
         @back-to-cart="backToCart"
         @submit-sale="submitSale"
         @open-bag="openBagFromCart"
+        @create-client="clientFormModal.showModal()"
       />
     </div>
 
@@ -318,6 +319,7 @@
             @back-to-cart="backToCart"
             @submit-sale="submitSale"
             @open-bag="openBagFromCart"
+            @create-client="clientFormModal.showModal()"
             @close="showMobileCart = false"
           />
         </div>
@@ -358,6 +360,7 @@
       </Transition>
     </Teleport>
     <ConfirmDialogue ref="confirmDialogue" />
+    <ClientFormModal ref="clientFormModal" @saved="onClientSaved" />
   </div>
 </template>
 
@@ -848,6 +851,15 @@ function handleBack() {
     }
   } else {
     goBackToSnapshot();
+  }
+}
+
+// Client creation
+const clientFormModal = ref(null);
+
+function onClientSaved(clientId) {
+  if (clientId) {
+    selectedClientId.value = clientId;
   }
 }
 

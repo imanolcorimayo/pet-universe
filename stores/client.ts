@@ -470,7 +470,7 @@ export const useClientStore = defineStore("client", {
     },
 
         // Create a new client with pets in a single operation
-    async createClientWithPets(formData: ClientFormData, petsData: PetFormData[] = []): Promise<boolean> {
+    async createClientWithPets(formData: ClientFormData, petsData: PetFormData[] = []): Promise<string | false> {
       const db = useFirestore();
       const user = useCurrentUser();
       
@@ -546,7 +546,7 @@ export const useClientStore = defineStore("client", {
         useToast(ToastEvents.success, `Cliente creado exitosamente${petText}`);
         
         this.isLoading = false;
-        return true;
+        return clientId;
       } catch (error) {
         console.error("Error creating client with pets:", error);
         useToast(ToastEvents.error, "Hubo un error al crear el cliente. Por favor intenta nuevamente.");

@@ -14,90 +14,59 @@
       :disabled="disabled"
     />
 
-    <!-- Custom Dropdown with Teleport -->
+    <!-- Dropdown with Teleport -->
     <Teleport to="body">
-      <Transition
-        name="dropdown"
-        appear
-        @enter="onEnter"
-        @leave="onLeave"
-      >
+      <Transition name="dropdown" appear>
         <div
           v-if="isDropdownOpen"
           ref="dropdownContainer"
-          class="fixed bg-white rounded-lg shadow-xl border min-w-96 max-w-lg z-[9999] payment-method-search-input"
+          class="fixed bg-white rounded-lg shadow-lg border border-gray-200 z-[9999] payment-method-search-input"
           :style="dropdownStyle"
           @click.stop
         >
-          <!-- Header -->
-          <div class="flex items-center justify-between p-3 border-b bg-gray-50">
-            <h3 class="text-sm font-semibold text-gray-800">Seleccionar Método de Pago</h3>
-            <button
-              @click="hideDropdown"
-              class="text-gray-400 hover:text-gray-600 transition-colors"
-              title="Cerrar"
+          <ul
+            v-if="filteredMethods.length > 0"
+            class="py-1 max-h-64 overflow-y-auto overscroll-contain"
+          >
+            <li
+              v-for="(method, index) in filteredMethods"
+              :key="method.id"
+              @click="selectMethod(method)"
+              @mouseenter="highlightedIndex = index"
+              :class="[
+                'px-3 py-2 cursor-pointer transition-colors',
+                highlightedIndex === index ? 'bg-primary/10' : 'hover:bg-gray-50',
+                method.id === modelValue && highlightedIndex !== index ? 'bg-gray-50' : ''
+              ]"
             >
-              <LucideX class="w-4 h-4" />
-            </button>
-          </div>
-
-          <!-- Content -->
-          <div class="p-3 max-h-96 overflow-y-auto">
-            <div class="space-y-1">
-              <!-- Search results -->
-              <div v-if="filteredMethods.length > 0" class="max-h-64 overflow-y-auto">
-                <div
-                  v-for="(method, index) in filteredMethods"
-                  :key="method.id"
-                  @click="selectMethod(method)"
-                  @mouseenter="highlightedIndex = index"
-                  :class="[
-                    'px-3 py-2 cursor-pointer rounded-md transition-colors',
-                    highlightedIndex === index ? 'bg-primary/10 border border-primary/20' : 'hover:bg-gray-50'
-                  ]"
-                >
-                  <div class="flex flex-col">
-                    <!-- Main method name -->
-                    <div class="font-medium text-gray-900 flex items-center gap-2">
-                      <span>{{ method.name }}</span>
-                      <span v-if="method.isDefault" class="text-yellow-500" title="Método predeterminado">⭐</span>
-                    </div>
-
-                    <!-- Code, account, and provider info -->
-                    <div class="flex items-center gap-2 mt-1 flex-wrap">
-                      <span v-if="method.code" class="text-xs text-gray-500 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
-                        {{ method.code }}
-                      </span>
-                      <span v-if="method.code && method.accountName" class="text-xs text-gray-300">•</span>
-                      <span v-if="method.accountName" class="text-xs text-gray-600">
-                        {{ method.accountName }}
-                      </span>
-                      <span v-if="method.providerName" class="text-xs text-gray-500">
-                        <span class="text-gray-300 mx-1">•</span>
-                        via {{ method.providerName }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-sm font-medium text-gray-900 truncate">{{ method.name }}</span>
+                <span v-if="method.isDefault" class="text-yellow-500 text-xs flex-shrink-0" title="Predeterminado">⭐</span>
               </div>
-
-              <!-- No results -->
-              <div v-else-if="searchQuery" class="text-center py-4 text-gray-500">
-                <div class="text-sm">No se encontraron métodos de pago</div>
-                <div class="text-xs mt-1">Intenta con otro término de búsqueda</div>
+              <div v-if="method.code || method.accountName || method.providerName" class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <span v-if="method.code" class="text-[11px] text-gray-500 font-mono bg-gray-100 px-1 py-px rounded">
+                  {{ method.code }}
+                </span>
+                <span v-if="method.code && method.accountName" class="text-[11px] text-gray-300">·</span>
+                <span v-if="method.accountName" class="text-[11px] text-gray-500">
+                  {{ method.accountName }}
+                </span>
+                <template v-if="method.providerName">
+                  <span class="text-[11px] text-gray-300">·</span>
+                  <span class="text-[11px] text-gray-500">via {{ method.providerName }}</span>
+                </template>
               </div>
+            </li>
+          </ul>
 
-              <!-- Initial state -->
-              <div v-else class="text-center py-4 text-gray-500">
-                <div class="text-sm">Escribe para buscar métodos de pago</div>
-                <div class="text-xs mt-1">Puedes buscar por código, nombre o cuenta</div>
-              </div>
-            </div>
+          <!-- No results -->
+          <div v-else class="px-3 py-4 text-center">
+            <p class="text-sm text-gray-400">Sin resultados</p>
           </div>
         </div>
       </Transition>
 
-      <!-- Backdrop for click-outside detection -->
+      <!-- Backdrop -->
       <div
         v-if="isDropdownOpen"
         class="fixed inset-0 tooltip-backdrop z-[9998]"
@@ -109,7 +78,6 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
-import LucideX from '~icons/lucide/x';
 
 // Props
 const props = defineProps({
@@ -153,7 +121,7 @@ const dropdownContainer = ref(null);
 const searchQuery = ref('');
 const highlightedIndex = ref(-1);
 const isDropdownOpen = ref(false);
-const dropdownPosition = ref({ x: 0, y: 0 });
+const dropdownPosition = ref({ x: 0, y: 0, width: 0 });
 const justSelected = ref(false);
 
 // Store
@@ -198,7 +166,7 @@ const filteredMethods = computed(() => {
   });
 
   if (!searchQuery.value) {
-    return enrichedMethods; // Show all methods when no search
+    return enrichedMethods;
   }
 
   const query = searchQuery.value.toLowerCase();
@@ -216,6 +184,7 @@ const filteredMethods = computed(() => {
 const dropdownStyle = computed(() => ({
   left: `${dropdownPosition.value.x}px`,
   top: `${dropdownPosition.value.y}px`,
+  width: `${dropdownPosition.value.width}px`,
   transformOrigin: 'top left',
 }));
 
@@ -251,36 +220,26 @@ function hideDropdown() {
 }
 
 function calculatePosition() {
-  if (!containerRef.value || !dropdownContainer.value) return;
+  if (!containerRef.value) return;
 
   const triggerRect = containerRef.value.getBoundingClientRect();
-  const dropdownRect = dropdownContainer.value.getBoundingClientRect();
-  const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
-  const margin = 12;
+  const margin = 8;
+  const gap = 4;
 
+  const width = triggerRect.width;
   let x = triggerRect.left;
-  let y = triggerRect.bottom + 8;
+  let y = triggerRect.bottom + gap;
 
-  // Horizontal bounds checking
-  if (x + dropdownRect.width > viewportWidth - margin) {
-    x = triggerRect.right - dropdownRect.width;
+  // Vertical bounds: flip above if not enough space below
+  if (dropdownContainer.value) {
+    const dropdownHeight = dropdownContainer.value.getBoundingClientRect().height;
+    if (y + dropdownHeight > viewportHeight - margin && triggerRect.top > dropdownHeight + margin) {
+      y = triggerRect.top - dropdownHeight - gap;
+    }
   }
 
-  if (x < margin) {
-    x = margin;
-  }
-
-  // Vertical bounds checking
-  if (y + dropdownRect.height > viewportHeight - margin && triggerRect.top > dropdownRect.height + margin) {
-    y = triggerRect.top - dropdownRect.height - 8;
-  }
-
-  // Final bounds clamping
-  x = Math.max(margin, Math.min(x, viewportWidth - dropdownRect.width - margin));
-  y = Math.max(margin, Math.min(y, viewportHeight - dropdownRect.height - margin));
-
-  dropdownPosition.value = { x, y };
+  dropdownPosition.value = { x, y, width };
 }
 
 function handleKeyDown(event) {
@@ -336,15 +295,6 @@ function selectMethod(method) {
   });
 }
 
-// Animation event handlers
-function onEnter(el) {
-  el.offsetHeight; // Force reflow
-}
-
-function onLeave(el) {
-  // Animation cleanup if needed
-}
-
 // Window resize handler
 function handleResize() {
   if (isDropdownOpen.value) {
@@ -387,36 +337,21 @@ defineExpose({
 </script>
 
 <style scoped>
-/* Custom styling for highlighted items */
-.bg-primary\/10 {
-  background-color: rgb(59 130 246 / 0.1);
-}
-
-.border-primary\/20 {
-  border-color: rgb(59 130 246 / 0.2);
-}
-
-/* Dropdown animations */
 .dropdown-enter-active {
-  transition: all 0.15s ease-out;
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
 }
 
 .dropdown-leave-active {
-  transition: all 0.1s ease-in;
+  transition: opacity 0.1s ease-in, transform 0.1s ease-in;
 }
 
 .dropdown-enter-from {
   opacity: 0;
-  transform: scale(0.96);
+  transform: translateY(-4px);
 }
 
 .dropdown-leave-to {
   opacity: 0;
-  transform: scale(0.98);
-}
-
-/* Enhanced shadow for better depth */
-.shadow-xl {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
 }
 </style>
