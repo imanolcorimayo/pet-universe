@@ -826,9 +826,9 @@ export const useCashRegisterStore = defineStore("cashRegister", {
         throw new Error('No hay una caja diaria abierta para generar número de venta');
       }
 
-      // Count existing sale transactions for current snapshot
-      const saleTransactions = this.currentSnapshotTransactions.filter(t => t.type === 'sale');
-      const nextNumber = saleTransactions.length + 1;
+      // Count actual sales for current snapshot (not daily cash transactions,
+      // which only exist for cash payments and would miss card/transfer sales)
+      const nextNumber = this.currentSnapshotSales.length + 1;
 
       return nextNumber.toString().padStart(3, '0'); // Format as 001, 002, etc.
     },
