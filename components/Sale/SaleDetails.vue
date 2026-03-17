@@ -52,11 +52,25 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(product, i) in sale.products" :key="i" class="border-b border-gray-200 last:border-0">
+              <tr v-for="(product, i) in enrichedProducts" :key="i" class="border-b border-gray-200 last:border-0">
                 <td class="py-2">
-                  <div class="font-medium">{{ product.productName }}</div>
-                  <div v-if="product.priceType !== 'regular'" class="text-xs text-gray-500">
-                    {{ formatPriceType(product.priceType) }}
+                  <div class="font-medium text-sm text-gray-900">
+                    <span v-if="product.brand" class="text-gray-600">{{ product.brand }} - </span>
+                    {{ product.productName }}
+                    <span v-if="product.trackingType === 'dual' && product.unitWeight" class="text-gray-500">
+                      - {{ product.unitWeight }}kg
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <span v-if="product.productCode" class="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">
+                      {{ product.productCode }}
+                    </span>
+                    <span v-if="product.categoryName" class="text-xs text-gray-400">
+                      {{ product.categoryName }}
+                    </span>
+                    <span v-if="product.priceType !== 'regular'" class="text-xs text-gray-500">
+                      {{ formatPriceType(product.priceType) }}
+                    </span>
                   </div>
                   <div v-if="product.appliedDiscount > 0" class="text-xs text-red-600">
                     Descuento: -{{ formatCurrency(product.appliedDiscount) }}
@@ -242,6 +256,22 @@ const modalRef = ref(null);
 
 // Store access
 const cashRegisterStore = useCashRegisterStore();
+const productStore = useProductStore();
+
+const enrichedProducts = computed(() => {
+  if (!props.sale?.products) return [];
+  return props.sale.products.map(item => {
+    const details = item.productId ? productStore.getProductById(item.productId) : null;
+    return {
+      ...item,
+      brand: details?.brand || '',
+      productCode: details?.productCode || '',
+      categoryName: details?.category ? productStore.getCategoryName(details.category) : '',
+      trackingType: details?.trackingType || '',
+      unitWeight: details?.unitWeight || '',
+    };
+  });
+});
 
 // Computed properties to filter related transactions
 

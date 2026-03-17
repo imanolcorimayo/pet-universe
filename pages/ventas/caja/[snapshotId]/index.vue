@@ -375,8 +375,13 @@
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ transaction.createdAt }}</td>
                   <td class="px-4 py-3 whitespace-nowrap text-right">
+                    <span v-if="loadingSaleId === transaction.saleId" class="inline-flex items-center gap-[3px]">
+                      <span class="sale-dot" style="animation-delay: 0ms"></span>
+                      <span class="sale-dot" style="animation-delay: 150ms"></span>
+                      <span class="sale-dot" style="animation-delay: 300ms"></span>
+                    </span>
                     <button
-                      v-if="transaction.saleId"
+                      v-else-if="transaction.saleId"
                       @click="viewSaleDetails(transaction.saleId)"
                       class="text-indigo-600 hover:text-indigo-900 text-sm"
                     >
@@ -426,7 +431,13 @@
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ sale.createdAt }}</td>
                   <td class="px-4 py-3 whitespace-nowrap text-right">
+                    <span v-if="loadingSaleId === sale.id" class="inline-flex items-center gap-[3px]">
+                      <span class="sale-dot" style="animation-delay: 0ms"></span>
+                      <span class="sale-dot" style="animation-delay: 150ms"></span>
+                      <span class="sale-dot" style="animation-delay: 300ms"></span>
+                    </span>
                     <button
+                      v-else
                       @click="viewSaleDetails(sale.id)"
                       class="text-indigo-600 hover:text-indigo-900 text-sm"
                     >
@@ -600,7 +611,13 @@
               <tbody class="bg-white divide-y divide-gray-200">
                 <tr v-for="settlement in settlements" :key="settlement.id">
                   <td class="px-4 py-3 whitespace-nowrap">
+                    <span v-if="loadingSaleId === settlement.saleId" class="inline-flex items-center gap-[3px]">
+                      <span class="sale-dot" style="animation-delay: 0ms"></span>
+                      <span class="sale-dot" style="animation-delay: 150ms"></span>
+                      <span class="sale-dot" style="animation-delay: 300ms"></span>
+                    </span>
                     <button
+                      v-else
                       @click="viewSaleDetails(settlement.saleId)"
                       class="text-sm font-medium text-indigo-600 hover:text-indigo-900"
                     >
@@ -693,6 +710,7 @@ const closeSnapshotModal = ref(null);
 const saleDetailsModal = ref(null);
 const selectedSale = ref(null);
 const loadingSaleModal = ref(false);
+const loadingSaleId = ref(null);
 
 // Data refs
 const snapshotData = ref(null);
@@ -921,9 +939,14 @@ async function openSaleModal() {
 }
 
 async function viewSaleDetails(saleId) {
+  loadingSaleId.value = saleId;
   try {
-    // Load sale details
-    const saleResult = await cashRegisterStore.saleSchema.findById(saleId);
+    const productStore = useProductStore();
+    const [saleResult] = await Promise.all([
+      cashRegisterStore.saleSchema.findById(saleId),
+      productStore.fetchProducts(),
+      productStore.fetchCategories(),
+    ]);
     if (saleResult.success && saleResult.data) {
       selectedSale.value = saleResult.data;
       saleDetailsModal.value?.showModal();
@@ -933,6 +956,8 @@ async function viewSaleDetails(saleId) {
   } catch (error) {
     console.error('Error loading sale details:', error);
     useToast(ToastEvents.error, 'Error al cargar los detalles de la venta: ' + error.message);
+  } finally {
+    loadingSaleId.value = null;
   }
 }
 
@@ -951,3 +976,18 @@ useHead({
   title: `Caja Diaria - ${snapshotData.value?.cashRegisterName || 'Cargando'}`
 });
 </script>
+
+<style scoped>
+.sale-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: rgb(79 70 229);
+  animation: dotPulse 1s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+</style>
