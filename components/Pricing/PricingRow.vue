@@ -15,6 +15,13 @@
             <div class="text-xs text-gray-500 truncate">
               {{ productStore.getCategoryName(product.category) }}
             </div>
+            <span class="text-xs text-gray-300">•</span>
+            <span
+              class="text-xs font-medium px-1.5 rounded"
+              :class="stockBadgeClass"
+            >
+              {{ stockLabel }}
+            </span>
           </div>
         </div>
         <button 
@@ -395,6 +402,27 @@ const displayName = computed(() => {
 
 const currentCost = computed(() => {
   return props.inventory?.lastPurchaseCost || 0;
+});
+
+const stockUnits = computed(() => {
+  return props.inventory?.unitsInStock || 0;
+});
+
+const isLowStock = computed(() => {
+  const minStock = props.product.minimumStock || 0;
+  return minStock > 0 && stockUnits.value < minStock;
+});
+
+const stockLabel = computed(() => {
+  const units = stockUnits.value;
+  if (props.product.trackingType === 'weight') return `${units} kg`;
+  return `${units} ud`;
+});
+
+const stockBadgeClass = computed(() => {
+  if (isLowStock.value) return 'bg-red-100 text-red-700';
+  if (stockUnits.value === 0) return 'bg-gray-100 text-gray-500';
+  return 'bg-emerald-50 text-emerald-700';
 });
 
 const currentMargin = computed(() => {

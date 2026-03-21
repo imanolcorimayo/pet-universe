@@ -215,6 +215,7 @@
                 <div class="text-sm text-gray-900">{{ formatCurrency(item.inventoryValue) }}</div>
                 <div class="text-xs text-gray-500">
                   {{ formatCurrency(item.lastPurchaseCost || 0) }}/unidad
+                  <span v-if="item.lastPurchaseCost > 0" class="ml-1 text-emerald-600 font-medium">{{ item.product?.profitMarginPercentage || 30 }}%</span>
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">

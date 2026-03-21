@@ -135,6 +135,10 @@
                 <div v-if="product.prices.cash > 0" class="text-xs text-gray-500">
                   Efectivo: {{ formatCurrency(product.prices.cash) }}
                 </div>
+                <div v-if="getProductCost(product) > 0" class="text-xs text-gray-400 mt-0.5">
+                  Costo: {{ formatCurrency(getProductCost(product)) }}
+                  <span class="ml-1 text-emerald-600 font-medium">{{ product.profitMarginPercentage || 30 }}%</span>
+                </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium" :class="getStockClass(product)">
@@ -303,6 +307,11 @@ function getFormattedStock(product) {
 
 function getMinimumStock(product) {
   return product.minimumStock || 0;
+}
+
+function getProductCost(product) {
+  const inventory = inventoryStore.getInventoryByProductId(product.id);
+  return inventory?.lastPurchaseCost || 0;
 }
 
 function getStockClass(product) {
