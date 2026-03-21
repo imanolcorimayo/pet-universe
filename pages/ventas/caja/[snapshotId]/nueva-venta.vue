@@ -793,37 +793,6 @@ async function submitSale() {
   }
 }
 
-async function updateInventoryForSale(saleNumber) {
-  try {
-    for (const item of cartItems.value) {
-      if (!item.productId || item.quantity <= 0) continue;
-
-      const inventory = getProductInventory(item.productId);
-      if (!inventory) continue;
-
-      let unitsChange = 0;
-      let weightChange = 0;
-
-      if (item.unitType === 'kg') {
-        weightChange = -item.quantity;
-      } else {
-        unitsChange = -item.quantity;
-      }
-
-      await inventoryStore.adjustInventory({
-        productId: item.productId,
-        unitsChange,
-        weightChange,
-        reason: 'sale',
-        notes: `Venta #${saleNumber}`
-      });
-    }
-  } catch (error) {
-    console.error('Error updating inventory:', error);
-    useToast(ToastEvents.warning, 'Venta procesada pero hubo un error actualizando el inventario');
-  }
-}
-
 function resetForm() {
   cartItems.value = [];
   selectedClientId.value = '';

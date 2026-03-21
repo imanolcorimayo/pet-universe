@@ -1,3 +1,6 @@
+# Tasks (internal tracking)
+tasks/
+
 # Nuxt dev/build outputs
 .output
 .data

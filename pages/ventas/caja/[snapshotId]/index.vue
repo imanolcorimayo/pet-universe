@@ -35,19 +35,6 @@
 
         <button
           v-if="snapshotData?.status === 'open'"
-          @click="openSaleModal"
-          class="btn bg-primary/70 text-white hover:bg-primary/80"
-          :disabled="loadingSaleModal"
-          title="Usar modal clásico"
-        >
-          <span class="flex items-center gap-1">
-            <LucideLayoutGrid class="h-4 w-4" />
-            <span class="hidden xl:inline">{{ loadingSaleModal ? 'Cargando...' : 'Modal' }}</span>
-          </span>
-        </button>
-
-        <button
-          v-if="snapshotData?.status === 'open'"
           @click="extractCashModal.showModal()"
           class="btn bg-secondary text-white hover:bg-secondary/90"
         >
@@ -662,12 +649,6 @@
     </div>
     
     <!-- Modals -->
-    <SaleTransaction
-      ref="saleModal"
-      :dailyCashSnapshotId="snapshotId"
-      :cashRegisterId="snapshotData?.cashRegisterId"
-      :cashRegisterName="snapshotData?.cashRegisterName"
-    />
     <SaleCashExtractModal
       :dailyCashSnapshotId="snapshotId"
       :cashRegisterId="snapshotData?.cashRegisterId"
@@ -692,7 +673,6 @@ import { formatCurrency } from '~/utils';
 import LucideArrowLeft from '~icons/lucide/arrow-left';
 import LucidePlus from '~icons/lucide/plus';
 import LucideLock from '~icons/lucide/lock';
-import LucideLayoutGrid from '~icons/lucide/layout-grid';
 import LucideArrowUpFromLine from '~icons/lucide/arrow-up-from-line';
 import LucideArrowDownFromLine from '~icons/lucide/arrow-down-from-line';
 import LucideAlertCircle from '~icons/lucide/alert-circle';
@@ -703,13 +683,11 @@ const route = useRoute();
 const snapshotId = route.params.snapshotId;
 
 // Component refs
-const saleModal = ref(null);
 const extractCashModal = ref(null);
 const injectCashModal = ref(null);
 const closeSnapshotModal = ref(null);
 const saleDetailsModal = ref(null);
 const selectedSale = ref(null);
-const loadingSaleModal = ref(false);
 const loadingSaleId = ref(null);
 
 // Data refs
@@ -923,20 +901,6 @@ async function loadSnapshotData() {
   }
 }
 
-
-async function openSaleModal() {
-  if (snapshotData.value?.status !== 'open') {
-    useToast(ToastEvents.warning, 'No se pueden agregar ventas a una caja cerrada');
-    return;
-  }
-  
-  loadingSaleModal.value = true;
-  try {
-    await saleModal.value?.showModal();
-  } finally {
-    loadingSaleModal.value = false;
-  }
-}
 
 async function viewSaleDetails(saleId) {
   loadingSaleId.value = saleId;
