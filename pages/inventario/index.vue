@@ -113,7 +113,7 @@
           >
             <span class="flex items-center gap-1">
               <LucideTruck class="h-4 w-4" />
-              Agregar Compra
+              Registrar Compra
             </span>
           </button>
           

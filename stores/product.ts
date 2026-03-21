@@ -479,7 +479,7 @@ export const useProductStore = defineStore("product", {
     },
 
     // Create a new product
-    async createProduct(formData: ProductFormData): Promise<boolean> {
+    async createProduct(formData: ProductFormData): Promise<string | false> {
       try {
         this.isLoading = true;
         
@@ -545,7 +545,7 @@ export const useProductStore = defineStore("product", {
 
         useToast(ToastEvents.success, "Producto creado exitosamente");
         this.isLoading = false;
-        return true;
+        return newProduct.id;
       } catch (error) {
         console.error("Error creating product:", error);
         useToast(ToastEvents.error, "Hubo un error al crear el producto. Por favor intenta nuevamente.");
@@ -555,7 +555,7 @@ export const useProductStore = defineStore("product", {
     },
 
     // Update an existing product
-    async updateProduct(productId: string, updates: Partial<Product>): Promise<boolean> {
+    async updateProduct(productId: string, updates: Partial<Product>, { silent = false } = {}): Promise<boolean> {
       try {
         this.isLoading = true;
         
@@ -627,12 +627,12 @@ export const useProductStore = defineStore("product", {
           this.selectedProduct = result.data as Product;
         }
 
-        useToast(ToastEvents.success, "Producto actualizado exitosamente");
+        if (!silent) useToast(ToastEvents.success, "Producto actualizado exitosamente");
         this.isLoading = false;
         return true;
       } catch (error) {
         console.error("Error updating product:", error);
-        useToast(ToastEvents.error, "Hubo un error al actualizar el producto. Por favor intenta nuevamente.");
+        if (!silent) useToast(ToastEvents.error, "Hubo un error al actualizar el producto. Por favor intenta nuevamente.");
         this.isLoading = false;
         return false;
       }

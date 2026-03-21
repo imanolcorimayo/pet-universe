@@ -288,11 +288,9 @@ watch([debouncedQuery, selectedCategory, noCodeFilter], () => {
 // Methods
 function getFormattedStock(product) {
   const inventory = inventoryStore.getInventoryByProductId(product.id);
-  if (!inventory) return 'Sin inventario';
-
-  const units = inventory.unitsInStock;
+  const units = inventory ? inventory.unitsInStock : 0;
   const isDual = product.trackingType === 'dual';
-  const openWeight = inventory.openUnitsWeight || 0;
+  const openWeight = inventory?.openUnitsWeight || 0;
 
   if (isDual && openWeight > 0) {
     return `${units} ${product.unitType}${units !== 1 ? 'es' : ''} + ${Math.round(openWeight * 100) / 100} kg`;
@@ -309,9 +307,10 @@ function getMinimumStock(product) {
 
 function getStockClass(product) {
   const inventory = inventoryStore.getInventoryByProductId(product.id);
-  if (!inventory) return 'text-gray-400';
+  const currentStock = inventory ? inventory.unitsInStock : 0;
   const minStock = getMinimumStock(product);
-  if (minStock > 0 && inventory.unitsInStock < minStock) return 'text-red-600';
+  if (minStock > 0 && currentStock < minStock) return 'text-red-600';
+  if (!inventory) return 'text-gray-400';
   return 'text-gray-900';
 }
 

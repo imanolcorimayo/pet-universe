@@ -91,6 +91,16 @@
                 <div class="text-sm">Escribe para buscar productos</div>
                 <div class="text-xs mt-1">Puedes buscar por código, nombre, marca o categoría</div>
               </div>
+
+              <!-- Create product option -->
+              <div
+                v-if="allowCreate"
+                @click="emit('create-product', searchQuery); hideDropdown()"
+                class="px-3 py-2 cursor-pointer rounded-md hover:bg-green-50 border-t border-gray-100 mt-1 flex items-center gap-2 text-green-700"
+              >
+                <LucidePlus class="w-4 h-4" />
+                <span class="text-sm font-medium">Crear nuevo producto{{ searchQuery ? `: "${searchQuery}"` : '' }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -109,6 +119,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import LucideX from '~icons/lucide/x';
+import LucidePlus from '~icons/lucide/plus';
 
 // Props
 const props = defineProps({
@@ -147,11 +158,15 @@ const props = defineProps({
   excludeProductIds: {
     type: Array,
     default: () => []
+  },
+  allowCreate: {
+    type: Boolean,
+    default: false
   }
 });
 
 // Emits
-const emit = defineEmits(['update:modelValue', 'product-selected']);
+const emit = defineEmits(['update:modelValue', 'product-selected', 'create-product']);
 
 // Refs
 const inputRef = ref(null);

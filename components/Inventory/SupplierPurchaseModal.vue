@@ -5,7 +5,7 @@
     title="Registrar Compra de Proveedor"
     modal-namespace="supplier-purchase-modal"
     modal-class="max-w-6xl"
-    :click-propagation-filter="['confirm-dialogue-modal', 'product-search-input']"
+    :click-propagation-filter="['confirm-dialogue-modal', 'product-search-input', 'product-quick-create-modal', 'price-update-modal']"
   >
     <template #default>
       <div v-if="loading" class="flex justify-center items-center py-12">
@@ -179,9 +179,11 @@
                     :product-categories="productStore.categories"
                     :disabled="isSubmitting"
                     :show-stock="true"
+                    :allow-create="true"
                     input-class="text-base"
                     placeholder="Seleccionar producto..."
                     @product-selected="(product) => selectProduct(index, product)"
+                    @create-product="(searchQuery) => onCreateProduct(index, searchQuery)"
                   />
                 </div>
 
@@ -239,8 +241,14 @@
                     
                     <!-- Cost Info -->
                     <div class="flex items-center gap-2">
-                      <span class="text-sm text-blue-600">Nuevo costo:</span>
-                      <span class="font-semibold text-sm">
+                      <span class="text-sm text-blue-600">Costo:</span>
+                      <template v-if="getPreviousCost(item) > 0 && getPreviousCost(item) !== item.unitCost">
+                        <span class="text-sm text-gray-400 line-through">
+                          {{ formatCurrency(getPreviousCost(item)) }}
+                        </span>
+                        <TablerArrowRight class="h-3 w-3 text-gray-400" />
+                      </template>
+                      <span class="font-semibold text-sm" :class="getCostChangeClass(item)">
                         {{ formatCurrency(item.unitCost) }}/ud
                       </span>
                     </div>
@@ -486,6 +494,20 @@
       </div>
     </template>
   </ModalStructure>
+
+  <ProductQuickCreateModal
+    ref="productQuickCreateModal"
+    :initial-name="quickCreateInitialName"
+    :supplier-id="selectedSupplier?.id"
+    @product-created="onProductCreated"
+  />
+
+  <InventoryPriceUpdateModal
+    ref="priceUpdateModal"
+    :price-changes="priceChangeItems"
+    @update-prices="onUpdatePrices"
+    @skip="onSkipPriceUpdate"
+  />
 </template>
 
 <script setup>
@@ -498,7 +520,10 @@ import TablerTruck from '~icons/tabler/truck';
 import TablerInfoCircle from '~icons/tabler/info-circle';
 import TablerAlertCircle from '~icons/tabler/alert-circle';
 import TablerReceipt from '~icons/tabler/receipt';
+import TablerArrowRight from '~icons/tabler/arrow-right';
 import ProductSearchInput from '~/components/Product/ProductSearchInput.vue';
+import ProductQuickCreateModal from '~/components/Product/ProductQuickCreateModal.vue';
+import InventoryPriceUpdateModal from '~/components/Inventory/InventoryPriceUpdateModal.vue';
 
 const { parseDecimal } = useDecimalInput();
 
@@ -527,6 +552,15 @@ const filteredSuppliers = ref([]);
 // Product items
 const productItems = ref([]);
 const purchaseNotes = ref('');
+
+// Quick-create product
+const productQuickCreateModal = ref(null);
+const quickCreateTargetIndex = ref(-1);
+const quickCreateInitialName = ref('');
+
+// Price update after purchase
+const priceUpdateModal = ref(null);
+const priceChangeItems = ref([]);
 
 // Payment information
 const paymentType = ref('full'); // 'full', 'partial', 'deferred'
@@ -700,6 +734,49 @@ function selectProduct(index, product) {
   item.selectedProduct = product;
 }
 
+// Quick-create product methods
+function onCreateProduct(index, searchQuery) {
+  quickCreateTargetIndex.value = index;
+  quickCreateInitialName.value = searchQuery || '';
+  productQuickCreateModal.value?.showModal();
+}
+
+async function onProductCreated(productId) {
+  const waitForProduct = () => {
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const check = () => {
+        const product = productStore.products.find(p => p.id === productId);
+        if (product) {
+          resolve(product);
+        } else if (attempts < 50) {
+          attempts++;
+          setTimeout(check, 100);
+        } else {
+          resolve(null);
+        }
+      };
+      check();
+    });
+  };
+
+  const product = await waitForProduct();
+  if (quickCreateTargetIndex.value >= 0 && product) {
+    selectProduct(quickCreateTargetIndex.value, product);
+  }
+}
+
+// Price update methods
+function onUpdatePrices(selectedProducts) {
+  useToast(ToastEvents.success, `Precios actualizados para ${selectedProducts.length} producto(s)`);
+  emit('purchase-saved');
+}
+
+function onSkipPriceUpdate() {
+  emit('purchase-saved');
+  closeModal();
+}
+
 // Helper methods for inventory calculations
 function getCurrentInventory(productId) {
   return inventoryStore.getInventoryByProductId(productId);
@@ -745,6 +822,18 @@ function formatStockChange(item) {
   const product = item.selectedProduct;
 
   return `${unitsChange} ${product.unitType || 'unidad'}${unitsChange !== 1 ? 'es' : ''}`;
+}
+
+function getPreviousCost(item) {
+  if (!item.selectedProduct) return 0;
+  const inventory = getCurrentInventory(item.selectedProduct.id);
+  return inventory?.lastPurchaseCost || 0;
+}
+
+function getCostChangeClass(item) {
+  const prevCost = getPreviousCost(item);
+  if (prevCost <= 0 || prevCost === item.unitCost) return '';
+  return item.unitCost > prevCost ? 'text-red-600' : 'text-green-600';
 }
 
 async function loadData() {
@@ -802,6 +891,13 @@ async function savePurchase() {
   isSubmitting.value = true;
 
   try {
+    // Snapshot old costs BEFORE save (real-time subscription will update them after)
+    const oldCosts = new Map();
+    for (const item of validProductItems.value) {
+      const inventory = inventoryStore.getInventoryByProductId(item.selectedProduct.id);
+      oldCosts.set(item.selectedProduct.id, inventory?.lastPurchaseCost || 0);
+    }
+
     const { BusinessRulesEngine } = await import('~/utils/finance/BusinessRulesEngine');
     const businessRulesEngine = new BusinessRulesEngine(paymentMethodsStore, globalCashRegisterStore, useCashRegisterStore());
 
@@ -842,8 +938,48 @@ async function savePurchase() {
       } else {
         useToast(ToastEvents.success, `Compra registrada exitosamente: ${data.productsUpdated} producto(s) actualizados`);
       }
-      emit("purchase-saved");
-      closeModal();
+
+      // Check for cost changes and offer price update
+      const costChanges = [];
+      for (const item of validProductItems.value) {
+        const product = item.selectedProduct;
+        const oldCost = oldCosts.get(product.id) || 0;
+        const newCost = item.unitCost;
+
+        if (oldCost !== newCost && newCost > 0) {
+          const margin = product.profitMarginPercentage || 30;
+          const threePlusMarkup = product.threePlusMarkupPercentage || 8;
+          const unitWeight = product.trackingType === 'dual' ? product.unitWeight : undefined;
+          const proposedPrices = productStore.calculatePricing(newCost, margin, unitWeight, threePlusMarkup);
+
+          if (proposedPrices) {
+            costChanges.push({
+              productId: product.id,
+              productName: product.name,
+              oldCost,
+              newCost,
+              currentPrices: product.prices || {},
+              proposedPrices,
+              profitMarginPercentage: margin,
+              threePlusMarkupPercentage: threePlusMarkup,
+              unitWeight,
+              trackingType: product.trackingType,
+              selected: true,
+            });
+          }
+        }
+      }
+
+      if (costChanges.length > 0) {
+        priceChangeItems.value = costChanges;
+        mainModal.value?.closeModal();
+        nextTick(() => {
+          priceUpdateModal.value?.showModal();
+        });
+      } else {
+        emit("purchase-saved");
+        closeModal();
+      }
     } else {
       useToast(ToastEvents.error, result.error || "Error al registrar la compra");
     }

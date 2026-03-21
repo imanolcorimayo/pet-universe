@@ -1,9 +1,20 @@
 <template>
   <div class="container mx-auto p-6">
     <!-- Header Section -->
-    <div class="mb-8">
-      <h1 class="text-2xl font-bold">Facturas de Compra</h1>
-      <p class="text-gray-600">Gestiona las facturas de tus proveedores</p>
+    <div class="mb-8 flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold">Facturas de Compra</h1>
+        <p class="text-gray-600">Gestiona las facturas de tus proveedores</p>
+      </div>
+      <button
+        @click="openSupplierPurchase"
+        class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+      >
+        <span class="flex items-center gap-1">
+          <LucideTruck class="h-4 w-4" />
+          Registrar Compra
+        </span>
+      </button>
     </div>
 
     <!-- Filters & Search Row -->
@@ -77,7 +88,7 @@
           {{ 
             hasActiveFilters 
               ? 'No se encontraron facturas con los filtros aplicados.' 
-              : 'Las facturas aparecerán aquí cuando las crees desde las compras de inventario.' 
+              : 'Las facturas aparecerán aquí cuando registres compras.'
           }}
         </p>
         <div class="mt-6" v-if="hasActiveFilters">
@@ -167,10 +178,14 @@
     </div>
 
     <!-- Modals -->
-    <PurchaseInvoiceDetailsModal 
-      ref="detailsModal" 
-      :invoice-id="selectedInvoiceId" 
-      @invoice-updated="onInvoiceUpdated" 
+    <PurchaseInvoiceDetailsModal
+      ref="detailsModal"
+      :invoice-id="selectedInvoiceId"
+      @invoice-updated="onInvoiceUpdated"
+    />
+    <InventorySupplierPurchaseModal
+      ref="supplierPurchaseModal"
+      @purchase-saved="onPurchaseSaved"
     />
   </div>
 </template>
@@ -181,10 +196,12 @@ import LucideSearch from '~icons/lucide/search';
 import LucideEye from '~icons/lucide/eye';
 import LucidePencil from '~icons/lucide/pencil';
 import LucideX from '~icons/lucide/x';
+import LucideTruck from '~icons/lucide/truck';
 import TablerFileText from '~icons/tabler/file-text';
 
 // Components
 import PurchaseInvoiceDetailsModal from '~/components/Inventory/PurchaseInvoiceDetailsModal.vue';
+import InventorySupplierPurchaseModal from '~/components/Inventory/SupplierPurchaseModal.vue';
 
 // Store references
 const purchaseInvoiceStore = usePurchaseInvoiceStore();
@@ -192,6 +209,7 @@ const { filteredInvoices } = storeToRefs(purchaseInvoiceStore);
 
 // Component refs
 const detailsModal = ref(null);
+const supplierPurchaseModal = ref(null);
 
 // Local state
 const selectedInvoiceId = ref(null);
@@ -249,6 +267,14 @@ function editInvoice(invoiceId) {
 
 function onInvoiceUpdated() {
   // This will be called after an invoice is updated
+}
+
+function openSupplierPurchase() {
+  supplierPurchaseModal.value?.showModal();
+}
+
+async function onPurchaseSaved() {
+  await purchaseInvoiceStore.fetchInvoices();
 }
 
 // Set page title
