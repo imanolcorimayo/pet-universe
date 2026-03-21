@@ -22,7 +22,6 @@ interface Inventory {
   unitsInStock: number;
   openUnitsWeight: number;
   totalWeight: number;
-  isLowStock: boolean;
   lastPurchaseCost: number;
   lastPurchaseAt?: string;
   originalLastPurchaseAt?: any;
@@ -153,9 +152,14 @@ export const useInventoryStore = defineStore("inventory", {
       return state.inventoryMovementsByProductId.get(productId) || [];
     },
     
-    // Get products with low stock
+    // Get products with low stock (computed dynamically from product.minimumStock)
     getLowStockInventory: (state) => {
-      return state.inventoryItems.filter(item => item.isLowStock);
+      const productStore = useProductStore();
+      return state.inventoryItems.filter(item => {
+        const product = productStore.getProductById(item.productId);
+        const minStock = product?.minimumStock || 0;
+        return minStock > 0 && item.unitsInStock < minStock;
+      });
     },
   },
 
@@ -261,7 +265,6 @@ export const useInventoryStore = defineStore("inventory", {
           unitsInStock: 0,
           openUnitsWeight: 0,
           totalWeight: 0,
-          isLowStock: true,
           lastPurchaseCost: 0,
         });
 
@@ -488,11 +491,6 @@ export const useInventoryStore = defineStore("inventory", {
       const newUnitsInStock = currentUnits + data.unitsChange;
       const newOpenUnitsWeight = roundWeight(currentWeight + data.weightChange);
 
-      // Calculate if product is low in stock using product.minimumStock as source of truth
-      const productData = useProductStore().getProductById(data.productId);
-      const minimumStock = productData?.minimumStock || 0;
-      const isLowStock = minimumStock > 0 && newUnitsInStock < minimumStock;
-
       try {
         this.isLoading = true;
         const { $dayjs } = useNuxtApp();
@@ -507,7 +505,6 @@ export const useInventoryStore = defineStore("inventory", {
             unitsInStock: newUnitsInStock,
             openUnitsWeight: newOpenUnitsWeight,
             lastPurchaseCost: data.unitCost,
-            isLowStock: isLowStock,
             lastPurchaseAt: $dayjs().toDate(),
             lastSupplierId: data.supplierId || null,
             lastMovementAt: $dayjs().toDate(),
@@ -580,11 +577,6 @@ export const useInventoryStore = defineStore("inventory", {
       const newUnitsInStock = currentUnits - actualUnitsChange;
       const newOpenUnitsWeight = roundWeight(currentWeight - actualWeightChange);
 
-      // Calculate if product is low in stock using product.minimumStock as source of truth
-      const productData = useProductStore().getProductById(data.productId);
-      const minimumStock = productData?.minimumStock || 0;
-      const isLowStock = minimumStock > 0 && newUnitsInStock < minimumStock;
-
       const generateLossNotes = () => {
         if (data.notes) return data.notes;
         const parts = [];
@@ -607,7 +599,6 @@ export const useInventoryStore = defineStore("inventory", {
           const updateResult = await inventorySchema.update(existingInventory.id, {
             unitsInStock: newUnitsInStock,
             openUnitsWeight: newOpenUnitsWeight,
-            isLowStock: isLowStock,
             lastMovementAt: $dayjs().toDate(),
             lastMovementType: "loss",
             lastMovementBy: user.value!.uid,
@@ -680,10 +671,6 @@ export const useInventoryStore = defineStore("inventory", {
         return false;
       }
 
-      // Calculate if product is low in stock using product.minimumStock as source of truth
-      const productData = useProductStore().getProductById(data.productId);
-      const minimumStock = productData?.minimumStock || 0;
-      const isLowStock = minimumStock > 0 && data.newUnits < minimumStock;
 
       const generateAdjustmentNotes = () => {
         if (data.notes) return data.notes;
@@ -708,7 +695,6 @@ export const useInventoryStore = defineStore("inventory", {
             unitsInStock: data.newUnits,
             openUnitsWeight: data.newWeight,
             lastPurchaseCost: data.newCost,
-            isLowStock: isLowStock,
             lastMovementAt: $dayjs().toDate(),
             lastMovementType: "adjustment",
             lastMovementBy: user.value!.uid,
@@ -830,10 +816,6 @@ export const useInventoryStore = defineStore("inventory", {
       const newUnitsInStock = currentUnits - unitsToRemove;
       const newOpenUnitsWeight = roundWeight(currentWeight + weightToAdd);
 
-      // Calculate if product is low in stock using product.minimumStock as source of truth
-      const productData = useProductStore().getProductById(data.productId);
-      const minimumStock = productData?.minimumStock || 0;
-      const isLowStock = minimumStock > 0 && newUnitsInStock < minimumStock;
 
       try {
         this.isLoading = true;
@@ -848,7 +830,6 @@ export const useInventoryStore = defineStore("inventory", {
           const updateResult = await inventorySchema.update(existingInventory.id, {
             unitsInStock: newUnitsInStock,
             openUnitsWeight: newOpenUnitsWeight,
-            isLowStock: isLowStock,
             lastMovementAt: $dayjs().toDate(),
             lastMovementType: "conversion",
             lastMovementBy: user.value!.uid,

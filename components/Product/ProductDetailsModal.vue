@@ -213,12 +213,12 @@
               <p class="text-sm text-gray-600">Estado</p>
               <p
                 :class="
-                  inventoryData.isLowStock
+                  (product?.minimumStock || 0) > 0 && inventoryData.unitsInStock < (product?.minimumStock || 0)
                     ? 'text-red-600 font-bold'
                     : 'text-green-600 font-bold'
                 "
               >
-                {{ inventoryData.isLowStock ? "Stock Bajo" : "Stock Adecuado" }}
+                {{ (product?.minimumStock || 0) > 0 && inventoryData.unitsInStock < (product?.minimumStock || 0) ? "Stock Bajo" : "Stock Adecuado" }}
               </p>
             </div>
           </div>

@@ -1266,8 +1266,6 @@ export class BusinessRulesEngine {
           const currentCost = inventory.lastPurchaseCost || 0;
 
           const newUnitsInStock = currentUnits + product.quantity;
-          const minimumStock = product.minimumStock || 0;
-          const isLowStock = minimumStock > 0 && newUnitsInStock < minimumStock;
 
           // Restore original timestamps from fetched data
           const inventoryWithOriginalDates = {
@@ -1284,7 +1282,6 @@ export class BusinessRulesEngine {
               unitsInStock: newUnitsInStock,
               openUnitsWeight: currentWeight,
               lastPurchaseCost: product.unitCost,
-              isLowStock: isLowStock,
               lastPurchaseAt: new Date(),
               lastSupplierId: data.supplierId,
               lastMovementAt: new Date(),

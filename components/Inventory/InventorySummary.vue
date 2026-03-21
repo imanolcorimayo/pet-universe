@@ -14,7 +14,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="border p-3 rounded-lg">
           <div class="text-sm text-gray-500">Stock Actual</div>
-          <div class="text-lg font-semibold mt-1" :class="{ 'text-red-600': inventory.isLowStock }">
+          <div class="text-lg font-semibold mt-1" :class="{ 'text-red-600': (product?.minimumStock || 0) > 0 && inventory.unitsInStock < (product?.minimumStock || 0) }">
             {{ formatStock(inventory, product) }}
           </div>
         </div>

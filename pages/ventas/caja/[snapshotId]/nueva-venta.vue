@@ -145,7 +145,7 @@
                     <span
                       :class="[
                         'text-sm font-medium',
-                        getProductInventory(product.id)?.isLowStock ? 'text-red-600' : 'text-gray-900'
+                        (product.minimumStock || 0) > 0 && (getProductInventory(product.id)?.unitsInStock || 0) < (product.minimumStock || 0) ? 'text-red-600' : 'text-gray-900'
                       ]"
                     >
                       {{ formatStock(product) }}

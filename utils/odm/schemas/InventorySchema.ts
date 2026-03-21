@@ -39,11 +39,6 @@ export class InventorySchema extends Schema {
       min: 0,
       default: 0
     },
-    isLowStock: {
-      type: 'boolean',
-      required: false,
-      default: true
-    },
     lastPurchaseCost: {
       type: 'number',
       required: false,
@@ -204,10 +199,6 @@ export class InventorySchema extends Schema {
       valid: errors.length === 0,
       errors
     };
-  }
-
-  calculateLowStockStatus(unitsInStock: number, minimumStock: number): boolean {
-    return minimumStock > 0 && unitsInStock < minimumStock;
   }
 
   // Override create to add custom validations
