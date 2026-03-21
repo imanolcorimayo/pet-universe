@@ -116,173 +116,193 @@
           <li>
             <NuxtLink
               to="/dashboard"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+              :class="navLinkClass('/dashboard')"
             >
-              <MaterialSymbolsDashboard class="text-gray-500" /> Dashboard
+              <MaterialSymbolsDashboard :class="navIconClass('/dashboard')" /> Dashboard
             </NuxtLink>
           </li>
           <li>
             <NuxtLink
               to="/caja-global"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+              :class="navLinkClass('/caja-global')"
             >
-              <PhMoneyFill class="text-gray-500" /> Caja Global
+              <PhMoneyFill :class="navIconClass('/caja-global')" /> Caja Global
             </NuxtLink>
           </li>
           <li>
             <button
               @click="toggleDailyCash"
-              class="w-full flex items-center justify-between text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              class="w-full flex items-center justify-between px-1 py-2 rounded transition-colors"
+              :class="isDailyCashActive ? 'text-primary font-semibold' : 'text-gray-700 hover:bg-primary/40 hover:font-bold'"
             >
               <div class="flex items-center gap-2">
-                <PhMoneyFill class="text-gray-500" /> Cajas Diarias
+                <PhMoneyFill :class="isDailyCashActive ? 'text-primary' : 'text-gray-500'" /> Cajas Diarias
               </div>
               <MaterialSymbolsKeyboardArrowDown
-                class="text-gray-600 transition-transform"
-                :class="{ 'rotate-180': dailyCashExpanded }"
+                class="transition-transform"
+                :class="[dailyCashExpanded ? 'rotate-180' : '', isDailyCashActive ? 'text-primary' : 'text-gray-600']"
               />
             </button>
-            <div v-if="dailyCashExpanded" class="pl-6 ml-1 border-l border-gray-300 mt-1 space-y-2">
+            <div v-if="dailyCashExpanded" class="pl-6 ml-1 mt-1 space-y-2 border-l" :class="isDailyCashActive ? 'border-primary' : 'border-gray-300'">
               <NuxtLink
                 to="/ventas/cajas"
-                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+                class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+                :class="navLinkClass('/ventas/cajas')"
               >
-                <PhMoneyFill class="text-gray-500" /> Gestión de Cajas
+                <PhMoneyFill :class="navIconClass('/ventas/cajas')" /> Gestión de Cajas
               </NuxtLink>
-              
+
               <!-- Dynamic Open Snapshots Links -->
               <div v-for="(snapshot, registerId) in openSnapshots" :key="registerId" class="space-y-1">
                 <NuxtLink
                   :to="`/ventas/caja/${snapshot.id}`"
-                  class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold bg-green-50 border border-green-200"
+                  class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+                  :class="isActive(`/ventas/caja/${snapshot.id}`) ? 'bg-primary text-white font-semibold' : 'bg-green-50 border border-green-200 hover:bg-green-100'"
                 >
-                  <PhShoppingCartFill class="text-green-600" /> 
+                  <PhShoppingCartFill :class="isActive(`/ventas/caja/${snapshot.id}`) ? 'text-white' : 'text-green-600'" />
                   <div class="flex flex-col items-start">
-                    <span class="text-green-800 font-medium">Caja Abierta</span>
-                    <span class="text-xs text-green-600">{{ getRegisterName(registerId) }}</span>
+                    <span :class="isActive(`/ventas/caja/${snapshot.id}`) ? '' : 'text-green-800 font-medium'">Caja Abierta</span>
+                    <span class="text-xs" :class="isActive(`/ventas/caja/${snapshot.id}`) ? 'text-white/80' : 'text-green-600'">{{ getRegisterName(registerId) }}</span>
                   </div>
                 </NuxtLink>
               </div>
-              
+
               <NuxtLink
                 to="/ventas/historico"
-                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+                class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+                :class="navLinkClass('/ventas/historico')"
               >
-                <PhClockCounterClockwiseFill class="text-gray-500" /> Historial
+                <PhClockCounterClockwiseFill :class="navIconClass('/ventas/historico')" /> Historial
               </NuxtLink>
             </div>
           </li>
           <li>
             <button
               @click="toggleProducts"
-              class="w-full flex items-center justify-between text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              class="w-full flex items-center justify-between px-1 py-2 rounded transition-colors"
+              :class="isProductsActive ? 'text-primary font-semibold' : 'text-gray-700 hover:bg-primary/40 hover:font-bold'"
             >
               <div class="flex items-center gap-2">
-                <MingcuteInventoryFill class="text-gray-500" /> Productos
+                <MingcuteInventoryFill :class="isProductsActive ? 'text-primary' : 'text-gray-500'" /> Productos
               </div>
               <MaterialSymbolsKeyboardArrowDown
-                class="text-gray-600 transition-transform"
-                :class="{ 'rotate-180': productsExpanded }"
+                class="transition-transform"
+                :class="[productsExpanded ? 'rotate-180' : '', isProductsActive ? 'text-primary' : 'text-gray-600']"
               />
             </button>
-            <div v-if="productsExpanded" class="pl-6 ml-1 border-l border-gray-300 mt-1 space-y-2">
+            <div v-if="productsExpanded" class="pl-6 ml-1 mt-1 space-y-2 border-l" :class="isProductsActive ? 'border-primary' : 'border-gray-300'">
               <NuxtLink
                 to="/productos"
-                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+                class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+                :class="navLinkClass('/productos')"
               >
-                <MingcuteInventoryFill class="text-gray-500" /> Lista de productos
+                <MingcuteInventoryFill :class="navIconClass('/productos')" /> Lista de productos
               </NuxtLink>
               <NuxtLink
                 to="/inventario"
-                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+                class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+                :class="navLinkClass('/inventario')"
               >
-                <MingcuteInventoryFill class="text-gray-500" /> Inventario
+                <MingcuteInventoryFill :class="navIconClass('/inventario')" /> Inventario
               </NuxtLink>
               <NuxtLink
                 to="/precios"
-                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+                class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+                :class="navLinkClass('/precios')"
               >
-                <PhCurrencyDollarFill class="text-gray-500" /> Precios
+                <PhCurrencyDollarFill :class="navIconClass('/precios')" /> Precios
               </NuxtLink>
               <NuxtLink
                 to="/facturas-compra"
-                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+                class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+                :class="navLinkClass('/facturas-compra')"
               >
-                <PhFileTextFill class="text-gray-500" /> Facturas de Compra
+                <PhFileTextFill :class="navIconClass('/facturas-compra')" /> Facturas de Compra
               </NuxtLink>
             </div>
           </li>
           <li>
             <NuxtLink
               to="/clientes"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+              :class="navLinkClass('/clientes')"
             >
-              <BiPersonFill class="text-gray-500" /> Clientes
+              <BiPersonFill :class="navIconClass('/clientes')" /> Clientes
             </NuxtLink>
           </li>
           <li>
             <NuxtLink
               to="/proveedores"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+              :class="navLinkClass('/proveedores')"
             >
-              <PhTruckFill class="text-gray-500" /> Proveedores
+              <PhTruckFill :class="navIconClass('/proveedores')" /> Proveedores
             </NuxtLink>
           </li>
           <li>
             <NuxtLink
               to="/deudas"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+              :class="navLinkClass('/deudas')"
             >
-              <PhCreditCardFill class="text-gray-500" /> Deudas
+              <PhCreditCardFill :class="navIconClass('/deudas')" /> Deudas
             </NuxtLink>
           </li>
           <li>
             <NuxtLink
               to="/liquidaciones"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+              :class="navLinkClass('/liquidaciones')"
             >
-              <PhCreditCardFill class="text-gray-500" /> Liquidaciones
+              <PhCreditCardFill :class="navIconClass('/liquidaciones')" /> Liquidaciones
             </NuxtLink>
           </li>
           <li>
             <NuxtLink
               to="/reportes"
-              class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+              :class="navLinkClass('/reportes')"
             >
-              <PhFileTextFill class="text-gray-500" /> Reportes
+              <PhFileTextFill :class="navIconClass('/reportes')" /> Reportes
             </NuxtLink>
           </li>
           <li>
             <button
               @click="toggleConfig"
-              class="w-full flex items-center justify-between text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+              class="w-full flex items-center justify-between px-1 py-2 rounded transition-colors"
+              :class="isConfigActive ? 'text-primary font-semibold' : 'text-gray-700 hover:bg-primary/40 hover:font-bold'"
             >
               <div class="flex items-center gap-2">
-                <GravityUiGear class="text-gray-500" /> Configuración
+                <GravityUiGear :class="isConfigActive ? 'text-primary' : 'text-gray-500'" /> Configuración
               </div>
               <MaterialSymbolsKeyboardArrowDown
-                class="text-gray-600 transition-transform"
-                :class="{ 'rotate-180': configExpanded }"
+                class="transition-transform"
+                :class="[configExpanded ? 'rotate-180' : '', isConfigActive ? 'text-primary' : 'text-gray-600']"
               />
             </button>
-            <div v-if="configExpanded" class="pl-6 ml-1 border-l border-gray-300 mt-1 space-y-2">
+            <div v-if="configExpanded" class="pl-6 ml-1 mt-1 space-y-2 border-l" :class="isConfigActive ? 'border-primary' : 'border-gray-300'">
               <NuxtLink
                 to="/configuracion"
-                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+                class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+                :class="navLinkClass('/configuracion', true)"
               >
-                <GravityUiGear class="text-gray-500" /> General
+                <GravityUiGear :class="navIconClass('/configuracion', true)" /> General
               </NuxtLink>
               <NuxtLink
                 to="/configuracion/metodos-de-pago"
-                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+                class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+                :class="navLinkClass('/configuracion/metodos-de-pago')"
               >
-                <PhCreditCardFill class="text-gray-500" /> Métodos de Pago
+                <PhCreditCardFill :class="navIconClass('/configuracion/metodos-de-pago')" /> Métodos de Pago
               </NuxtLink>
               <NuxtLink
                 to="/configuracion/empleados"
-                class="flex items-center gap-2 text-gray-700 px-1 py-2 hover:bg-primary/40 rounded hover:font-bold"
+                class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+                :class="navLinkClass('/configuracion/empleados')"
               >
-                <BiPersonFill class="text-gray-500" /> Empleados
+                <BiPersonFill :class="navIconClass('/configuracion/empleados')" /> Empleados
               </NuxtLink>
             </div>
           </li>
@@ -367,6 +387,29 @@ const getRegisterName = (registerId) => {
   return register?.name || 'Sin nombre';
 };
 
+// Navigation active state helpers
+function isActive(path) {
+  return route.path === path || route.path.startsWith(path + '/');
+}
+
+const isDailyCashActive = computed(() => route.path.startsWith('/ventas'));
+const isProductsActive = computed(() =>
+  ['/productos', '/inventario', '/precios', '/facturas-compra'].some(p => isActive(p))
+);
+const isConfigActive = computed(() => isActive('/configuracion'));
+
+function navLinkClass(path, exact = false) {
+  const active = exact ? route.path === path : isActive(path);
+  return active
+    ? 'bg-primary text-white font-semibold'
+    : 'text-gray-700 hover:bg-primary/40 hover:font-bold';
+}
+
+function navIconClass(path, exact = false) {
+  const active = exact ? route.path === path : isActive(path);
+  return active ? 'text-white' : 'text-gray-500';
+}
+
 // If clicking outside the menu, and screen is smaller than 768px, close it
 onClickOutside(menu, () => {
   if (width.value <= 768 && showSideBar.value) {
@@ -434,11 +477,11 @@ watch([width, () => route.path], () => {
   showSideBar.value = false;
 });
 
-// Auto-expand daily cash section when on related routes
-watch(() => route.path, (newPath) => {
-  if (newPath.startsWith('/ventas/historico')) {
-    dailyCashExpanded.value = true;
-  }
+// Auto-expand collapsible sections when navigating to child routes
+watch(() => route.path, () => {
+  if (isDailyCashActive.value) dailyCashExpanded.value = true;
+  if (isProductsActive.value) productsExpanded.value = true;
+  if (isConfigActive.value) configExpanded.value = true;
 }, { immediate: true });
 </script>
 
