@@ -417,8 +417,7 @@ const globalCashOpenedDate = computed(() => {
   const openedAt = globalCashStore.currentGlobalCash?.openedAt;
   if (!openedAt) return '';
 
-  const date = openedAt.toDate ? openedAt.toDate() : openedAt;
-  const d = $dayjs(date);
+  const d = $dayjs(openedAt, 'DD/MM/YYYY HH:mm');
   const day = d.date();
   const month = MONTHS_ES[d.month()];
   return `${day} de ${month}`;
