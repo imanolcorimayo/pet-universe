@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ToastEvents } from "~/interfaces";
 import { ProductSchema } from "~/utils/odm/schemas/ProductSchema";
 import { ProductCategorySchema } from "~/utils/odm/schemas/ProductCategorySchema";
-import { roundUpPrice } from "~/utils/index";
+import { roundUpPrice, slugify } from "~/utils/index";
 
 // Module-level variable for product subscription (can't store functions in Pinia state)
 let productUnsubscribe: (() => void) | null = null;
@@ -500,6 +500,11 @@ export const useProductStore = defineStore("product", {
           };
         }
         
+        // Generate slug from brand + name + weight
+        const weight = formData.unitWeight ? `${formData.unitWeight}kg` : '';
+        const slugBase = [formData.brand, formData.name, weight].filter(Boolean).join(' ');
+        const slug = slugify(slugBase);
+
         // Create product using ODM
         const productSchema = this._getProductSchema();
         const result = await productSchema.create({
@@ -509,7 +514,8 @@ export const useProductStore = defineStore("product", {
           category: formData.category,
           subcategory: formData.subcategory || '',
           brand: formData.brand || '',
-          
+          slug,
+
           prices: defaultPrices,
           
           trackingType: formData.trackingType,
@@ -569,6 +575,10 @@ export const useProductStore = defineStore("product", {
         if (updates.category !== undefined) productUpdates.category = updates.category;
         if (updates.subcategory !== undefined) productUpdates.subcategory = updates.subcategory;
         if (updates.brand !== undefined) productUpdates.brand = updates.brand;
+
+        // Regenerate slug when name or brand changes
+        // Slug is only updated when explicitly provided (manual edit)
+        if (updates.slug !== undefined) productUpdates.slug = slugify(updates.slug);
         
         if (updates.trackingType !== undefined) {
           productUpdates.trackingType = updates.trackingType;

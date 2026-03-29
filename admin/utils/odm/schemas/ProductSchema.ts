@@ -46,6 +46,12 @@ export class ProductSchema extends Schema {
       maxLength: 100,
       default: ''
     },
+    slug: {
+      type: 'string',
+      required: false,
+      maxLength: 200,
+      default: ''
+    },
     prices: {
       type: 'object',
       required: false,
@@ -230,6 +236,35 @@ export class ProductSchema extends Schema {
     };
   }
 
+  // Validate unique slug (async - requires DB query)
+  async validateUniqueSlug(slug: string, excludeId?: string): Promise<ValidationResult> {
+    const errors: any[] = [];
+
+    if (!slug || slug.trim() === '') {
+      return { valid: true, errors: [] };
+    }
+
+    const result = await this.find({
+      where: [{ field: 'slug', operator: '==', value: slug.trim() }],
+      limit: 1
+    });
+
+    if (result.success && result.data && result.data.length > 0) {
+      const existingProduct = result.data[0];
+      if (!excludeId || existingProduct.id !== excludeId) {
+        errors.push({
+          field: 'slug',
+          message: `Ya existe un producto con el slug "${slug}"`
+        });
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
   // Validate unique product code (async - requires DB query)
   async validateUniqueProductCode(productCode: string, excludeId?: string): Promise<ValidationResult> {
     const errors: any[] = [];
@@ -302,6 +337,17 @@ export class ProductSchema extends Schema {
       }
     }
 
+    // Validate unique slug
+    if (data.slug) {
+      const slugValidation = await this.validateUniqueSlug(data.slug);
+      if (!slugValidation.valid) {
+        return {
+          success: false,
+          error: slugValidation.errors.map(e => e.message).join(', ')
+        };
+      }
+    }
+
     // Custom validations
     const trackingValidation = this.validateTrackingType(data);
     if (!trackingValidation.valid) {
@@ -348,6 +394,17 @@ export class ProductSchema extends Schema {
 
   // Override update to add custom validations
   override async update(id: string, data: any, validateRefs = false) {
+    // Validate unique slug (exclude current product)
+    if (data.slug !== undefined) {
+      const slugValidation = await this.validateUniqueSlug(data.slug, id);
+      if (!slugValidation.valid) {
+        return {
+          success: false,
+          error: slugValidation.errors.map(e => e.message).join(', ')
+        };
+      }
+    }
+
     // Validate unique product code (exclude current product)
     if (data.productCode !== undefined) {
       const productCodeValidation = await this.validateUniqueProductCode(data.productCode, id);

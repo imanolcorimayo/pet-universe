@@ -1,0 +1,35 @@
+server {
+    listen 80;
+    server_name petuniverse.local;
+
+    access_log /var/log/nginx/pet-universe/access-web.log;
+    error_log /var/log/nginx/pet-universe/error-web.log;
+
+    root /home/imanol/projects/wiseutils/pet-universe/web;
+    index index.php;
+
+    # Static assets — serve directly
+    location /assets/ {
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Everything else → front controller
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP processing
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Protect internal directories
+    location /includes/ { deny all; }
+    location /controllers/ { deny all; }
+    location /vendor/ { deny all; }
+
+    location ~ config\.php$ { deny all; }
+}

@@ -1,6 +1,3 @@
-# Tasks (internal tracking)
-tasks/
-
 # Nuxt dev/build outputs
 .output
 .data
@@ -8,10 +5,15 @@ tasks/
 .nitro
 .cache
 dist
-yarn.lock
 
 # Node dependencies
 node_modules
+
+# PHP dependencies
+vendor
+
+# Lockfiles (regenerated per app)
+yarn.lock
 
 # Logs
 logs
@@ -30,5 +32,8 @@ logs
 # Firebase Deployment
 .firebase
 
-# Firebase service account
-/scripts/*
+# Firebase service account & scripts data
+**/scripts/*
+
+# Tasks (internal tracking)
+tasks/

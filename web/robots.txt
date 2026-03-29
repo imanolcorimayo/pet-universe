@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: http://petuniverse.local/sitemap.xml

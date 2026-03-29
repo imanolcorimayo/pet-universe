@@ -1,0 +1,8 @@
+{
+  "name": "pet-universe/web",
+  "description": "Pet Universe Córdoba - Public Storefront",
+  "require": {
+    "meilisearch/meilisearch-php": "^1.16",
+    "guzzlehttp/guzzle": "^7.10"
+  }
+}

@@ -228,6 +228,10 @@
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-lg font-medium mb-3">Información Adicional</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div v-if="product.slug" class="md:col-span-2">
+              <p class="text-sm text-gray-600">Slug</p>
+              <p class="font-semibold text-gray-500">{{ product.slug }}</p>
+            </div>
             <div>
               <p class="text-sm text-gray-600">Creado</p>
               <p class="font-semibold">{{ product.createdAt }}</p>

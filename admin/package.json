@@ -19,6 +19,7 @@
     "csv-parse": "^6.1.0",
     "firebase": "^11.7.3",
     "firebase-admin": "^13.4.0",
+    "meilisearch": "^0.56.0",
     "nuxt": "^3.17.3",
     "nuxt-vuefire": "1.0.5",
     "pinia": "^3.0.2",

@@ -135,6 +135,10 @@ export const slugify = (text: string) => {
       .replace(/[^a-z0-9 \-]/g, "")
       // Replace spaces with dashes
       .replace(/\s+/g, "-")
+      // Collapse multiple dashes
+      .replace(/-{2,}/g, "-")
+      // Trim leading/trailing dashes
+      .replace(/^-|-$/g, "")
   );
 };
 
