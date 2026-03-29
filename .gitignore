@@ -29,6 +29,9 @@ logs
 .env.*
 !.env.example
 
+# Server config (contains API keys)
+web/includes/config.php
+
 # Firebase Deployment
 .firebase
 
