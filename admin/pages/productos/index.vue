@@ -86,6 +86,7 @@
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
+              <th scope="col" class="pl-6 pr-2 py-3 w-14"></th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Producto
               </th>
@@ -105,6 +106,21 @@
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
             <tr v-for="product in displayedProducts" :key="product.id" class="hover:bg-gray-50">
+              <td class="pl-6 pr-2 py-4 w-14">
+                <div class="w-10 h-10 bg-gray-100 rounded border border-gray-200 flex items-center justify-center overflow-hidden">
+                  <picture v-if="product.hasImage">
+                    <source type="image/avif" :srcset="productThumbUrl(product.slug, product.imageUpdatedAt, 'avif')">
+                    <source type="image/webp" :srcset="productThumbUrl(product.slug, product.imageUpdatedAt, 'webp')">
+                    <img
+                      :src="productThumbUrl(product.slug, product.imageUpdatedAt, 'jpg')"
+                      :alt="product.name"
+                      class="w-full h-full object-contain"
+                      loading="lazy"
+                    >
+                  </picture>
+                  <LucideImage v-else class="w-4 h-4 text-gray-300" />
+                </div>
+              </td>
               <td class="px-6 py-4 max-w-xs">
                 <div>
                   <div class="text-sm font-medium text-gray-900">
@@ -177,7 +193,7 @@
             </tr>
             <!-- Show More -->
             <tr v-if="hasMoreProducts">
-              <td colspan="6" class="px-6 py-3 text-center">
+              <td colspan="7" class="px-6 py-3 text-center">
                 <button
                   @click="showMoreProducts"
                   class="text-sm text-primary hover:text-primary/80 font-medium"
@@ -218,7 +234,7 @@
     
     <!-- Modals -->
     <ProductFormModal ref="productFormModal" :edit-mode="isEditing" :product-data="selectedProductData" @product-saved="onProductSaved" />
-    <ProductDetailsModal ref="productDetailsModal" :product-id="selectedProductId" @deleted="onProductDeleted" />
+    <ProductDetailsModal ref="productDetailsModal" :product-id="selectedProductId" @deleted="onProductDeleted" @updated="onProductSaved" />
 
     <ConfirmDialogue ref="confirmDialogue" />
   </div>
@@ -231,9 +247,15 @@ import { ToastEvents } from '~/interfaces';
 import TablerPackages from '~icons/tabler/packages';
 import LucideSearch from '~icons/lucide/search';
 import LucidePlus from '~icons/lucide/plus';
+import LucideImage from '~icons/lucide/image';
 
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
+const config = useRuntimeConfig();
+
+function productThumbUrl(slug, imageUpdatedAt, format) {
+  return `${config.public.imageCdnBase}/${slug}-sm.${format}?v=${imageUpdatedAt || 0}`;
+}
 const { filteredProducts, activeCategories } = storeToRefs(productStore);
 
 const initialLoading = ref(true);

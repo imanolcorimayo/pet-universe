@@ -16,7 +16,24 @@ $productJson = htmlspecialchars(json_encode([
 ?>
 <div class="product-card">
   <a href="/producto/<?= htmlspecialchars($product['slug']) ?>" class="product-card-image">
-    <iconify-icon icon="lucide:package" width="52" height="52" class="product-card-placeholder"></iconify-icon>
+    <?php $imgV = $product['imageUpdatedAt'] ?? 0; ?>
+    <?php if (!empty($product['hasImage'])): ?>
+      <picture>
+        <source type="image/avif" srcset="<?= productImageUrl($product['slug'], 'sm', 'avif') ?>?v=<?= $imgV ?>">
+        <source type="image/webp" srcset="<?= productImageUrl($product['slug'], 'sm', 'webp') ?>?v=<?= $imgV ?>">
+        <img
+          src="<?= productImageUrl($product['slug'], 'sm', 'jpg') ?>?v=<?= $imgV ?>"
+          alt="<?= htmlspecialchars($product['name']) ?>"
+          loading="lazy"
+          width="300"
+          height="300"
+          onerror="imgFallback(this)"
+        >
+      </picture>
+      <iconify-icon icon="lucide:package" width="52" height="52" class="product-card-placeholder" style="display:none;"></iconify-icon>
+    <?php else: ?>
+      <iconify-icon icon="lucide:package" width="52" height="52" class="product-card-placeholder"></iconify-icon>
+    <?php endif; ?>
   </a>
   <div class="product-card-body">
     <span class="product-card-category"><?= htmlspecialchars($product['categoryName'] ?? '') ?></span>

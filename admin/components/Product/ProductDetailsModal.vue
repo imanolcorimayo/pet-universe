@@ -4,6 +4,8 @@
     :title="'Detalle de Producto'"
     :click-propagation-filter="[
       'inventory-adjustment-modal',
+      'product-form-modal',
+      'image-lightbox',
     ]"
   >
     <template #default>
@@ -12,6 +14,47 @@
       </div>
 
       <div v-else-if="product" class="space-y-6">
+        <!-- Product Image -->
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <h3 class="text-lg font-medium mb-3">Imagen del Producto</h3>
+          <div
+            class="w-32 h-32 bg-white rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden"
+            :class="product.hasImage && !imageError ? 'cursor-pointer' : ''"
+            @click="product.hasImage && !imageError ? showLightbox = true : null"
+          >
+            <picture v-if="product.hasImage && !imageError">
+              <source type="image/avif" :srcset="productImageUrl(product.slug, 'sm', 'avif')">
+              <source type="image/webp" :srcset="productImageUrl(product.slug, 'sm', 'webp')">
+              <img
+                :src="productImageUrl(product.slug, 'sm', 'jpg')"
+                :alt="product.name"
+                class="w-full h-full object-contain"
+                @error="imageError = true"
+              >
+            </picture>
+            <LucideImage v-else class="w-10 h-10 text-gray-300" />
+          </div>
+        </div>
+
+        <!-- Image Lightbox -->
+        <Teleport to="body">
+          <div
+            v-if="showLightbox && product.hasImage"
+            class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 cursor-pointer image-lightbox"
+            @click="showLightbox = false"
+          >
+            <picture @click.stop>
+              <source type="image/avif" :srcset="productImageUrl(product.slug, 'md', 'avif')">
+              <source type="image/webp" :srcset="productImageUrl(product.slug, 'md', 'webp')">
+              <img
+                :src="productImageUrl(product.slug, 'md', 'jpg')"
+                :alt="product.name"
+                class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-lg"
+              >
+            </picture>
+          </div>
+        </Teleport>
+
         <!-- Basic Information -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-lg font-medium mb-3">Información Básica</h3>
@@ -313,6 +356,7 @@
 <script setup>
 import { formatCurrency } from "~/utils";
 import { ToastEvents } from "~/interfaces";
+import LucideImage from '~icons/lucide/image';
 
 // ----- Define Props ---------
 const props = defineProps({
@@ -338,6 +382,14 @@ const confirmDialogue = ref(null);
 const loading = ref(false);
 const productStore = useProductStore();
 const inventoryData = ref(null);
+const config = useRuntimeConfig();
+const imageError = ref(false);
+const showLightbox = ref(false);
+
+function productImageUrl(slug, size, format) {
+  const v = product.value?.imageUpdatedAt || 0;
+  return `${config.public.imageCdnBase}/${slug}-${size}.${format}?v=${v}`;
+}
 
 // ----- Computed Properties ---------
 const product = computed(() => {
@@ -394,6 +446,7 @@ async function openAdjustInventory() {
 }
 
 function onProductSaved() {
+  imageError.value = false;
   emit("updated");
   loadInventoryData();
 }
@@ -408,10 +461,15 @@ watch(
   () => props.productId,
   async (newProductId) => {
     if (newProductId) {
+      imageError.value = false;
       await loadInventoryData();
     }
   }
 );
+
+watch(() => product.value?.imageUpdatedAt, () => {
+  imageError.value = false;
+});
 
 // ----- Lifecycle Hooks ---------
 onMounted(async () => {

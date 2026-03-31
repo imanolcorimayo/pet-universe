@@ -11,6 +11,11 @@
   <meta property="og:description" content="<?= htmlspecialchars($page_description ?? SITE_NAME . ' — ' . SITE_TAGLINE) ?>">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="es_AR">
+  <?php if (!empty($page_og_image)): ?>
+  <meta property="og:image" content="<?= $page_og_image ?>">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="1200">
+  <?php endif; ?>
 
   <!-- Canonical -->
   <?php if (!empty($page_canonical)): ?>
@@ -30,6 +35,10 @@
 
   <!-- Styles -->
   <link rel="stylesheet" href="<?= asset('css/style.css') ?>">
+
+  <script>
+  function imgFallback(img){var p=img.closest('picture');if(p){p.style.display='none';var f=p.nextElementSibling;if(f)f.style.display=''}}
+  </script>
 </head>
 <body>
 

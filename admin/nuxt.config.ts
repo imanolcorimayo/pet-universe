@@ -31,6 +31,9 @@ export default defineNuxtConfig({
       firebaseAppId: process.env.FIREBASE_APP_ID,
       firebaseMeasurementId: process.env.FIREBASE_MEASUREMENT_ID,
       sentryDsn: process.env.SENTRY_DSN,
+      imageApiUrl: process.env.IMAGE_API_URL || 'http://petapi.local',
+      imageApiKey: process.env.IMAGE_API_KEY || '',
+      imageCdnBase: process.env.IMAGE_CDN_BASE || 'https://wiseutils-cdn.nyc3.cdn.digitaloceanspaces.com/pet-universe/products',
     }
   },
 

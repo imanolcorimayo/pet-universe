@@ -31,6 +31,10 @@ logs
 
 # Server config (contains API keys)
 web/includes/config.php
+api/includes/config.php
+
+# API temp files
+api/tmp/
 
 # Firebase Deployment
 .firebase

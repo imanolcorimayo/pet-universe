@@ -2,9 +2,58 @@
   <ModalStructure
     ref="mainModal"
     :title="editMode ? 'Editar Producto' : 'Nuevo Producto'"
+    modal-namespace="product-form-modal"
+    :click-propagation-filter="['image-cropper-modal']"
   >
     <template #default>
       <form @submit.prevent="saveProduct" class="space-y-6">
+        <!-- Product Image -->
+        <div v-if="editMode && productData?.slug" class="bg-gray-50 p-4 rounded-lg">
+          <h3 class="text-md font-medium mb-3">Imagen del Producto</h3>
+          <div class="flex items-center gap-4">
+            <div class="w-24 h-24 bg-white rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+              <picture v-if="productData?.hasImage && !imageError">
+                <source type="image/avif" :srcset="productImageUrl(productData.slug, 'sm', 'avif')">
+                <source type="image/webp" :srcset="productImageUrl(productData.slug, 'sm', 'webp')">
+                <img
+                  :src="productImageUrl(productData.slug, 'sm', 'jpg')"
+                  :alt="formData.name"
+                  class="w-full h-full object-contain"
+                  @error="imageError = true"
+                >
+              </picture>
+              <LucideImage v-else class="w-8 h-8 text-gray-300" />
+            </div>
+            <div>
+              <input
+                ref="fileInput"
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="onFileSelected"
+              >
+              <button
+                type="button"
+                :disabled="imageUploading"
+                @click="$refs.fileInput.click()"
+                class="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 bg-primary text-white hover:bg-primary/90"
+              >
+                <span v-if="imageUploading">Subiendo...</span>
+                <span v-else>{{ imageError ? 'Subir imagen' : 'Cambiar imagen' }}</span>
+              </button>
+              <p class="text-xs text-gray-500 mt-1">JPG, PNG o WebP. Máximo 10MB.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Image Cropper Modal -->
+        <ProductImageCropper
+          ref="cropperModal"
+          :image-src="cropImageSrc"
+          @crop="onCropConfirm"
+          @cancel="onCropCancel"
+        />
+
         <!-- Basic Information -->
         <div class="bg-gray-50 p-4 rounded-lg">
           <h3 class="text-md font-medium mb-3">Información Básica</h3>
@@ -255,6 +304,7 @@
 
 <script setup>
 import { ToastEvents } from "~/interfaces";
+import LucideImage from '~icons/lucide/image';
 
 // ----- Define Props ---------
 const props = defineProps({
@@ -273,9 +323,63 @@ const emit = defineEmits(["product-saved"]);
 
 // ----- Define Refs ---------
 const mainModal = ref(null);
+const fileInput = ref(null);
+const cropperModal = ref(null);
 const productStore = useProductStore();
 const isLoading = ref(false);
 const duplicateProductCode = ref(false);
+const config = useRuntimeConfig();
+const { uploadProductImage, uploading: imageUploading } = useImageUpload();
+const imageError = ref(false);
+const cropImageSrc = ref('');
+
+function productImageUrl(slug, size, format) {
+  const v = props.productData?.imageUpdatedAt || 0;
+  return `${config.public.imageCdnBase}/${slug}-${size}.${format}?v=${v}`;
+}
+
+function onFileSelected(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  // Create object URL for cropper preview
+  cropImageSrc.value = URL.createObjectURL(file);
+  nextTick(() => {
+    cropperModal.value?.showModal();
+  });
+
+  // Reset input so same file can be re-selected
+  event.target.value = '';
+}
+
+async function onCropConfirm(blob) {
+  if (!props.productData?.slug) return;
+
+  try {
+    await uploadProductImage(props.productData.slug, blob);
+    await productStore.updateProduct(props.productData.id, {
+      hasImage: true,
+      imageUpdatedAt: Date.now(),
+    });
+    imageError.value = false;
+    closeModal();
+  } catch (err) {
+    useToast(ToastEvents.error, err.message || 'Error al subir la imagen');
+  }
+
+  // Revoke object URL
+  if (cropImageSrc.value) {
+    URL.revokeObjectURL(cropImageSrc.value);
+    cropImageSrc.value = '';
+  }
+}
+
+function onCropCancel() {
+  if (cropImageSrc.value) {
+    URL.revokeObjectURL(cropImageSrc.value);
+    cropImageSrc.value = '';
+  }
+}
 
 // ----- Computed Properties ---------
 const activeCategories = computed(() => {
@@ -449,6 +553,7 @@ onMounted(async () => {
 // ----- Define Expose ---------
 defineExpose({
   showModal: () => {
+    imageError.value = false;
     mainModal.value?.showModal();
   },
 });

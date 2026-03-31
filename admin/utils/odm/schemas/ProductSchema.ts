@@ -52,6 +52,16 @@ export class ProductSchema extends Schema {
       maxLength: 200,
       default: ''
     },
+    hasImage: {
+      type: 'boolean',
+      required: false,
+      default: false
+    },
+    imageUpdatedAt: {
+      type: 'number',
+      required: false,
+      default: 0
+    },
     prices: {
       type: 'object',
       required: false,

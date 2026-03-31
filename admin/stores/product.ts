@@ -589,6 +589,8 @@ export const useProductStore = defineStore("product", {
         
         if (updates.minimumStock !== undefined) productUpdates.minimumStock = updates.minimumStock;
         if (updates.supplierIds !== undefined) productUpdates.supplierIds = updates.supplierIds;
+        if (updates.hasImage !== undefined) productUpdates.hasImage = updates.hasImage;
+        if (updates.imageUpdatedAt !== undefined) productUpdates.imageUpdatedAt = updates.imageUpdatedAt;
         
         // Handle pricing fields
         if (updates.profitMarginPercentage !== undefined) {

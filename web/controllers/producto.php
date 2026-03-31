@@ -26,6 +26,8 @@ $productJson = htmlspecialchars(json_encode([
 ]), ENT_QUOTES, 'UTF-8');
 
 $waText = urlencode("Hola! Quiero consultar por: " . $product['name']);
+$imgV = $product['imageUpdatedAt'] ?? 0;
+$page_og_image = !empty($product['hasImage']) ? productImageUrl($product['slug'], 'lg', 'jpg') . '?v=' . $imgV : null;
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -51,7 +53,22 @@ require __DIR__ . '/../includes/header.php';
     <div class="product-detail">
       <!-- Image -->
       <div class="product-detail-image">
-        <iconify-icon icon="lucide:package" width="120" height="120" class="product-detail-placeholder"></iconify-icon>
+        <?php if (!empty($product['hasImage'])): ?>
+          <picture>
+            <source type="image/avif" srcset="<?= productImageUrl($product['slug'], 'md', 'avif') ?>?v=<?= $imgV ?>">
+            <source type="image/webp" srcset="<?= productImageUrl($product['slug'], 'md', 'webp') ?>?v=<?= $imgV ?>">
+            <img
+              src="<?= productImageUrl($product['slug'], 'md', 'jpg') ?>?v=<?= $imgV ?>"
+              alt="<?= htmlspecialchars($product['name']) ?>"
+              width="600"
+              height="600"
+              onerror="imgFallback(this)"
+            >
+          </picture>
+          <iconify-icon icon="lucide:package" width="120" height="120" class="product-detail-placeholder" style="display:none;"></iconify-icon>
+        <?php else: ?>
+          <iconify-icon icon="lucide:package" width="120" height="120" class="product-detail-placeholder"></iconify-icon>
+        <?php endif; ?>
       </div>
 
       <!-- Info -->

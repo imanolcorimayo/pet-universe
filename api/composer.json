@@ -1,0 +1,7 @@
+{
+  "name": "wiseutils/image-api",
+  "description": "Image upload and processing API",
+  "require": {
+    "aws/aws-sdk-php": "^3.300"
+  }
+}
