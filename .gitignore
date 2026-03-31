@@ -41,6 +41,7 @@ api/tmp/
 
 # Firebase service account & scripts data
 **/scripts/*
+!**/scripts/sync-meilisearch.mjs
 
 # Tasks (internal tracking)
 tasks/
