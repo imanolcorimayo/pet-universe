@@ -908,7 +908,7 @@ async function viewSaleDetails(saleId) {
     const productStore = useProductStore();
     const [saleResult] = await Promise.all([
       cashRegisterStore.saleSchema.findById(saleId),
-      productStore.fetchProducts(),
+      productStore.subscribeToProducts(),
       productStore.fetchCategories(),
     ]);
     if (saleResult.success && saleResult.data) {

@@ -13,6 +13,7 @@ const roundWeight = (value: number) => Math.round(value * 100) / 100;
 // Module-level variable for inventory subscription (can't store functions in Pinia state)
 let inventoryUnsubscribe: (() => void) | null = null;
 let subscribedInventoryBusinessId: string | null = null;
+let inventoryFirstSnapshotPromise: Promise<void> | null = null;
 
 // Inventory interfaces
 interface Inventory {
@@ -171,47 +172,6 @@ export const useInventoryStore = defineStore("inventory", {
 
     _getInventoryMovementSchema() {
       return new InventoryMovementSchema();
-    },
-
-    // Fetch all inventory for the current business
-    async fetchInventory(forceFetch = false): Promise<boolean> {
-      if (this.inventoryLoaded && !forceFetch) {
-        console.info("Inventory already loaded, skipping fetch.");
-        return true;
-      }
-
-      try {
-        this.isLoading = true;
-        
-        // Clear the Map when fetching all inventory
-        this.inventoryByProductId.clear();
-        
-        const inventorySchema = this._getInventorySchema();
-        const result = await inventorySchema.find();
-
-        if (!result.success) {
-          useToast(ToastEvents.error, result.error || "Hubo un error al cargar el inventario. Por favor intenta nuevamente.");
-          this.isLoading = false;
-          return false;
-        }
-        
-        // Transform ODM results to Inventory format
-        const inventoryItems: Inventory[] = result.data as Inventory[];
-        
-        inventoryItems.forEach(item => {
-          this.inventoryByProductId.set(item.productId, item);
-        });
-        
-        this.inventoryItems = inventoryItems;
-        this.inventoryLoaded = true;
-        this.isLoading = false;
-        return true;
-      } catch (error) {
-        console.error("Error fetching inventory:", error);
-        useToast(ToastEvents.error, "Hubo un error al cargar el inventario. Por favor intenta nuevamente.");
-        this.isLoading = false;
-        return false;
-      }
     },
 
     // Fetch movements for a specific product
@@ -1011,17 +971,17 @@ export const useInventoryStore = defineStore("inventory", {
      * Automatically unsubscribes from previous subscription if switching businesses
      * Uses incremental updates for better performance with large collections
      */
-    subscribeToInventory() {
+    subscribeToInventory(): Promise<void> {
       const currentBusinessId = useLocalStorage('cBId', null);
 
       if (!currentBusinessId.value) {
         console.warn('Cannot subscribe to inventory: no business selected');
-        return;
+        return Promise.resolve();
       }
 
-      // Skip if already subscribed to this business
+      // Already subscribed to this business: reuse the existing first-snapshot promise
       if (subscribedInventoryBusinessId === currentBusinessId.value && inventoryUnsubscribe) {
-        return;
+        return inventoryFirstSnapshotPromise ?? Promise.resolve();
       }
 
       // Unsubscribe from previous if exists
@@ -1030,15 +990,21 @@ export const useInventoryStore = defineStore("inventory", {
       this.isLoading = true;
       const inventorySchema = this._getInventorySchema();
 
+      let isFirstSnapshot = true;
+      let resolveFirstSnapshot!: () => void;
+      inventoryFirstSnapshotPromise = new Promise<void>((resolve) => {
+        resolveFirstSnapshot = resolve;
+      });
+
       inventoryUnsubscribe = inventorySchema.subscribeIncremental(
         {
           where: [{ field: 'isActive', operator: '==', value: true }]
         },
         (changes) => {
-          // Bulk load: initial snapshot where all changes are 'added' and array is empty
-          const isBulkLoad = this.inventoryItems.length === 0 && changes.length > 1 && changes.every(c => c.type === 'added');
-
-          if (isBulkLoad) {
+          if (isFirstSnapshot) {
+            // Initial snapshot: Firestore delivers every matching doc as 'added'.
+            // Replace state wholesale.
+            isFirstSnapshot = false;
             const newItems = changes.map(c => c.doc as Inventory);
             const newMap = new Map<string, Inventory>();
             for (const item of newItems) {
@@ -1073,14 +1039,17 @@ export const useInventoryStore = defineStore("inventory", {
 
           this.inventoryLoaded = true;
           this.isLoading = false;
+          resolveFirstSnapshot();
         },
         (error) => {
           console.error('Inventory subscription error:', error);
           this.isLoading = false;
+          resolveFirstSnapshot();
         }
       );
 
       subscribedInventoryBusinessId = currentBusinessId.value;
+      return inventoryFirstSnapshotPromise;
     },
 
     /**
@@ -1091,6 +1060,7 @@ export const useInventoryStore = defineStore("inventory", {
         inventoryUnsubscribe();
         inventoryUnsubscribe = null;
         subscribedInventoryBusinessId = null;
+        inventoryFirstSnapshotPromise = null;
       }
     },
 

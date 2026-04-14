@@ -7,6 +7,7 @@ import { roundUpPrice, slugify } from "~/utils/index";
 // Module-level variable for product subscription (can't store functions in Pinia state)
 let productUnsubscribe: (() => void) | null = null;
 let subscribedBusinessId: string | null = null;
+let firstSnapshotPromise: Promise<void> | null = null;
 
 // Product interfaces
 interface ProductPrices {
@@ -437,47 +438,6 @@ export const useProductStore = defineStore("product", {
 
     // === EXISTING PRODUCT ACTIONS (keeping all existing code) ===
 
-    // Fetch all products for the current business
-    async fetchProducts(forceFetch = false): Promise<boolean> {
-      if (this.productsLoaded && !forceFetch) {
-        return true;
-      }
-
-      try {
-        this.isLoading = true;
-        this.productsByIdMap.clear();
-        
-        const productSchema = this._getProductSchema();
-        const result = await productSchema.find({
-          where: [{ field: 'isActive', operator: '==', value: true }],
-          orderBy: [{ field: 'name', direction: 'asc' }]
-        });
-
-        if (!result.success) {
-          useToast(ToastEvents.error, result.error || "Hubo un error al cargar los productos. Por favor intenta nuevamente.");
-          this.isLoading = false;
-          return false;
-        }
-
-        // Transform ODM results to Product format
-        const products: Product[] = result.data as Product[];
-        
-        products.forEach(product => {
-          this.productsByIdMap.set(product.id, product);
-        });
-        
-        this.products = products;
-        this.productsLoaded = true;
-        this.isLoading = false;
-        return true;
-      } catch (error) {
-        console.error("Error fetching products:", error);
-        useToast(ToastEvents.error, "Hubo un error al cargar los productos. Por favor intenta nuevamente.");
-        this.isLoading = false;
-        return false;
-      }
-    },
-
     // Create a new product
     async createProduct(formData: ProductFormData): Promise<string | false> {
       try {
@@ -755,17 +715,17 @@ export const useProductStore = defineStore("product", {
      * Automatically unsubscribes from previous subscription if switching businesses
      * Uses incremental updates for better performance with large collections
      */
-    subscribeToProducts() {
+    subscribeToProducts(): Promise<void> {
       const currentBusinessId = useLocalStorage('cBId', null);
 
       if (!currentBusinessId.value) {
         console.warn('Cannot subscribe to products: no business selected');
-        return;
+        return Promise.resolve();
       }
 
-      // Skip if already subscribed to this business
+      // Already subscribed to this business: reuse the existing first-snapshot promise
       if (subscribedBusinessId === currentBusinessId.value && productUnsubscribe) {
-        return;
+        return firstSnapshotPromise ?? Promise.resolve();
       }
 
       // Unsubscribe from previous if exists
@@ -774,17 +734,22 @@ export const useProductStore = defineStore("product", {
       this.isLoading = true;
       const productSchema = this._getProductSchema();
 
+      let isFirstSnapshot = true;
+      let resolveFirstSnapshot!: () => void;
+      firstSnapshotPromise = new Promise<void>((resolve) => {
+        resolveFirstSnapshot = resolve;
+      });
+
       productUnsubscribe = productSchema.subscribeIncremental(
         {
           where: [{ field: 'isActive', operator: '==', value: true }],
           orderBy: [{ field: 'name', direction: 'asc' }]
         },
         (changes) => {
-          // Bulk load: initial snapshot where all changes are 'added' and products array is empty
-          const isBulkLoad = this.products.length === 0 && changes.length > 1 && changes.every(c => c.type === 'added');
-
-          if (isBulkLoad) {
-            // Firestore already returns ordered by name, assign in one shot
+          if (isFirstSnapshot) {
+            // Initial snapshot: Firestore delivers every matching doc as 'added'.
+            // Replace state wholesale (already ordered by name from the query).
+            isFirstSnapshot = false;
             const newProducts = changes.map(c => c.doc as Product);
             const newMap = new Map<string, Product>();
             for (const p of newProducts) {
@@ -825,14 +790,17 @@ export const useProductStore = defineStore("product", {
 
           this.productsLoaded = true;
           this.isLoading = false;
+          resolveFirstSnapshot();
         },
         (error) => {
           console.error('Product subscription error:', error);
           this.isLoading = false;
+          resolveFirstSnapshot();
         }
       );
 
       subscribedBusinessId = currentBusinessId.value;
+      return firstSnapshotPromise;
     },
 
     /**
@@ -843,6 +811,7 @@ export const useProductStore = defineStore("product", {
         productUnsubscribe();
         productUnsubscribe = null;
         subscribedBusinessId = null;
+        firstSnapshotPromise = null;
       }
     },
 
