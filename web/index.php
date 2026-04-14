@@ -17,7 +17,7 @@ $routes = [
     '/buscar'     => 'buscar',
     '/carrito'    => 'carrito',
     '/checkout'   => 'checkout',
-    // '/sitemap.xml'=> 'sitemap',  // disabled until production domain
+    '/sitemap.xml'=> 'sitemap',
 ];
 
 try {
@@ -27,12 +27,12 @@ try {
         exit;
     }
 
-    // Dynamic routes: /sitemap-{category}.xml (disabled until production domain)
-    // if (preg_match('#^/sitemap-([a-z0-9\-]+)\.xml$#', $uri, $matches)) {
-    //     $sitemapCategory = $matches[1];
-    //     require __DIR__ . '/controllers/sitemap.php';
-    //     exit;
-    // }
+    // Dynamic routes: /sitemap-{category}.xml
+    if (preg_match('#^/sitemap-([a-z0-9\-]+)\.xml$#', $uri, $matches)) {
+        $sitemapCategory = $matches[1];
+        require __DIR__ . '/controllers/sitemap.php';
+        exit;
+    }
 
     // Dynamic routes: /producto/{slug}
     if (preg_match('#^/producto/([a-z0-9\-]+)$#', $uri, $matches)) {

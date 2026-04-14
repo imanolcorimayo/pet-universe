@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/xml; charset=utf-8');
 
-$baseUrl = 'http://petuniverse.local'; // Change for production
+$baseUrl = 'https://petuniversecba.com';
 
 // If $sitemapCategory is set, render a category sitemap. Otherwise, render the index.
 if (!empty($sitemapCategory)) {

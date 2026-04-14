@@ -97,8 +97,13 @@ async function syncProducts() {
   console.log(`  ${Object.keys(inventory).length} inventory records`);
 
   // 4. Transform to Meilisearch documents
+  // Skip products without an image — public storefront should not list them.
+  const productsWithImage = prodSnapshot.docs.filter(doc => doc.data().hasImage === true);
+  const skipped = prodSnapshot.size - productsWithImage.length;
+  if (skipped > 0) console.log(`  (skipping ${skipped} products without image)`);
+
   const slugCounts = {};
-  const documents = prodSnapshot.docs.map(doc => {
+  const documents = productsWithImage.map(doc => {
     const data = doc.data();
     const inv = inventory[doc.id] || { unitsInStock: 0, totalWeight: 0, lastPurchaseCost: 0 };
 
@@ -158,7 +163,11 @@ async function syncProducts() {
     pagination: { maxTotalHits: 1000 },
   });
 
-  // 6. Push documents (full replace)
+  // 6. Push documents (full replace — clear orphans first)
+  console.log('Clearing existing documents...');
+  const clearTask = await index.deleteAllDocuments();
+  await meili.tasks.waitForTask(clearTask.taskUid, { timeOutMs: 30000 });
+
   console.log('Indexing documents...');
   const task = await index.addDocuments(documents, { primaryKey: 'id' });
   console.log(`  Enqueued task ${task.taskUid}`);
