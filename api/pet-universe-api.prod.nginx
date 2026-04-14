@@ -1,0 +1,50 @@
+# Production nginx config for pet-universe api (api.petuniversecba.com)
+# Deploy path on droplet: /etc/nginx/sites-available/pet-universe-api
+# Symlinked from:         /etc/nginx/sites-enabled/pet-universe-api
+
+# --- HTTPS: api ---
+server {
+    listen 443 ssl;
+    server_name api.petuniversecba.com;
+
+    access_log /var/log/nginx/pet-universe/access-api.log;
+    error_log /var/log/nginx/pet-universe/error-api.log;
+
+    root /var/www/pet-universe/api;
+    index index.php;
+
+    # Max upload size (slightly above 10MB for multipart overhead)
+    client_max_body_size 12M;
+
+    # Everything -> front controller
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP processing
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Protect internal directories
+    location /includes/ { deny all; }
+    location /controllers/ { deny all; }
+    location /vendor/ { deny all; }
+    location /tmp/ { deny all; }
+    location ~ config\.php$ { deny all; }
+
+    ssl_certificate /etc/letsencrypt/live/petuniversecba.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/petuniversecba.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+# --- HTTP → HTTPS ---
+server {
+    listen 80;
+    server_name api.petuniversecba.com;
+
+    return 301 https://api.petuniversecba.com$request_uri;
+}

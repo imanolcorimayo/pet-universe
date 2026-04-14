@@ -1,0 +1,72 @@
+# Production nginx config for pet-universe web (petuniversecba.com)
+# Deploy path on droplet: /etc/nginx/sites-available/pet-universe-web
+# Symlinked from:         /etc/nginx/sites-enabled/pet-universe-web
+
+# --- HTTPS: main app (apex) ---
+server {
+    listen 443 ssl;
+    server_name petuniversecba.com;
+
+    access_log /var/log/nginx/pet-universe/access-web.log;
+    error_log /var/log/nginx/pet-universe/error-web.log;
+
+    root /var/www/pet-universe/web;
+    index index.php;
+
+    # Static assets — serve directly
+    location /assets/ {
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Everything else → front controller
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP processing
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Protect internal directories
+    location /includes/ { deny all; }
+    location /controllers/ { deny all; }
+    location /vendor/ { deny all; }
+    location ~ config\.php$ { deny all; }
+
+    ssl_certificate /etc/letsencrypt/live/petuniversecba.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/petuniversecba.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+# --- HTTPS: www → apex ---
+server {
+    listen 443 ssl;
+    server_name www.petuniversecba.com;
+
+    ssl_certificate /etc/letsencrypt/live/petuniversecba.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/petuniversecba.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+    return 301 https://petuniversecba.com$request_uri;
+}
+
+# --- HTTP → HTTPS (apex + www) ---
+server {
+    listen 80;
+    server_name petuniversecba.com www.petuniversecba.com;
+
+    if ($host = www.petuniversecba.com) {
+        return 301 https://petuniversecba.com$request_uri;
+    }
+    if ($host = petuniversecba.com) {
+        return 301 https://petuniversecba.com$request_uri;
+    }
+
+    return 404;
+}
