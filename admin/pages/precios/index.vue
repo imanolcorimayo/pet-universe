@@ -132,6 +132,7 @@ import PricingTable from '~/components/Pricing/PricingTable.vue';
 import PricingBulkUpdateModal from '~/components/Pricing/PricingBulkUpdateModal.vue';
 import Loader from '~/components/Loader.vue';
 import { ToastEvents } from '~/interfaces';
+import { writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 
 // Helper for standard 2-decimal rounding (used for all prices except cash)
 const roundTo2Decimals = (num) => Math.round(num * 100) / 100;
@@ -251,76 +252,76 @@ async function handleUpdateProduct(productId, updates) {
 
 async function handleBulkUpdate(productIds, updateData) {
   isUpdating.value = true;
-  
+
   try {
-    // Handle cost percentage updates
-    if (updateData.costPercentage !== undefined) {
-      const costPromises = productIds.map(async (id) => {
-        const inventory = inventoryItems.value.find(inv => inv.productId === id);
-        if (inventory && inventory.lastPurchaseCost > 0) {
-          const currentCost = inventory.lastPurchaseCost;
-          const newCost = currentCost * (1 + updateData.costPercentage / 100);
-          return await inventoryStore.updateLastPurchaseCost(id, newCost);
-        }
-        return Promise.resolve(true);
-      });
-      await Promise.all(costPromises);
-    }
-    
-    // Handle product updates (margin and markup)
-    const productUpdatePromises = [];
-    if (updateData.margin !== undefined || updateData.threePlusMarkupPercentage !== undefined) {
-      productIds.forEach(id => {
-        const productUpdates = {};
-        if (updateData.margin !== undefined) {
-          productUpdates.profitMarginPercentage = updateData.margin;
-        }
-        if (updateData.threePlusMarkupPercentage !== undefined) {
-          productUpdates.threePlusMarkupPercentage = updateData.threePlusMarkupPercentage;
-        }
-        productUpdatePromises.push(productStore.updateProduct(id, productUpdates));
-      });
-      await Promise.all(productUpdatePromises);
-    }
-    
-    // Recalculate and update prices for all affected products
-    const pricePromises = productIds.map(async (id) => {
+    // Single in-memory pass: compute every update synchronously from current state.
+    // No read-after-write, no onSnapshot dependency, no per-product toasts.
+    const plan = [];
+
+    for (const id of productIds) {
       const product = productStore.products.find(p => p.id === id);
       const inventory = inventoryItems.value.find(inv => inv.productId === id);
-      
-      if (!product || !inventory || !inventory.lastPurchaseCost) return Promise.resolve(true);
-      
-      // Get current cost, margin, and markup (updated values)
-      const cost = inventory.lastPurchaseCost;
-      const margin = product.profitMarginPercentage || 30;
-      const threePlusMarkup = product.threePlusMarkupPercentage || 8;
-      
-      // Calculate new prices
-      const calculatedPrices = productStore.calculatePricing(cost, margin, product.unitWeight, threePlusMarkup);
-      
-      // Ensure calculated prices are valid numbers (English field names)
-      if (!calculatedPrices || typeof calculatedPrices.cash !== 'number' || typeof calculatedPrices.regular !== 'number') {
-        console.error('Invalid calculated prices for product:', id, calculatedPrices);
-        return Promise.resolve(false);
+
+      if (!product || !inventory) {
+        continue;
       }
-      
-      // Use calculated prices directly - calculatePricing already applies proper rounding
-      // (roundUpPrice for cash, roundTo2Decimals for other prices)
+
+      // Derive new cost
+      const currentCost = inventory.lastPurchaseCost || 0;
+      let newCost = currentCost;
+      if (updateData.costPercentage !== undefined && currentCost > 0) {
+        newCost = currentCost * (1 + updateData.costPercentage / 100);
+      }
+
+      // Derive new margin / markup (write-through, no race on store state)
+      const newMargin = updateData.margin !== undefined
+        ? updateData.margin
+        : (product.profitMarginPercentage || 30);
+      const newMarkup = updateData.threePlusMarkupPercentage !== undefined
+        ? updateData.threePlusMarkupPercentage
+        : (product.threePlusMarkupPercentage || 8);
+
+      // Can't price a product with no cost
+      if (!newCost || newCost <= 0) {
+        // Still record margin/markup changes if the user asked for them
+        if (updateData.margin !== undefined || updateData.threePlusMarkupPercentage !== undefined) {
+          plan.push({
+            product,
+            inventory,
+            currentCost,
+            newCost: null,
+            newMargin,
+            newMarkup,
+            newPrices: null,
+          });
+        }
+        continue;
+      }
+
+      const calculatedPrices = productStore.calculatePricing(
+        newCost,
+        newMargin,
+        product.unitWeight,
+        newMarkup,
+      );
+
+      if (!calculatedPrices || typeof calculatedPrices.cash !== 'number' || typeof calculatedPrices.regular !== 'number') {
+        console.error('[BULK-UPDATE] invalid calculatePricing output', { id, calculatedPrices });
+        continue;
+      }
+
       const currentPrices = product.prices || {};
 
-      // Preserve existing VIP and bulk prices if they exist and are different from cash price
+      // Preserve explicit VIP / bulk unit prices that diverge from cash
       let vipPrice = calculatedPrices.vip;
       let bulkPrice = calculatedPrices.bulk;
-
       if (currentPrices.vip && typeof currentPrices.vip === 'number' && currentPrices.vip !== currentPrices.cash) {
         vipPrice = roundTo2Decimals(currentPrices.vip);
       }
-
       if (currentPrices.bulk && typeof currentPrices.bulk === 'number' && currentPrices.bulk !== currentPrices.cash) {
         bulkPrice = roundTo2Decimals(currentPrices.bulk);
       }
 
-      // Final validation - ensure no undefined values
       const newPrices = {
         cash: Number(calculatedPrices.cash) || 0,
         regular: Number(calculatedPrices.regular) || 0,
@@ -328,40 +329,67 @@ async function handleBulkUpdate(productIds, updateData) {
         bulk: Number(bulkPrice) || 0,
       };
 
-      // Handle dual products (kg prices)
-      if (product.trackingType === 'dual' && product.unitWeight > 0) {
-        // Use calculated kg prices from productStore.calculatePricing
-        let regularKgPrice = calculatedPrices.kg?.regular;
-        let vipKgPrice = calculatedPrices.kg?.vip;
-
-        // If calculatedPrices doesn't have kg prices, calculate them manually
-        if (!regularKgPrice) {
-          const costPerKg = cost / product.unitWeight;
-          regularKgPrice = roundTo2Decimals(costPerKg * (1 + margin / 100));
-        }
-
-        // For bulk updates, recalculate VIP kg price based on new cost/margin
-        if (!vipKgPrice && currentPrices.kg?.vip && typeof currentPrices.kg.vip === 'number') {
-          // No changes applied, preserve existing VIP kg price
-          vipKgPrice = roundTo2Decimals(currentPrices.kg.vip);
-        } else if (!vipKgPrice) {
-          // No existing VIP kg price, use regular kg price
-          vipKgPrice = roundTo2Decimals(regularKgPrice);
-        }
-
+      if (product.trackingType === 'dual' && product.unitWeight > 0 && calculatedPrices.kg) {
         newPrices.kg = {
-          regular: Number(regularKgPrice) || 0,
-          threePlusDiscount: Number(calculatedPrices.kg?.threePlusDiscount) || 0,
-          vip: Number(vipKgPrice) || 0,
+          regular: Number(calculatedPrices.kg.regular) || 0,
+          threePlusDiscount: Number(calculatedPrices.kg.threePlusDiscount) || 0,
+          vip: Number(calculatedPrices.kg.vip) || 0,
         };
       }
-      
-      return await productStore.updateProduct(id, { prices: newPrices });
-    });
-    
-    await Promise.all(pricePromises);
-    
-    useToast(ToastEvents.success, `${productIds.length} productos actualizados correctamente`);
+
+      plan.push({
+        product,
+        inventory,
+        currentCost,
+        newCost,
+        newMargin,
+        newMarkup,
+        newPrices,
+      });
+    }
+
+    if (plan.length === 0) {
+      useToast(ToastEvents.info, 'No hay productos para actualizar');
+      return;
+    }
+
+    // Single atomic commit — inventory + product docs together.
+    // Firestore writeBatch supports up to 500 ops; we write at most 2 per product.
+    const db = useFirestore();
+    const batch = writeBatch(db);
+    const now = serverTimestamp();
+
+    for (const entry of plan) {
+      // Inventory update (cost)
+      if (entry.newCost !== null && entry.newCost !== entry.currentCost) {
+        const invRef = doc(db, 'inventory', entry.inventory.id);
+        batch.update(invRef, {
+          lastPurchaseCost: entry.newCost,
+          updatedAt: now,
+        });
+      }
+
+      // Product update (margin, markup, prices)
+      const productUpdates = { updatedAt: now };
+      if (updateData.margin !== undefined) {
+        productUpdates.profitMarginPercentage = entry.newMargin;
+      }
+      if (updateData.threePlusMarkupPercentage !== undefined) {
+        productUpdates.threePlusMarkupPercentage = entry.newMarkup;
+      }
+      if (entry.newPrices) {
+        productUpdates.prices = entry.newPrices;
+      }
+      // Only queue if there's actually something beyond updatedAt
+      if (Object.keys(productUpdates).length > 1) {
+        const prodRef = doc(db, 'product', entry.product.id);
+        batch.update(prodRef, productUpdates);
+      }
+    }
+
+    await batch.commit();
+
+    useToast(ToastEvents.success, `${plan.length} productos actualizados correctamente`);
     showBulkUpdateModal.value = false;
   } catch (error) {
     console.error('Error in bulk update:', error);

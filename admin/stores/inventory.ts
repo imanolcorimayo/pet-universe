@@ -877,14 +877,14 @@ export const useInventoryStore = defineStore("inventory", {
 
     // Update last purchase cost for a product
     // Uses cached inventory data for performance
-    async updateLastPurchaseCost(productId: string, newCost: number): Promise<boolean> {
+    async updateLastPurchaseCost(productId: string, newCost: number, { silent = false } = {}): Promise<boolean> {
       const user = useCurrentUser();
       if (!user.value?.uid) return false;
 
       // Use cached inventory from real-time subscription
       const existingInventory = this.inventoryByProductId.get(productId);
       if (!existingInventory) {
-        useToast(ToastEvents.error, "No se encontró el registro de inventario");
+        if (!silent) useToast(ToastEvents.error, "No se encontró el registro de inventario");
         return false;
       }
 
@@ -898,7 +898,7 @@ export const useInventoryStore = defineStore("inventory", {
 
         if (!updateResult.success) {
           console.error("Error updating inventory:", updateResult.error);
-          useToast(ToastEvents.error, updateResult.error || "Error al actualizar el costo");
+          if (!silent) useToast(ToastEvents.error, updateResult.error || "Error al actualizar el costo");
           this.isLoading = false;
           return false;
         }
@@ -907,7 +907,7 @@ export const useInventoryStore = defineStore("inventory", {
         return true;
       } catch (error) {
         console.error("Error updating last purchase cost:", error);
-        useToast(ToastEvents.error, "Hubo un error al actualizar el costo");
+        if (!silent) useToast(ToastEvents.error, "Hubo un error al actualizar el costo");
         this.isLoading = false;
         return false;
       }

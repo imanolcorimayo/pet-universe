@@ -805,8 +805,7 @@ function getPrice(index, priceType) {
 
   if (product.trackingType === 'dual') {
     if (priceType === 'threePlusDiscount') {
-      const regularKg = product.prices?.kg?.regular || 0;
-      return regularKg * 0.9;
+      return product.prices?.kg?.threePlusDiscount || 0;
     }
     if (item.unitType === 'kg') {
       // Kg prices are stored nested

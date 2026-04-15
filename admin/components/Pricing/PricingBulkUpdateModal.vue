@@ -664,24 +664,25 @@ function updateSelectAllDisplayed() {
 
 async function handleBulkUpdate() {
   if (!canUpdate.value) return;
-  
+
   isLoading.value = true;
-  
+
   try {
     const updateData = {};
-    
+
     if (updateOptions.value.cost.enabled && updateOptions.value.cost.percentage) {
       updateData.costPercentage = updateOptions.value.cost.percentage;
     }
-    
+
     if (updateOptions.value.margin.enabled && updateOptions.value.margin.value >= 0) {
       updateData.margin = updateOptions.value.margin.value;
     }
-    
+
     if (updateOptions.value.threePlusDiscount.enabled && updateOptions.value.threePlusDiscount.value >= 0) {
       updateData.threePlusDiscountPercentage = updateOptions.value.threePlusDiscount.value;
     }
-    
+
+
     await emit('bulk-update', selectedProducts.value, updateData);
   } catch (error) {
     console.error('Error in bulk update:', error);

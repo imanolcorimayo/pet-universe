@@ -154,7 +154,9 @@
                   <p class="font-semibold">
                     {{
                       formatCurrency(
-                        product.prices.kg?.cash || product.prices.cash
+                        product.unitWeight > 0
+                          ? (product.prices.cash || 0) / product.unitWeight
+                          : 0
                       )
                     }}
                   </p>

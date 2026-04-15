@@ -142,7 +142,7 @@ async function syncProducts() {
       priceRegular: data.prices?.regular || 0,
       priceCash: data.prices?.cash || 0,
       priceKgRegular: data.prices?.kg?.regular || 0,
-      priceKgCash: data.prices?.kg?.cash || data.prices?.kg?.regular || 0,
+      priceKgCash: data.unitWeight > 0 ? (data.prices?.cash || 0) / data.unitWeight : 0,
       hasImage: data.hasImage || false,
       imageUpdatedAt: data.imageUpdatedAt || 0,
       inStock,

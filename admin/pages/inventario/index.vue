@@ -378,8 +378,9 @@ const enrichedInventory = computed(() => {
     let saleValueCash = 0;
     if (product?.prices) {
       if (isDual && unitWeight) {
+        const cashPerKg = unitWeight > 0 ? (product.prices.cash || 0) / unitWeight : 0;
         saleValueRegular = item.unitsInStock * (product.prices.regular || 0) + openWeight * (product.prices.kg?.regular || 0);
-        saleValueCash = item.unitsInStock * (product.prices.cash || 0) + openWeight * (product.prices.kg?.cash || 0);
+        saleValueCash = item.unitsInStock * (product.prices.cash || 0) + openWeight * cashPerKg;
       } else {
         saleValueRegular = item.unitsInStock * (product.prices.regular || 0);
         saleValueCash = item.unitsInStock * (product.prices.cash || 0);
@@ -404,7 +405,7 @@ const enrichedInventory = computed(() => {
       regularUnit: prices.regular || 0,
       cashUnit: prices.cash || 0,
       regularKg: prices.kg?.regular || 0,
-      cashKg: prices.kg?.cash || 0
+      cashKg: unitWeight > 0 ? (prices.cash || 0) / unitWeight : 0
     } : {
       regular: prices.regular || 0,
       cash: prices.cash || 0

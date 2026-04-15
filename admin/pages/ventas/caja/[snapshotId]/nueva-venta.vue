@@ -169,12 +169,14 @@
                         <span class="text-gray-500 w-16">Efectivo:</span>
                         <span class="text-green-600">{{ formatCurrency(product.prices?.cash || 0) }}/u</span>
                         <span class="text-gray-400">|</span>
-                        <span class="text-green-600">{{ formatCurrency(product.prices?.kg?.cash || 0) }}/kg</span>
+                        <span class="text-green-600">{{ formatCurrency(product.unitWeight > 0 ? (product.prices?.cash || 0) / product.unitWeight : 0) }}/kg</span>
                       </div>
                       <div class="flex items-center gap-2">
                         <span class="text-gray-500 w-16">3+ kg:</span>
-                        <span class="text-orange-600">{{ formatCurrency((product.prices?.kg?.regular || 0) * 0.9) }}/kg</span>
-                        <span class="text-orange-500 text-[10px]">(-10%)</span>
+                        <span class="text-orange-600">{{ formatCurrency(product.prices?.kg?.threePlusDiscount || 0) }}/kg</span>
+                        <span v-if="product.prices?.kg?.regular && product.prices?.kg?.threePlusDiscount" class="text-orange-500 text-[10px]">
+                          (-{{ Math.round((1 - product.prices.kg.threePlusDiscount / product.prices.kg.regular) * 100) }}%)
+                        </span>
                       </div>
                       <div v-if="product.prices?.vip || product.prices?.kg?.vip" class="flex items-center gap-2">
                         <span class="text-gray-500 w-16">VIP:</span>
