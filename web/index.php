@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/helpers.php';
 
 // Parse the request URI
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
