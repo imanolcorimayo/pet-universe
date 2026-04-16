@@ -240,8 +240,8 @@ export const useInventoryStore = defineStore("inventory", {
           return false;
         }
 
-        // Add initial inventory movement
-        await this.recordInventoryMovement({
+        // Fire-and-forget: opening movement is audit-only, nothing below waits on it
+        this.recordInventoryMovement({
           productId: productId,
           productName: productName,
           movementType: "opening",
@@ -258,9 +258,8 @@ export const useInventoryStore = defineStore("inventory", {
           weightBefore: 0,
           weightAfter: 0,
           notes: "Registro inicial de inventario",
-        });
+        }).catch((err) => console.error("Opening inventory movement failed:", err));
 
-        useToast(ToastEvents.success, "Inventario inicializado correctamente");
         this.isLoading = false;
         return true;
       } catch (error) {

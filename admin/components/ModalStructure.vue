@@ -88,6 +88,9 @@ function handleEscapeKey(event) {
 onClickOutside(innerContainer, (ev) => {
   if (!props.closeOnBackdropClick) return;
 
+  // Toast notifications must never close modals
+  if (ev.target.closest && ev.target.closest('[class*="Toastify"]')) return;
+
   // Ignore clicks on datepicker elements or confirm dialogue elements or tooltip backdrop
   // Generic class list to avoid closing the modal
   const CLASS_LIST_TO_AVOID = ["vc-", "conf-d", "tooltip-backdrop", "product-search-input"];

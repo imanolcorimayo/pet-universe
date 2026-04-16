@@ -2,7 +2,7 @@
 
 // API authentication
 define('API_KEY', 'xxx');
-define('ALLOWED_BUSINESS_ID', 'xxx'); // Firebase business document ID
+define('ALLOWED_BUSINESS_IDS', ['xxx']); // Firebase business document IDs
 
 // Rate limiting (per IP)
 define('RATE_LIMIT_MAX', 30);       // max requests per window
@@ -18,6 +18,13 @@ define('CDN_BASE_URL', 'https://wiseutils-cdn.nyc3.cdn.digitaloceanspaces.com');
 
 // Multi-project prefix (files stored under: {prefix}/products/{slug}-{size}.{ext})
 define('SPACES_PROJECT_PREFIX', 'pet-universe');
+
+// Subpaths used when storing scanned purchase invoice images.
+// PENDING is where freshly-scanned images land before the user saves the purchase;
+// a DO Spaces lifecycle rule on this prefix should auto-delete orphans after 48h.
+// On save, the frontend calls /commit-invoice-image which copies to SPACES_INVOICE_SUBPATH.
+define('SPACES_INVOICE_SUBPATH', 'invoices');
+define('SPACES_INVOICE_PENDING_SUBPATH', 'invoices-pending');
 
 // Image processing
 define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024); // 10MB

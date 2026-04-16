@@ -32,6 +32,7 @@ logs
 # Server config (contains API keys)
 web/includes/config.php
 api/includes/config.php
+api/includes/firebase-service-account.json
 
 # API temp files
 api/tmp/
@@ -42,6 +43,7 @@ api/tmp/
 # Firebase service account & scripts data
 **/scripts/*
 !**/scripts/sync-meilisearch.mjs
+!api/scripts/*.php
 
 # Tasks (internal tracking)
 tasks/

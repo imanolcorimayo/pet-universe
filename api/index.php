@@ -12,7 +12,9 @@ $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = rtrim($uri, '/') ?: '/';
 
 $routes = [
-    '/upload' => 'upload',
+    '/upload'               => 'upload',
+    '/scan-invoice'         => 'scan-invoice',
+    '/commit-invoice-image' => 'commit-invoice-image',
 ];
 
 try {

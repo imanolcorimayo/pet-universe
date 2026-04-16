@@ -15,6 +15,70 @@
       </div>
 
       <div v-else class="space-y-6">
+        <!-- AI invoice scan (prominent entry point, no supplier dependency) -->
+        <div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+          <div class="flex items-start gap-3">
+            <div class="p-2 bg-purple-100 rounded-md flex-shrink-0">
+              <TablerSparkles class="h-5 w-5 text-purple-600" />
+            </div>
+            <div class="flex-1">
+              <h3 class="text-md font-medium text-gray-900">Escanear factura con IA</h3>
+              <p class="text-sm text-gray-600 mt-0.5">Subí una foto de la factura y la IA completa los datos y los productos automáticamente</p>
+              <div class="mt-3 flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  @click="triggerInvoiceFileInput"
+                  :disabled="isScanningInvoice || isSubmitting"
+                  class="px-3 py-2 bg-purple-600 text-white rounded-md text-sm hover:bg-purple-700 disabled:bg-gray-300 flex items-center gap-1.5"
+                >
+                  <TablerSparkles class="h-4 w-4" />
+                  {{ isScanningInvoice ? 'Analizando factura...' : 'Subir factura' }}
+                </button>
+                <span v-if="scannedImageUrl && !scanError" class="text-xs text-gray-600 flex items-center gap-1">
+                  <TablerCamera class="h-4 w-4" />
+                  Imagen cargada.
+                  <a :href="scannedImageUrl" target="_blank" class="text-primary hover:underline">Ver factura</a>
+                </span>
+              </div>
+              <input
+                ref="invoiceFileInput"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                class="hidden"
+                @change="onInvoiceFileSelected"
+              />
+
+              <div v-if="scanError" class="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-start gap-2">
+                  <TablerAlertCircle class="h-5 w-5 text-red-600 flex-shrink-0" />
+                  <div class="flex-1">
+                    <p class="text-sm font-medium text-red-800">No pudimos procesar la factura</p>
+                    <p class="text-xs text-red-600 mt-1">{{ scanError }}</p>
+                    <div class="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        @click="retryInvoiceScan"
+                        :disabled="!lastScannedFile || isScanningInvoice"
+                        class="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:bg-gray-300"
+                      >
+                        Reintentar
+                      </button>
+                      <button
+                        type="button"
+                        @click="dismissScanError"
+                        class="px-3 py-1 bg-white border border-red-300 text-red-700 rounded text-xs hover:bg-red-50"
+                      >
+                        Llenar manualmente
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Invoice Information ---->
         <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
           <h3 class="text-md font-medium mb-3 flex items-center gap-2">
@@ -156,9 +220,21 @@
 
           <div v-else class="space-y-4">
             <template v-for="(item, index) in productItems" :key="index">
-              <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <div
+                class="p-4 rounded-lg border shadow-sm"
+                :class="item.isUnmatched ? 'border-red-300 bg-red-50/30' : 'border-gray-200 bg-white'"
+              >
                 <div class="flex justify-between items-start mb-4">
-                  <h4 class="font-medium text-gray-800">Producto #{{ index + 1 }}</h4>
+                  <h4 class="font-medium text-gray-800 flex items-center gap-2">
+                    Producto #{{ index + 1 }}
+                    <span
+                      v-if="item.confidence != null && !item.isUnmatched"
+                      class="text-xs px-2 py-0.5 rounded-full"
+                      :class="item.confidence >= 0.8 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
+                    >
+                      IA · {{ Math.round(item.confidence * 100) }}%
+                    </span>
+                  </h4>
                   <button
                     @click="removeProductFromList(index)"
                     class="text-red-600 hover:text-red-800 text-sm flex items-center gap-1"
@@ -167,6 +243,17 @@
                     <LucideTrash2 class="h-4 w-4" />
                     Quitar
                   </button>
+                </div>
+
+                <div v-if="item.isUnmatched" class="mb-3 p-2 bg-red-100 rounded border border-red-200">
+                  <div class="flex items-start gap-2">
+                    <TablerAlertTriangle class="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div class="flex-1 text-xs">
+                      <p class="text-red-800 font-medium">Producto no identificado</p>
+                      <p class="text-red-700 mt-0.5">Texto en factura: "{{ item.rawText }}"</p>
+                      <p class="text-red-600 mt-0.5">Selecciona un producto existente, créalo, o quita la fila antes de guardar.</p>
+                    </div>
+                  </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <!-- Product Selection -->
@@ -519,8 +606,11 @@ import TablerPackages from '~icons/tabler/packages';
 import TablerTruck from '~icons/tabler/truck';
 import TablerInfoCircle from '~icons/tabler/info-circle';
 import TablerAlertCircle from '~icons/tabler/alert-circle';
+import TablerAlertTriangle from '~icons/tabler/alert-triangle';
 import TablerReceipt from '~icons/tabler/receipt';
 import TablerArrowRight from '~icons/tabler/arrow-right';
+import TablerSparkles from '~icons/tabler/sparkles';
+import TablerCamera from '~icons/tabler/camera';
 import ProductSearchInput from '~/components/Product/ProductSearchInput.vue';
 import ProductQuickCreateModal from '~/components/Product/ProductQuickCreateModal.vue';
 import InventoryPriceUpdateModal from '~/components/Inventory/InventoryPriceUpdateModal.vue';
@@ -576,6 +666,14 @@ const invoiceDate = ref('');
 const invoiceType = ref('');
 const additionalCharges = ref(0);
 
+// AI invoice scan
+const { scanInvoice, commitInvoiceImage, scanning: isScanningInvoice } = useInvoiceScan();
+const scanError = ref(null);
+const scannedImageUrl = ref('');
+const pendingImageSlug = ref('');
+const lastScannedFile = ref(null);
+const invoiceFileInput = ref(null);
+
 // Watch for owner account changes to automatically set isReported
 watch(ownersAccountId, (newAccountId) => {
   if (newAccountId) {
@@ -624,8 +722,17 @@ const totalUnits = computed(() => {
   }, 0);
 });
 
+const hasUnmatchedItems = computed(() => {
+  return productItems.value.some(item => item.isUnmatched);
+});
+
 const isFormValid = computed(() => {
   if (!selectedSupplier.value || validProductItems.value.length === 0) {
+    return false;
+  }
+
+  // Block save until every AI-suggested line has been matched, replaced, or removed
+  if (hasUnmatchedItems.value) {
     return false;
   }
 
@@ -680,6 +787,81 @@ function resetForm() {
   invoiceDate.value = '';
   invoiceType.value = '';
   additionalCharges.value = 0;
+
+  // Reset AI scan state
+  scanError.value = null;
+  scannedImageUrl.value = '';
+  pendingImageSlug.value = '';
+  lastScannedFile.value = null;
+}
+
+// ----- AI invoice scan methods ---------
+function triggerInvoiceFileInput() {
+  scanError.value = null;
+  invoiceFileInput.value?.click();
+}
+
+async function onInvoiceFileSelected(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  lastScannedFile.value = file;
+  await runInvoiceScan(file);
+  event.target.value = '';
+}
+
+async function retryInvoiceScan() {
+  if (lastScannedFile.value) await runInvoiceScan(lastScannedFile.value);
+}
+
+function dismissScanError() {
+  scanError.value = null;
+}
+
+async function runInvoiceScan(file) {
+  scanError.value = null;
+  try {
+    const result = await scanInvoice(file);
+    applyScanResult(result);
+    useToast(ToastEvents.success, 'Factura procesada. Revisa los datos antes de guardar.');
+  } catch (err) {
+    scanError.value = err?.message || 'No se pudo procesar la factura';
+  }
+}
+
+function applyScanResult(result) {
+  // Header fields
+  if (result.invoice?.invoiceNumber) invoiceNumber.value = result.invoice.invoiceNumber;
+  if (result.invoice?.invoiceDate) invoiceDate.value = result.invoice.invoiceDate;
+  if (result.invoice?.invoiceType) invoiceType.value = result.invoice.invoiceType;
+  if (typeof result.invoice?.additionalCharges === 'number') {
+    additionalCharges.value = result.invoice.additionalCharges;
+  }
+
+  // Keep the slug so we can commit the image on save (moving it from the
+  // pending bucket prefix to the permanent one).
+  pendingImageSlug.value = result.slug || '';
+
+  // Pending preview URL — replaced with the permanent URL after
+  // commitInvoiceImage() runs inside savePurchase().
+  scannedImageUrl.value = result.imageUrl || '';
+
+  // Line items — replace whatever was already in the list
+  productItems.value = (result.lines || []).map(line => {
+    const product = line.productId
+      ? productStore.products.find(p => p.id === line.productId)
+      : null;
+    return {
+      productId: product?.id || '',
+      productName: product?.name || '',
+      selectedProduct: product || null,
+      unitsChange: line.quantity || 0,
+      weightChange: 0,
+      unitCost: line.unitCost || 0,
+      rawText: line.rawText || '',
+      confidence: typeof line.confidence === 'number' ? line.confidence : null,
+      isUnmatched: !product,
+    };
+  });
 }
 
 
@@ -732,6 +914,7 @@ function selectProduct(index, product) {
   item.productId = product.id;
   item.productName = product.name;
   item.selectedProduct = product;
+  item.isUnmatched = false;
 }
 
 // Quick-create product methods
@@ -891,6 +1074,21 @@ async function savePurchase() {
   isSubmitting.value = true;
 
   try {
+    // Commit the pending invoice image to the permanent bucket prefix before
+    // writing the purchase. If this fails we abort the save so the user can retry
+    // without leaving a half-written record pointing at a to-be-deleted pending URL.
+    let committedImageUrl = '';
+    if (pendingImageSlug.value) {
+      try {
+        committedImageUrl = await commitInvoiceImage(pendingImageSlug.value);
+      } catch (err) {
+        isSubmitting.value = false;
+        useToast(ToastEvents.error, 'No se pudo guardar la imagen de la factura. Reintentá.');
+        console.error('commitInvoiceImage failed:', err);
+        return;
+      }
+    }
+
     // Snapshot old costs BEFORE save (real-time subscription will update them after)
     const oldCosts = new Map();
     for (const item of validProductItems.value) {
@@ -917,6 +1115,7 @@ async function savePurchase() {
       invoiceDate: invoiceDate.value ? new Date(invoiceDate.value) : undefined,
       invoiceType: invoiceType.value || undefined,
       additionalCharges: additionalCharges.value || 0,
+      scannedImageUrl: committedImageUrl || undefined,
       paymentType: paymentType.value,
       paymentAmount: paymentAmount,
       debtAmount: debtAmount,

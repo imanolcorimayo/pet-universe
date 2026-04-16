@@ -214,7 +214,7 @@ function getS3Client(): S3Client {
     return $client;
 }
 
-function uploadToSpaces(array $localFiles, string $slug): array {
+function uploadToSpaces(array $localFiles, string $slug, string $subpath = 'products'): array {
     $s3 = getS3Client();
     $cdnUrls = [];
 
@@ -226,7 +226,7 @@ function uploadToSpaces(array $localFiles, string $slug): array {
 
     foreach ($localFiles as $sizeName => $formats) {
         foreach ($formats as $format => $localPath) {
-            $key = SPACES_PROJECT_PREFIX . "/products/{$slug}-{$sizeName}.{$format}";
+            $key = SPACES_PROJECT_PREFIX . "/{$subpath}/{$slug}-{$sizeName}.{$format}";
 
             $s3->putObject([
                 'Bucket'       => SPACES_BUCKET,
@@ -244,6 +244,83 @@ function uploadToSpaces(array $localFiles, string $slug): array {
     return $cdnUrls;
 }
 
+// Uploads a single invoice image to the pending prefix. Unlike product images,
+// invoices only need one legible variant (shown in a details modal, never
+// responsive), so we skip the multi-size/multi-format pipeline and ship a
+// single 1200px webp. Returns the pending CDN URL.
+function uploadInvoiceImage(string $sourcePath, string $slug): string {
+    if (!is_dir(TMP_DIR)) {
+        mkdir(TMP_DIR, 0755, true);
+    }
+
+    $source = loadImage($sourcePath);
+    $resized = resizeImage($source, 1200);
+
+    $jpgPath  = TMP_DIR . "/{$slug}.jpg";
+    $webpPath = TMP_DIR . "/{$slug}.webp";
+    imagejpeg($resized, $jpgPath, JPEG_QUALITY);
+
+    if (!convertToWebp($jpgPath, $webpPath)) {
+        imagewebp($resized, $webpPath, WEBP_QUALITY);
+    }
+
+    if ($resized !== $source) {
+        imagedestroy($resized);
+    }
+    imagedestroy($source);
+
+    try {
+        $key = SPACES_PROJECT_PREFIX . '/' . SPACES_INVOICE_PENDING_SUBPATH . "/{$slug}.webp";
+        getS3Client()->putObject([
+            'Bucket'       => SPACES_BUCKET,
+            'Key'          => $key,
+            'SourceFile'   => $webpPath,
+            'ACL'          => 'public-read',
+            'ContentType'  => 'image/webp',
+            'CacheControl' => 'public, max-age=31536000, immutable',
+        ]);
+    } finally {
+        @unlink($jpgPath);
+        @unlink($webpPath);
+    }
+
+    return CDN_BASE_URL . '/' . $key;
+}
+
+// Copies a scanned invoice image from the pending prefix to the permanent one.
+// Idempotent — safe to call twice for the same slug. The pending copy is NOT
+// deleted here; the DO Spaces lifecycle rule on the pending prefix handles
+// cleanup. That way, if the purchase save fails after commit, the user can
+// retry and still find the pending image. Returns the committed CDN URL, or
+// '' if nothing could be committed.
+function commitInvoiceImage(string $slug): string {
+    $s3 = getS3Client();
+    $pendingKey   = SPACES_PROJECT_PREFIX . '/' . SPACES_INVOICE_PENDING_SUBPATH . "/{$slug}.webp";
+    $permanentKey = SPACES_PROJECT_PREFIX . '/' . SPACES_INVOICE_SUBPATH         . "/{$slug}.webp";
+
+    try {
+        $s3->copyObject([
+            'Bucket'            => SPACES_BUCKET,
+            'Key'               => $permanentKey,
+            'CopySource'        => SPACES_BUCKET . '/' . $pendingKey,
+            'ACL'               => 'public-read',
+            'ContentType'       => 'image/webp',
+            'CacheControl'      => 'public, max-age=31536000, immutable',
+            'MetadataDirective' => 'REPLACE',
+        ]);
+        return CDN_BASE_URL . '/' . $permanentKey;
+    } catch (Throwable $e) {
+        // Idempotency fallback: previous commit may already have moved it.
+        try {
+            $s3->headObject(['Bucket' => SPACES_BUCKET, 'Key' => $permanentKey]);
+            return CDN_BASE_URL . '/' . $permanentKey;
+        } catch (Throwable $_) {
+            error_log("commitInvoiceImage failed for $slug: " . $e->getMessage());
+            return '';
+        }
+    }
+}
+
 function cleanupTempFiles(array $localFiles): void {
     foreach ($localFiles as $formats) {
         foreach ($formats as $path) {
@@ -253,3 +330,92 @@ function cleanupTempFiles(array $localFiles): void {
         }
     }
 }
+
+// --- AI image prep ---
+
+// Downscale + recompress so the upload to Gemini is fast without losing OCR detail.
+// 2000px wide keeps small text readable on multi-column supplier invoices.
+function prepareImageForAi(string $sourcePath): array {
+    $source = loadImage($sourcePath);
+    $resized = resizeImage($source, 2000);
+
+    ob_start();
+    imagejpeg($resized, null, 85);
+    $jpegBytes = ob_get_clean();
+
+    if ($resized !== $source) {
+        imagedestroy($resized);
+    }
+    imagedestroy($source);
+
+    if ($jpegBytes === false || $jpegBytes === '') {
+        throw new Exception('Failed to encode image for AI');
+    }
+
+    return [
+        'base64'   => base64_encode($jpegBytes),
+        'mimeType' => 'image/jpeg',
+    ];
+}
+
+// --- Locale-aware number parsing ---
+
+// Handles Argentine (1.500,50) and US (1,500.50) formats. Returns 0 on failure.
+function parseLocalizedAmount($raw): float {
+    if (is_int($raw) || is_float($raw)) return (float) $raw;
+    if (!is_string($raw)) return 0.0;
+
+    $str = preg_replace('/[^0-9.,]/', '', $raw);
+    if ($str === '' || $str === null) return 0.0;
+
+    $hasComma = strpos($str, ',') !== false;
+    $hasDot   = strpos($str, '.') !== false;
+
+    if ($hasComma && $hasDot) {
+        $lastComma = strrpos($str, ',');
+        $lastDot   = strrpos($str, '.');
+        if ($lastComma > $lastDot) {
+            // 1.500,50 → Argentine
+            return (float) str_replace(',', '.', str_replace('.', '', $str));
+        }
+        // 1,500.50 → US
+        return (float) str_replace(',', '', $str);
+    }
+
+    if ($hasComma) {
+        if (substr_count($str, ',') > 1) return (float) str_replace(',', '', $str);
+        $afterComma = substr($str, strrpos($str, ',') + 1);
+        if (strlen($afterComma) === 3) return (float) str_replace(',', '', $str);
+        return (float) str_replace(',', '.', $str);
+    }
+
+    if ($hasDot) {
+        if (substr_count($str, '.') > 1) return (float) str_replace('.', '', $str);
+        [$beforeDot, $afterDot] = explode('.', $str);
+        if (strlen($afterDot) === 3 && $beforeDot !== '0') return (float) str_replace('.', '', $str);
+        return (float) $str;
+    }
+
+    return (float) $str;
+}
+
+// Normalizes a date string to YYYY-MM-DD. Returns '' if unparseable.
+function parseInvoiceDate(?string $raw): string {
+    if ($raw === null) return '';
+    $raw = trim($raw);
+    if ($raw === '') return '';
+
+    $formats = [
+        'd/m/Y', 'j/n/Y', 'd-m-Y', 'j-n-Y', 'd.m.Y', 'j.n.Y',
+        'Y-m-d', 'Y/m/d',
+        'd/m/y', 'j/n/y', 'd-m-y', 'j-n-y',
+    ];
+    foreach ($formats as $fmt) {
+        $d = DateTime::createFromFormat($fmt, $raw);
+        if ($d !== false && $d->format($fmt) === $raw) {
+            return $d->format('Y-m-d');
+        }
+    }
+    return '';
+}
+

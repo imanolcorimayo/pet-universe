@@ -134,9 +134,6 @@ import Loader from '~/components/Loader.vue';
 import { ToastEvents } from '~/interfaces';
 import { writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 
-// Helper for standard 2-decimal rounding (used for all prices except cash)
-const roundTo2Decimals = (num) => Math.round(num * 100) / 100;
-
 // Store composables
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
@@ -250,141 +247,57 @@ async function handleUpdateProduct(productId, updates) {
   }
 }
 
-async function handleBulkUpdate(productIds, updateData) {
+async function handleBulkUpdate(plan) {
   isUpdating.value = true;
 
   try {
-    // Single in-memory pass: compute every update synchronously from current state.
-    // No read-after-write, no onSnapshot dependency, no per-product toasts.
-    const plan = [];
-
-    for (const id of productIds) {
-      const product = productStore.products.find(p => p.id === id);
-      const inventory = inventoryItems.value.find(inv => inv.productId === id);
-
-      if (!product || !inventory) {
-        continue;
-      }
-
-      // Derive new cost
-      const currentCost = inventory.lastPurchaseCost || 0;
-      let newCost = currentCost;
-      if (updateData.costPercentage !== undefined && currentCost > 0) {
-        newCost = currentCost * (1 + updateData.costPercentage / 100);
-      }
-
-      // Derive new margin / markup (write-through, no race on store state)
-      const newMargin = updateData.margin !== undefined
-        ? updateData.margin
-        : (product.profitMarginPercentage || 30);
-      const newMarkup = updateData.threePlusMarkupPercentage !== undefined
-        ? updateData.threePlusMarkupPercentage
-        : (product.threePlusMarkupPercentage || 8);
-
-      // Can't price a product with no cost
-      if (!newCost || newCost <= 0) {
-        // Still record margin/markup changes if the user asked for them
-        if (updateData.margin !== undefined || updateData.threePlusMarkupPercentage !== undefined) {
-          plan.push({
-            product,
-            inventory,
-            currentCost,
-            newCost: null,
-            newMargin,
-            newMarkup,
-            newPrices: null,
-          });
-        }
-        continue;
-      }
-
-      const calculatedPrices = productStore.calculatePricing(
-        newCost,
-        newMargin,
-        product.unitWeight,
-        newMarkup,
-      );
-
-      if (!calculatedPrices || typeof calculatedPrices.cash !== 'number' || typeof calculatedPrices.regular !== 'number') {
-        console.error('[BULK-UPDATE] invalid calculatePricing output', { id, calculatedPrices });
-        continue;
-      }
-
-      const currentPrices = product.prices || {};
-
-      // Preserve explicit VIP / bulk unit prices that diverge from cash
-      let vipPrice = calculatedPrices.vip;
-      let bulkPrice = calculatedPrices.bulk;
-      if (currentPrices.vip && typeof currentPrices.vip === 'number' && currentPrices.vip !== currentPrices.cash) {
-        vipPrice = roundTo2Decimals(currentPrices.vip);
-      }
-      if (currentPrices.bulk && typeof currentPrices.bulk === 'number' && currentPrices.bulk !== currentPrices.cash) {
-        bulkPrice = roundTo2Decimals(currentPrices.bulk);
-      }
-
-      const newPrices = {
-        cash: Number(calculatedPrices.cash) || 0,
-        regular: Number(calculatedPrices.regular) || 0,
-        vip: Number(vipPrice) || 0,
-        bulk: Number(bulkPrice) || 0,
-      };
-
-      if (product.trackingType === 'dual' && product.unitWeight > 0 && calculatedPrices.kg) {
-        newPrices.kg = {
-          regular: Number(calculatedPrices.kg.regular) || 0,
-          threePlusDiscount: Number(calculatedPrices.kg.threePlusDiscount) || 0,
-          vip: Number(calculatedPrices.kg.vip) || 0,
-        };
-      }
-
-      plan.push({
-        product,
-        inventory,
-        currentCost,
-        newCost,
-        newMargin,
-        newMarkup,
-        newPrices,
-      });
-    }
-
-    if (plan.length === 0) {
+    // The modal is the single source of truth for pricing math. Each plan
+    // entry already holds the resolved newCost / newMargin / newMarkup /
+    // newPrices, plus per-field touch flags. This handler just translates
+    // entries into batch writes — zero pricing logic.
+    if (!Array.isArray(plan) || plan.length === 0) {
       useToast(ToastEvents.info, 'No hay productos para actualizar');
       return;
     }
 
-    // Single atomic commit — inventory + product docs together.
-    // Firestore writeBatch supports up to 500 ops; we write at most 2 per product.
     const db = useFirestore();
     const batch = writeBatch(db);
     const now = serverTimestamp();
+    let writeCount = 0;
 
     for (const entry of plan) {
-      // Inventory update (cost)
-      if (entry.newCost !== null && entry.newCost !== entry.currentCost) {
-        const invRef = doc(db, 'inventory', entry.inventory.id);
-        batch.update(invRef, {
+      // Inventory write — only if the cost was touched and actually changed.
+      if (entry.costTouched
+          && entry.inventoryId
+          && Number.isFinite(entry.newCost)
+          && entry.newCost > 0
+          && entry.newCost !== entry.currentCost) {
+        batch.update(doc(db, 'inventory', entry.inventoryId), {
           lastPurchaseCost: entry.newCost,
           updatedAt: now,
         });
       }
 
-      // Product update (margin, markup, prices)
+      // Product write — margin/markup metadata and the resolved prices.
       const productUpdates = { updatedAt: now };
-      if (updateData.margin !== undefined) {
+      if (entry.marginTouched && Number.isFinite(entry.newMargin)) {
         productUpdates.profitMarginPercentage = entry.newMargin;
       }
-      if (updateData.threePlusMarkupPercentage !== undefined) {
+      if (entry.markupTouched && Number.isFinite(entry.newMarkup)) {
         productUpdates.threePlusMarkupPercentage = entry.newMarkup;
       }
-      if (entry.newPrices) {
+      if (entry.newPrices && (entry.costTouched || entry.marginTouched || entry.markupTouched)) {
         productUpdates.prices = entry.newPrices;
       }
-      // Only queue if there's actually something beyond updatedAt
       if (Object.keys(productUpdates).length > 1) {
-        const prodRef = doc(db, 'product', entry.product.id);
-        batch.update(prodRef, productUpdates);
+        batch.update(doc(db, 'product', entry.productId), productUpdates);
+        writeCount++;
       }
+    }
+
+    if (writeCount === 0) {
+      useToast(ToastEvents.info, 'No hay cambios para guardar');
+      return;
     }
 
     await batch.commit();

@@ -16,7 +16,7 @@ if (!hash_equals(API_KEY, $apiKey)) {
 
 // Validate business ownership
 $businessId = $_POST['businessId'] ?? '';
-if (empty($businessId) || !hash_equals(ALLOWED_BUSINESS_ID, $businessId)) {
+if (empty($businessId) || !in_array($businessId, ALLOWED_BUSINESS_IDS, true)) {
     jsonResponse(403, ['error' => 'Forbidden']);
 }
 

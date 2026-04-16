@@ -195,6 +195,7 @@ export interface SupplierPurchaseData {
   invoiceDate?: Date;
   invoiceType?: string;
   additionalCharges?: number;
+  scannedImageUrl?: string;
 
   // Payment information
   paymentType: 'full' | 'partial' | 'deferred';
@@ -1239,6 +1240,7 @@ export class BusinessRulesEngine {
             notes: data.notes || '',
             amountAdditional: data.additionalCharges || 0,
             amountTotal: totalAmount,
+            scannedImageUrl: data.scannedImageUrl || '',
             products: data.products.map(item => ({
               productId: item.productId,
               productName: item.productName,

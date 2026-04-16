@@ -108,6 +108,18 @@
           </div>
         </div>
 
+        <!-- Scanned invoice image -->
+        <div v-if="invoice.scannedImageUrl" class="bg-gray-50 p-4 rounded-lg">
+          <h4 class="font-medium text-gray-900 mb-2">Factura escaneada</h4>
+          <a :href="invoice.scannedImageUrl" target="_blank" class="inline-block">
+            <img
+              :src="invoice.scannedImageUrl"
+              alt="Factura escaneada"
+              class="max-h-48 rounded border border-gray-200 hover:opacity-90 transition-opacity"
+            />
+          </a>
+        </div>
+
         <!-- Additional Information -->
         <div v-if="invoice.notes" class="bg-gray-50 p-4 rounded-lg">
           <h4 class="font-medium text-gray-900 mb-2">Notas</h4>

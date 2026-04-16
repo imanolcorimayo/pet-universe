@@ -65,6 +65,12 @@ export class PurchaseInvoiceSchema extends Schema {
       maxLength: 1000,
       default: ''
     },
+    scannedImageUrl: {
+      type: 'string',
+      required: false,
+      maxLength: 500,
+      default: ''
+    },
     createdAt: {
       type: 'date',
       required: true
