@@ -5,9 +5,7 @@
     <div class="container footer-inner">
       <div class="footer-brand">
         <div class="footer-brand-logo">
-          <span class="footer-brand-logo-icon">
-            <iconify-icon icon="mdi:paw" width="18" height="18"></iconify-icon>
-          </span>
+          <img src="<?= asset('img/logo.png') ?>" alt="<?= SITE_NAME ?>" style="width: 40px; height: auto; border-radius: 50%;">
           <span class="footer-logo"><?= SITE_NAME ?></span>
         </div>
         <p class="footer-tagline"><?= SITE_TAGLINE ?>. Alimentos, accesorios y todo para tu mascota en Córdoba.</p>

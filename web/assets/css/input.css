@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+@source "../../includes/header-v*.php";
+@source "../../includes/footer-v*.php";
+@source "../../controllers/home.php";
+@source "../../controllers/home-v*.php";
+@source "../../controllers/_product_card-v*.php";
+
+@theme {
+  --color-paper:       #FAF6EE;
+  --color-paper-deep:  #F2EADC;
+  --color-cream:       #FFF8E8;
+  --color-ink:         #1A1815;
+  --color-ink-soft:    #4A4640;
+  --color-ink-muted:   #8A847C;
+  --color-navy:        #201C4E;
+  --color-navy-soft:   #2D2766;
+  --color-teal:        #00CECE;
+  --color-teal-deep:   #00A8A8;
+  --color-teal-wash:   #E0FAFA;
+  --color-rust:        #C65D3C;
+  --color-rust-deep:   #A54A2E;
+  --color-rust-wash:   #FBEADF;
+  --color-mint:        #D9EFE6;
+  --color-mustard:     #D4A843;
+
+  /* v3 — playful purple stage */
+  --color-purple:      #7242F0;
+  --color-purple-deep: #5A2DD9;
+  --color-purple-soft: #8F67F4;
+  --color-purple-wash: #F0EBFF;
+  --color-yellow:      #FFD93D;
+  --color-yellow-deep: #EBC116;
+  --color-yellow-wash: #FFF8D6;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+  --font-hand:    'Caveat', cursive;
+  --font-chunky:  'Baloo 2', 'DM Sans', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 { font-family: var(--font-display); }
+
+iconify-icon { display: inline-flex; vertical-align: middle; }
+
+/* ── Marquee ── */
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee { animation: marquee 38s linear infinite; }
+.animate-marquee:hover { animation-play-state: paused; }
+.marquee-mask {
+  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+}
+
+/* ── Stickers (rotated badges) ── */
+.sticker { display: inline-block; }
+.sticker-tilt-1 { transform: rotate(-3deg); }
+.sticker-tilt-2 { transform: rotate(2deg); }
+.sticker-tilt-3 { transform: rotate(-1.5deg); }
+.sticker-tilt-4 { transform: rotate(4deg); }
+
+/* ── Hand-drawn accent underline for headline words ── */
+.hand-underline {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+.hand-underline::after {
+  content: '';
+  position: absolute;
+  left: -4px; right: -4px; bottom: 0;
+  height: 14px;
+  background: var(--color-rust);
+  opacity: 0.22;
+  border-radius: 50% / 60%;
+  transform: rotate(-1deg);
+  z-index: -1;
+}
+
+/* ── Dotted paper divider ── */
+.dots-divider {
+  background-image: radial-gradient(circle, var(--color-ink-muted) 1px, transparent 1.2px);
+  background-size: 12px 12px;
+  background-repeat: repeat-x;
+  background-position: center;
+  height: 4px;
+  opacity: 0.35;
+}
+
+/* ── Soft lift on hover ── */
+.lift-on-hover { transition: transform 300ms ease, box-shadow 300ms ease; }
+.lift-on-hover:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(26, 24, 21, 0.08); }
+
+/* ── Horizontal scroller (no scrollbar) ── */
+.scroll-row { scrollbar-width: none; }
+.scroll-row::-webkit-scrollbar { display: none; }
+
+/* ── Reveal on scroll ── */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+.reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+/* ── Noise paper texture overlay (extremely subtle) ── */
+.paper-noise {
+  background-image:
+    radial-gradient(circle at 0% 0%, rgba(198, 93, 60, 0.03) 0, transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(0, 206, 206, 0.03) 0, transparent 50%);
+}

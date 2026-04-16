@@ -22,8 +22,8 @@
   <link rel="canonical" href="<?= $page_canonical ?>">
   <?php endif; ?>
 
-  <!-- Preload hero image -->
-  <link rel="preload" as="image" type="image/webp" href="<?= asset('img/hero/kitten-golden.webp') ?>">
+  <!-- Preload hero -->
+  <link rel="preload" as="image" href="<?= asset('img/hero/store-exterior.jpeg') ?>">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,9 +46,7 @@
   <header class="site-header">
     <div class="container header-inner">
       <a href="/" class="header-logo">
-        <span class="logo-icon">
-          <iconify-icon icon="mdi:paw" width="20" height="20"></iconify-icon>
-        </span>
+        <img src="<?= asset('img/logo.png') ?>" alt="<?= SITE_NAME ?>" class="header-logo-img">
         <span class="logo-text"><?= SITE_NAME ?></span>
       </a>
 
