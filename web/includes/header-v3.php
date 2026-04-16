@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet">
 
   <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
-  <link rel="stylesheet" href="<?= asset('css/app.css') ?>?v=<?= @filemtime(__DIR__ . '/../assets/css/app.css') ?>">
+  <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 
   <script>
   function imgFallback(img){var p=img.closest('picture');if(p){p.style.display='none';var f=p.nextElementSibling;if(f)f.style.display=''}}
