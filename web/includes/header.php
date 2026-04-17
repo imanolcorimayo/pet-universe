@@ -23,7 +23,7 @@
   <?php endif; ?>
 
   <!-- Preload hero -->
-  <link rel="preload" as="image" href="<?= asset('img/hero/store-exterior.jpeg') ?>">
+  <link rel="preload" as="image" href="<?= asset('img/hero/store-interior.webp') ?>" imagesrcset="<?= asset('img/hero/store-interior-sm.webp') ?> 800w, <?= asset('img/hero/store-interior.webp') ?> 1600w" imagesizes="100vw" type="image/webp">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,68 +40,84 @@
   function imgFallback(img){var p=img.closest('picture');if(p){p.style.display='none';var f=p.nextElementSibling;if(f)f.style.display=''}}
   </script>
 </head>
-<body>
+<body class="bg-canvas text-navy min-h-dvh flex flex-col antialiased">
 
-  <!-- Header -->
-  <header class="site-header">
-    <div class="container header-inner">
-      <a href="/" class="header-logo">
-        <img src="<?= asset('img/logo.png') ?>" alt="<?= SITE_NAME ?>" class="header-logo-img">
-        <span class="logo-text"><?= SITE_NAME ?></span>
+  <header class="bg-navy text-white sticky top-0 z-[100] shadow-[0_2px_20px_rgba(32,28,78,0.15)]">
+    <div class="w-full max-w-[1200px] mx-auto px-5 flex items-center justify-between gap-5 h-[60px] md:h-[68px]">
+      <a href="/" class="group flex items-center gap-3 text-white font-display font-semibold text-[22px] tracking-[0.3px] whitespace-nowrap transition-colors hover:text-teal">
+        <img src="<?= asset('img/logo.png') ?>" alt="<?= SITE_NAME ?>" class="w-11 h-auto rounded-full transition-transform group-hover:scale-[1.08]">
+        <span><?= SITE_NAME ?></span>
       </a>
 
-      <nav class="header-nav" id="main-nav">
-        <a href="/productos" class="nav-link">Productos</a>
+      <nav id="main-nav" class="hidden md:flex gap-7">
+        <a href="/productos"
+           class="relative text-white/80 font-semibold text-[14px] tracking-[0.4px] transition-colors hover:text-white after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-0 after:h-0.5 after:bg-teal after:rounded-[1px] after:transition-[width] hover:after:w-full">
+          Productos
+        </a>
       </nav>
 
-      <div class="header-actions">
-        <!-- Search toggle -->
-        <button class="icon-btn" id="search-toggle" aria-label="Buscar">
+      <div class="flex items-center gap-2">
+        <button id="search-toggle" aria-label="Buscar"
+                class="flex items-center text-white p-2 rounded-xl transition-colors hover:bg-white/10">
           <iconify-icon icon="lucide:search" width="20" height="20"></iconify-icon>
         </button>
 
-        <!-- Cart -->
-        <a href="/carrito" class="icon-btn cart-btn" aria-label="Carrito">
+        <a href="/carrito" aria-label="Carrito"
+           class="relative flex items-center text-white p-2 rounded-xl transition-colors hover:bg-white/10">
           <iconify-icon icon="lucide:shopping-bag" width="20" height="20"></iconify-icon>
-          <span class="cart-badge" id="cart-badge" style="display:none;">0</span>
+          <span id="cart-badge"
+                class="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] rounded-full bg-teal text-navy text-[10px] font-bold flex items-center justify-center border-2 border-navy"
+                style="display:none;">0</span>
         </a>
 
-        <!-- Mobile menu toggle -->
-        <button class="icon-btn mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Menú">
+        <button id="mobile-menu-toggle" aria-label="Menú"
+                class="flex md:hidden items-center text-white p-2 rounded-xl transition-colors hover:bg-white/10">
           <iconify-icon icon="lucide:menu" width="22" height="22"></iconify-icon>
         </button>
       </div>
     </div>
 
-    <!-- Search bar (hidden by default) -->
-    <div class="search-bar" id="search-bar" style="display:none;">
-      <div class="container">
-        <form action="/buscar" method="GET" class="search-form">
-          <input type="text" name="q" id="search-input" placeholder="Buscar productos..." autocomplete="off" minlength="2" maxlength="100">
-          <button type="submit" class="search-submit">Buscar</button>
-          <button type="button" class="search-close" id="search-close" aria-label="Cerrar">
+    <div id="search-bar"
+         class="bg-primary py-3.5 border-t border-white/10 animate-[fadeIn_0.3s_ease-out]"
+         style="display:none;">
+      <div class="w-full max-w-[1200px] mx-auto px-5">
+        <form action="/buscar" method="GET" class="flex gap-2 relative">
+          <input type="text" name="q" id="search-input"
+                 placeholder="Buscar productos..." autocomplete="off" minlength="2" maxlength="100"
+                 class="flex-1 py-3 px-[18px] rounded-full border-2 border-transparent text-[15px] outline-none bg-white transition-colors focus:border-teal">
+          <button type="submit"
+                  class="py-3 px-6 bg-teal text-white font-semibold rounded-full text-[14px] transition-all hover:bg-teal-deep hover:shadow-[0_6px_24px_rgba(0,206,206,0.25)]">
+            Buscar
+          </button>
+          <button type="button" id="search-close" aria-label="Cerrar"
+                  class="flex items-center text-white p-2 rounded-full transition-colors hover:bg-white/10">
             <iconify-icon icon="lucide:x" width="20" height="20"></iconify-icon>
           </button>
         </form>
-        <div class="search-autocomplete" id="search-autocomplete"></div>
+        <div id="search-autocomplete"
+             class="empty:hidden bg-white rounded-xl shadow-[0_12px_40px_rgba(32,28,78,0.1)] overflow-hidden mt-2"></div>
       </div>
     </div>
 
-    <!-- Mobile menu -->
-    <div class="mobile-menu" id="mobile-menu" style="display:none;">
-      <a href="/productos" class="mobile-menu-link">
+    <div id="mobile-menu"
+         class="bg-primary border-t border-white/10 py-2 animate-[fadeIn_0.2s_ease-out]"
+         style="display:none;">
+      <a href="/productos"
+         class="flex items-center gap-2.5 py-3.5 px-6 text-white font-semibold text-[15px] transition-colors hover:bg-white/10">
         <iconify-icon icon="lucide:package" width="18" height="18"></iconify-icon>
         Productos
       </a>
-      <a href="/carrito" class="mobile-menu-link">
+      <a href="/carrito"
+         class="flex items-center gap-2.5 py-3.5 px-6 text-white font-semibold text-[15px] transition-colors hover:bg-white/10">
         <iconify-icon icon="lucide:shopping-bag" width="18" height="18"></iconify-icon>
         Carrito
       </a>
-      <a href="https://wa.me/<?= WHATSAPP_NUMBER ?>" class="mobile-menu-link" target="_blank">
+      <a href="https://wa.me/<?= WHATSAPP_NUMBER ?>" target="_blank"
+         class="flex items-center gap-2.5 py-3.5 px-6 text-white font-semibold text-[15px] transition-colors hover:bg-white/10">
         <iconify-icon icon="mdi:whatsapp" width="18" height="18"></iconify-icon>
         WhatsApp
       </a>
     </div>
   </header>
 
-  <main>
+  <main class="flex-1">

@@ -32,27 +32,27 @@ $page_og_image = !empty($product['hasImage']) ? productImageUrl($product['slug']
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<section class="section">
-  <div class="container">
+<section class="py-10 md:py-14">
+  <div class="w-full max-w-[1200px] mx-auto px-5">
 
-    <!-- Breadcrumb -->
-    <nav class="breadcrumb">
-      <a href="/">Inicio</a>
-      <iconify-icon icon="lucide:chevron-right" width="14" height="14" class="breadcrumb-sep"></iconify-icon>
-      <a href="/productos">Productos</a>
+    <nav class="flex items-center gap-2 text-[13px] text-muted mb-7 flex-wrap">
+      <a href="/" class="text-muted transition-colors hover:text-primary">Inicio</a>
+      <iconify-icon icon="lucide:chevron-right" width="14" height="14" class="opacity-40 text-base"></iconify-icon>
+      <a href="/productos" class="text-muted transition-colors hover:text-primary">Productos</a>
       <?php if (!empty($product['categoryName'])): ?>
-        <iconify-icon icon="lucide:chevron-right" width="14" height="14" class="breadcrumb-sep"></iconify-icon>
-        <a href="/productos?categoria=<?= urlencode(strtolower(str_replace(' ', '-', $product['categoryName']))) ?>">
+        <iconify-icon icon="lucide:chevron-right" width="14" height="14" class="opacity-40 text-base"></iconify-icon>
+        <a href="/productos?categoria=<?= urlencode(strtolower(str_replace(' ', '-', $product['categoryName']))) ?>"
+           class="text-muted transition-colors hover:text-primary">
           <?= htmlspecialchars($product['categoryName']) ?>
         </a>
       <?php endif; ?>
-      <iconify-icon icon="lucide:chevron-right" width="14" height="14" class="breadcrumb-sep"></iconify-icon>
+      <iconify-icon icon="lucide:chevron-right" width="14" height="14" class="opacity-40 text-base"></iconify-icon>
       <span><?= htmlspecialchars($product['name']) ?></span>
     </nav>
 
-    <div class="product-detail">
-      <!-- Image -->
-      <div class="product-detail-image">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-7 md:gap-12 items-start">
+
+      <div class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] rounded-[20px] flex items-center justify-center overflow-hidden">
         <?php if (!empty($product['hasImage'])): ?>
           <picture>
             <source type="image/avif" srcset="<?= productImageUrl($product['slug'], 'md', 'avif') ?>?v=<?= $imgV ?>">
@@ -65,57 +65,54 @@ require __DIR__ . '/../includes/header.php';
               onerror="imgFallback(this)"
             >
           </picture>
-          <iconify-icon icon="lucide:package" width="120" height="120" class="product-detail-placeholder" style="display:none;"></iconify-icon>
+          <iconify-icon icon="lucide:package" width="120" height="120" class="text-primary opacity-15" style="display:none;"></iconify-icon>
         <?php else: ?>
-          <iconify-icon icon="lucide:package" width="120" height="120" class="product-detail-placeholder"></iconify-icon>
+          <iconify-icon icon="lucide:package" width="120" height="120" class="text-primary opacity-15"></iconify-icon>
         <?php endif; ?>
       </div>
 
-      <!-- Info -->
-      <div class="product-detail-info">
+      <div class="flex flex-col gap-4">
         <?php if (!empty($product['categoryName'])): ?>
-          <span class="product-detail-category"><?= htmlspecialchars($product['categoryName']) ?></span>
+          <span class="inline-flex text-[11px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-3 py-1 rounded-full w-fit">
+            <?= htmlspecialchars($product['categoryName']) ?>
+          </span>
         <?php endif; ?>
 
-        <h1 class="product-detail-name"><?= htmlspecialchars($product['name']) ?></h1>
+        <h1 class="font-display text-[1.4rem] md:text-[2rem] font-semibold leading-[1.2]"><?= htmlspecialchars($product['name']) ?></h1>
 
         <?php if (!empty($product['brand'])): ?>
-          <span class="product-detail-brand"><?= htmlspecialchars($product['brand']) ?></span>
+          <span class="text-[14px] text-muted"><?= htmlspecialchars($product['brand']) ?></span>
         <?php endif; ?>
 
         <?php if ($isDual && !empty($product['priceKgRegular'])): ?>
-          <!-- Dual product: buy mode toggle -->
-          <div class="buy-mode-toggle" id="buy-mode-toggle">
+          <div id="buy-mode-toggle" class="flex border-2 border-primary rounded-full overflow-hidden w-fit">
             <button class="buy-mode-btn active" data-mode="kg" onclick="setBuyMode('kg')">Por kg</button>
             <button class="buy-mode-btn" data-mode="unit" onclick="setBuyMode('unit')">Por bolsa (<?= $product['unitWeight'] ?>kg)</button>
           </div>
 
-          <!-- Kg pricing (default) -->
-          <div class="product-detail-price" id="price-kg">
-            <?= formatPrice($product['priceKgRegular']) ?><span class="price-unit">/kg</span>
+          <div id="price-kg" class="text-[1.5rem] md:text-[2rem] font-bold text-navy">
+            <?= formatPrice($product['priceKgRegular']) ?><span class="text-[0.55em] font-medium text-muted">/kg</span>
             <?php if (!empty($product['priceKgCash']) && $product['priceKgCash'] < $product['priceKgRegular']): ?>
-              <div class="product-detail-price-cash">
+              <div class="text-[14px] text-muted font-medium">
                 Efectivo / Transferencia: <?= formatPrice($product['priceKgCash']) ?>/kg
               </div>
             <?php endif; ?>
           </div>
 
-          <!-- Unit pricing (hidden by default) -->
-          <div class="product-detail-price" id="price-unit" style="display:none;">
+          <div id="price-unit" class="text-[1.5rem] md:text-[2rem] font-bold text-navy" style="display:none;">
             <?= formatPrice($product['priceRegular']) ?>
             <?php if (!empty($product['priceCash']) && $product['priceCash'] < $product['priceRegular']): ?>
-              <div class="product-detail-price-cash">
+              <div class="text-[14px] text-muted font-medium">
                 Efectivo / Transferencia: <?= formatPrice($product['priceCash']) ?>
               </div>
             <?php endif; ?>
           </div>
 
         <?php else: ?>
-          <!-- Standard product -->
-          <div class="product-detail-price">
+          <div class="text-[1.5rem] md:text-[2rem] font-bold text-navy">
             <?= formatPrice($product['priceRegular']) ?>
             <?php if (!empty($product['priceCash']) && $product['priceCash'] < $product['priceRegular']): ?>
-              <div class="product-detail-price-cash">
+              <div class="text-[14px] text-muted font-medium">
                 Efectivo / Transferencia: <?= formatPrice($product['priceCash']) ?>
               </div>
             <?php endif; ?>
@@ -123,25 +120,23 @@ require __DIR__ . '/../includes/header.php';
         <?php endif; ?>
 
         <?php if (!empty($product['description'])): ?>
-          <p class="product-detail-description"><?= nl2br(htmlspecialchars($product['description'])) ?></p>
+          <p class="text-[15px] text-muted leading-[1.75]"><?= nl2br(htmlspecialchars($product['description'])) ?></p>
         <?php endif; ?>
 
         <?php if (!isset($product['inStock']) || $product['inStock']): ?>
-          <div class="product-detail-actions">
+          <div class="flex gap-3 items-center flex-wrap">
             <?php if ($isDual && !empty($product['priceKgRegular'])): ?>
-              <!-- Kg mode qty (default) -->
               <div class="qty-selector" id="qty-kg">
                 <button class="qty-btn" onclick="stepKgQty(-0.5)">-</button>
                 <input type="number" id="product-qty-kg" class="qty-input" value="1" min="0.5" step="0.5" style="width:60px;">
                 <button class="qty-btn" onclick="stepKgQty(0.5)">+</button>
-                <span class="qty-label">kg</span>
+                <span class="px-2.5 text-[13px] font-semibold text-muted flex items-center">kg</span>
               </div>
-              <!-- Unit mode qty (hidden) -->
               <div class="qty-selector" id="qty-unit" style="display:none;">
                 <button class="qty-btn" onclick="document.getElementById('product-qty-unit').stepDown()">-</button>
                 <input type="number" id="product-qty-unit" class="qty-input" value="1" min="1" step="1">
                 <button class="qty-btn" onclick="document.getElementById('product-qty-unit').stepUp()">+</button>
-                <span class="qty-label">bolsa</span>
+                <span class="px-2.5 text-[13px] font-semibold text-muted flex items-center">bolsa</span>
               </div>
             <?php else: ?>
               <div class="qty-selector">
@@ -150,19 +145,21 @@ require __DIR__ . '/../includes/header.php';
                 <button class="qty-btn" onclick="document.getElementById('product-qty').stepUp()">+</button>
               </div>
             <?php endif; ?>
-            <button class="btn btn-primary" onclick="addToCartFromDetail('<?= $productJson ?>')">
+            <button onclick="addToCartFromDetail('<?= $productJson ?>')"
+                    class="inline-flex items-center justify-center gap-2 px-7 py-[13px] text-[14px] font-semibold tracking-[0.3px] rounded-full border-2 border-primary bg-primary text-white transition-all hover:bg-navy hover:border-navy hover:-translate-y-px hover:shadow-[0_6px_24px_rgba(64,15,255,0.28)]">
               <iconify-icon icon="lucide:shopping-bag" width="16" height="16"></iconify-icon>
               Agregar al carrito
             </button>
           </div>
         <?php else: ?>
-          <p class="product-card-stock-out" style="font-size:16px;">
+          <p class="inline-flex items-center gap-1 text-error text-base font-bold uppercase tracking-[0.3px]">
             <iconify-icon icon="lucide:x-circle" width="18" height="18"></iconify-icon>
             Sin stock
           </p>
         <?php endif; ?>
 
-        <a href="https://wa.me/<?= WHATSAPP_NUMBER ?>?text=<?= $waText ?>" class="btn btn-whatsapp btn-sm" target="_blank">
+        <a href="https://wa.me/<?= WHATSAPP_NUMBER ?>?text=<?= $waText ?>" target="_blank"
+           class="inline-flex items-center justify-center gap-2 px-[18px] py-[9px] text-[12px] font-semibold tracking-[0.3px] rounded-full border-2 border-success bg-success text-white transition-all hover:bg-[#1EBE57] hover:border-[#1EBE57] hover:-translate-y-px hover:shadow-[0_6px_24px_rgba(37,211,102,0.3)] w-fit">
           <iconify-icon icon="mdi:whatsapp" width="16" height="16"></iconify-icon>
           Consultar por WhatsApp
         </a>

@@ -67,11 +67,13 @@ function formatPrice(amount) {
 }
 
 function updateCartBadge() {
-  const badge = document.getElementById('cart-badge');
-  if (!badge) return;
+  const badges = document.querySelectorAll('[id^="cart-badge"]');
+  if (!badges.length) return;
   const count = cart.getItemCount();
-  badge.textContent = count;
-  badge.style.display = count > 0 ? 'flex' : 'none';
+  badges.forEach(badge => {
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'flex' : 'none';
+  });
 }
 
 // Safe text escaping
@@ -243,11 +245,10 @@ function addToCart(productJson) {
   cart.addItem(product, qty);
 
   // Brief visual feedback
-  const badge = document.getElementById('cart-badge');
-  if (badge) {
+  document.querySelectorAll('[id^="cart-badge"]').forEach(badge => {
     badge.style.transform = 'scale(1.3)';
     setTimeout(() => { badge.style.transform = ''; }, 200);
-  }
+  });
 }
 
 // Init badge on load

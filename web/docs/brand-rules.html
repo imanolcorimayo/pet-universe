@@ -9,1501 +9,1334 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
     <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    <style type="text/tailwindcss">
+      @theme {
+        --color-primary:       #400FFF;
+        --color-primary-light: #EDE8FF;
+        --color-navy:          #201C4E;
+        --color-teal:          #00CECE;
+        --color-teal-dark:     #00A8A8;
+        --color-teal-deep:     #00A8A8;
+        --color-teal-light:    #E0FAFA;
+        --color-teal-wash:     #E0FAFA;
+        --color-purple:        #7242F0;
+        --color-purple-light:  #F0EBFF;
+        --color-canvas:        #F8F8FC;
+        --color-hairline:      #E8E6F0;
+        --color-muted:         #A6A6A6;
+        --color-success:       #25D366;
+        --color-error:         #E63946;
+
+        --font-display: 'Fraunces', Georgia, serif;
+        --font-body:    'DM Sans', system-ui, sans-serif;
+      }
+    </style>
     <style>
-        @media print {
-            .page { page-break-after: always; }
-            .page:last-child { page-break-after: avoid; }
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        :root {
-            /* Brand primary palette — from official color sheet */
-            --electric-blue: #400FFF;
-            --teal: #00CECE;
-            --purple: #7242F0;
-            --navy: #201C4E;
-            --gray: #A6A6A6;
-
-            /* Derived functional colors */
-            --primary: #400FFF;
-            --primary-dark: #201C4E;
-            --primary-light: #EDE8FF;
-            --accent: #00CECE;
-            --accent-dark: #00A8A8;
-            --accent-light: #E0FAFA;
-            --purple-light: #F0EBFF;
-
-            /* Neutrals */
-            --bg: #F8F8FC;
-            --surface: #FFFFFF;
-            --text: #201C4E;
-            --text-muted: #A6A6A6;
-            --border: #E8E6F0;
-
-            /* Functional */
-            --success: #25D366;
-            --error: #E63946;
-        }
-
-        body {
-            font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-            background: var(--border);
-            color: var(--text);
-            line-height: 1.6;
-        }
-
-        /* ── Page structure ── */
-        .page {
-            width: 100%;
-            max-width: 900px;
-            min-height: 100vh;
-            margin: 0 auto 4px;
-            padding: 80px 72px;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
-        .page-dark {
-            background: var(--navy);
-            color: var(--primary-light);
-        }
-        .page-light {
-            background: var(--bg);
-            color: var(--text);
-        }
-        .page-accent {
-            background: var(--primary);
-            color: white;
-        }
-        .page-purple {
-            background: var(--purple);
-            color: white;
-        }
-
-        /* ── Cover ── */
-        .cover {
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            gap: 40px;
-        }
-        .cover-logo img {
-            max-width: 280px;
-            height: auto;
-            filter: drop-shadow(0 8px 32px rgba(0, 0, 0, 0.3));
-        }
-        .cover-divider {
-            width: 1px;
-            height: 80px;
-            background: rgba(255, 255, 255, 0.15);
-            margin: 0 auto;
-        }
-        .cover-subtitle {
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            color: var(--teal);
-        }
-
-        /* ── Section titles ── */
-        .section-title {
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            margin-bottom: 48px;
-        }
-        .page-dark .section-title { color: var(--teal); }
-        .page-light .section-title { color: var(--primary); }
-        .page-purple .section-title { color: var(--accent-light); }
-
-        /* ── Body text ── */
-        .body-text {
-            font-size: 16px;
-            font-weight: 400;
-            line-height: 1.8;
-            max-width: 620px;
-        }
-        .body-text + .body-text { margin-top: 24px; }
-        .page-dark .body-text { color: var(--primary-light); opacity: 0.85; }
-
-        /* ── Subsection headings ── */
-        .sub-heading {
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-bottom: 12px;
-            margin-top: 36px;
-        }
-        .sub-heading:first-child { margin-top: 0; }
-        .page-dark .sub-heading { color: var(--teal); }
-        .page-light .sub-heading { color: var(--primary); }
-        .page-purple .sub-heading { color: var(--accent-light); }
-
-        /* ── Page number ── */
-        .page-number {
-            position: absolute;
-            bottom: 36px;
-            right: 72px;
-            font-size: 10px;
-            font-weight: 500;
-            letter-spacing: 2px;
-            opacity: 0.3;
-        }
-
-        /* ── Principle cards ── */
-        .principle-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2px;
-            margin-top: 32px;
-        }
-        .principle-card {
-            padding: 36px 28px;
-        }
-        .page-dark .principle-card { background: rgba(114, 66, 240, 0.08); }
-        .page-light .principle-card { background: var(--primary-light); }
-        .principle-number {
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 3px;
-            margin-bottom: 12px;
-        }
-        .page-dark .principle-number { color: var(--teal); }
-        .page-light .principle-number { color: var(--primary); }
-        .principle-name {
-            font-family: 'Fraunces', Georgia, serif;
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 10px;
-        }
-        .principle-desc {
-            font-size: 13px;
-            font-weight: 400;
-            line-height: 1.7;
-            opacity: 0.7;
-        }
-
-        /* ── Logo cards ── */
-        .logo-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-top: 32px;
-        }
-        .logo-card {
-            padding: 40px 28px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            min-height: 200px;
-            position: relative;
-            border-radius: 8px;
-        }
-        .logo-card img {
-            max-width: 180px;
-            height: auto;
-        }
-        .card-label {
-            position: absolute;
-            bottom: 8px;
-            right: 12px;
-            font-size: 8px;
-            font-weight: 600;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            opacity: 0.35;
-        }
-
-        /* ── Color swatches ── */
-        .color-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-top: 32px;
-        }
-        .color-swatch {
-            aspect-ratio: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            padding: 16px;
-            border-radius: 8px;
-            position: relative;
-        }
-        .swatch-name {
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-        .swatch-hex {
-            font-size: 13px;
-            font-weight: 400;
-            letter-spacing: 1px;
-            font-variant-numeric: tabular-nums;
-        }
-        .swatch-role {
-            font-size: 9px;
-            font-weight: 400;
-            letter-spacing: 1px;
-            margin-top: 6px;
-            opacity: 0.7;
-        }
-
-        /* ── Typography specimens ── */
-        .type-specimen {
-            margin-top: 40px;
-            padding-bottom: 40px;
-            border-bottom: 1px solid var(--border);
-        }
-        .type-specimen:last-child { border-bottom: none; }
-        .page-dark .type-specimen { border-bottom-color: rgba(237, 232, 255, 0.1); }
-        .specimen-name {
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-bottom: 20px;
-        }
-        .page-dark .specimen-name { color: var(--teal); }
-        .page-light .specimen-name { color: var(--primary); }
-        .specimen-display { margin-bottom: 16px; }
-        .specimen-usage {
-            font-size: 13px;
-            font-weight: 300;
-            line-height: 1.7;
-            opacity: 0.7;
-            max-width: 520px;
-        }
-
-        /* ── Type scale ── */
-        .scale-row {
-            display: flex;
-            align-items: baseline;
-            padding: 14px 0;
-            border-bottom: 1px solid rgba(237, 232, 255, 0.08);
-        }
-        .page-light .scale-row { border-bottom-color: var(--border); }
-        .scale-label {
-            width: 140px;
-            flex-shrink: 0;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-        .page-dark .scale-label { color: var(--teal); }
-        .page-light .scale-label { color: var(--primary); }
-        .scale-spec {
-            width: 200px;
-            flex-shrink: 0;
-            font-size: 11px;
-            font-weight: 400;
-            opacity: 0.5;
-            font-variant-numeric: tabular-nums;
-        }
-        .scale-sample { flex: 1; }
-
-        /* ── Do / Don't ── */
-        .rules-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 48px;
-            margin-top: 32px;
-        }
-        .rule-column h3 {
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-bottom: 20px;
-            padding-bottom: 12px;
-            border-bottom: 2px solid;
-        }
-        .rule-do h3 { color: var(--primary); border-bottom-color: var(--primary); }
-        .page-dark .rule-do h3 { color: var(--teal); border-bottom-color: var(--teal); }
-        .page-purple .rule-do h3 { color: var(--accent-light); border-bottom-color: var(--accent-light); }
-        .rule-dont h3 { color: var(--text-muted); border-bottom-color: var(--text-muted); }
-        .page-dark .rule-dont h3 { color: rgba(237, 232, 255, 0.4); border-bottom-color: rgba(237, 232, 255, 0.2); }
-        .page-purple .rule-dont h3 { color: rgba(255, 255, 255, 0.4); border-bottom-color: rgba(255, 255, 255, 0.2); }
-        .rule-column ul { list-style: none; padding: 0; }
-        .rule-column li {
-            font-size: 13px;
-            font-weight: 400;
-            line-height: 1.7;
-            padding: 6px 0;
-            opacity: 0.8;
-        }
-
-        /* ── Incorrect usage ── */
-        .incorrect-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-top: 32px;
-        }
-        .incorrect-card {
-            padding: 32px 24px;
-            background: rgba(237, 232, 255, 0.04);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 160px;
-            position: relative;
-            border-radius: 8px;
-        }
-        .incorrect-card img {
-            max-width: 140px;
-            height: auto;
-        }
-        .incorrect-label {
-            font-size: 9px;
-            font-weight: 500;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            margin-top: 16px;
-            text-align: center;
-        }
-        .incorrect-x {
-            position: absolute;
-            top: 10px;
-            right: 14px;
-            font-size: 14px;
-            color: var(--error);
-            font-weight: 700;
-        }
-
-        /* ── Spacing note ── */
-        .spacing-note {
-            margin-top: 40px;
-            padding: 24px 28px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 400;
-            line-height: 1.8;
-            opacity: 0.8;
-        }
-        .page-dark .spacing-note { background: rgba(114, 66, 240, 0.08); }
-        .page-light .spacing-note { background: var(--primary-light); }
-        .page-purple .spacing-note { background: rgba(255, 255, 255, 0.08); }
-
-        /* ── Icon grid ── */
-        .icon-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            margin-top: 32px;
-        }
-        .icon-card {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            padding: 24px 16px;
-            border-radius: 8px;
-        }
-        .icon-card-name {
-            font-size: 9px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            opacity: 0.5;
-            text-align: center;
-        }
-
-        /* ── Color combo ── */
-        .combo-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-top: 32px;
-        }
-        .combo-card {
-            padding: 28px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-            min-height: 100px;
-        }
-        .combo-card img {
-            max-width: 120px;
-            height: auto;
-        }
-
-        /* ── Store gallery ── */
-        .gallery-hero {
-            width: 100%;
-            border-radius: 12px;
-            overflow: hidden;
-            margin-top: 32px;
-        }
-        .gallery-hero img {
-            width: 100%;
-            height: 360px;
-            object-fit: cover;
-            display: block;
-        }
-        .gallery-hero-caption {
-            padding: 16px 20px;
-            font-size: 12px;
-            font-weight: 500;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            opacity: 0.5;
-        }
-        .page-dark .gallery-hero-caption { color: var(--primary-light); }
-        .page-light .gallery-hero-caption { color: var(--text); }
-
-        .gallery-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-top: 24px;
-        }
-        .gallery-item {
-            border-radius: 12px;
-            overflow: hidden;
-        }
-        .gallery-item img {
-            width: 100%;
-            height: 280px;
-            object-fit: cover;
-            display: block;
-        }
-        .gallery-item-caption {
-            padding: 12px 16px;
-            font-size: 11px;
-            font-weight: 500;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            opacity: 0.5;
-        }
-
-        .gallery-full {
-            border-radius: 12px;
-            overflow: hidden;
-            margin-top: 24px;
-        }
-        .gallery-full img {
-            width: 100%;
-            height: 320px;
-            object-fit: cover;
-            display: block;
-        }
-        .gallery-full-caption {
-            padding: 14px 20px;
-            font-size: 11px;
-            font-weight: 500;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            opacity: 0.5;
-        }
-
-        /* ── TBD blocks ── */
-        .tbd-block {
-            margin-top: 24px;
-            padding: 28px;
-            border-radius: 8px;
-            border: 2px dashed;
-        }
-        .page-light .tbd-block { border-color: var(--primary); background: var(--primary-light); }
-        .page-dark .tbd-block { border-color: var(--teal); background: rgba(0, 206, 206, 0.06); }
-        .tbd-label {
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-bottom: 12px;
-        }
-        .page-light .tbd-label { color: var(--primary); }
-        .page-dark .tbd-label { color: var(--teal); }
-        .tbd-text {
-            font-size: 14px;
-            line-height: 1.7;
-            opacity: 0.8;
-        }
-
-        /* ── Checklist ── */
-        .checklist {
-            list-style: none;
-            padding: 0;
-            margin-top: 16px;
-        }
-        .checklist li {
-            font-size: 14px;
-            line-height: 1.8;
-            padding: 4px 0;
-            padding-left: 28px;
-            position: relative;
-        }
-        .checklist li::before {
-            content: '☐';
-            position: absolute;
-            left: 0;
-            font-size: 16px;
-        }
-
-        /* ── Contact info ── */
-        .contact-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-top: 32px;
-        }
-        .contact-card {
-            padding: 24px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        .contact-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-        .contact-info {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-        .contact-label {
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            opacity: 0.5;
-        }
-        .contact-value {
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        /* ── Benefits mockup ── */
-        .benefits-mockup {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 2px;
-            margin-top: 32px;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .benefit-item {
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-        .benefit-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-        .benefit-text {
-            font-size: 12px;
-            font-weight: 500;
-            line-height: 1.5;
-        }
-
-        /* ── Photo comparison ── */
-        .photo-comparison {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            margin-top: 32px;
-        }
-        .photo-example {
-            border-radius: 8px;
-            padding: 28px 24px;
-            text-align: center;
-        }
-        .photo-example-visual {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            margin: 0 auto 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .photo-example-label {
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-bottom: 8px;
-        }
-        .photo-example-desc {
-            font-size: 12px;
-            line-height: 1.6;
-            opacity: 0.7;
-        }
+      .page {
+        width: 100%;
+        max-width: 900px;
+        min-height: 100vh;
+        margin: 0 auto 4px;
+        padding: 80px 72px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+      @media print {
+        .page { page-break-after: always; }
+        .page:last-child { page-break-after: avoid; }
+      }
     </style>
 </head>
-<body>
+<body class="font-body bg-hairline text-navy leading-[1.6]">
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 1 — Cover                                  -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-dark cover">
-    <div class="cover-logo">
-        <img src="/internal/assets/logo-transparent.png" alt="Pet Universe Córdoba — Tienda de Mascotas">
+<div class="page bg-navy text-primary-light justify-center items-center text-center gap-10">
+    <div>
+        <img src="/internal/assets/logo-transparent.png" alt="Pet Universe Córdoba — Tienda de Mascotas"
+             class="max-w-[280px] h-auto drop-shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
     </div>
-    <div class="cover-divider"></div>
-    <div class="cover-subtitle">Manual de Marca</div>
-    <div class="page-number">01</div>
+    <div class="w-px h-20 bg-white/15 mx-auto"></div>
+    <div class="text-xs font-semibold tracking-[4px] uppercase text-teal">Manual de Marca</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">01</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 2 — Esencia de Marca                       -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-light">
-    <div class="section-title">Esencia de Marca</div>
+<div class="page bg-canvas text-navy">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-primary">Esencia de Marca</div>
 
-    <div class="sub-heading">Propósito</div>
-    <p class="body-text">
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 text-primary">Propósito</div>
+    <p class="text-base leading-[1.8] max-w-[620px]">
         Hacer accesible el cuidado de calidad para las mascotas. Queremos que cada dueño encuentre lo mejor para su compañero sin complicaciones, con precios justos y atención cercana.
     </p>
 
-    <div class="sub-heading">Visión</div>
-    <p class="body-text">
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 mt-9 text-primary">Visión</div>
+    <p class="text-base leading-[1.8] max-w-[620px]">
         Ser la tienda de mascotas de referencia en Córdoba. Un lugar donde la gente confía, vuelve y recomienda — porque sabe que sus mascotas están en buenas manos.
     </p>
 
-    <div class="sub-heading">Personalidad</div>
-    <p class="body-text">
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 mt-9 text-primary">Personalidad</div>
+    <p class="text-base leading-[1.8] max-w-[620px]">
         Pet Universe es cálido, cercano y profesional. Hablamos con conocimiento pero sin distancia. Somos el vecino que sabe de mascotas y siempre tiene el mejor consejo. No somos una cadena fría ni un negocio improvisado.
     </p>
 
-    <div class="sub-heading">Territorio Emocional</div>
-    <p class="body-text">
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 mt-9 text-primary">Territorio Emocional</div>
+    <p class="text-base leading-[1.8] max-w-[620px]">
         Operamos en el espacio entre el amor por las mascotas y la confianza en un experto. El cliente siente que estamos genuinamente comprometidos con el bienestar de su mascota.
     </p>
 
-    <div class="tbd-block">
-        <div class="tbd-label">Falta ser definido</div>
-        <p class="tbd-text">
+    <div class="mt-10 p-7 rounded-lg border-2 border-dashed border-primary bg-primary-light">
+        <div class="text-[10px] font-bold tracking-[3px] uppercase mb-3 text-primary">Falta ser definido</div>
+        <p class="text-sm leading-[1.7] opacity-80">
             <strong>Tagline / Eslogan:</strong> ¿Cuál es la frase que define a Pet Universe? Opciones actuales en uso:
         </p>
-        <ul style="margin-top: 8px; padding-left: 20px; font-size: 14px; line-height: 1.8; opacity: 0.8;">
+        <ul class="mt-2 pl-5 text-sm leading-[1.8] opacity-80 list-disc">
             <li>"Tienda de Mascotas" (logo actual)</li>
             <li>"Lo esencial para tu MASCOTA" (vidriera)</li>
             <li>"Todo para tu mascota en un solo lugar" (web)</li>
         </ul>
-        <p class="tbd-text" style="margin-top: 12px;">
+        <p class="text-sm leading-[1.7] opacity-80 mt-3">
             Elegir una frase principal para toda la comunicación. Las demás pueden usarse como secundarias.
         </p>
     </div>
 
-    <div class="page-number">02</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">02</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 3 — Principios                             -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-dark">
-    <div class="section-title">Principios</div>
+<div class="page bg-navy text-primary-light">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-teal">Principios</div>
 
-    <p class="body-text" style="margin-bottom: 12px;">
+    <p class="text-base leading-[1.8] max-w-[620px] opacity-85 mb-3">
         Cuatro filtros para cada decisión visual y de comunicación:
     </p>
 
-    <div class="principle-grid">
-        <div class="principle-card">
-            <div class="principle-number">01</div>
-            <div class="principle-name">Calidez</div>
-            <div class="principle-desc">Cada punto de contacto debe transmitir cercanía y cariño. Colores que invitan, formas suaves, lenguaje amigable.</div>
+    <div class="grid grid-cols-2 gap-0.5 mt-8">
+        <div class="py-9 px-7 bg-purple/[0.08]">
+            <div class="text-[10px] font-bold tracking-[3px] mb-3 text-teal">01</div>
+            <div class="font-display text-lg font-semibold mb-2.5">Calidez</div>
+            <div class="text-[13px] leading-[1.7] opacity-70">Cada punto de contacto debe transmitir cercanía y cariño. Colores que invitan, formas suaves, lenguaje amigable.</div>
         </div>
-        <div class="principle-card">
-            <div class="principle-number">02</div>
-            <div class="principle-name">Confianza</div>
-            <div class="principle-desc">Profesionalismo sin frialdad. El cliente necesita saber que sabemos lo que hacemos. Consistencia visual y claridad en la comunicación.</div>
+        <div class="py-9 px-7 bg-purple/[0.08]">
+            <div class="text-[10px] font-bold tracking-[3px] mb-3 text-teal">02</div>
+            <div class="font-display text-lg font-semibold mb-2.5">Confianza</div>
+            <div class="text-[13px] leading-[1.7] opacity-70">Profesionalismo sin frialdad. El cliente necesita saber que sabemos lo que hacemos. Consistencia visual y claridad en la comunicación.</div>
         </div>
-        <div class="principle-card">
-            <div class="principle-number">03</div>
-            <div class="principle-name">Cercanía</div>
-            <div class="principle-desc">Somos el pet shop del barrio. Accesibles, humanos, reales. Sin corporativismo ni distancia innecesaria.</div>
+        <div class="py-9 px-7 bg-purple/[0.08]">
+            <div class="text-[10px] font-bold tracking-[3px] mb-3 text-teal">03</div>
+            <div class="font-display text-lg font-semibold mb-2.5">Cercanía</div>
+            <div class="text-[13px] leading-[1.7] opacity-70">Somos el pet shop del barrio. Accesibles, humanos, reales. Sin corporativismo ni distancia innecesaria.</div>
         </div>
-        <div class="principle-card">
-            <div class="principle-number">04</div>
-            <div class="principle-name">Simplicidad</div>
-            <div class="principle-desc">Nada de excesos. Comunicar con claridad, diseñar con intención. Menos es más cuando cada elemento tiene propósito.</div>
+        <div class="py-9 px-7 bg-purple/[0.08]">
+            <div class="text-[10px] font-bold tracking-[3px] mb-3 text-teal">04</div>
+            <div class="font-display text-lg font-semibold mb-2.5">Simplicidad</div>
+            <div class="text-[13px] leading-[1.7] opacity-70">Nada de excesos. Comunicar con claridad, diseñar con intención. Menos es más cuando cada elemento tiene propósito.</div>
         </div>
     </div>
 
-    <div class="page-number">03</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">03</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 4 — Conocé Nuestro Local                   -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-light">
-    <div class="section-title">Conocé Nuestro Local</div>
+<div class="page bg-canvas text-navy">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-primary">Conocé Nuestro Local</div>
 
-    <p class="body-text" style="margin-bottom: 8px;">
+    <p class="text-base leading-[1.8] max-w-[620px] mb-2">
         Pet Universe está ubicado en Luis Agote 1924, Córdoba. Un local a la calle, luminoso y lleno de variedad. Estas fotos muestran la identidad real del negocio — la referencia visual para toda comunicación.
     </p>
 
-    <div class="gallery-hero">
-        <img src="/internal/assets/store-exterior.jpeg" alt="Frente del local Pet Universe — Luis Agote 1924, Córdoba">
-        <div class="gallery-hero-caption">Fachada — Vidriera con logo, contacto y productos visibles desde la calle</div>
+    <div class="w-full rounded-xl overflow-hidden mt-8">
+        <img src="/internal/assets/store-exterior.jpeg" alt="Frente del local Pet Universe — Luis Agote 1924, Córdoba"
+             class="w-full h-[360px] object-cover block">
+        <div class="py-4 px-5 text-xs font-medium tracking-[1px] uppercase opacity-50 text-navy">Fachada — Vidriera con logo, contacto y productos visibles desde la calle</div>
     </div>
 
-    <div class="page-number">04</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">04</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 5 — El Local por Dentro                    -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-dark">
-    <div class="section-title">El Local por Dentro</div>
+<div class="page bg-navy text-primary-light">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-teal">El Local por Dentro</div>
 
-    <div class="gallery-grid">
-        <div class="gallery-item" style="background: rgba(114, 66, 240, 0.08);">
-            <img src="/internal/assets/store-interior.jpeg" alt="Interior del local — mostrador y estanterías">
-            <div class="gallery-item-caption" style="color: var(--primary-light);">Vista general — Mostrador con logo, estanterías y variedad de productos</div>
+    <div class="grid grid-cols-2 gap-4 mt-8">
+        <div class="rounded-xl overflow-hidden bg-purple/[0.08]">
+            <img src="/internal/assets/store-interior.jpeg" alt="Interior del local — mostrador y estanterías"
+                 class="w-full h-[280px] object-cover block">
+            <div class="py-3 px-4 text-[11px] font-medium tracking-[1px] uppercase opacity-50 text-primary-light">Vista general — Mostrador con logo, estanterías y variedad de productos</div>
         </div>
-        <div class="gallery-item" style="background: rgba(114, 66, 240, 0.08);">
-            <img src="/internal/assets/store-accessories.jpeg" alt="Accesorios — transportadoras, cuchas, comederos, juguetes">
-            <div class="gallery-item-caption" style="color: var(--primary-light);">Accesorios — Transportadoras, cuchas, comederos, correas y juguetes</div>
+        <div class="rounded-xl overflow-hidden bg-purple/[0.08]">
+            <img src="/internal/assets/store-accessories.jpeg" alt="Accesorios — transportadoras, cuchas, comederos, juguetes"
+                 class="w-full h-[280px] object-cover block">
+            <div class="py-3 px-4 text-[11px] font-medium tracking-[1px] uppercase opacity-50 text-primary-light">Accesorios — Transportadoras, cuchas, comederos, correas y juguetes</div>
         </div>
     </div>
 
-    <div class="gallery-full" style="background: rgba(114, 66, 240, 0.08);">
-        <img src="/internal/assets/store-window-display.jpeg" alt="Vidriera — torre para gatos y alimentos">
-        <div class="gallery-full-caption" style="color: var(--primary-light);">Vidriera — Productos visibles desde la calle, atrae clientes que pasan</div>
+    <div class="rounded-xl overflow-hidden mt-6 bg-purple/[0.08]">
+        <img src="/internal/assets/store-window-display.jpeg" alt="Vidriera — torre para gatos y alimentos"
+             class="w-full h-[320px] object-cover block">
+        <div class="py-3.5 px-5 text-[11px] font-medium tracking-[1px] uppercase opacity-50 text-primary-light">Vidriera — Productos visibles desde la calle, atrae clientes que pasan</div>
     </div>
 
-    <div class="page-number">05</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">05</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 6 — Mascotas en el Local                   -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-light">
-    <div class="section-title">Mascotas en el Local</div>
+<div class="page bg-canvas text-navy">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-primary">Mascotas en el Local</div>
 
-    <p class="body-text" style="margin-bottom: 8px;">
+    <p class="text-base leading-[1.8] max-w-[620px] mb-2">
         Las mascotas que visitan el local son la mejor prueba de lo que somos. Estas fotos son oro para la marca — muestran que los animales son bienvenidos y felices acá.
     </p>
 
-    <div class="gallery-hero">
-        <img src="/internal/assets/store-dog-logo.jpeg" alt="Bulldog francés visitando Pet Universe" style="height: 440px;">
-        <div class="gallery-hero-caption">Cliente real — Un bulldog francés posando frente al logo del local</div>
+    <div class="w-full rounded-xl overflow-hidden mt-8">
+        <img src="/internal/assets/store-dog-logo.jpeg" alt="Bulldog francés visitando Pet Universe"
+             class="w-full h-[440px] object-cover block">
+        <div class="py-4 px-5 text-xs font-medium tracking-[1px] uppercase opacity-50 text-navy">Cliente real — Un bulldog francés posando frente al logo del local</div>
     </div>
 
-    <div class="tbd-block">
-        <div class="tbd-label">Fotos pendientes para el dueño</div>
-        <p class="tbd-text">Necesitamos más fotos del local y sus visitantes para completar la identidad visual:</p>
-        <ul class="checklist">
-            <li>Mostrador / zona de atención al cliente (vista cercana)</li>
-            <li>Más mascotas visitando el local (perros, gatos, otros)</li>
-            <li>Equipo de trabajo / staff atendiendo</li>
-            <li>Momento de venta o recomendación a un cliente</li>
-            <li>Exterior del local de noche (si tiene cartel iluminado)</li>
-            <li>Productos estrella exhibidos (alimentos premium, accesorios populares)</li>
-            <li>Fotos de clientes con sus mascotas (con permiso) para redes y web</li>
-            <li>Detalle del logo en el cartel interior de madera</li>
+    <div class="mt-6 p-7 rounded-lg border-2 border-dashed border-primary bg-primary-light">
+        <div class="text-[10px] font-bold tracking-[3px] uppercase mb-3 text-primary">Fotos pendientes para el dueño</div>
+        <p class="text-sm leading-[1.7] opacity-80">Necesitamos más fotos del local y sus visitantes para completar la identidad visual:</p>
+        <ul class="mt-4 list-none">
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Mostrador / zona de atención al cliente (vista cercana)</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Más mascotas visitando el local (perros, gatos, otros)</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Equipo de trabajo / staff atendiendo</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Momento de venta o recomendación a un cliente</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Exterior del local de noche (si tiene cartel iluminado)</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Productos estrella exhibidos (alimentos premium, accesorios populares)</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Fotos de clientes con sus mascotas (con permiso) para redes y web</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Detalle del logo en el cartel interior de madera</li>
         </ul>
     </div>
 
-    <div class="page-number">06</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">06</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 7 — Logo Principal                         -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-dark">
-    <div class="section-title">Logo — Versión Principal</div>
+<div class="page bg-navy text-primary-light">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-teal">Logo — Versión Principal</div>
 
-    <p class="body-text" style="margin-bottom: 8px;">
+    <p class="text-base leading-[1.8] max-w-[620px] opacity-85 mb-2">
         El logo es un óvalo con fondo de galaxia, siluetas blancas de perro, gato, conejo y ave, con el nombre "PET UNIVERSE" y el subtítulo "TIENDA DE MASCOTAS". El fondo cósmico es parte integral del logo — no debe eliminarse.
     </p>
 
-    <div class="logo-grid">
-        <div class="logo-card" style="background: var(--navy);">
-            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre fondo oscuro">
-            <span class="card-label" style="color: var(--primary-light);">FONDO OSCURO</span>
+    <div class="grid grid-cols-2 gap-4 mt-8">
+        <div class="py-10 px-7 flex flex-col items-center justify-center gap-4 min-h-[200px] relative rounded-lg bg-navy">
+            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre fondo oscuro" class="max-w-[180px] h-auto">
+            <span class="absolute bottom-2 right-3 text-[8px] font-semibold tracking-[2px] uppercase opacity-35 text-primary-light">FONDO OSCURO</span>
         </div>
-        <div class="logo-card" style="background: var(--bg); border: 1px solid var(--border);">
-            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre fondo claro">
-            <span class="card-label" style="color: var(--text);">FONDO CLARO</span>
+        <div class="py-10 px-7 flex flex-col items-center justify-center gap-4 min-h-[200px] relative rounded-lg bg-canvas border border-hairline">
+            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre fondo claro" class="max-w-[180px] h-auto">
+            <span class="absolute bottom-2 right-3 text-[8px] font-semibold tracking-[2px] uppercase opacity-35 text-navy">FONDO CLARO</span>
         </div>
-        <div class="logo-card" style="background: var(--primary);">
-            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre fondo azul">
-            <span class="card-label" style="color: white;">FONDO AZUL</span>
+        <div class="py-10 px-7 flex flex-col items-center justify-center gap-4 min-h-[200px] relative rounded-lg bg-primary">
+            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre fondo azul" class="max-w-[180px] h-auto">
+            <span class="absolute bottom-2 right-3 text-[8px] font-semibold tracking-[2px] uppercase opacity-35 text-white">FONDO AZUL</span>
         </div>
-        <div class="logo-card" style="background: white; border: 1px solid var(--border);">
-            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre fondo blanco">
-            <span class="card-label" style="color: var(--text);">FONDO BLANCO</span>
+        <div class="py-10 px-7 flex flex-col items-center justify-center gap-4 min-h-[200px] relative rounded-lg bg-white border border-hairline">
+            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre fondo blanco" class="max-w-[180px] h-auto">
+            <span class="absolute bottom-2 right-3 text-[8px] font-semibold tracking-[2px] uppercase opacity-35 text-navy">FONDO BLANCO</span>
         </div>
     </div>
 
-    <div class="spacing-note">
+    <div class="mt-10 py-6 px-7 rounded-lg text-sm leading-[1.8] opacity-80 bg-purple/[0.08]">
         <strong>Espacio de protección:</strong> Mantener siempre un margen mínimo alrededor del logo equivalente a la altura del texto "PET UNIVERSE". Nunca comprimir, estirar o alterar las proporciones. El fondo de galaxia es parte del logo.
     </div>
 
-    <div class="tbd-block">
-        <div class="tbd-label">Falta ser definido</div>
-        <p class="tbd-text">
+    <div class="mt-6 p-7 rounded-lg border-2 border-dashed border-teal bg-teal/[0.06]">
+        <div class="text-[10px] font-bold tracking-[3px] uppercase mb-3 text-teal">Falta ser definido</div>
+        <p class="text-sm leading-[1.7] opacity-80">
             <strong>Versión monocromática:</strong> ¿Existe una versión del logo en un solo color (blanco o negro) para usos donde la galaxia no funciona? (ej: estampado en bolsas, bordado, grabado). Si no existe, se recomienda crear una.
         </p>
     </div>
 
-    <div class="page-number">07</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">07</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 8 — Usos Incorrectos                      -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-light">
-    <div class="section-title">Logo — Usos Incorrectos</div>
+<div class="page bg-canvas text-navy">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-primary">Logo — Usos Incorrectos</div>
 
-    <p class="body-text" style="margin-bottom: 8px;">
+    <p class="text-base leading-[1.8] max-w-[620px] mb-2">
         El logo no debe ser alterado de ninguna forma. Estas son modificaciones expresamente prohibidas:
     </p>
 
-    <div class="incorrect-grid">
-        <div class="incorrect-card" style="background: var(--primary-light);">
-            <span class="incorrect-x">&times;</span>
-            <img src="/internal/assets/logo-transparent.png" style="transform: scaleX(1.4);" alt="Logo distorsionado">
-            <span class="incorrect-label">No distorsionar proporciones</span>
+    <div class="grid grid-cols-2 gap-4 mt-8">
+        <div class="py-8 px-6 bg-primary-light flex flex-col items-center justify-center min-h-[160px] relative rounded-lg">
+            <span class="absolute top-2.5 right-3.5 text-sm text-error font-bold">&times;</span>
+            <img src="/internal/assets/logo-transparent.png" class="max-w-[140px] h-auto scale-x-[1.4]" alt="Logo distorsionado">
+            <span class="text-[9px] font-medium tracking-[2px] uppercase text-muted mt-4 text-center">No distorsionar proporciones</span>
         </div>
-        <div class="incorrect-card" style="background: var(--primary-light);">
-            <span class="incorrect-x">&times;</span>
-            <img src="/internal/assets/logo-transparent.png" style="filter: hue-rotate(90deg);" alt="Logo con colores alterados">
-            <span class="incorrect-label">No alterar los colores del logo</span>
+        <div class="py-8 px-6 bg-primary-light flex flex-col items-center justify-center min-h-[160px] relative rounded-lg">
+            <span class="absolute top-2.5 right-3.5 text-sm text-error font-bold">&times;</span>
+            <img src="/internal/assets/logo-transparent.png" class="max-w-[140px] h-auto [filter:hue-rotate(90deg)]" alt="Logo con colores alterados">
+            <span class="text-[9px] font-medium tracking-[2px] uppercase text-muted mt-4 text-center">No alterar los colores del logo</span>
         </div>
-        <div class="incorrect-card" style="background: var(--primary-light);">
-            <span class="incorrect-x">&times;</span>
-            <img src="/internal/assets/logo-transparent.png" style="transform: rotate(-12deg);" alt="Logo rotado">
-            <span class="incorrect-label">No rotar el logo</span>
+        <div class="py-8 px-6 bg-primary-light flex flex-col items-center justify-center min-h-[160px] relative rounded-lg">
+            <span class="absolute top-2.5 right-3.5 text-sm text-error font-bold">&times;</span>
+            <img src="/internal/assets/logo-transparent.png" class="max-w-[140px] h-auto rotate-[-12deg]" alt="Logo rotado">
+            <span class="text-[9px] font-medium tracking-[2px] uppercase text-muted mt-4 text-center">No rotar el logo</span>
         </div>
-        <div class="incorrect-card" style="background: var(--primary-light);">
-            <span class="incorrect-x">&times;</span>
-            <img src="/internal/assets/logo-transparent.png" style="filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));" alt="Logo con sombra">
-            <span class="incorrect-label">No agregar sombras ni efectos</span>
+        <div class="py-8 px-6 bg-primary-light flex flex-col items-center justify-center min-h-[160px] relative rounded-lg">
+            <span class="absolute top-2.5 right-3.5 text-sm text-error font-bold">&times;</span>
+            <img src="/internal/assets/logo-transparent.png" class="max-w-[140px] h-auto drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]" alt="Logo con sombra">
+            <span class="text-[9px] font-medium tracking-[2px] uppercase text-muted mt-4 text-center">No agregar sombras ni efectos</span>
         </div>
-        <div class="incorrect-card" style="background: var(--primary-light);">
-            <span class="incorrect-x">&times;</span>
-            <img src="/internal/assets/logo-transparent.png" style="opacity: 0.3;" alt="Logo con baja opacidad">
-            <span class="incorrect-label">No reducir la opacidad</span>
+        <div class="py-8 px-6 bg-primary-light flex flex-col items-center justify-center min-h-[160px] relative rounded-lg">
+            <span class="absolute top-2.5 right-3.5 text-sm text-error font-bold">&times;</span>
+            <img src="/internal/assets/logo-transparent.png" class="max-w-[140px] h-auto opacity-30" alt="Logo con baja opacidad">
+            <span class="text-[9px] font-medium tracking-[2px] uppercase text-muted mt-4 text-center">No reducir la opacidad</span>
         </div>
-        <div class="incorrect-card" style="background: var(--primary-light);">
-            <span class="incorrect-x">&times;</span>
-            <img src="/internal/assets/logo-transparent.png" style="border-radius: 0;" alt="Logo recortado">
-            <span class="incorrect-label">No recortar ni eliminar el óvalo</span>
+        <div class="py-8 px-6 bg-primary-light flex flex-col items-center justify-center min-h-[160px] relative rounded-lg">
+            <span class="absolute top-2.5 right-3.5 text-sm text-error font-bold">&times;</span>
+            <img src="/internal/assets/logo-transparent.png" class="max-w-[140px] h-auto rounded-none" alt="Logo recortado">
+            <span class="text-[9px] font-medium tracking-[2px] uppercase text-muted mt-4 text-center">No recortar ni eliminar el óvalo</span>
         </div>
     </div>
 
-    <div class="page-number">08</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">08</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 9 — Paleta de Colores                      -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-light">
-    <div class="section-title">Paleta de Colores</div>
+<div class="page bg-canvas text-navy">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-primary">Paleta de Colores</div>
 
-    <p class="body-text" style="margin-bottom: 8px;">
+    <p class="text-base leading-[1.8] max-w-[620px] mb-2">
         La paleta combina azules profundos con un teal vibrante. El azul eléctrico y el navy transmiten profesionalismo y confianza; el teal aporta frescura y energía. El púrpura conecta con el universo cósmico del logo.
     </p>
 
-    <div class="color-grid">
-        <div class="color-swatch" style="background: #400FFF; color: white;">
-            <span class="swatch-name">Azul Eléctrico</span>
-            <span class="swatch-hex">#400FFF</span>
-            <span class="swatch-role">Color primario. CTAs, links, elementos activos</span>
+    <div class="grid grid-cols-3 gap-4 mt-8">
+        <div class="aspect-square flex flex-col justify-end p-4 rounded-lg relative bg-primary text-white">
+            <span class="text-[10px] font-bold tracking-[2px] uppercase mb-1">Azul Eléctrico</span>
+            <span class="text-[13px] tracking-[1px] tabular-nums">#400FFF</span>
+            <span class="text-[9px] tracking-[1px] mt-1.5 opacity-70">Color primario. CTAs, links, elementos activos</span>
         </div>
-        <div class="color-swatch" style="background: #00CECE; color: white;">
-            <span class="swatch-name">Teal</span>
-            <span class="swatch-hex">#00CECE</span>
-            <span class="swatch-role">Acento. Destacados, badges, íconos, hover</span>
+        <div class="aspect-square flex flex-col justify-end p-4 rounded-lg relative bg-teal text-white">
+            <span class="text-[10px] font-bold tracking-[2px] uppercase mb-1">Teal</span>
+            <span class="text-[13px] tracking-[1px] tabular-nums">#00CECE</span>
+            <span class="text-[9px] tracking-[1px] mt-1.5 opacity-70">Acento. Destacados, badges, íconos, hover</span>
         </div>
-        <div class="color-swatch" style="background: #7242F0; color: white;">
-            <span class="swatch-name">Púrpura</span>
-            <span class="swatch-hex">#7242F0</span>
-            <span class="swatch-role">Secundario. Gradientes, fondos, secciones</span>
+        <div class="aspect-square flex flex-col justify-end p-4 rounded-lg relative bg-purple text-white">
+            <span class="text-[10px] font-bold tracking-[2px] uppercase mb-1">Púrpura</span>
+            <span class="text-[13px] tracking-[1px] tabular-nums">#7242F0</span>
+            <span class="text-[9px] tracking-[1px] mt-1.5 opacity-70">Secundario. Gradientes, fondos, secciones</span>
         </div>
-        <div class="color-swatch" style="background: #201C4E; color: white;">
-            <span class="swatch-name">Navy</span>
-            <span class="swatch-hex">#201C4E</span>
-            <span class="swatch-role">Header, footer, texto sobre claro</span>
+        <div class="aspect-square flex flex-col justify-end p-4 rounded-lg relative bg-navy text-white">
+            <span class="text-[10px] font-bold tracking-[2px] uppercase mb-1">Navy</span>
+            <span class="text-[13px] tracking-[1px] tabular-nums">#201C4E</span>
+            <span class="text-[9px] tracking-[1px] mt-1.5 opacity-70">Header, footer, texto sobre claro</span>
         </div>
-        <div class="color-swatch" style="background: #A6A6A6; color: white;">
-            <span class="swatch-name">Gris</span>
-            <span class="swatch-hex">#A6A6A6</span>
-            <span class="swatch-role">Texto secundario, bordes, placeholders</span>
+        <div class="aspect-square flex flex-col justify-end p-4 rounded-lg relative bg-muted text-white">
+            <span class="text-[10px] font-bold tracking-[2px] uppercase mb-1">Gris</span>
+            <span class="text-[13px] tracking-[1px] tabular-nums">#A6A6A6</span>
+            <span class="text-[9px] tracking-[1px] mt-1.5 opacity-70">Texto secundario, bordes, placeholders</span>
         </div>
-        <div class="color-swatch" style="background: #F8F8FC; color: #201C4E; border: 1px solid #E8E6F0;">
-            <span class="swatch-name">Fondo</span>
-            <span class="swatch-hex">#F8F8FC</span>
-            <span class="swatch-role">Fondo general. Cálido, nunca blanco puro</span>
-        </div>
-    </div>
-
-    <div class="color-grid" style="grid-template-columns: repeat(4, 1fr); margin-top: 16px;">
-        <div class="color-swatch" style="background: #EDE8FF; color: #201C4E; aspect-ratio: auto; padding: 12px;">
-            <span class="swatch-name">Azul Claro</span>
-            <span class="swatch-hex">#EDE8FF</span>
-        </div>
-        <div class="color-swatch" style="background: #E0FAFA; color: #201C4E; aspect-ratio: auto; padding: 12px;">
-            <span class="swatch-name">Teal Claro</span>
-            <span class="swatch-hex">#E0FAFA</span>
-        </div>
-        <div class="color-swatch" style="background: #25D366; color: white; aspect-ratio: auto; padding: 12px;">
-            <span class="swatch-name">WhatsApp</span>
-            <span class="swatch-hex">#25D366</span>
-        </div>
-        <div class="color-swatch" style="background: #E63946; color: white; aspect-ratio: auto; padding: 12px;">
-            <span class="swatch-name">Error</span>
-            <span class="swatch-hex">#E63946</span>
+        <div class="aspect-square flex flex-col justify-end p-4 rounded-lg relative bg-canvas text-navy border border-hairline">
+            <span class="text-[10px] font-bold tracking-[2px] uppercase mb-1">Fondo</span>
+            <span class="text-[13px] tracking-[1px] tabular-nums">#F8F8FC</span>
+            <span class="text-[9px] tracking-[1px] mt-1.5 opacity-70">Fondo general. Cálido, nunca blanco puro</span>
         </div>
     </div>
 
-    <div class="spacing-note">
+    <div class="grid grid-cols-4 gap-4 mt-4">
+        <div class="flex flex-col justify-end p-3 rounded-lg relative bg-primary-light text-navy">
+            <span class="text-[10px] font-bold tracking-[2px] uppercase mb-1">Azul Claro</span>
+            <span class="text-[13px] tracking-[1px] tabular-nums">#EDE8FF</span>
+        </div>
+        <div class="flex flex-col justify-end p-3 rounded-lg relative bg-teal-light text-navy">
+            <span class="text-[10px] font-bold tracking-[2px] uppercase mb-1">Teal Claro</span>
+            <span class="text-[13px] tracking-[1px] tabular-nums">#E0FAFA</span>
+        </div>
+        <div class="flex flex-col justify-end p-3 rounded-lg relative bg-success text-white">
+            <span class="text-[10px] font-bold tracking-[2px] uppercase mb-1">WhatsApp</span>
+            <span class="text-[13px] tracking-[1px] tabular-nums">#25D366</span>
+        </div>
+        <div class="flex flex-col justify-end p-3 rounded-lg relative bg-error text-white">
+            <span class="text-[10px] font-bold tracking-[2px] uppercase mb-1">Error</span>
+            <span class="text-[13px] tracking-[1px] tabular-nums">#E63946</span>
+        </div>
+    </div>
+
+    <div class="mt-10 py-6 px-7 rounded-lg text-sm leading-[1.8] opacity-80 bg-primary-light">
         <strong>Regla de uso del teal:</strong> El teal (#00CECE) se usa para acentos y elementos que requieren atención — botones secundarios, badges, íconos destacados. No como fondo de secciones completas. El azul eléctrico lidera, el teal complementa.
     </div>
 
-    <div class="page-number">09</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">09</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 10 — Combinaciones Aprobadas               -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-dark">
-    <div class="section-title">Combinaciones de Color</div>
+<div class="page bg-navy text-primary-light">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-teal">Combinaciones de Color</div>
 
-    <p class="body-text" style="margin-bottom: 8px;">
+    <p class="text-base leading-[1.8] max-w-[620px] opacity-85 mb-2">
         Combinaciones aprobadas para fondos, textos y elementos de interfaz:
     </p>
 
-    <div class="combo-grid">
-        <div class="combo-card" style="background: var(--navy);">
-            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre navy">
+    <div class="grid grid-cols-3 gap-4 mt-8">
+        <div class="py-7 px-5 flex items-center justify-center rounded-lg min-h-[100px] bg-navy">
+            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre navy" class="max-w-[120px] h-auto">
         </div>
-        <div class="combo-card" style="background: var(--bg); border: 1px solid var(--border);">
-            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre fondo claro">
+        <div class="py-7 px-5 flex items-center justify-center rounded-lg min-h-[100px] bg-canvas border border-hairline">
+            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre fondo claro" class="max-w-[120px] h-auto">
         </div>
-        <div class="combo-card" style="background: var(--primary);">
-            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre azul">
+        <div class="py-7 px-5 flex items-center justify-center rounded-lg min-h-[100px] bg-primary">
+            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre azul" class="max-w-[120px] h-auto">
         </div>
-        <div class="combo-card" style="background: var(--purple);">
-            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre púrpura">
+        <div class="py-7 px-5 flex items-center justify-center rounded-lg min-h-[100px] bg-purple">
+            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre púrpura" class="max-w-[120px] h-auto">
         </div>
-        <div class="combo-card" style="background: white; border: 1px solid var(--border);">
-            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre blanco">
+        <div class="py-7 px-5 flex items-center justify-center rounded-lg min-h-[100px] bg-white border border-hairline">
+            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre blanco" class="max-w-[120px] h-auto">
         </div>
-        <div class="combo-card" style="background: var(--accent-light);">
-            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre teal claro">
+        <div class="py-7 px-5 flex items-center justify-center rounded-lg min-h-[100px] bg-teal-light">
+            <img src="/internal/assets/logo-transparent.png" alt="Logo sobre teal claro" class="max-w-[120px] h-auto">
         </div>
     </div>
 
-    <div class="page-number">10</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">10</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 11 — Tipografía                            -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-light">
-    <div class="section-title">Tipografía</div>
+<div class="page bg-canvas text-navy">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-primary">Tipografía</div>
 
-    <div class="type-specimen">
-        <div class="specimen-name">Display — Fraunces</div>
-        <div class="specimen-display" style="font-family: 'Fraunces', serif; font-size: 48px; font-weight: 700; line-height: 1.1; color: var(--navy);">
-            Todo para tu mascota
-        </div>
-        <p class="specimen-usage">
+    <div class="mt-10 pb-10 border-b border-hairline">
+        <div class="text-[10px] font-bold tracking-[3px] uppercase mb-5 text-primary">Display — Fraunces</div>
+        <div class="mb-4 font-display text-[48px] font-bold leading-[1.1] text-navy">Todo para tu mascota</div>
+        <p class="text-[13px] font-light leading-[1.7] opacity-70 max-w-[520px]">
             Fuente serif variable con optical sizing. Se usa para títulos principales, el nombre de marca y elementos de alto impacto visual. Transmite calidez y personalidad. Pesos: 400 (regular), 500 (medium), 600 (semibold), 700 (bold).
         </p>
     </div>
 
-    <div class="type-specimen">
-        <div class="specimen-name">Body — DM Sans</div>
-        <div class="specimen-display" style="font-family: 'DM Sans', sans-serif; font-size: 28px; font-weight: 400; line-height: 1.4;">
+    <div class="mt-10 pb-10">
+        <div class="text-[10px] font-bold tracking-[3px] uppercase mb-5 text-primary">Body — DM Sans</div>
+        <div class="mb-4 font-body text-[28px] font-normal leading-[1.4]">
             Alimentos, accesorios y todo lo que necesitás para el bienestar de tu compañero.
         </div>
-        <p class="specimen-usage">
+        <p class="text-[13px] font-light leading-[1.7] opacity-70 max-w-[520px]">
             Sans-serif geométrica, limpia y moderna. Se usa para cuerpo de texto, navegación, botones y elementos de interfaz. Excelente legibilidad en todos los tamaños. Pesos: 400, 500, 600, 700.
         </p>
     </div>
 
-    <div class="page-number">11</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">11</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 12 — Escala Tipográfica                    -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-dark">
-    <div class="section-title">Escala Tipográfica — Digital</div>
+<div class="page bg-navy text-primary-light">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-teal">Escala Tipográfica — Digital</div>
 
-    <div class="scale-row">
-        <span class="scale-label">Hero</span>
-        <span class="scale-spec">Fraunces 700 / 3.2rem</span>
-        <span class="scale-sample" style="font-family: 'Fraunces', serif; font-size: 28px; font-weight: 700;">Todo para tu mascota</span>
+    <div class="flex items-baseline py-3.5 border-b border-primary-light/10">
+        <span class="w-[140px] shrink-0 text-[10px] font-bold tracking-[2px] uppercase text-teal">Hero</span>
+        <span class="w-[200px] shrink-0 text-[11px] font-normal opacity-50 tabular-nums">Fraunces 700 / 3.2rem</span>
+        <span class="flex-1 font-display text-[28px] font-bold">Todo para tu mascota</span>
     </div>
-    <div class="scale-row">
-        <span class="scale-label">H1</span>
-        <span class="scale-spec">Fraunces 600 / 2rem</span>
-        <span class="scale-sample" style="font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600;">Productos destacados</span>
+    <div class="flex items-baseline py-3.5 border-b border-primary-light/10">
+        <span class="w-[140px] shrink-0 text-[10px] font-bold tracking-[2px] uppercase text-teal">H1</span>
+        <span class="w-[200px] shrink-0 text-[11px] font-normal opacity-50 tabular-nums">Fraunces 600 / 2rem</span>
+        <span class="flex-1 font-display text-[22px] font-semibold">Productos destacados</span>
     </div>
-    <div class="scale-row">
-        <span class="scale-label">H2</span>
-        <span class="scale-spec">Fraunces 600 / 1.75rem</span>
-        <span class="scale-sample" style="font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600;">Categorías</span>
+    <div class="flex items-baseline py-3.5 border-b border-primary-light/10">
+        <span class="w-[140px] shrink-0 text-[10px] font-bold tracking-[2px] uppercase text-teal">H2</span>
+        <span class="w-[200px] shrink-0 text-[11px] font-normal opacity-50 tabular-nums">Fraunces 600 / 1.75rem</span>
+        <span class="flex-1 font-display text-[20px] font-semibold">Categorías</span>
     </div>
-    <div class="scale-row">
-        <span class="scale-label">Body</span>
-        <span class="scale-spec">DM Sans 400 / 16px</span>
-        <span class="scale-sample" style="font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 400;">Alimentos y accesorios para mascotas</span>
+    <div class="flex items-baseline py-3.5 border-b border-primary-light/10">
+        <span class="w-[140px] shrink-0 text-[10px] font-bold tracking-[2px] uppercase text-teal">Body</span>
+        <span class="w-[200px] shrink-0 text-[11px] font-normal opacity-50 tabular-nums">DM Sans 400 / 16px</span>
+        <span class="flex-1 font-body text-base font-normal">Alimentos y accesorios para mascotas</span>
     </div>
-    <div class="scale-row">
-        <span class="scale-label">Button</span>
-        <span class="scale-spec">DM Sans 600 / 14px</span>
-        <span class="scale-sample" style="font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0.3px;">VER PRODUCTOS</span>
+    <div class="flex items-baseline py-3.5 border-b border-primary-light/10">
+        <span class="w-[140px] shrink-0 text-[10px] font-bold tracking-[2px] uppercase text-teal">Button</span>
+        <span class="w-[200px] shrink-0 text-[11px] font-normal opacity-50 tabular-nums">DM Sans 600 / 14px</span>
+        <span class="flex-1 font-body text-sm font-semibold tracking-[0.3px]">VER PRODUCTOS</span>
     </div>
-    <div class="scale-row">
-        <span class="scale-label">Caption</span>
-        <span class="scale-spec">DM Sans 700 / 11px</span>
-        <span class="scale-sample" style="font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;">ALIMENTOS PARA PERROS</span>
+    <div class="flex items-baseline py-3.5 border-b border-primary-light/10">
+        <span class="w-[140px] shrink-0 text-[10px] font-bold tracking-[2px] uppercase text-teal">Caption</span>
+        <span class="w-[200px] shrink-0 text-[11px] font-normal opacity-50 tabular-nums">DM Sans 700 / 11px</span>
+        <span class="flex-1 font-body text-[11px] font-bold uppercase tracking-[0.6px]">ALIMENTOS PARA PERROS</span>
     </div>
-    <div class="scale-row">
-        <span class="scale-label">Small</span>
-        <span class="scale-spec">DM Sans 500 / 12px</span>
-        <span class="scale-sample" style="font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; opacity: 0.6;">Efectivo: $15.900</span>
+    <div class="flex items-baseline py-3.5 border-b border-primary-light/10">
+        <span class="w-[140px] shrink-0 text-[10px] font-bold tracking-[2px] uppercase text-teal">Small</span>
+        <span class="w-[200px] shrink-0 text-[11px] font-normal opacity-50 tabular-nums">DM Sans 500 / 12px</span>
+        <span class="flex-1 font-body text-xs font-medium opacity-60">Efectivo: $15.900</span>
     </div>
 
-    <div class="spacing-note">
+    <div class="mt-10 py-6 px-7 rounded-lg text-sm leading-[1.8] opacity-80 bg-purple/[0.08]">
         <strong>Regla general:</strong> Fraunces para títulos y elementos emocionales. DM Sans para todo lo funcional — navegación, precios, botones, cuerpo de texto. Nunca mezclar más de estas dos familias.
     </div>
 
-    <div class="page-number">12</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">12</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 13 — Sistema de Íconos                     -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-light">
-    <div class="section-title">Sistema de Íconos</div>
+<div class="page bg-canvas text-navy">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-primary">Sistema de Íconos</div>
 
-    <p class="body-text" style="margin-bottom: 8px;">
+    <p class="text-base leading-[1.8] max-w-[620px] mb-2">
         Se usa <strong>Iconify</strong> como sistema de íconos. Los packs principales son <strong>Lucide</strong> (interfaz) y <strong>MDI</strong> (marcas y mascotas). Nunca usar emojis como íconos — siempre usar la librería.
     </p>
 
-    <div class="sub-heading">Íconos de Interfaz (Lucide)</div>
-    <div class="icon-grid">
-        <div class="icon-card" style="background: var(--primary-light);">
-            <iconify-icon icon="lucide:search" width="24" height="24" style="color: var(--primary);"></iconify-icon>
-            <span class="icon-card-name">Buscar</span>
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 mt-9 text-primary">Íconos de Interfaz (Lucide)</div>
+    <div class="grid grid-cols-4 gap-4 mt-8">
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-primary-light">
+            <iconify-icon icon="lucide:search" width="24" height="24" class="text-primary"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">Buscar</span>
         </div>
-        <div class="icon-card" style="background: var(--primary-light);">
-            <iconify-icon icon="lucide:shopping-bag" width="24" height="24" style="color: var(--primary);"></iconify-icon>
-            <span class="icon-card-name">Carrito</span>
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-primary-light">
+            <iconify-icon icon="lucide:shopping-bag" width="24" height="24" class="text-primary"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">Carrito</span>
         </div>
-        <div class="icon-card" style="background: var(--primary-light);">
-            <iconify-icon icon="lucide:package" width="24" height="24" style="color: var(--primary);"></iconify-icon>
-            <span class="icon-card-name">Producto</span>
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-primary-light">
+            <iconify-icon icon="lucide:package" width="24" height="24" class="text-primary"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">Producto</span>
         </div>
-        <div class="icon-card" style="background: var(--primary-light);">
-            <iconify-icon icon="lucide:map-pin" width="24" height="24" style="color: var(--primary);"></iconify-icon>
-            <span class="icon-card-name">Ubicación</span>
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-primary-light">
+            <iconify-icon icon="lucide:map-pin" width="24" height="24" class="text-primary"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">Ubicación</span>
         </div>
-        <div class="icon-card" style="background: var(--primary-light);">
-            <iconify-icon icon="lucide:home" width="24" height="24" style="color: var(--primary);"></iconify-icon>
-            <span class="icon-card-name">Inicio</span>
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-primary-light">
+            <iconify-icon icon="lucide:home" width="24" height="24" class="text-primary"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">Inicio</span>
         </div>
-        <div class="icon-card" style="background: var(--primary-light);">
-            <iconify-icon icon="lucide:menu" width="24" height="24" style="color: var(--primary);"></iconify-icon>
-            <span class="icon-card-name">Menú</span>
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-primary-light">
+            <iconify-icon icon="lucide:menu" width="24" height="24" class="text-primary"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">Menú</span>
         </div>
-        <div class="icon-card" style="background: var(--primary-light);">
-            <iconify-icon icon="lucide:chevron-right" width="24" height="24" style="color: var(--primary);"></iconify-icon>
-            <span class="icon-card-name">Navegación</span>
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-primary-light">
+            <iconify-icon icon="lucide:chevron-right" width="24" height="24" class="text-primary"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">Navegación</span>
         </div>
-        <div class="icon-card" style="background: var(--primary-light);">
-            <iconify-icon icon="lucide:instagram" width="24" height="24" style="color: var(--primary);"></iconify-icon>
-            <span class="icon-card-name">Instagram</span>
-        </div>
-    </div>
-
-    <div class="sub-heading">Íconos de Marca (MDI)</div>
-    <div class="icon-grid">
-        <div class="icon-card" style="background: var(--accent-light);">
-            <iconify-icon icon="mdi:paw" width="24" height="24" style="color: var(--accent-dark);"></iconify-icon>
-            <span class="icon-card-name">Huella</span>
-        </div>
-        <div class="icon-card" style="background: var(--accent-light);">
-            <iconify-icon icon="mdi:whatsapp" width="24" height="24" style="color: var(--accent-dark);"></iconify-icon>
-            <span class="icon-card-name">WhatsApp</span>
-        </div>
-        <div class="icon-card" style="background: var(--accent-light);">
-            <iconify-icon icon="mdi:dog-side" width="24" height="24" style="color: var(--accent-dark);"></iconify-icon>
-            <span class="icon-card-name">Perros</span>
-        </div>
-        <div class="icon-card" style="background: var(--accent-light);">
-            <iconify-icon icon="mdi:cat" width="24" height="24" style="color: var(--accent-dark);"></iconify-icon>
-            <span class="icon-card-name">Gatos</span>
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-primary-light">
+            <iconify-icon icon="lucide:instagram" width="24" height="24" class="text-primary"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">Instagram</span>
         </div>
     </div>
 
-    <div class="spacing-note">
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 mt-9 text-primary">Íconos de Marca (MDI)</div>
+    <div class="grid grid-cols-4 gap-4 mt-8">
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-teal-light">
+            <iconify-icon icon="mdi:paw" width="24" height="24" class="text-teal-dark"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">Huella</span>
+        </div>
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-teal-light">
+            <iconify-icon icon="mdi:whatsapp" width="24" height="24" class="text-teal-dark"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">WhatsApp</span>
+        </div>
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-teal-light">
+            <iconify-icon icon="mdi:dog-side" width="24" height="24" class="text-teal-dark"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">Perros</span>
+        </div>
+        <div class="flex flex-col items-center gap-2.5 py-6 px-4 rounded-lg bg-teal-light">
+            <iconify-icon icon="mdi:cat" width="24" height="24" class="text-teal-dark"></iconify-icon>
+            <span class="text-[9px] font-semibold tracking-[1px] uppercase opacity-50 text-center">Gatos</span>
+        </div>
+    </div>
+
+    <div class="mt-10 py-6 px-7 rounded-lg text-sm leading-[1.8] opacity-80 bg-primary-light">
         <strong>Implementación:</strong> Se usa <code>&lt;iconify-icon icon="pack:name"&gt;</code> vía CDN. Nunca insertar SVGs manuales ni usar emojis como íconos. Los íconos se cargan bajo demanda desde el CDN de Iconify.
     </div>
 
-    <div class="page-number">13</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">13</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 14 — Fotografía e Imágenes                 -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-dark">
-    <div class="section-title">Directrices de Fotografía</div>
+<div class="page bg-navy text-primary-light">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-teal">Directrices de Fotografía</div>
 
-    <div class="sub-heading">Tipos de Foto</div>
-    <div class="photo-comparison">
-        <div class="photo-example" style="background: rgba(114, 66, 240, 0.08);">
-            <div class="photo-example-visual" style="background: rgba(0, 206, 206, 0.12);">
-                <iconify-icon icon="mdi:dog-side" width="44" height="44" style="color: var(--teal);"></iconify-icon>
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 text-teal">Tipos de Foto</div>
+    <div class="grid grid-cols-2 gap-6 mt-8">
+        <div class="rounded-lg py-7 px-6 text-center bg-purple/[0.08]">
+            <div class="w-[100px] h-[100px] rounded-full mx-auto mb-4 flex items-center justify-center bg-teal/[0.12]">
+                <iconify-icon icon="mdi:dog-side" width="44" height="44" class="text-teal"></iconify-icon>
             </div>
-            <div class="photo-example-label" style="color: var(--teal);">Retratos de Mascotas</div>
-            <div class="photo-example-desc">
+            <div class="text-[10px] font-bold tracking-[2px] uppercase mb-2 text-teal">Retratos de Mascotas</div>
+            <div class="text-xs leading-[1.6] opacity-70">
                 Para categorías y hero. Animal mirando a cámara, fondo limpio, luz natural. Transmiten personalidad y cercanía.
             </div>
         </div>
-        <div class="photo-example" style="background: rgba(114, 66, 240, 0.08);">
-            <div class="photo-example-visual" style="background: rgba(0, 206, 206, 0.12);">
-                <iconify-icon icon="lucide:home" width="44" height="44" style="color: var(--teal);"></iconify-icon>
+        <div class="rounded-lg py-7 px-6 text-center bg-purple/[0.08]">
+            <div class="w-[100px] h-[100px] rounded-full mx-auto mb-4 flex items-center justify-center bg-teal/[0.12]">
+                <iconify-icon icon="lucide:home" width="44" height="44" class="text-teal"></iconify-icon>
             </div>
-            <div class="photo-example-label" style="color: var(--teal);">Estilo de Vida</div>
-            <div class="photo-example-desc">
+            <div class="text-[10px] font-bold tracking-[2px] uppercase mb-2 text-teal">Estilo de Vida</div>
+            <div class="text-xs leading-[1.6] opacity-70">
                 Mascotas en contexto: jugando, comiendo, descansando. Para banners y redes sociales. Muestran momentos reales.
             </div>
         </div>
-        <div class="photo-example" style="background: rgba(114, 66, 240, 0.08);">
-            <div class="photo-example-visual" style="background: rgba(0, 206, 206, 0.12);">
-                <iconify-icon icon="lucide:package" width="44" height="44" style="color: var(--teal);"></iconify-icon>
+        <div class="rounded-lg py-7 px-6 text-center bg-purple/[0.08]">
+            <div class="w-[100px] h-[100px] rounded-full mx-auto mb-4 flex items-center justify-center bg-teal/[0.12]">
+                <iconify-icon icon="lucide:package" width="44" height="44" class="text-teal"></iconify-icon>
             </div>
-            <div class="photo-example-label" style="color: var(--teal);">Producto en Contexto</div>
-            <div class="photo-example-desc">
+            <div class="text-[10px] font-bold tracking-[2px] uppercase mb-2 text-teal">Producto en Contexto</div>
+            <div class="text-xs leading-[1.6] opacity-70">
                 Producto junto a una mascota feliz. Para cards de productos destacados. Combina lo funcional con lo emocional.
             </div>
         </div>
-        <div class="photo-example" style="background: rgba(114, 66, 240, 0.08);">
-            <div class="photo-example-visual" style="background: rgba(0, 206, 206, 0.12);">
-                <iconify-icon icon="lucide:users" width="44" height="44" style="color: var(--teal);"></iconify-icon>
+        <div class="rounded-lg py-7 px-6 text-center bg-purple/[0.08]">
+            <div class="w-[100px] h-[100px] rounded-full mx-auto mb-4 flex items-center justify-center bg-teal/[0.12]">
+                <iconify-icon icon="lucide:users" width="44" height="44" class="text-teal"></iconify-icon>
             </div>
-            <div class="photo-example-label" style="color: var(--teal);">Clientes y Mascotas</div>
-            <div class="photo-example-desc">
+            <div class="text-[10px] font-bold tracking-[2px] uppercase mb-2 text-teal">Clientes y Mascotas</div>
+            <div class="text-xs leading-[1.6] opacity-70">
                 Dueños con sus mascotas, con permiso. Para redes y testimonios. Construyen comunidad y prueba social.
             </div>
         </div>
     </div>
 
-    <div class="sub-heading">Reglas para Fotografía</div>
-    <div class="rules-grid" style="margin-top: 16px;">
-        <div class="rule-column rule-do">
-            <h3>Sí</h3>
-            <ul>
-                <li>Luz natural, cálida y suave</li>
-                <li>Fondos limpios (blanco, gris claro, crema)</li>
-                <li>Animales relajados, en poses naturales</li>
-                <li>Fotos de clientes reales (con permiso)</li>
-                <li>Alta resolución, mínimo 1080x1080px</li>
-                <li>Recorte circular para categorías</li>
-                <li>Colores que combinen con la paleta azul/teal</li>
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 mt-9 text-teal">Reglas para Fotografía</div>
+    <div class="grid grid-cols-2 gap-12 mt-4">
+        <div>
+            <h3 class="text-[11px] font-bold tracking-[3px] uppercase mb-5 pb-3 border-b-2 text-teal border-teal">Sí</h3>
+            <ul class="list-none p-0">
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Luz natural, cálida y suave</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Fondos limpios (blanco, gris claro, crema)</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Animales relajados, en poses naturales</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Fotos de clientes reales (con permiso)</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Alta resolución, mínimo 1080x1080px</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Recorte circular para categorías</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Colores que combinen con la paleta azul/teal</li>
             </ul>
         </div>
-        <div class="rule-column rule-dont">
-            <h3>No</h3>
-            <ul>
-                <li>Stock genérico con marcas de agua</li>
-                <li>Fotos oscuras, borrosas o con flash directo</li>
-                <li>Animales en poses forzadas o estresados</li>
-                <li>Fondos desordenados o distractivos</li>
-                <li>Filtros excesivos o saturación artificial</li>
-                <li>Imágenes pixeladas o de baja calidad</li>
-                <li>Fotos sin relación con mascotas o productos</li>
+        <div>
+            <h3 class="text-[11px] font-bold tracking-[3px] uppercase mb-5 pb-3 border-b-2 text-primary-light/40 border-primary-light/20">No</h3>
+            <ul class="list-none p-0">
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Stock genérico con marcas de agua</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Fotos oscuras, borrosas o con flash directo</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Animales en poses forzadas o estresados</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Fondos desordenados o distractivos</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Filtros excesivos o saturación artificial</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Imágenes pixeladas o de baja calidad</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Fotos sin relación con mascotas o productos</li>
             </ul>
         </div>
     </div>
 
-    <div class="page-number">14</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">14</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
 <!-- PAGE 15 — Lenguaje Visual                       -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-purple">
-    <div class="section-title">Lenguaje Visual</div>
+<div class="page bg-purple text-white">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-teal-light">Lenguaje Visual</div>
 
-    <div class="rules-grid">
-        <div class="rule-column rule-do">
-            <h3>Sí</h3>
-            <ul>
-                <li>Azul eléctrico como color primario en toda comunicación</li>
-                <li>Teal como complemento para acentos y destacados</li>
-                <li>Bordes redondeados (12-20px)</li>
-                <li>Sombras suaves y cálidas</li>
-                <li>Fotografías naturales y luminosas de mascotas</li>
-                <li>Espaciado generoso entre elementos</li>
-                <li>Fraunces para títulos, DM Sans para cuerpo</li>
-                <li>Íconos de Iconify (Lucide + MDI)</li>
-                <li>Fondos sutiles (#F8F8FC), nunca blanco puro</li>
-                <li>Transiciones suaves (280ms ease)</li>
+    <div class="grid grid-cols-2 gap-12 mt-8">
+        <div>
+            <h3 class="text-[11px] font-bold tracking-[3px] uppercase mb-5 pb-3 border-b-2 text-teal-light border-teal-light">Sí</h3>
+            <ul class="list-none p-0">
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Azul eléctrico como color primario en toda comunicación</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Teal como complemento para acentos y destacados</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Bordes redondeados (12-20px)</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Sombras suaves y cálidas</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Fotografías naturales y luminosas de mascotas</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Espaciado generoso entre elementos</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Fraunces para títulos, DM Sans para cuerpo</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Íconos de Iconify (Lucide + MDI)</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Fondos sutiles (#F8F8FC), nunca blanco puro</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Transiciones suaves (280ms ease)</li>
             </ul>
         </div>
-        <div class="rule-column rule-dont">
-            <h3>No</h3>
-            <ul>
-                <li>Usar emojis como íconos o decoración</li>
-                <li>Colores fuera de la paleta aprobada</li>
-                <li>Esquinas cuadradas o bordes agresivos</li>
-                <li>Sombras pesadas o oscuras</li>
-                <li>Imágenes genéricas de stock</li>
-                <li>Más de dos familias tipográficas</li>
-                <li>Gradientes multicolor o neón</li>
-                <li>Fondos puramente blancos o grises fríos</li>
-                <li>Animaciones excesivas o que distraigan</li>
-                <li>Lenguaje corporativo o distante</li>
+        <div>
+            <h3 class="text-[11px] font-bold tracking-[3px] uppercase mb-5 pb-3 border-b-2 text-white/40 border-white/20">No</h3>
+            <ul class="list-none p-0">
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Usar emojis como íconos o decoración</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Colores fuera de la paleta aprobada</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Esquinas cuadradas o bordes agresivos</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Sombras pesadas o oscuras</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Imágenes genéricas de stock</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Más de dos familias tipográficas</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Gradientes multicolor o neón</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Fondos puramente blancos o grises fríos</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Animaciones excesivas o que distraigan</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">Lenguaje corporativo o distante</li>
             </ul>
         </div>
     </div>
 
-    <div class="spacing-note">
+    <div class="mt-10 py-6 px-7 rounded-lg text-sm leading-[1.8] opacity-80 bg-white/[0.08]">
         <strong>Principio general:</strong> Cada elemento visual debe sentirse como si fuera parte de un lugar cálido donde las mascotas son bienvenidas. Si una decisión de diseño no transmite eso, reconsiderarla.
     </div>
 
-    <div class="page-number">15</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">15</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
-<!-- PAGE 16 — Voz y Tono                            -->
+<!-- PAGE 16 — Tarjetas de Producto                  -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-light">
-    <div class="section-title">Voz y Tono</div>
+<div class="page bg-canvas text-navy">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-primary">Tarjetas de Producto — Variantes de Precio</div>
 
-    <div class="sub-heading">Cómo Hablamos</div>
-    <p class="body-text">
+    <p class="text-base leading-[1.8] max-w-[620px] mb-2">
+        Todo producto tiene <strong>precio de lista</strong> y <strong>precio por efectivo/transferencia</strong> — el efectivo es el precio normal con el que opera el local, no una promoción. Una <strong>oferta</strong> es un tercer precio por debajo del efectivo, aplicado sólo cuando el producto está en promoción especial.
+    </p>
+
+    <div class="mt-8 grid grid-cols-2 gap-5">
+
+        <!-- Variant 1: Unit — Estándar (list + cash) -->
+        <div class="flex flex-col">
+            <div class="bg-white rounded-[20px] border border-hairline overflow-hidden flex flex-col">
+                <div class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] flex items-center justify-center">
+                    <iconify-icon icon="mdi:teddy-bear" width="52" height="52" class="text-primary opacity-25"></iconify-icon>
+                </div>
+                <div class="px-[16px] py-3.5 flex-1 flex flex-col gap-1.5">
+                    <span class="inline-flex text-[10px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-2 py-[3px] rounded-full w-fit">Juguete</span>
+                    <span class="text-[14px] font-semibold text-navy leading-[1.35]">Kong Classic Mediano</span>
+                    <span class="text-[12px] text-muted">Kong</span>
+                    <div class="mt-auto pt-2 flex flex-col items-start gap-0.5">
+                        <span class="inline-block px-[9px] py-[3px] text-[10px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full mb-0.5">Efectivo o transferencia</span>
+                        <span class="text-[18px] font-bold text-navy leading-[1.1]">$13.050</span>
+                        <span class="text-[12px] text-muted font-medium mt-[3px]">Precio de lista: $14.500</span>
+                    </div>
+                </div>
+                <div class="px-[16px] pb-4">
+                    <div class="w-full inline-flex items-center justify-center gap-2 p-2 text-[11px] font-semibold rounded-full border-2 border-primary bg-primary text-white">
+                        <iconify-icon icon="lucide:shopping-bag" width="13" height="13"></iconify-icon>
+                        Agregar al carrito
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 text-center">
+                <div class="text-[11px] font-bold tracking-[2px] uppercase text-primary">01 — Unidad · Estándar</div>
+                <div class="text-[11px] text-muted mt-1 leading-[1.5]">Efectivo/transferencia destacado, lista como referencia.<br><strong>Estado por defecto</strong> de toda tarjeta de unidad.</div>
+            </div>
+        </div>
+
+        <!-- Variant 2: Unit — Oferta (below cash price) -->
+        <div class="flex flex-col">
+            <div class="bg-white rounded-[20px] border border-hairline overflow-hidden flex flex-col">
+                <div class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] flex items-center justify-center relative">
+                    <iconify-icon icon="mdi:teddy-bear" width="52" height="52" class="text-primary opacity-25"></iconify-icon>
+                    <span class="absolute top-2.5 left-2.5 bg-teal text-navy text-[11px] font-extrabold tracking-[0.8px] uppercase px-[11px] py-[5px] rounded-md shadow-[0_4px_12px_rgba(0,206,206,0.32)] rotate-[-4deg]">¡Oferta!</span>
+                </div>
+                <div class="px-[16px] py-3.5 flex-1 flex flex-col gap-1.5">
+                    <span class="inline-flex text-[10px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-2 py-[3px] rounded-full w-fit">Juguete</span>
+                    <span class="text-[14px] font-semibold text-navy leading-[1.35]">Kong Classic Mediano</span>
+                    <span class="text-[12px] text-muted">Kong</span>
+                    <div class="mt-auto pt-2 flex flex-col items-start gap-0.5">
+                        <span class="inline-block px-[9px] py-[3px] text-[10px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full mb-0.5">Efectivo o transferencia</span>
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-[18px] font-bold text-navy leading-[1.1]">$11.500</span>
+                            <span class="text-[13px] text-muted line-through font-medium leading-[1.1]">$13.050</span>
+                        </div>
+                        <span class="text-[12px] text-muted font-medium mt-[3px]">Precio de lista: $14.500</span>
+                    </div>
+                </div>
+                <div class="px-[16px] pb-4">
+                    <div class="w-full inline-flex items-center justify-center gap-2 p-2 text-[11px] font-semibold rounded-full border-2 border-primary bg-primary text-white">
+                        <iconify-icon icon="lucide:shopping-bag" width="13" height="13"></iconify-icon>
+                        Agregar al carrito
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 text-center">
+                <div class="text-[11px] font-bold tracking-[2px] uppercase text-primary">02 — Unidad · Oferta</div>
+                <div class="text-[11px] text-muted mt-1 leading-[1.5]">Oferta destacada, <strong>precio de efectivo normal tachado al lado</strong>. Badge ¡Oferta! en la imagen.</div>
+            </div>
+        </div>
+
+        <!-- Variant 3: Dual — Estándar (cash/kg + list/kg + bag) -->
+        <div class="flex flex-col">
+            <div class="bg-white rounded-[20px] border border-hairline overflow-hidden flex flex-col">
+                <div class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] flex items-center justify-center">
+                    <iconify-icon icon="lucide:beef" width="52" height="52" class="text-primary opacity-25"></iconify-icon>
+                </div>
+                <div class="px-[16px] py-3.5 flex-1 flex flex-col gap-1.5">
+                    <span class="inline-flex text-[10px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-2 py-[3px] rounded-full w-fit">Balanceado</span>
+                    <span class="text-[14px] font-semibold text-navy leading-[1.35]">Pro Plan Adulto Raza Mediana</span>
+                    <span class="text-[12px] text-muted">Pro Plan</span>
+                    <div class="mt-auto pt-2 flex flex-col items-start gap-0.5">
+                        <span class="inline-block px-[9px] py-[3px] text-[10px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full mb-0.5">Efectivo o transferencia</span>
+                        <span class="text-[18px] font-bold text-navy leading-[1.1]">$2.880<span class="text-[0.55em] font-medium text-muted">/kg</span></span>
+                        <span class="text-[12px] text-muted font-medium mt-[3px]">Precio de lista: $3.200/kg</span>
+                        <span class="text-[12px] text-muted font-medium mt-[2px]">Bolsa 15kg: $43.200</span>
+                    </div>
+                </div>
+                <div class="px-[16px] pb-4">
+                    <div class="w-full inline-flex items-center justify-center gap-2 p-2 text-[11px] font-semibold rounded-full border-2 border-primary bg-primary text-white">
+                        <iconify-icon icon="lucide:shopping-bag" width="13" height="13"></iconify-icon>
+                        Agregar al carrito
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 text-center">
+                <div class="text-[11px] font-bold tracking-[2px] uppercase text-primary">03 — Dual · Estándar</div>
+                <div class="text-[11px] text-muted mt-1 leading-[1.5]">$/kg cash destacado, lista $/kg y bolsa cerrada.<br><strong>Estado por defecto</strong> para productos duales.</div>
+            </div>
+        </div>
+
+        <!-- Variant 4: Dual — Oferta (below cash price) -->
+        <div class="flex flex-col">
+            <div class="bg-white rounded-[20px] border border-hairline overflow-hidden flex flex-col">
+                <div class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] flex items-center justify-center relative">
+                    <iconify-icon icon="lucide:beef" width="52" height="52" class="text-primary opacity-25"></iconify-icon>
+                    <span class="absolute top-2.5 left-2.5 bg-teal text-navy text-[11px] font-extrabold tracking-[0.8px] uppercase px-[11px] py-[5px] rounded-md shadow-[0_4px_12px_rgba(0,206,206,0.32)] rotate-[-4deg]">¡Oferta!</span>
+                </div>
+                <div class="px-[16px] py-3.5 flex-1 flex flex-col gap-1.5">
+                    <span class="inline-flex text-[10px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-2 py-[3px] rounded-full w-fit">Balanceado</span>
+                    <span class="text-[14px] font-semibold text-navy leading-[1.35]">Pro Plan Adulto Raza Mediana</span>
+                    <span class="text-[12px] text-muted">Pro Plan</span>
+                    <div class="mt-auto pt-2 flex flex-col items-start gap-0.5">
+                        <span class="inline-block px-[9px] py-[3px] text-[10px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full mb-0.5">Efectivo o transferencia</span>
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-[18px] font-bold text-navy leading-[1.1]">$2.500<span class="text-[0.55em] font-medium text-muted">/kg</span></span>
+                            <span class="text-[13px] text-muted line-through font-medium leading-[1.1]">$2.880/kg</span>
+                        </div>
+                        <span class="text-[12px] text-muted font-medium mt-[3px]">Precio de lista: $3.200/kg</span>
+                        <span class="text-[12px] text-muted font-medium mt-[2px]">Bolsa 15kg: $37.500</span>
+                    </div>
+                </div>
+                <div class="px-[16px] pb-4">
+                    <div class="w-full inline-flex items-center justify-center gap-2 p-2 text-[11px] font-semibold rounded-full border-2 border-primary bg-primary text-white">
+                        <iconify-icon icon="lucide:shopping-bag" width="13" height="13"></iconify-icon>
+                        Agregar al carrito
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 text-center">
+                <div class="text-[11px] font-bold tracking-[2px] uppercase text-primary">04 — Dual · Oferta</div>
+                <div class="text-[11px] text-muted mt-1 leading-[1.5]">$/kg oferta, efectivo tachado al lado. Lista y bolsa como secundarios.</div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">16</div>
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- PAGE 17 — Tarjetas: Estados y Reglas             -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="page bg-navy text-primary-light">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-teal">Tarjetas — Estados y Reglas</div>
+
+    <p class="text-base leading-[1.8] max-w-[620px] opacity-85 mb-2">
+        El único modificador transversal es <strong>Sin stock</strong>: puede aplicarse tanto sobre los estados estándar como sobre los de oferta. Debajo, las reglas que gobiernan cuándo se muestra cada chip o badge.
+    </p>
+
+    <div class="grid grid-cols-2 gap-5 mt-8">
+
+        <!-- Modifier A: Sin stock (applied over a dual standard) -->
+        <div class="flex flex-col">
+            <div class="bg-white rounded-[20px] border border-hairline overflow-hidden flex flex-col">
+                <div class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] flex items-center justify-center">
+                    <iconify-icon icon="lucide:beef" width="52" height="52" class="text-primary opacity-25"></iconify-icon>
+                </div>
+                <div class="px-[16px] py-3.5 flex-1 flex flex-col gap-1.5">
+                    <span class="inline-flex text-[10px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-2 py-[3px] rounded-full w-fit">Balanceado</span>
+                    <span class="text-[14px] font-semibold text-navy leading-[1.35]">Pro Plan Adulto Raza Mediana</span>
+                    <span class="text-[12px] text-muted">Pro Plan</span>
+                    <div class="mt-auto pt-2 flex flex-col items-start gap-0.5">
+                        <span class="inline-block px-[9px] py-[3px] text-[10px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full mb-0.5">Efectivo o transferencia</span>
+                        <span class="text-[18px] font-bold text-navy leading-[1.1]">$2.880<span class="text-[0.55em] font-medium text-muted">/kg</span></span>
+                        <span class="text-[12px] text-muted font-medium mt-[3px]">Precio de lista: $3.200/kg</span>
+                        <span class="text-[12px] text-muted font-medium mt-[2px]">Bolsa 15kg: $43.200</span>
+                    </div>
+                    <span class="inline-flex items-center gap-1 text-error text-[12px] font-bold uppercase tracking-[0.3px] mt-2">
+                        <iconify-icon icon="lucide:x-circle" width="14" height="14"></iconify-icon>
+                        Sin stock
+                    </span>
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="text-[11px] font-bold tracking-[2px] uppercase text-teal">Modificador · Sin Stock</div>
+                <div class="text-[11px] opacity-65 mt-1 leading-[1.6]">Cuando no hay inventario, el botón "Agregar al carrito" desaparece y se muestra una leyenda roja. La tarjeta mantiene todos los precios visibles — el cliente debe poder consultarla igual. Puede combinarse con el estado Oferta.</div>
+            </div>
+        </div>
+
+        <!-- Explainer: state machine -->
+        <div class="flex flex-col">
+            <div class="rounded-[20px] p-6 bg-purple/[0.10] border border-white/5 h-full">
+                <div class="text-[10px] font-bold tracking-[3px] uppercase mb-4 text-teal">Árbol de decisión</div>
+
+                <div class="space-y-3 text-[12px] leading-[1.6] opacity-90">
+                    <div class="pb-3 border-b border-white/10">
+                        <div class="font-bold text-teal mb-1">¿El producto tiene <code>precioOferta</code>?</div>
+                        <div class="opacity-75">Sí → variante <strong>Oferta</strong> (02 o 04).<br>No → variante <strong>Estándar</strong> (01 o 03).</div>
+                    </div>
+
+                    <div class="pb-3 border-b border-white/10">
+                        <div class="font-bold text-teal mb-1">¿El producto es <code>dual</code>?</div>
+                        <div class="opacity-75">Sí → precio líder es <strong>$/kg</strong>, la bolsa va como referencia secundaria.<br>No → precio líder es la unidad.</div>
+                    </div>
+
+                    <div>
+                        <div class="font-bold text-teal mb-1">¿Hay stock?</div>
+                        <div class="opacity-75">Sí → botón CTA "Agregar al carrito".<br>No → leyenda "Sin stock" en rojo, sin CTA.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="text-[11px] font-bold tracking-[2px] uppercase text-teal">Lógica de estados</div>
+                <div class="text-[11px] opacity-65 mt-1 leading-[1.6]">El estado base lo determinan dos preguntas: "¿hay oferta?" y "¿es dual?". Encima se superpone el modificador "¿hay stock?".</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-6 py-5 px-6 rounded-lg bg-purple/[0.08]">
+        <div class="text-[11px] font-bold tracking-[2px] uppercase mb-3 text-teal">Reglas del componente</div>
+        <ul class="list-none space-y-2 text-sm leading-[1.7] opacity-85">
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold"><strong>Efectivo/transferencia es el precio normal</strong>, no una promo. Siempre se muestra con el chip turquesa, y la lista abajo como referencia.</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">El badge "¡Oferta!" <strong>sólo aparece cuando hay un precio debajo del efectivo</strong> — nunca en las variantes estándar (01, 03).</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">En variantes de oferta (02, 04) el precio líder es la oferta. El precio de efectivo normal se muestra al lado con <code>line-through</code> — sin label. La lista queda debajo.</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">En productos duales, el <strong>$/kg</strong> lidera siempre — la bolsa cerrada va como referencia secundaria.</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">Imagen cuadrada 1:1 sobre gradiente primary-light → cream. Fallback: ícono de categoría al 20-25% opacidad.</li>
+        </ul>
+    </div>
+
+    <div class="mt-6 p-6 rounded-lg border-2 border-dashed border-teal bg-teal/[0.06]">
+        <div class="text-[10px] font-bold tracking-[3px] uppercase mb-3 text-teal">Pendientes técnicos</div>
+        <ul class="list-none space-y-3 text-sm leading-[1.7] opacity-85">
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['①'] before:text-teal before:font-bold">
+                <strong>Precio de oferta en el schema:</strong> hoy el admin no tiene un campo <code>priceOferta</code> / <code>priceKgOferta</code> diferenciado — sólo existen <code>regular</code> y <code>cash</code>. Para habilitar las variantes 02 y 04 hay que agregar el campo al <code>ProductSchema</code> y al sync de Meilisearch. <strong>Además, corregir <code>_product_card.php</code>:</strong> hoy muestra el badge "¡Oferta!" ante cualquier diferencia entre lista y cash — semánticamente incorrecto.
+            </li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['②'] before:text-teal before:font-bold">
+                <strong>Promo "+3kg" en balanceados:</strong> el admin ya soporta descuento por bolsa grande (<code>threePlusMarkupPercentage</code>, <code>prices.kg.threePlusDiscount</code>), pero no se publica al storefront. A definir: ¿una quinta variante de tarjeta ("Desde 3kg: $X/kg"), o sólo precio aplicado en carrito al superar el umbral?
+            </li>
+        </ul>
+    </div>
+
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">17</div>
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- PAGE 18 — Detalle de Producto                    -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="page bg-canvas text-navy">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-10 text-primary">Detalle de Producto — Variantes de Precio</div>
+
+    <p class="text-base leading-[1.8] max-w-[620px] mb-6">
+        En la página de detalle, el bloque de precio es más grande que en la tarjeta. Para productos duales, aparece un toggle <em>Por kg / Por bolsa</em> que cambia el precio líder; la variante (estándar u oferta) se mantiene.
+    </p>
+
+    <div class="grid grid-cols-2 gap-5">
+
+        <!-- Unit Estándar -->
+        <div class="p-6 bg-white rounded-[20px] border border-hairline flex flex-col gap-2.5">
+            <span class="inline-block px-[10px] py-[4px] text-[11px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full w-fit">Efectivo o transferencia</span>
+            <div class="flex items-baseline gap-3 flex-wrap">
+                <span class="font-bold text-[1.75rem] text-navy leading-[1.1]">$13.050</span>
+                <span class="text-[1rem] text-muted line-through font-medium">$14.500</span>
+            </div>
+            <div class="mt-auto pt-3 border-t border-hairline">
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">01 — Unidad · Estándar</div>
+            </div>
+        </div>
+
+        <!-- Unit Oferta -->
+        <div class="p-6 bg-white rounded-[20px] border border-hairline flex flex-col gap-2.5 relative">
+            <span class="absolute -top-2 right-5 bg-teal text-navy text-[11px] font-extrabold tracking-[0.8px] uppercase px-3 py-[5px] rounded-md shadow-[0_4px_12px_rgba(0,206,206,0.32)] rotate-[-4deg]">¡Oferta!</span>
+            <span class="inline-block px-[10px] py-[4px] text-[11px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full w-fit">Efectivo o transferencia</span>
+            <div class="flex items-baseline gap-3 flex-wrap">
+                <span class="font-bold text-[1.75rem] text-navy leading-[1.1]">$11.500</span>
+                <span class="text-[1rem] text-muted line-through font-medium">$13.050</span>
+            </div>
+            <span class="text-[13px] text-muted font-medium">Precio de lista: $14.500</span>
+            <div class="mt-auto pt-3 border-t border-hairline">
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">02 — Unidad · Oferta</div>
+            </div>
+        </div>
+
+        <!-- Dual Estándar -->
+        <div class="p-6 bg-white rounded-[20px] border border-hairline flex flex-col gap-2.5">
+            <div class="flex border-2 border-primary rounded-full overflow-hidden w-fit text-[12px]">
+                <span class="py-1.5 px-4 font-semibold bg-primary text-white">Por kg</span>
+                <span class="py-1.5 px-4 font-semibold text-primary bg-white">Por bolsa (15kg)</span>
+            </div>
+            <span class="inline-block px-[10px] py-[4px] text-[11px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full w-fit">Efectivo o transferencia</span>
+            <div class="flex items-baseline gap-3 flex-wrap">
+                <span class="font-bold text-[1.75rem] text-navy leading-[1.1]">$2.880<span class="text-[0.55em] font-medium text-muted">/kg</span></span>
+                <span class="text-[1rem] text-muted line-through font-medium">$3.200/kg</span>
+            </div>
+            <span class="text-[13px] text-muted font-medium">Bolsa 15kg: $43.200</span>
+            <div class="mt-auto pt-3 border-t border-hairline">
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">03 — Dual · Estándar</div>
+            </div>
+        </div>
+
+        <!-- Dual Oferta -->
+        <div class="p-6 bg-white rounded-[20px] border border-hairline flex flex-col gap-2.5 relative">
+            <span class="absolute -top-2 right-5 bg-teal text-navy text-[11px] font-extrabold tracking-[0.8px] uppercase px-3 py-[5px] rounded-md shadow-[0_4px_12px_rgba(0,206,206,0.32)] rotate-[-4deg]">¡Oferta!</span>
+            <div class="flex border-2 border-primary rounded-full overflow-hidden w-fit text-[12px]">
+                <span class="py-1.5 px-4 font-semibold bg-primary text-white">Por kg</span>
+                <span class="py-1.5 px-4 font-semibold text-primary bg-white">Por bolsa (15kg)</span>
+            </div>
+            <span class="inline-block px-[10px] py-[4px] text-[11px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full w-fit">Efectivo o transferencia</span>
+            <div class="flex items-baseline gap-3 flex-wrap">
+                <span class="font-bold text-[1.75rem] text-navy leading-[1.1]">$2.500<span class="text-[0.55em] font-medium text-muted">/kg</span></span>
+                <span class="text-[1rem] text-muted line-through font-medium">$2.880/kg</span>
+            </div>
+            <span class="text-[13px] text-muted font-medium">Precio de lista: $3.200/kg</span>
+            <span class="text-[13px] text-muted font-medium">Bolsa 15kg: $37.500</span>
+            <div class="mt-auto pt-3 border-t border-hairline">
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">04 — Dual · Oferta</div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="mt-5 text-[12px] text-muted leading-[1.7]">
+        Nota: cuando el usuario selecciona "Por bolsa" en el toggle, el bloque cambia al precio de la bolsa cerrada como líder ($43.200 en estándar, $37.500 en oferta), manteniendo el mismo patrón de chip / line-through / referencias.
+    </div>
+
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">18</div>
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- PAGE 19 — Carrito                                -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="page bg-navy text-primary-light">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-10 text-teal">Carrito — Variantes de Línea</div>
+
+    <p class="text-base leading-[1.8] max-w-[620px] opacity-85 mb-6">
+        Cada línea del carrito muestra el precio unitario que paga el cliente (efectivo o oferta) con el precio de referencia tachado al lado. El badge "¡Oferta!" se replica en la línea para que el cliente identifique qué items están en promo.
+    </p>
+
+    <div class="bg-white rounded-[20px] overflow-hidden text-navy">
+        <table class="w-full" style="border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th class="text-left text-[10px] font-bold uppercase tracking-[0.6px] text-muted py-3 px-4 border-b-2 border-hairline" style="width:40%;">Producto</th>
+                    <th class="text-left text-[10px] font-bold uppercase tracking-[0.6px] text-muted py-3 px-4 border-b-2 border-hairline" style="width:24%;">Precio unitario</th>
+                    <th class="text-left text-[10px] font-bold uppercase tracking-[0.6px] text-muted py-3 px-4 border-b-2 border-hairline" style="width:14%;">Cant.</th>
+                    <th class="text-right text-[10px] font-bold uppercase tracking-[0.6px] text-muted py-3 px-4 border-b-2 border-hairline" style="width:22%;">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                <!-- Row 1: Unit Estándar -->
+                <tr>
+                    <td class="py-4 px-4 border-b border-hairline align-top">
+                        <div class="font-semibold text-[13px]">Kong Classic Mediano</div>
+                        <div class="text-[11px] text-muted">Kong</div>
+                        <div class="mt-1.5 text-[9px] font-bold tracking-[1.5px] uppercase text-primary">01 · Unidad · Estándar</div>
+                    </td>
+                    <td class="py-4 px-4 border-b border-hairline align-top">
+                        <div class="flex items-baseline gap-2 flex-wrap">
+                            <span class="font-semibold text-[14px] text-navy">$13.050</span>
+                            <span class="text-[12px] text-muted line-through">$14.500</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 border-b border-hairline align-top text-[12px] text-navy">2</td>
+                    <td class="py-4 px-4 border-b border-hairline align-top text-right font-bold text-[14px] text-navy">$26.100</td>
+                </tr>
+
+                <!-- Row 2: Unit Oferta -->
+                <tr>
+                    <td class="py-4 px-4 border-b border-hairline align-top">
+                        <div class="flex items-start gap-2">
+                            <div>
+                                <div class="font-semibold text-[13px]">Kong Classic Mediano</div>
+                                <div class="text-[11px] text-muted">Kong</div>
+                                <div class="mt-1.5 text-[9px] font-bold tracking-[1.5px] uppercase text-primary">02 · Unidad · Oferta</div>
+                            </div>
+                            <span class="shrink-0 mt-0.5 bg-teal text-navy text-[9px] font-extrabold tracking-[0.8px] uppercase px-2 py-[3px] rounded">¡Oferta!</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 border-b border-hairline align-top">
+                        <div class="flex items-baseline gap-2 flex-wrap">
+                            <span class="font-semibold text-[14px] text-navy">$11.500</span>
+                            <span class="text-[12px] text-muted line-through">$13.050</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 border-b border-hairline align-top text-[12px] text-navy">2</td>
+                    <td class="py-4 px-4 border-b border-hairline align-top text-right font-bold text-[14px] text-navy">$23.000</td>
+                </tr>
+
+                <!-- Row 3: Dual kg Estándar -->
+                <tr>
+                    <td class="py-4 px-4 border-b border-hairline align-top">
+                        <div class="font-semibold text-[13px]">Pro Plan Adulto Raza Mediana <span class="text-muted font-normal">(por kg)</span></div>
+                        <div class="text-[11px] text-muted">Pro Plan</div>
+                        <div class="mt-1.5 text-[9px] font-bold tracking-[1.5px] uppercase text-primary">03 · Dual por kg · Estándar</div>
+                    </td>
+                    <td class="py-4 px-4 border-b border-hairline align-top">
+                        <div class="flex items-baseline gap-2 flex-wrap">
+                            <span class="font-semibold text-[14px] text-navy">$2.880<span class="text-[0.7em] text-muted font-medium">/kg</span></span>
+                            <span class="text-[12px] text-muted line-through">$3.200/kg</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 border-b border-hairline align-top text-[12px] text-navy">3 kg</td>
+                    <td class="py-4 px-4 border-b border-hairline align-top text-right font-bold text-[14px] text-navy">$8.640</td>
+                </tr>
+
+                <!-- Row 4: Dual kg Oferta -->
+                <tr>
+                    <td class="py-4 px-4 align-top">
+                        <div class="flex items-start gap-2">
+                            <div>
+                                <div class="font-semibold text-[13px]">Pro Plan Adulto Raza Mediana <span class="text-muted font-normal">(por kg)</span></div>
+                                <div class="text-[11px] text-muted">Pro Plan</div>
+                                <div class="mt-1.5 text-[9px] font-bold tracking-[1.5px] uppercase text-primary">04 · Dual por kg · Oferta</div>
+                            </div>
+                            <span class="shrink-0 mt-0.5 bg-teal text-navy text-[9px] font-extrabold tracking-[0.8px] uppercase px-2 py-[3px] rounded">¡Oferta!</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 align-top">
+                        <div class="flex items-baseline gap-2 flex-wrap">
+                            <span class="font-semibold text-[14px] text-navy">$2.500<span class="text-[0.7em] text-muted font-medium">/kg</span></span>
+                            <span class="text-[12px] text-muted line-through">$2.880/kg</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 align-top text-[12px] text-navy">3 kg</td>
+                    <td class="py-4 px-4 align-top text-right font-bold text-[14px] text-navy">$7.500</td>
+                </tr>
+
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-5 py-5 px-6 rounded-lg bg-purple/[0.08]">
+        <div class="text-[10px] font-bold tracking-[2px] uppercase mb-2 text-teal">Reglas de la línea</div>
+        <ul class="list-none space-y-1.5 text-[13px] leading-[1.6] opacity-85">
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">El subtotal es siempre <code>cantidad × precio líder</code> — efectivo en estándar, oferta en promo.</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">Productos duales entran al carrito como líneas separadas: "(por kg)" o "(bolsa Xkg)". Cada línea es una unidad de compra distinta.</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">El badge "¡Oferta!" en la línea usa un tamaño más chico que en la tarjeta — función informativa, no decorativa.</li>
+        </ul>
+    </div>
+
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">19</div>
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- PAGE 20 — Voz y Tono                            -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="page bg-canvas text-navy">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-primary">Voz y Tono</div>
+
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 text-primary">Cómo Hablamos</div>
+    <p class="text-base leading-[1.8] max-w-[620px]">
         Pet Universe habla con calidez y conocimiento. Somos el amigo que sabe de mascotas — no el vendedor que quiere cerrar una venta. Nuestro tono es cercano, directo y genuino.
     </p>
 
-    <div class="sub-heading">Ejemplos</div>
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 mt-9 text-primary">Ejemplos</div>
 
-    <div class="rules-grid" style="margin-top: 16px;">
-        <div class="rule-column rule-do">
-            <h3>Así sí</h3>
-            <ul>
-                <li>"Todo para tu mascota en un solo lugar"</li>
-                <li>"Consultanos por WhatsApp"</li>
-                <li>"Precios accesibles y atención personalizada"</li>
-                <li>"Encontrá lo mejor para tu compañero"</li>
+    <div class="grid grid-cols-2 gap-12 mt-4">
+        <div>
+            <h3 class="text-[11px] font-bold tracking-[3px] uppercase mb-5 pb-3 border-b-2 text-primary border-primary">Así sí</h3>
+            <ul class="list-none p-0">
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">"Todo para tu mascota en un solo lugar"</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">"Consultanos por WhatsApp"</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">"Precios accesibles y atención personalizada"</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">"Encontrá lo mejor para tu compañero"</li>
             </ul>
         </div>
-        <div class="rule-column rule-dont">
-            <h3>Así no</h3>
-            <ul>
-                <li>"OFERTAZO! NO TE LO PIERDAS!"</li>
-                <li>"Somos líderes en el mercado pet"</li>
-                <li>"Empresa dedicada al rubro mascotas"</li>
-                <li>"Adquiera nuestros productos"</li>
+        <div>
+            <h3 class="text-[11px] font-bold tracking-[3px] uppercase mb-5 pb-3 border-b-2 text-muted border-muted">Así no</h3>
+            <ul class="list-none p-0">
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">"OFERTAZO! NO TE LO PIERDAS!"</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">"Somos líderes en el mercado pet"</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">"Empresa dedicada al rubro mascotas"</li>
+                <li class="text-[13px] leading-[1.7] py-1.5 opacity-80">"Adquiera nuestros productos"</li>
             </ul>
         </div>
     </div>
 
-    <div class="sub-heading">En Redes Sociales</div>
-    <p class="body-text">
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 mt-9 text-primary">En Redes Sociales</div>
+    <p class="text-base leading-[1.8] max-w-[620px]">
         El mismo tono que en la tienda: cercano, genuino, útil. Compartir contenido que le sirva al dueño — tips de cuidado, novedades de productos, fotos de mascotas de clientes. No saturar con ofertas. El silencio también comunica.
     </p>
 
-    <div class="page-number">16</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">20</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
-<!-- PAGE 17 — Información de Contacto               -->
+<!-- PAGE 21 — Información de Contacto               -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-dark">
-    <div class="section-title">Información de Contacto Oficial</div>
+<div class="page bg-navy text-primary-light">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-teal">Información de Contacto Oficial</div>
 
-    <p class="body-text" style="margin-bottom: 8px;">
+    <p class="text-base leading-[1.8] max-w-[620px] opacity-85 mb-2">
         Estos son los canales oficiales de contacto de Pet Universe. Toda comunicación debe usar estos datos exactos — no versiones alternativas ni cuentas personales.
     </p>
 
-    <div class="contact-grid">
-        <div class="contact-card" style="background: rgba(114, 66, 240, 0.08);">
-            <div class="contact-icon" style="background: rgba(0, 206, 206, 0.15); color: var(--teal);">
+    <div class="grid grid-cols-2 gap-4 mt-8">
+        <div class="p-6 rounded-lg flex items-center gap-4 bg-purple/[0.08]">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-teal/[0.15] text-teal">
                 <iconify-icon icon="lucide:map-pin" width="22" height="22"></iconify-icon>
             </div>
-            <div class="contact-info">
-                <span class="contact-label">Dirección</span>
-                <span class="contact-value">Luis Agote 1924, Córdoba</span>
+            <div class="flex flex-col gap-0.5">
+                <span class="text-[10px] font-bold tracking-[2px] uppercase opacity-50">Dirección</span>
+                <span class="text-sm font-medium">Luis Agote 1924, Córdoba</span>
             </div>
         </div>
-        <div class="contact-card" style="background: rgba(114, 66, 240, 0.08);">
-            <div class="contact-icon" style="background: rgba(0, 206, 206, 0.15); color: var(--teal);">
+        <div class="p-6 rounded-lg flex items-center gap-4 bg-purple/[0.08]">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-teal/[0.15] text-teal">
                 <iconify-icon icon="mdi:whatsapp" width="22" height="22"></iconify-icon>
             </div>
-            <div class="contact-info">
-                <span class="contact-label">WhatsApp</span>
-                <span class="contact-value">+54 9 351 760 5708</span>
+            <div class="flex flex-col gap-0.5">
+                <span class="text-[10px] font-bold tracking-[2px] uppercase opacity-50">WhatsApp</span>
+                <span class="text-sm font-medium">+54 9 351 760 5708</span>
             </div>
         </div>
-        <div class="contact-card" style="background: rgba(114, 66, 240, 0.08);">
-            <div class="contact-icon" style="background: rgba(0, 206, 206, 0.15); color: var(--teal);">
+        <div class="p-6 rounded-lg flex items-center gap-4 bg-purple/[0.08]">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-teal/[0.15] text-teal">
                 <iconify-icon icon="lucide:instagram" width="22" height="22"></iconify-icon>
             </div>
-            <div class="contact-info">
-                <span class="contact-label">Instagram</span>
-                <span class="contact-value">@petuniverse.cba</span>
+            <div class="flex flex-col gap-0.5">
+                <span class="text-[10px] font-bold tracking-[2px] uppercase opacity-50">Instagram</span>
+                <span class="text-sm font-medium">@petuniverse.cba</span>
             </div>
         </div>
-        <div class="contact-card" style="background: rgba(114, 66, 240, 0.08);">
-            <div class="contact-icon" style="background: rgba(0, 206, 206, 0.15); color: var(--teal);">
+        <div class="p-6 rounded-lg flex items-center gap-4 bg-purple/[0.08]">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-teal/[0.15] text-teal">
                 <iconify-icon icon="ic:baseline-tiktok" width="22" height="22"></iconify-icon>
             </div>
-            <div class="contact-info">
-                <span class="contact-label">TikTok</span>
-                <span class="contact-value">@petuniverse.cba</span>
+            <div class="flex flex-col gap-0.5">
+                <span class="text-[10px] font-bold tracking-[2px] uppercase opacity-50">TikTok</span>
+                <span class="text-sm font-medium">@petuniverse.cba</span>
             </div>
         </div>
-        <div class="contact-card" style="background: rgba(114, 66, 240, 0.08);">
-            <div class="contact-icon" style="background: rgba(0, 206, 206, 0.15); color: var(--teal);">
+        <div class="p-6 rounded-lg flex items-center gap-4 bg-purple/[0.08]">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-teal/[0.15] text-teal">
                 <iconify-icon icon="lucide:mail" width="22" height="22"></iconify-icon>
             </div>
-            <div class="contact-info">
-                <span class="contact-label">Email</span>
-                <span class="contact-value">petuniversemascota5@gmail.com</span>
+            <div class="flex flex-col gap-0.5">
+                <span class="text-[10px] font-bold tracking-[2px] uppercase opacity-50">Email</span>
+                <span class="text-sm font-medium">petuniversemascota5@gmail.com</span>
             </div>
         </div>
-        <div class="contact-card" style="background: rgba(114, 66, 240, 0.08);">
-            <div class="contact-icon" style="background: rgba(0, 206, 206, 0.15); color: var(--teal);">
+        <div class="p-6 rounded-lg flex items-center gap-4 bg-purple/[0.08]">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-teal/[0.15] text-teal">
                 <iconify-icon icon="lucide:globe" width="22" height="22"></iconify-icon>
             </div>
-            <div class="contact-info">
-                <span class="contact-label">Web</span>
-                <span class="contact-value">petuniversecba.com</span>
+            <div class="flex flex-col gap-0.5">
+                <span class="text-[10px] font-bold tracking-[2px] uppercase opacity-50">Web</span>
+                <span class="text-sm font-medium">petuniversecba.com</span>
             </div>
         </div>
     </div>
 
-    <div class="sub-heading" style="margin-top: 40px;">Modelo de Servicio</div>
-    <div class="benefits-mockup">
-        <div class="benefit-item" style="background: rgba(114, 66, 240, 0.06);">
-            <div class="benefit-icon" style="background: rgba(0, 206, 206, 0.12); color: var(--teal);">
+    <div class="text-[13px] font-semibold tracking-[2px] uppercase mb-3 mt-10 text-teal">Modelo de Servicio</div>
+    <div class="grid grid-cols-3 gap-0.5 mt-8 rounded-lg overflow-hidden">
+        <div class="p-5 flex items-center gap-3.5 bg-purple/[0.06]">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-teal/[0.12] text-teal">
                 <iconify-icon icon="mdi:whatsapp" width="20" height="20"></iconify-icon>
             </div>
-            <div class="benefit-text" style="color: var(--primary-light);">
+            <div class="text-xs font-medium leading-[1.5] text-primary-light">
                 <strong>Pedí por WhatsApp</strong><br>
                 Atención rápida y personalizada
             </div>
         </div>
-        <div class="benefit-item" style="background: rgba(114, 66, 240, 0.06);">
-            <div class="benefit-icon" style="background: rgba(0, 206, 206, 0.12); color: var(--teal);">
+        <div class="p-5 flex items-center gap-3.5 bg-purple/[0.06]">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-teal/[0.12] text-teal">
                 <iconify-icon icon="lucide:map-pin" width="20" height="20"></iconify-icon>
             </div>
-            <div class="benefit-text" style="color: var(--primary-light);">
+            <div class="text-xs font-medium leading-[1.5] text-primary-light">
                 <strong>Retirá en el local</strong><br>
                 Luis Agote 1924, Córdoba
             </div>
         </div>
-        <div class="benefit-item" style="background: rgba(114, 66, 240, 0.06);">
-            <div class="benefit-icon" style="background: rgba(0, 206, 206, 0.12); color: var(--teal);">
+        <div class="p-5 flex items-center gap-3.5 bg-purple/[0.06]">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-teal/[0.12] text-teal">
                 <iconify-icon icon="lucide:truck" width="20" height="20"></iconify-icon>
             </div>
-            <div class="benefit-text" style="color: var(--primary-light);">
+            <div class="text-xs font-medium leading-[1.5] text-primary-light">
                 <strong>Envíos</strong><br>
                 Delivery disponible
             </div>
         </div>
     </div>
 
-    <div class="tbd-block">
-        <div class="tbd-label">Falta ser definido</div>
-        <p class="tbd-text">
+    <div class="mt-6 p-7 rounded-lg border-2 border-dashed border-teal bg-teal/[0.06]">
+        <div class="text-[10px] font-bold tracking-[3px] uppercase mb-3 text-teal">Falta ser definido</div>
+        <p class="text-sm leading-[1.7] opacity-80">
             <strong>Detalles de envío:</strong> ¿Zona de cobertura? ¿Costo de envío? ¿Monto mínimo para envío gratis? ¿Horarios de entrega? Definir para incluir en la web y comunicación.
         </p>
     </div>
 
-    <div class="page-number">17</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">21</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
-<!-- PAGE 18 — Pendientes                            -->
+<!-- PAGE 22 — Pendientes                            -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-light">
-    <div class="section-title">Elementos Pendientes</div>
+<div class="page bg-canvas text-navy">
+    <div class="text-[11px] font-bold tracking-[4px] uppercase mb-12 text-primary">Elementos Pendientes</div>
 
-    <p class="body-text" style="margin-bottom: 8px;">
+    <p class="text-base leading-[1.8] max-w-[620px] mb-2">
         Los siguientes elementos necesitan definición del dueño para completar la identidad de marca:
     </p>
 
-    <div class="tbd-block">
-        <div class="tbd-label">Identidad</div>
-        <ul class="checklist">
-            <li>Elegir tagline/eslogan oficial (ver opciones en pág. 2)</li>
-            <li>Definir si existe versión monocromática del logo</li>
-            <li>Definir horarios de atención para comunicar en web y redes</li>
+    <div class="mt-6 p-7 rounded-lg border-2 border-dashed border-primary bg-primary-light">
+        <div class="text-[10px] font-bold tracking-[3px] uppercase mb-3 text-primary">Identidad</div>
+        <ul class="mt-4 list-none">
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Elegir tagline/eslogan oficial (ver opciones en pág. 2)</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Definir si existe versión monocromática del logo</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Definir horarios de atención para comunicar en web y redes</li>
         </ul>
     </div>
 
-    <div class="tbd-block" style="margin-top: 24px;">
-        <div class="tbd-label">Fotografía</div>
-        <ul class="checklist">
-            <li>Mostrador / zona de atención (vista cercana)</li>
-            <li>Más mascotas visitando el local</li>
-            <li>Staff atendiendo clientes</li>
-            <li>Exterior de noche (si hay cartel iluminado)</li>
-            <li>Productos estrella exhibidos</li>
-            <li>Fotos de clientes con mascotas (con permiso)</li>
-            <li>Detalle del logo interior tallado en madera</li>
+    <div class="mt-6 p-7 rounded-lg border-2 border-dashed border-primary bg-primary-light">
+        <div class="text-[10px] font-bold tracking-[3px] uppercase mb-3 text-primary">Fotografía</div>
+        <ul class="mt-4 list-none">
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Mostrador / zona de atención (vista cercana)</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Más mascotas visitando el local</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Staff atendiendo clientes</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Exterior de noche (si hay cartel iluminado)</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Productos estrella exhibidos</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Fotos de clientes con mascotas (con permiso)</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Detalle del logo interior tallado en madera</li>
         </ul>
     </div>
 
-    <div class="tbd-block" style="margin-top: 24px;">
-        <div class="tbd-label">Servicio</div>
-        <ul class="checklist">
-            <li>Detalles de envío (zona, costo, mínimo, horarios)</li>
-            <li>Métodos de pago aceptados (efectivo, transferencia, tarjeta, QR)</li>
-            <li>Horarios de atención del local</li>
-            <li>Política de cambios y devoluciones</li>
+    <div class="mt-6 p-7 rounded-lg border-2 border-dashed border-primary bg-primary-light">
+        <div class="text-[10px] font-bold tracking-[3px] uppercase mb-3 text-primary">Servicio</div>
+        <ul class="mt-4 list-none">
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Detalles de envío (zona, costo, mínimo, horarios)</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Métodos de pago aceptados (efectivo, transferencia, tarjeta, QR)</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Horarios de atención del local</li>
+            <li class="relative pl-7 py-1 text-sm leading-[1.8] before:absolute before:left-0 before:top-1 before:content-['☐'] before:text-base">Política de cambios y devoluciones</li>
         </ul>
     </div>
 
-    <div class="page-number">18</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">22</div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
-<!-- PAGE 19 — Cierre                                -->
+<!-- PAGE 23 — Cierre                                -->
 <!-- ════════════════════════════════════════════════ -->
-<div class="page page-accent cover" style="color: white;">
-    <div class="cover-logo">
-        <img src="/internal/assets/logo-transparent.png" alt="Pet Universe Córdoba" style="max-width: 240px; filter: drop-shadow(0 8px 32px rgba(0, 0, 0, 0.2));">
+<div class="page bg-primary text-white justify-center items-center text-center gap-10">
+    <div>
+        <img src="/internal/assets/logo-transparent.png" alt="Pet Universe Córdoba"
+             class="max-w-[240px] h-auto drop-shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
     </div>
-    <div class="cover-divider" style="background: rgba(255,255,255,0.2);"></div>
-    <p style="font-size: 16px; font-weight: 300; line-height: 1.8; max-width: 480px; text-align: center; opacity: 0.9;">
+    <div class="w-px h-20 bg-white/20 mx-auto"></div>
+    <p class="text-base font-light leading-[1.8] max-w-[480px] text-center opacity-90">
         Este manual es una guía viva. Puede evolucionar con la marca, pero los principios — calidez, confianza, cercanía y simplicidad — son permanentes.
     </p>
-    <p style="font-size: 11px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.5; margin-top: 32px;">
+    <p class="text-[11px] tracking-[2px] uppercase opacity-50 mt-8">
         Desarrollado por wiseutils.com
     </p>
-    <div class="page-number" style="color: white;">19</div>
+    <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30 text-white">23</div>
 </div>
 
 </body>

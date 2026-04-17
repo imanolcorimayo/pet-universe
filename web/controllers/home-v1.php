@@ -14,105 +14,108 @@ $featured = searchProducts('', [
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<!-- Hero -->
-<section class="hero">
-  <!-- Background images (rotate with crossfade) -->
-  <div class="hero-bg" id="hero-bg">
+<section class="relative text-white min-h-[420px] md:min-h-[72vh] md:max-h-[720px] flex flex-col justify-end overflow-hidden">
+  <div id="hero-bg" class="absolute inset-0 z-0">
     <?php
     $heroSlides = [
-        ['file' => 'kitten-golden', 'alt' => 'Gatito atigrado con ojos dorados mirando con curiosidad'],
-        ['file' => 'puppy-hand',    'alt' => 'Cachorro blanco y gris descansando en una mano con ternura'],
-        ['file' => 'chihuahua',     'alt' => 'Chihuahua simpático asomándose sobre el hombro de su dueño'],
-        ['file' => 'dog-spa',       'alt' => 'Perrito blanco con gorro de baño disfrutando un día de spa'],
-        ['file' => 'kitten-sky',    'alt' => 'Gatito calicó sostenido en alto contra un cielo celeste'],
+        ['file' => 'store-interior', 'alt' => 'Interior del local Pet Universe — mostrador y estanterías'],
+        ['file' => 'store-exterior', 'alt' => 'Fachada del local Pet Universe en Luis Agote 1924, Córdoba'],
+        ['file' => 'store-dog-logo', 'alt' => 'Bulldog visitando Pet Universe'],
     ];
     foreach ($heroSlides as $i => $slide):
       $isFirst = $i === 0;
     ?>
-      <picture class="hero-bg-slide <?= $isFirst ? 'active' : '' ?>">
+      <picture class="hero-bg-slide block absolute inset-0 opacity-0 transition-opacity duration-[1200ms] ease-in-out [&.active]:opacity-100<?= $isFirst ? ' active' : '' ?>">
         <source
           type="image/webp"
           srcset="<?= asset("img/hero/{$slide['file']}-sm.webp") ?> 800w, <?= asset("img/hero/{$slide['file']}.webp") ?> 1600w"
           sizes="100vw">
         <img
-          src="<?= asset("img/hero/{$slide['file']}.jpg") ?>"
-          srcset="<?= asset("img/hero/{$slide['file']}-sm.jpg") ?> 800w, <?= asset("img/hero/{$slide['file']}.jpg") ?> 1600w"
+          src="<?= asset("img/hero/{$slide['file']}.jpeg") ?>"
+          srcset="<?= asset("img/hero/{$slide['file']}-sm.jpeg") ?> 800w, <?= asset("img/hero/{$slide['file']}.jpeg") ?> 1600w"
           sizes="100vw"
           alt="<?= $slide['alt'] ?>"
           width="1600"
-          height="700"
+          height="900"
+          class="absolute inset-0 w-full h-full object-cover object-center"
           <?= $isFirst ? 'fetchpriority="high"' : 'loading="lazy"' ?>>
       </picture>
     <?php endforeach; ?>
   </div>
 
-  <!-- Gradient overlay (keeps brand color + readability) -->
-  <div class="hero-overlay"></div>
+  <div class="absolute inset-0 z-[1] bg-[linear-gradient(to_top,rgba(20,16,56,0.96)_0%,rgba(20,16,56,0.82)_28%,rgba(20,16,56,0.45)_55%,rgba(20,16,56,0.15)_75%,transparent_95%)]"></div>
 
-  <!-- Floating paw decorations -->
-  <iconify-icon icon="mdi:paw" width="48" height="48" class="hero-paw"></iconify-icon>
-  <iconify-icon icon="mdi:paw" width="36" height="36" class="hero-paw"></iconify-icon>
-  <iconify-icon icon="mdi:paw" width="30" height="30" class="hero-paw"></iconify-icon>
-  <iconify-icon icon="mdi:paw" width="42" height="42" class="hero-paw"></iconify-icon>
+  <iconify-icon icon="mdi:paw" width="48" height="48"
+                class="absolute opacity-[0.08] text-white z-[2] pointer-events-none animate-[float_7s_ease-in-out_infinite] top-[12%] left-[8%] [--rotate:-15deg]"></iconify-icon>
+  <iconify-icon icon="mdi:paw" width="36" height="36"
+                class="absolute opacity-[0.08] text-white z-[2] pointer-events-none animate-[float_7s_ease-in-out_infinite] top-[55%] right-[10%] [--rotate:20deg] [animation-delay:-2.5s]"></iconify-icon>
+  <iconify-icon icon="mdi:paw" width="30" height="30"
+                class="absolute opacity-[0.08] text-white z-[2] pointer-events-none animate-[float_7s_ease-in-out_infinite] bottom-[25%] left-[18%] [--rotate:10deg] [animation-delay:-4.5s]"></iconify-icon>
+  <iconify-icon icon="mdi:paw" width="42" height="42"
+                class="absolute opacity-[0.08] text-white z-[2] pointer-events-none animate-[float_7s_ease-in-out_infinite] top-[25%] right-[22%] [--rotate:-25deg] [animation-delay:-1.5s]"></iconify-icon>
 
-  <!-- Content -->
-  <div class="container hero-content">
-    <div class="hero-badge">
+  <div class="relative z-[5] w-full max-w-[1200px] mx-auto px-5 pb-16 md:pb-[72px]">
+    <div class="inline-flex items-center gap-1.5 py-1.5 px-4 bg-white/10 border border-white/15 rounded-full text-xs md:text-[13px] font-medium text-teal mb-6 backdrop-blur-sm animate-[fadeInUp_0.6s_ease-out_both]">
       <iconify-icon icon="mdi:paw" width="14" height="14"></iconify-icon>
       <?= SITE_TAGLINE ?>
     </div>
-    <h1>Todo para tu mascota<br>en un solo lugar</h1>
-    <p>Alimentos, accesorios y todo lo que necesitas para el bienestar de tu compañero. Precios accesibles y atención personalizada.</p>
-    <a href="/productos" class="btn btn-primary btn-lg">
+    <h1 class="font-display text-[1.75rem] sm:text-[2rem] md:text-[3.2rem] font-bold leading-[1.15] mb-4 animate-[fadeInUp_0.6s_ease-out_0.1s_both]">Todo para tu mascota<br>en un solo lugar</h1>
+    <p class="text-[1rem] md:text-[1.15rem] opacity-90 mb-8 max-w-[520px] leading-[1.7] animate-[fadeInUp_0.6s_ease-out_0.2s_both]">Alimentos, accesorios y todo lo que necesitas para el bienestar de tu compañero. Precios accesibles y atención personalizada.</p>
+    <a href="/productos"
+       class="inline-flex items-center justify-center gap-2 px-9 py-4 text-[15px] md:text-[16px] font-bold tracking-[0.3px] rounded-full border-2 border-primary bg-primary text-white transition-all hover:bg-navy hover:border-navy hover:-translate-y-px hover:shadow-[0_6px_24px_rgba(64,15,255,0.28)] animate-[fadeInUp_0.6s_ease-out_0.3s_both]">
       <iconify-icon icon="lucide:package" width="18" height="18"></iconify-icon>
       Ver productos
     </a>
   </div>
 
-  <!-- Wave divider -->
-  <div class="hero-wave">
-    <svg viewBox="0 0 1440 80" preserveAspectRatio="none" fill="currentColor">
+  <div class="absolute -bottom-px left-0 w-full z-[4] leading-none text-canvas">
+    <svg viewBox="0 0 1440 80" preserveAspectRatio="none" fill="currentColor" class="w-full h-[60px] block">
       <path d="M0,48 C360,88 720,8 1080,48 C1260,68 1380,28 1440,48 L1440,80 L0,80 Z"/>
     </svg>
   </div>
 </section>
 
-<!-- Categories Carousel -->
-<section class="section categories-section animate-on-scroll">
-  <div class="categories-carousel-wrapper">
-    <button class="carousel-arrow carousel-arrow-left" id="cat-prev" aria-label="Anterior">
+<section class="py-10 animate-on-scroll">
+  <div class="relative max-w-[1200px] mx-auto px-[44px] md:px-[52px]">
+    <button id="cat-prev" aria-label="Anterior"
+            class="absolute top-1/2 -translate-y-1/2 left-1 w-8 md:w-[38px] h-8 md:h-[38px] rounded-full bg-white border border-hairline text-navy flex items-center justify-center z-[2] cursor-pointer transition-all shadow-[0_1px_4px_rgba(32,28,78,0.04)] hover:bg-primary hover:text-white hover:border-primary hover:shadow-[0_4px_16px_rgba(32,28,78,0.06)]">
       <iconify-icon icon="lucide:chevron-left" width="22" height="22"></iconify-icon>
     </button>
-    <div class="categories-carousel" id="categories-carousel">
+    <div id="categories-carousel"
+         class="scroll-row flex gap-2 md:gap-5 overflow-x-auto py-4">
       <?php for ($loop = 0; $loop < 2; $loop++): ?>
         <?php foreach ($categories as $cat): ?>
-          <a href="/productos?categoria=<?= urlencode($cat['slug']) ?>" class="category-circle-item">
-            <span class="category-circle-icon">
+          <a href="/productos?categoria=<?= urlencode($cat['slug']) ?>"
+             class="group flex flex-col items-center gap-2.5 shrink-0 p-1 transition-transform hover:-translate-y-1">
+            <span class="w-20 md:w-[110px] lg:w-[120px] h-20 md:h-[110px] lg:h-[120px] rounded-full flex items-center justify-center bg-primary-light text-primary transition-all border-[3px] border-transparent group-hover:bg-primary group-hover:text-white group-hover:border-teal group-hover:shadow-[0_8px_24px_rgba(64,15,255,0.18)]">
               <iconify-icon icon="<?= getCategoryIcon($cat['name']) ?>" width="32" height="32"></iconify-icon>
             </span>
-            <span class="category-circle-name"><?= htmlspecialchars($cat['name']) ?></span>
+            <span class="text-[10px] md:text-[11px] font-bold uppercase tracking-[0.4px] text-navy text-center max-w-[80px] md:max-w-[100px] leading-[1.3] transition-colors group-hover:text-primary">
+              <?= htmlspecialchars($cat['name']) ?>
+            </span>
           </a>
         <?php endforeach; ?>
       <?php endfor; ?>
     </div>
-    <button class="carousel-arrow carousel-arrow-right" id="cat-next" aria-label="Siguiente">
+    <button id="cat-next" aria-label="Siguiente"
+            class="absolute top-1/2 -translate-y-1/2 right-1 w-8 md:w-[38px] h-8 md:h-[38px] rounded-full bg-white border border-hairline text-navy flex items-center justify-center z-[2] cursor-pointer transition-all shadow-[0_1px_4px_rgba(32,28,78,0.04)] hover:bg-primary hover:text-white hover:border-primary hover:shadow-[0_4px_16px_rgba(32,28,78,0.06)]">
       <iconify-icon icon="lucide:chevron-right" width="22" height="22"></iconify-icon>
     </button>
   </div>
 </section>
 
-<!-- Featured Products -->
 <?php if (!empty($featured['hits'])): ?>
-<section class="section" style="background: var(--surface);">
-  <div class="container">
-    <h2 class="section-title animate-on-scroll">Productos destacados</h2>
-    <div class="product-grid stagger-children">
+<section class="py-10 md:py-14 bg-white">
+  <div class="w-full max-w-[1200px] mx-auto px-5">
+    <h2 class="font-display text-[1.4rem] md:text-[1.75rem] font-semibold mb-7 text-navy leading-[1.3] animate-on-scroll">Productos destacados</h2>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-[18px] stagger-children">
       <?php foreach ($featured['hits'] as $product): ?>
         <?php require __DIR__ . '/_product_card.php'; ?>
       <?php endforeach; ?>
     </div>
-    <div style="text-align:center; margin-top:36px;" class="animate-on-scroll">
-      <a href="/productos" class="btn btn-outline">
+    <div class="text-center mt-9 animate-on-scroll">
+      <a href="/productos"
+         class="inline-flex items-center justify-center gap-2 px-7 py-[13px] text-[14px] font-semibold tracking-[0.3px] rounded-full border-2 border-primary bg-transparent text-primary transition-all hover:bg-primary hover:text-white hover:-translate-y-px">
         Ver todos los productos
         <iconify-icon icon="lucide:arrow-right" width="16" height="16"></iconify-icon>
       </a>
@@ -121,28 +124,27 @@ require __DIR__ . '/../includes/header.php';
 </section>
 <?php endif; ?>
 
-<!-- Store Info -->
-<section class="section">
-  <div class="container">
-    <div class="store-info animate-on-scroll">
-      <div class="store-info-grid">
-        <div class="store-info-item">
-          <span class="store-info-icon">
+<section class="py-10 md:py-14">
+  <div class="w-full max-w-[1200px] mx-auto px-5">
+    <div class="bg-white border border-hairline rounded-[20px] p-[18px] md:p-8 animate-on-scroll">
+      <div class="flex flex-col md:flex-row items-stretch md:items-center justify-start md:justify-center gap-1 md:gap-10 md:flex-wrap">
+        <div class="flex items-center gap-2.5 text-[14px] text-muted md:py-0 py-2 [&+&]:border-t md:[&+&]:border-t-0 [&+&]:border-hairline">
+          <span class="flex items-center justify-center w-[34px] md:w-10 h-[34px] md:h-10 rounded-full bg-primary-light text-primary shrink-0">
             <iconify-icon icon="lucide:map-pin" width="20" height="20"></iconify-icon>
           </span>
           <?= STORE_ADDRESS ?>
         </div>
-        <div class="store-info-item">
-          <span class="store-info-icon">
+        <div class="flex items-center gap-2.5 text-[14px] text-muted md:py-0 py-2 [&+&]:border-t md:[&+&]:border-t-0 [&+&]:border-hairline">
+          <span class="flex items-center justify-center w-[34px] md:w-10 h-[34px] md:h-10 rounded-full bg-primary-light text-primary shrink-0">
             <iconify-icon icon="mdi:whatsapp" width="20" height="20"></iconify-icon>
           </span>
-          <a href="https://wa.me/<?= WHATSAPP_NUMBER ?>"><?= WHATSAPP_NUMBER ?></a>
+          <a href="https://wa.me/<?= WHATSAPP_NUMBER ?>" class="text-muted transition-colors hover:text-primary"><?= WHATSAPP_NUMBER ?></a>
         </div>
-        <div class="store-info-item">
-          <span class="store-info-icon">
+        <div class="flex items-center gap-2.5 text-[14px] text-muted md:py-0 py-2 [&+&]:border-t md:[&+&]:border-t-0 [&+&]:border-hairline">
+          <span class="flex items-center justify-center w-[34px] md:w-10 h-[34px] md:h-10 rounded-full bg-primary-light text-primary shrink-0">
             <iconify-icon icon="lucide:instagram" width="20" height="20"></iconify-icon>
           </span>
-          <a href="<?= STORE_INSTAGRAM_URL ?>" target="_blank"><?= STORE_INSTAGRAM ?></a>
+          <a href="<?= STORE_INSTAGRAM_URL ?>" target="_blank" class="text-muted transition-colors hover:text-primary"><?= STORE_INSTAGRAM ?></a>
         </div>
       </div>
     </div>

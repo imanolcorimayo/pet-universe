@@ -213,9 +213,9 @@ require __DIR__ . '/../includes/header-v2.php';
     <div class="lg:col-span-7">
       <div class="grid grid-cols-5 grid-rows-5 gap-4 sm:gap-5 h-[420px] sm:h-[520px]">
         <div class="col-span-3 row-span-5 rounded-[24px] overflow-hidden relative">
-          <img src="<?= asset('img/hero/store-exterior.jpeg') ?>" alt="Fachada de Pet Universe en Luis Agote 1924"
+          <img src="<?= asset('img/hero/store-interior.jpeg') ?>" alt="Interior de Pet Universe — mostrador y estanterías"
                class="w-full h-full object-cover" loading="lazy">
-          <span class="absolute bottom-3 left-3 font-hand text-paper text-2xl drop-shadow">la fachada</span>
+          <span class="absolute bottom-3 left-3 font-hand text-paper text-2xl drop-shadow">por dentro</span>
         </div>
         <div class="col-span-2 row-span-3 rounded-[24px] overflow-hidden relative">
           <img src="<?= asset('img/hero/store-dog-logo.jpeg') ?>" alt="Bulldog visitando la tienda"

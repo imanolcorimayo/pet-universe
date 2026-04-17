@@ -17,11 +17,13 @@ $routes = [
     '/v1'         => 'home-v1',    // original design (hand-written CSS)
     '/v2'         => 'home-v2',    // Tailwind — "almacén de barrio, editorialized"
     '/v3'         => 'home-v3',    // Tailwind — next variant (cloned from v2)
+    '/v4'         => 'home-v4',    // Tailwind — mercado-style, density-first (brand palette)
     '/productos'  => 'productos',
     '/buscar'     => 'buscar',
     '/carrito'    => 'carrito',
     '/checkout'   => 'checkout',
     '/sitemap.xml'=> 'sitemap',
+    '/api/category-preview' => 'api-category-preview',
 ];
 
 try {

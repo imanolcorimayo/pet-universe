@@ -137,6 +137,65 @@ require __DIR__ . '/../includes/header-v3.php';
 </section>
 <?php endif; ?>
 
+<!-- ─── CONOCÉ EL LOCAL ─────────────────────────────── -->
+<section id="local" class="mx-4 sm:mx-6 lg:mx-8 mb-8">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-center">
+
+    <!-- Photo collage -->
+    <div class="relative order-2 lg:order-1">
+      <div class="grid grid-cols-5 grid-rows-2 gap-3 sm:gap-4 h-[340px] sm:h-[420px] lg:h-[460px]">
+        <div class="col-span-3 row-span-2 rounded-[24px] overflow-hidden relative bg-purple-wash">
+          <img src="<?= asset('img/hero/store-interior.jpeg') ?>" alt="Interior de Pet Universe — mostrador y estanterías"
+               class="w-full h-full object-cover" loading="lazy">
+          <span class="absolute bottom-3 left-3 bg-paper text-ink font-chunky font-bold text-[11px] tracking-[1.5px] uppercase rounded-full px-3 py-1 shadow-sm">Por dentro</span>
+        </div>
+        <div class="col-span-2 row-span-1 rounded-[24px] overflow-hidden relative bg-purple-wash">
+          <img src="<?= asset('img/hero/store-exterior.jpeg') ?>" alt="Fachada de Pet Universe en Luis Agote 1924"
+               class="w-full h-full object-cover" loading="lazy">
+          <span class="absolute bottom-2 left-2 bg-paper text-ink font-chunky font-bold text-[10px] tracking-[1.5px] uppercase rounded-full px-2.5 py-0.5 shadow-sm">La fachada</span>
+        </div>
+        <div class="col-span-2 row-span-1 rounded-[24px] bg-yellow text-ink p-4 sm:p-5 flex flex-col justify-between">
+          <div>
+            <div class="text-[10px] font-chunky font-bold tracking-[2px] uppercase opacity-70">Horario</div>
+            <div class="font-chunky font-extrabold text-[20px] sm:text-[22px] leading-tight mt-1">Lun a Sáb<br>9 a 20 hs</div>
+          </div>
+          <div class="flex items-center gap-1.5 text-[11px] font-semibold">
+            <iconify-icon icon="lucide:map-pin" width="13" height="13"></iconify-icon>
+            Luis Agote 1924
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Text -->
+    <div class="order-1 lg:order-2">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-wash text-purple-deep text-[11px] font-chunky font-bold tracking-[2px] uppercase">
+        <iconify-icon icon="lucide:store" width="12" height="12"></iconify-icon>
+        Conocé el local
+      </span>
+      <h2 class="mt-3 font-chunky font-extrabold text-[30px] sm:text-[40px] leading-[1.05] text-ink">
+        Un pet shop<br>
+        <span class="text-purple-deep">con cara y nombre.</span>
+      </h2>
+      <p class="mt-4 text-ink-soft text-[15px] sm:text-[16px] leading-relaxed max-w-[460px]">
+        No somos una cadena. Somos un local de barrio en Luis Agote 1924. Pasá a conocernos, te recomendamos la mejor comida para tu mascota, y si no tenés tiempo, te lo mandamos a casa.
+      </p>
+      <div class="mt-6 flex flex-wrap gap-3">
+        <a href="https://www.google.com/maps/search/?api=1&query=Luis+Agote+1924+Cordoba" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 bg-purple text-paper font-chunky font-bold rounded-full px-5 py-3 text-[14px] hover:bg-purple-deep transition-colors">
+          <iconify-icon icon="lucide:map-pin" width="16" height="16"></iconify-icon>
+          Cómo llegar
+        </a>
+        <a href="<?= STORE_INSTAGRAM_URL ?>" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 border-2 border-ink text-ink font-chunky font-bold rounded-full px-5 py-[10px] text-[14px] hover:bg-ink hover:text-paper transition-colors">
+          <iconify-icon icon="lucide:instagram" width="16" height="16"></iconify-icon>
+          Seguinos
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ─── WHATSAPP CTA BAND ───────────────────────────── -->
 <section id="ofertas" class="mx-4 sm:mx-6 lg:mx-8 mb-8">
   <div class="relative bg-purple text-paper rounded-[28px] overflow-hidden p-7 sm:p-12">

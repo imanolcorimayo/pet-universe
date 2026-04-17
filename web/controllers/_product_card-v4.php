@@ -9,7 +9,6 @@ if ($isDual) {
   $hasCashDiscount = !empty($product['priceCash']) && $product['priceCash'] < ($product['priceRegular'] ?? 0);
 }
 
-// Cap the "¡Oferta!" sticker at the first 3 discounted cards per page render
 if (!isset($GLOBALS['_offerBadgesShown'])) $GLOBALS['_offerBadgesShown'] = 0;
 $showOfferBadge = $hasCashDiscount && $GLOBALS['_offerBadgesShown'] < 3;
 if ($showOfferBadge) $GLOBALS['_offerBadgesShown']++;
@@ -27,9 +26,9 @@ $productJson = htmlspecialchars(json_encode([
     'unitWeight' => $product['unitWeight'] ?? 0,
 ]), ENT_QUOTES, 'UTF-8');
 ?>
-<div class="group bg-white rounded-[20px] border border-hairline overflow-hidden flex flex-col transition-all hover:shadow-[0_12px_40px_rgba(32,28,78,0.10)] hover:border-transparent hover:-translate-y-1">
+<div class="group bg-white rounded-2xl border border-hairline overflow-hidden flex flex-col transition-all hover:shadow-[0_12px_40px_rgba(32,28,78,0.10)] hover:border-transparent hover:-translate-y-0.5">
   <a href="/producto/<?= htmlspecialchars($product['slug']) ?>"
-     class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] flex items-center justify-center overflow-hidden relative">
+     class="aspect-square bg-canvas flex items-center justify-center overflow-hidden relative">
     <?php $imgV = $product['imageUpdatedAt'] ?? 0; ?>
     <?php if (!empty($product['hasImage'])): ?>
       <picture>
@@ -41,7 +40,7 @@ $productJson = htmlspecialchars(json_encode([
           loading="lazy"
           width="300"
           height="300"
-          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
           onerror="imgFallback(this)"
         >
       </picture>
@@ -54,11 +53,11 @@ $productJson = htmlspecialchars(json_encode([
     <?php endif; ?>
 
     <?php if ($showOfferBadge): ?>
-      <span class="absolute top-2.5 left-2.5 z-[2] bg-teal text-navy text-[11px] font-extrabold tracking-[0.8px] uppercase px-[11px] py-[5px] rounded-md shadow-[0_4px_12px_rgba(0,206,206,0.32)] rotate-[-4deg] pointer-events-none">¡Oferta!</span>
+      <span class="absolute top-2.5 left-2.5 z-[2] bg-error text-white text-[11px] font-extrabold tracking-[0.4px] uppercase px-2.5 py-1 rounded-full pointer-events-none">Oferta</span>
     <?php endif; ?>
   </a>
 
-  <div class="px-[18px] py-4 flex-1 flex flex-col gap-1.5">
+  <div class="px-4 py-4 flex-1 flex flex-col gap-1.5">
     <span class="inline-flex text-[10px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-2 py-[3px] rounded-full w-fit">
       <?= htmlspecialchars($product['categoryName'] ?? '') ?>
     </span>
@@ -103,9 +102,9 @@ $productJson = htmlspecialchars(json_encode([
   </div>
 
   <?php if ($inStock): ?>
-  <div class="px-[18px] pb-[18px]">
+  <div class="px-4 pb-4">
     <button onclick="addToCart('<?= $productJson ?>')"
-            class="w-full inline-flex items-center justify-center gap-2 p-2.5 text-[12px] font-semibold tracking-[0.3px] rounded-full border-2 border-primary bg-primary text-white transition-all hover:bg-navy hover:border-navy hover:-translate-y-px hover:shadow-[0_6px_24px_rgba(64,15,255,0.28)]">
+            class="w-full inline-flex items-center justify-center gap-2 py-2.5 text-[12px] font-semibold tracking-[0.3px] rounded-full border-2 border-primary bg-primary text-white transition-all hover:bg-navy hover:border-navy hover:-translate-y-px">
       <iconify-icon icon="lucide:shopping-bag" width="14" height="14"></iconify-icon>
       Agregar al carrito
     </button>

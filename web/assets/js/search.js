@@ -23,10 +23,12 @@
   });
 
   // Close dropdown on outside click
+  const searchForm = input.closest('form');
   document.addEventListener('click', function(e) {
-    if (!e.target.closest('.search-bar')) {
-      dropdown.replaceChildren();
-    }
+    if (e.target === input) return;
+    if (dropdown.contains(e.target)) return;
+    if (searchForm && searchForm.contains(e.target)) return;
+    dropdown.replaceChildren();
   });
 
   async function fetchResults(query) {

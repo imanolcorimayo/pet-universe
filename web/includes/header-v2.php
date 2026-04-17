@@ -32,7 +32,7 @@
   <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
 
   <!-- Styles -->
-  <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
+  <link rel="stylesheet" href="<?= asset('css/style.css') ?>">
 
   <script>
   function imgFallback(img){var p=img.closest('picture');if(p){p.style.display='none';var f=p.nextElementSibling;if(f)f.style.display=''}}

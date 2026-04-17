@@ -1,12 +1,24 @@
 @import "tailwindcss";
 
-@source "../../includes/header-v*.php";
-@source "../../includes/footer-v*.php";
-@source "../../controllers/home.php";
-@source "../../controllers/home-v*.php";
-@source "../../controllers/_product_card-v*.php";
+@source "../../includes/*.php";
+@source "../../controllers/*.php";
 
 @theme {
+  /* ──────────────────────────────────────────────────
+     v1 storefront palette — shared by /, /productos,
+     /producto, /carrito, /checkout, /buscar, 404, error
+     ────────────────────────────────────────────────── */
+  --color-primary:       #400FFF;
+  --color-primary-light: #EDE8FF;
+  --color-canvas:        #F8F8FC;
+  --color-muted:         #A6A6A6;
+  --color-hairline:      #E8E6F0;
+  --color-success:       #25D366;
+  --color-error:         #E63946;
+
+  /* ──────────────────────────────────────────────────
+     v2/v3 paper palette — kept for /v2, /v3
+     ────────────────────────────────────────────────── */
   --color-paper:       #FAF6EE;
   --color-paper-deep:  #F2EADC;
   --color-cream:       #FFF8E8;
@@ -33,6 +45,7 @@
   --color-yellow-deep: #EBC116;
   --color-yellow-wash: #FFF8D6;
 
+  /* Fonts (shared) */
   --font-display: 'Fraunces', Georgia, serif;
   --font-body:    'DM Sans', system-ui, sans-serif;
   --font-hand:    'Caveat', cursive;
@@ -43,8 +56,6 @@ html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--font-body);
-  background: var(--color-paper);
-  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -52,7 +63,10 @@ h1, h2, h3, h4 { font-family: var(--font-display); }
 
 iconify-icon { display: inline-flex; vertical-align: middle; }
 
-/* ── Marquee ── */
+/* ──────────────────────────────────────────────────
+   Shared custom utilities (used across versions)
+   ────────────────────────────────────────────────── */
+
 @keyframes marquee {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
@@ -63,14 +77,12 @@ iconify-icon { display: inline-flex; vertical-align: middle; }
   mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
 }
 
-/* ── Stickers (rotated badges) ── */
 .sticker { display: inline-block; }
 .sticker-tilt-1 { transform: rotate(-3deg); }
 .sticker-tilt-2 { transform: rotate(2deg); }
 .sticker-tilt-3 { transform: rotate(-1.5deg); }
 .sticker-tilt-4 { transform: rotate(4deg); }
 
-/* ── Hand-drawn accent underline for headline words ── */
 .hand-underline {
   position: relative;
   display: inline-block;
@@ -88,7 +100,6 @@ iconify-icon { display: inline-flex; vertical-align: middle; }
   z-index: -1;
 }
 
-/* ── Dotted paper divider ── */
 .dots-divider {
   background-image: radial-gradient(circle, var(--color-ink-muted) 1px, transparent 1.2px);
   background-size: 12px 12px;
@@ -98,21 +109,212 @@ iconify-icon { display: inline-flex; vertical-align: middle; }
   opacity: 0.35;
 }
 
-/* ── Soft lift on hover ── */
 .lift-on-hover { transition: transform 300ms ease, box-shadow 300ms ease; }
 .lift-on-hover:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(26, 24, 21, 0.08); }
 
-/* ── Horizontal scroller (no scrollbar) ── */
 .scroll-row { scrollbar-width: none; }
 .scroll-row::-webkit-scrollbar { display: none; }
 
-/* ── Reveal on scroll ── */
+/* Mega-menu (v4 desktop category panel) */
+.mega-visible { opacity: 1 !important; pointer-events: auto !important; }
+
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
 .reveal.is-visible { opacity: 1; transform: translateY(0); }
 
-/* ── Noise paper texture overlay (extremely subtle) ── */
 .paper-noise {
   background-image:
     radial-gradient(circle at 0% 0%, rgba(198, 93, 60, 0.03) 0, transparent 50%),
     radial-gradient(circle at 100% 100%, rgba(0, 206, 206, 0.03) 0, transparent 50%);
+}
+
+/* ══════════════════════════════════════════════════════════
+   Component classes — consumed by JS-injected markup and by
+   a few SSR templates (producto, carrito) where inlining
+   Tailwind utilities would duplicate across JS + PHP sources.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Keyframes (hero slideshow animations, search bar fade-in) ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(var(--rotate, 0deg)); }
+  50%      { transform: translateY(-12px) rotate(var(--rotate, 0deg)); }
+}
+
+/* ── Scroll-triggered reveal (home-v1) ── */
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+.animate-on-scroll.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.stagger-children.is-visible > *:nth-child(1)  { transition-delay: 0ms; }
+.stagger-children.is-visible > *:nth-child(2)  { transition-delay: 60ms; }
+.stagger-children.is-visible > *:nth-child(3)  { transition-delay: 120ms; }
+.stagger-children.is-visible > *:nth-child(4)  { transition-delay: 180ms; }
+.stagger-children.is-visible > *:nth-child(5)  { transition-delay: 240ms; }
+.stagger-children.is-visible > *:nth-child(6)  { transition-delay: 300ms; }
+.stagger-children.is-visible > *:nth-child(7)  { transition-delay: 360ms; }
+.stagger-children.is-visible > *:nth-child(8)  { transition-delay: 420ms; }
+
+.stagger-children > * {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+.stagger-children.is-visible > * {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Search autocomplete (injected by search.js) ── */
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  color: var(--color-navy);
+  transition: background 280ms ease;
+  border-bottom: 1px solid var(--color-hairline);
+}
+.search-result-item:hover { background: var(--color-primary-light); }
+.search-result-item:last-child { border-bottom: none; }
+.search-result-name { font-weight: 600; font-size: 14px; }
+.search-result-meta { font-size: 12px; color: var(--color-muted); }
+.search-result-price { margin-left: auto; font-weight: 700; color: var(--color-primary); font-size: 14px; }
+.search-view-all {
+  display: block;
+  text-align: center;
+  padding: 12px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-primary);
+  border-top: 1px solid var(--color-hairline);
+  transition: background 280ms ease;
+}
+.search-view-all:hover { background: var(--color-primary-light); }
+
+/* ── Qty selector (producto SSR + cart.js) ── */
+.qty-selector {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-hairline);
+  border-radius: 12px;
+  overflow: hidden;
+  width: fit-content;
+  background: #fff;
+}
+.qty-btn {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-navy);
+  background: var(--color-canvas);
+  transition: background 280ms ease, color 280ms ease;
+  border: none;
+  cursor: pointer;
+}
+.qty-btn:hover { background: var(--color-primary-light); color: var(--color-primary); }
+.qty-input {
+  width: 50px;
+  height: 42px;
+  text-align: center;
+  border: none;
+  border-left: 1px solid var(--color-hairline);
+  border-right: 1px solid var(--color-hairline);
+  font-size: 15px;
+  font-weight: 600;
+  outline: none;
+  background: #fff;
+}
+
+/* ── Buy mode toggle button (producto, toggled by setBuyMode JS) ── */
+.buy-mode-btn {
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: #fff;
+  transition: background 280ms ease, color 280ms ease;
+  border: none;
+  cursor: pointer;
+}
+.buy-mode-btn:not(:last-child) { border-right: 2px solid var(--color-primary); }
+.buy-mode-btn.active { background: var(--color-primary); color: #fff; }
+.buy-mode-btn:hover:not(.active) { background: var(--color-primary-light); }
+
+/* ── Cart table (carrito + injected by cart.js) ── */
+.cart-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.cart-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-muted);
+  padding: 14px 8px;
+  border-bottom: 2px solid var(--color-hairline);
+}
+.cart-table td {
+  padding: 18px 8px;
+  border-bottom: 1px solid var(--color-hairline);
+  vertical-align: middle;
+}
+.cart-table th:nth-child(1), .cart-table td:nth-child(1) { width: 40%; }
+.cart-table th:nth-child(2), .cart-table td:nth-child(2) { width: 14%; }
+.cart-table th:nth-child(3), .cart-table td:nth-child(3) { width: 18%; }
+.cart-table th:nth-child(4), .cart-table td:nth-child(4) { width: 16%; }
+.cart-table th:nth-child(5), .cart-table td:nth-child(5) { width: 12%; text-align: right; }
+.cart-item-name { font-weight: 600; }
+.cart-item-brand { font-size: 12px; color: var(--color-muted); }
+.cart-item-price { font-weight: 600; white-space: nowrap; }
+.cart-item-subtotal { font-weight: 700; color: var(--color-navy); white-space: nowrap; }
+.cart-item-remove {
+  color: var(--color-error);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 12px;
+  transition: background 280ms ease;
+}
+.cart-item-remove:hover { background: rgba(230, 57, 70, 0.08); }
+
+@media (max-width: 767px) {
+  .cart-table thead { display: none; }
+  .cart-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--color-hairline);
+    align-items: center;
+  }
+  .cart-table td { border: none; padding: 0; }
+  .cart-table td:first-child { width: 100%; }
+}
+
+/* ── Checkout summary row (injected by cart.js) ── */
+.checkout-summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  font-size: 14px;
+  border-bottom: 1px solid var(--color-hairline);
 }

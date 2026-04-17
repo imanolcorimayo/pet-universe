@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet">
 
   <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
-  <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
+  <link rel="stylesheet" href="<?= asset('css/style.css') ?>">
 
   <script>
   function imgFallback(img){var p=img.closest('picture');if(p){p.style.display='none';var f=p.nextElementSibling;if(f)f.style.display=''}}
@@ -64,13 +64,14 @@
       </nav>
 
       <!-- Main header: logo + phone + address + Ofertas CTA -->
-      <header class="px-6 sm:px-8 pt-5 pb-4 flex items-center justify-between gap-4 flex-wrap">
-        <a href="/" class="flex items-center gap-3 group">
+      <header class="px-5 sm:px-8 pt-5 pb-4 flex items-center justify-between gap-3">
+        <a href="/" class="flex items-center gap-2.5 sm:gap-3 group min-w-0">
           <img src="<?= asset('img/logo.png') ?>" alt="<?= SITE_NAME ?>"
-               class="w-12 h-12 rounded-full ring-2 ring-purple-wash object-cover transition-transform group-hover:scale-105">
-          <div class="leading-none">
-            <div class="font-chunky font-extrabold text-[22px] sm:text-[26px] tracking-tight text-purple-deep">Pet Universe</div>
-            <div class="text-[11px] font-semibold tracking-[2px] uppercase text-ink-muted mt-0.5">Córdoba · Tienda de mascotas</div>
+               class="w-11 h-11 sm:w-12 sm:h-12 rounded-full ring-2 ring-purple-wash object-cover transition-transform group-hover:scale-105 shrink-0">
+          <div class="leading-none min-w-0">
+            <div class="font-chunky font-extrabold text-[20px] sm:text-[26px] tracking-tight text-purple-deep truncate">Pet Universe</div>
+            <div class="hidden sm:block text-[11px] font-semibold tracking-[2px] uppercase text-ink-muted mt-0.5">Córdoba · Tienda de mascotas</div>
+            <div class="sm:hidden text-[10px] font-semibold tracking-[1.5px] uppercase text-ink-muted mt-0.5">Córdoba</div>
           </div>
         </a>
 
@@ -95,26 +96,26 @@
           </div>
         </div>
 
-        <a href="#ofertas" class="inline-flex items-center gap-2 border-2 border-purple text-purple-deep font-chunky font-bold rounded-full px-5 py-2.5 text-[14px] hover:bg-purple hover:text-paper transition-colors">
+        <a href="#ofertas" class="inline-flex items-center gap-1.5 sm:gap-2 border-2 border-purple text-purple-deep font-chunky font-bold rounded-full px-3.5 sm:px-5 py-2 sm:py-2.5 text-[13px] sm:text-[14px] hover:bg-purple hover:text-paper transition-colors shrink-0">
           Ofertas
           <iconify-icon icon="lucide:gift" width="16" height="16"></iconify-icon>
         </a>
       </header>
 
       <!-- Search row: Catálogo pill + search field + submit -->
-      <div class="px-6 sm:px-8 pb-6">
-        <form action="/buscar" method="GET" class="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <a href="#categorias" class="inline-flex items-center gap-2 bg-yellow text-ink font-chunky font-bold rounded-full px-5 sm:px-6 py-3 text-[14px] sm:text-[15px] hover:bg-yellow-deep transition-colors shrink-0">
-            <iconify-icon icon="lucide:menu" width="18" height="18"></iconify-icon>
-            Catálogo
-          </a>
-          <div class="flex-1 min-w-[200px] flex items-center gap-2 bg-white border border-ink/10 rounded-full px-5 py-3 focus-within:border-purple focus-within:ring-2 focus-within:ring-purple-wash transition-all">
-            <iconify-icon icon="lucide:search" width="18" height="18" class="text-ink-muted"></iconify-icon>
+      <div class="px-5 sm:px-8 pb-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+        <a href="#categorias" class="inline-flex items-center justify-center gap-2 bg-yellow text-ink font-chunky font-bold rounded-full px-5 sm:px-6 py-3 text-[14px] sm:text-[15px] hover:bg-yellow-deep transition-colors shrink-0 self-start sm:self-auto">
+          <iconify-icon icon="lucide:menu" width="18" height="18"></iconify-icon>
+          Catálogo
+        </a>
+        <form action="/buscar" method="GET" class="flex-1 flex items-center gap-2 sm:gap-3">
+          <div class="flex-1 min-w-0 flex items-center gap-2 bg-white border border-ink/10 rounded-full px-4 sm:px-5 py-3 focus-within:border-purple focus-within:ring-2 focus-within:ring-purple-wash transition-all">
+            <iconify-icon icon="lucide:search" width="18" height="18" class="text-ink-muted shrink-0"></iconify-icon>
             <input type="text" name="q" placeholder="¿Qué querés para tu mascota?"
-                   class="flex-1 bg-transparent outline-none text-ink placeholder:text-ink-muted text-[14px]"
+                   class="flex-1 min-w-0 bg-transparent outline-none text-ink placeholder:text-ink-muted text-[14px]"
                    autocomplete="off" minlength="2" maxlength="100">
           </div>
-          <button type="submit" class="inline-flex items-center gap-2 bg-purple text-paper font-chunky font-bold rounded-full px-5 sm:px-6 py-3 text-[14px] sm:text-[15px] hover:bg-purple-deep transition-colors shrink-0">
+          <button type="submit" class="inline-flex items-center gap-1.5 sm:gap-2 bg-purple text-paper font-chunky font-bold rounded-full px-4 sm:px-6 py-3 text-[14px] sm:text-[15px] hover:bg-purple-deep transition-colors shrink-0">
             Buscar
             <iconify-icon icon="lucide:arrow-right" width="16" height="16"></iconify-icon>
           </button>
