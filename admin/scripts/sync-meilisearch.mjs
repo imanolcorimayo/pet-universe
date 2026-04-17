@@ -139,10 +139,22 @@ async function syncProducts() {
       trackingType: data.trackingType || 'unit',
       unitType: data.unitType || 'unit',
       unitWeight: data.unitWeight || 0,
+      allowsLooseSales: data.allowsLooseSales || false,
+      // Bag / unit prices.
       priceRegular: data.prices?.regular || 0,
       priceCash: data.prices?.cash || 0,
+      // Per-kg prices (duals).
+      // `priceKgCash` is NOT stored on the product — it's derived from the bag
+      // cash price divided by unit weight, matching the admin convention
+      // (see admin/stores/product.ts → `cashPerKg`).
       priceKgRegular: data.prices?.kg?.regular || 0,
       priceKgCash: data.unitWeight > 0 ? (data.prices?.cash || 0) / data.unitWeight : 0,
+      priceKg3Plus: data.prices?.kg?.threePlusDiscount || 0,
+      threePlusMarkupPercentage: data.threePlusMarkupPercentage || 0,
+      // Inventory snapshot — exposed for stock-level hints on the storefront
+      // (e.g. "Últimas 2 unidades", "23kg sueltos disponibles").
+      unitsInStock: inv.unitsInStock || 0,
+      totalWeight: inv.totalWeight || 0,
       hasImage: data.hasImage || false,
       imageUpdatedAt: data.imageUpdatedAt || 0,
       inStock,

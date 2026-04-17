@@ -699,131 +699,103 @@
         Todo producto tiene <strong>precio de lista</strong> y <strong>precio por efectivo/transferencia</strong> — el efectivo es el precio normal con el que opera el local, no una promoción. Una <strong>oferta</strong> es un tercer precio por debajo del efectivo, aplicado sólo cuando el producto está en promoción especial.
     </p>
 
-    <div class="mt-8 grid grid-cols-2 gap-5">
+    <div class="mt-8 grid grid-cols-4 gap-4 max-w-[900px]">
 
-        <!-- Variant 1: Unit — Estándar (list + cash) -->
+        <!-- Variant 1: Unit — Estándar -->
         <div class="flex flex-col">
-            <div class="bg-white rounded-[20px] border border-hairline overflow-hidden flex flex-col">
-                <div class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] flex items-center justify-center">
-                    <iconify-icon icon="mdi:teddy-bear" width="52" height="52" class="text-primary opacity-25"></iconify-icon>
+            <div class="bg-white rounded-xl border border-hairline overflow-hidden flex flex-col h-full">
+                <div class="relative aspect-square bg-canvas flex items-center justify-center">
+                    <iconify-icon icon="mdi:teddy-bear" width="42" height="42" class="text-primary opacity-20"></iconify-icon>
                 </div>
-                <div class="px-[16px] py-3.5 flex-1 flex flex-col gap-1.5">
-                    <span class="inline-flex text-[10px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-2 py-[3px] rounded-full w-fit">Juguete</span>
-                    <span class="text-[14px] font-semibold text-navy leading-[1.35]">Kong Classic Mediano</span>
-                    <span class="text-[12px] text-muted">Kong</span>
-                    <div class="mt-auto pt-2 flex flex-col items-start gap-0.5">
-                        <span class="inline-block px-[9px] py-[3px] text-[10px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full mb-0.5">Efectivo o transferencia</span>
-                        <span class="text-[18px] font-bold text-navy leading-[1.1]">$13.050</span>
-                        <span class="text-[12px] text-muted font-medium mt-[3px]">Precio de lista: $14.500</span>
-                    </div>
-                </div>
-                <div class="px-[16px] pb-4">
-                    <div class="w-full inline-flex items-center justify-center gap-2 p-2 text-[11px] font-semibold rounded-full border-2 border-primary bg-primary text-white">
-                        <iconify-icon icon="lucide:shopping-bag" width="13" height="13"></iconify-icon>
-                        Agregar al carrito
+                <div class="px-2.5 py-2.5 flex-1 flex flex-col gap-0.5">
+                    <span class="text-[12.5px] font-medium text-navy leading-[1.3]">Kong Classic Mediano</span>
+                    <span class="text-[11px] text-muted leading-tight">Kong</span>
+                    <div class="mt-auto pt-1.5 flex flex-col items-start gap-0.5">
+                        <span class="inline-block px-[6px] py-[1px] text-[9px] font-bold tracking-[0.4px] uppercase text-teal-deep bg-teal-wash rounded-full">Ef./Transf.</span>
+                        <span class="text-[15px] font-bold text-navy leading-none">$13.050</span>
+                        <span class="text-[10.5px] text-muted leading-none">Lista: $14.500</span>
                     </div>
                 </div>
             </div>
-            <div class="mt-3 text-center">
-                <div class="text-[11px] font-bold tracking-[2px] uppercase text-primary">01 — Unidad · Estándar</div>
-                <div class="text-[11px] text-muted mt-1 leading-[1.5]">Efectivo/transferencia destacado, lista como referencia.<br><strong>Estado por defecto</strong> de toda tarjeta de unidad.</div>
+            <div class="mt-3">
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">01 — Unidad · Estándar</div>
+                <div class="text-[10.5px] text-muted mt-1 leading-[1.5]">Efectivo destacado, lista como referencia. <strong>Estado por defecto</strong>.</div>
             </div>
         </div>
 
-        <!-- Variant 2: Unit — Oferta (below cash price) -->
+        <!-- Variant 2: Unit — Oferta -->
         <div class="flex flex-col">
-            <div class="bg-white rounded-[20px] border border-hairline overflow-hidden flex flex-col">
-                <div class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] flex items-center justify-center relative">
-                    <iconify-icon icon="mdi:teddy-bear" width="52" height="52" class="text-primary opacity-25"></iconify-icon>
-                    <span class="absolute top-2.5 left-2.5 bg-teal text-navy text-[11px] font-extrabold tracking-[0.8px] uppercase px-[11px] py-[5px] rounded-md shadow-[0_4px_12px_rgba(0,206,206,0.32)] rotate-[-4deg]">¡Oferta!</span>
+            <div class="bg-white rounded-xl border border-hairline overflow-hidden flex flex-col h-full">
+                <div class="relative aspect-square bg-canvas flex items-center justify-center">
+                    <iconify-icon icon="mdi:teddy-bear" width="42" height="42" class="text-primary opacity-20"></iconify-icon>
+                    <span class="absolute top-2 left-2 bg-teal text-navy text-[10px] font-extrabold tracking-[0.6px] uppercase px-2 py-[3px] rounded-md shadow-[0_3px_10px_rgba(0,206,206,0.32)] rotate-[-4deg]">¡Oferta!</span>
                 </div>
-                <div class="px-[16px] py-3.5 flex-1 flex flex-col gap-1.5">
-                    <span class="inline-flex text-[10px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-2 py-[3px] rounded-full w-fit">Juguete</span>
-                    <span class="text-[14px] font-semibold text-navy leading-[1.35]">Kong Classic Mediano</span>
-                    <span class="text-[12px] text-muted">Kong</span>
-                    <div class="mt-auto pt-2 flex flex-col items-start gap-0.5">
-                        <span class="inline-block px-[9px] py-[3px] text-[10px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full mb-0.5">Efectivo o transferencia</span>
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-[18px] font-bold text-navy leading-[1.1]">$11.500</span>
-                            <span class="text-[13px] text-muted line-through font-medium leading-[1.1]">$13.050</span>
+                <div class="px-2.5 py-2.5 flex-1 flex flex-col gap-0.5">
+                    <span class="text-[12.5px] font-medium text-navy leading-[1.3]">Kong Classic Mediano</span>
+                    <span class="text-[11px] text-muted leading-tight">Kong</span>
+                    <div class="mt-auto pt-1.5 flex flex-col items-start gap-0.5">
+                        <span class="inline-block px-[6px] py-[1px] text-[9px] font-bold tracking-[0.4px] uppercase text-teal-deep bg-teal-wash rounded-full">Ef./Transf.</span>
+                        <div class="flex items-baseline gap-1.5 flex-wrap">
+                            <span class="text-[15px] font-bold text-navy leading-none">$11.500</span>
+                            <span class="text-[11px] text-muted line-through leading-none">$13.050</span>
                         </div>
-                        <span class="text-[12px] text-muted font-medium mt-[3px]">Precio de lista: $14.500</span>
-                    </div>
-                </div>
-                <div class="px-[16px] pb-4">
-                    <div class="w-full inline-flex items-center justify-center gap-2 p-2 text-[11px] font-semibold rounded-full border-2 border-primary bg-primary text-white">
-                        <iconify-icon icon="lucide:shopping-bag" width="13" height="13"></iconify-icon>
-                        Agregar al carrito
+                        <span class="text-[10.5px] text-muted leading-none">Lista: $14.500</span>
                     </div>
                 </div>
             </div>
-            <div class="mt-3 text-center">
-                <div class="text-[11px] font-bold tracking-[2px] uppercase text-primary">02 — Unidad · Oferta</div>
-                <div class="text-[11px] text-muted mt-1 leading-[1.5]">Oferta destacada, <strong>precio de efectivo normal tachado al lado</strong>. Badge ¡Oferta! en la imagen.</div>
+            <div class="mt-3">
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">02 — Unidad · Oferta</div>
+                <div class="text-[10.5px] text-muted mt-1 leading-[1.5]">Oferta lidera, <strong>cash tachado al lado</strong>. Badge ¡Oferta! en la imagen.</div>
             </div>
         </div>
 
-        <!-- Variant 3: Dual — Estándar (cash/kg + list/kg + bag) -->
+        <!-- Variant 3: Dual — Estándar -->
         <div class="flex flex-col">
-            <div class="bg-white rounded-[20px] border border-hairline overflow-hidden flex flex-col">
-                <div class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] flex items-center justify-center">
-                    <iconify-icon icon="lucide:beef" width="52" height="52" class="text-primary opacity-25"></iconify-icon>
+            <div class="bg-white rounded-xl border border-hairline overflow-hidden flex flex-col h-full">
+                <div class="relative aspect-square bg-canvas flex items-center justify-center">
+                    <iconify-icon icon="lucide:beef" width="42" height="42" class="text-primary opacity-20"></iconify-icon>
                 </div>
-                <div class="px-[16px] py-3.5 flex-1 flex flex-col gap-1.5">
-                    <span class="inline-flex text-[10px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-2 py-[3px] rounded-full w-fit">Balanceado</span>
-                    <span class="text-[14px] font-semibold text-navy leading-[1.35]">Pro Plan Adulto Raza Mediana</span>
-                    <span class="text-[12px] text-muted">Pro Plan</span>
-                    <div class="mt-auto pt-2 flex flex-col items-start gap-0.5">
-                        <span class="inline-block px-[9px] py-[3px] text-[10px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full mb-0.5">Efectivo o transferencia</span>
-                        <span class="text-[18px] font-bold text-navy leading-[1.1]">$2.880<span class="text-[0.55em] font-medium text-muted">/kg</span></span>
-                        <span class="text-[12px] text-muted font-medium mt-[3px]">Precio de lista: $3.200/kg</span>
-                        <span class="text-[12px] text-muted font-medium mt-[2px]">Bolsa 15kg: $43.200</span>
-                    </div>
-                </div>
-                <div class="px-[16px] pb-4">
-                    <div class="w-full inline-flex items-center justify-center gap-2 p-2 text-[11px] font-semibold rounded-full border-2 border-primary bg-primary text-white">
-                        <iconify-icon icon="lucide:shopping-bag" width="13" height="13"></iconify-icon>
-                        Agregar al carrito
+                <div class="px-2.5 py-2.5 flex-1 flex flex-col gap-0.5">
+                    <span class="text-[12.5px] font-medium text-navy leading-[1.3]">Pro Plan Adulto Raza Mediana</span>
+                    <span class="text-[11px] text-muted leading-tight">Pro Plan</span>
+                    <div class="mt-auto pt-1.5 flex flex-col items-start gap-0.5">
+                        <span class="inline-block px-[6px] py-[1px] text-[9px] font-bold tracking-[0.4px] uppercase text-teal-deep bg-teal-wash rounded-full">Ef./Transf.</span>
+                        <span class="text-[15px] font-bold text-navy leading-none">$2.880<span class="text-[0.65em] font-medium text-muted">/kg</span></span>
+                        <span class="text-[10.5px] text-muted leading-none">Lista: $3.200/kg</span>
+                        <span class="text-[10.5px] text-muted leading-none">Bolsa 15kg: $43.200</span>
                     </div>
                 </div>
             </div>
-            <div class="mt-3 text-center">
-                <div class="text-[11px] font-bold tracking-[2px] uppercase text-primary">03 — Dual · Estándar</div>
-                <div class="text-[11px] text-muted mt-1 leading-[1.5]">$/kg cash destacado, lista $/kg y bolsa cerrada.<br><strong>Estado por defecto</strong> para productos duales.</div>
+            <div class="mt-3">
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">03 — Dual · Estándar</div>
+                <div class="text-[10.5px] text-muted mt-1 leading-[1.5]">$/kg lidera, lista y bolsa como referencia. <strong>Default dual</strong>.</div>
             </div>
         </div>
 
-        <!-- Variant 4: Dual — Oferta (below cash price) -->
+        <!-- Variant 4: Dual — Oferta -->
         <div class="flex flex-col">
-            <div class="bg-white rounded-[20px] border border-hairline overflow-hidden flex flex-col">
-                <div class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] flex items-center justify-center relative">
-                    <iconify-icon icon="lucide:beef" width="52" height="52" class="text-primary opacity-25"></iconify-icon>
-                    <span class="absolute top-2.5 left-2.5 bg-teal text-navy text-[11px] font-extrabold tracking-[0.8px] uppercase px-[11px] py-[5px] rounded-md shadow-[0_4px_12px_rgba(0,206,206,0.32)] rotate-[-4deg]">¡Oferta!</span>
+            <div class="bg-white rounded-xl border border-hairline overflow-hidden flex flex-col h-full">
+                <div class="relative aspect-square bg-canvas flex items-center justify-center">
+                    <iconify-icon icon="lucide:beef" width="42" height="42" class="text-primary opacity-20"></iconify-icon>
+                    <span class="absolute top-2 left-2 bg-teal text-navy text-[10px] font-extrabold tracking-[0.6px] uppercase px-2 py-[3px] rounded-md shadow-[0_3px_10px_rgba(0,206,206,0.32)] rotate-[-4deg]">¡Oferta!</span>
                 </div>
-                <div class="px-[16px] py-3.5 flex-1 flex flex-col gap-1.5">
-                    <span class="inline-flex text-[10px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-2 py-[3px] rounded-full w-fit">Balanceado</span>
-                    <span class="text-[14px] font-semibold text-navy leading-[1.35]">Pro Plan Adulto Raza Mediana</span>
-                    <span class="text-[12px] text-muted">Pro Plan</span>
-                    <div class="mt-auto pt-2 flex flex-col items-start gap-0.5">
-                        <span class="inline-block px-[9px] py-[3px] text-[10px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full mb-0.5">Efectivo o transferencia</span>
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-[18px] font-bold text-navy leading-[1.1]">$2.500<span class="text-[0.55em] font-medium text-muted">/kg</span></span>
-                            <span class="text-[13px] text-muted line-through font-medium leading-[1.1]">$2.880/kg</span>
+                <div class="px-2.5 py-2.5 flex-1 flex flex-col gap-0.5">
+                    <span class="text-[12.5px] font-medium text-navy leading-[1.3]">Pro Plan Adulto Raza Mediana</span>
+                    <span class="text-[11px] text-muted leading-tight">Pro Plan</span>
+                    <div class="mt-auto pt-1.5 flex flex-col items-start gap-0.5">
+                        <span class="inline-block px-[6px] py-[1px] text-[9px] font-bold tracking-[0.4px] uppercase text-teal-deep bg-teal-wash rounded-full">Ef./Transf.</span>
+                        <div class="flex items-baseline gap-1.5 flex-wrap">
+                            <span class="text-[15px] font-bold text-navy leading-none">$2.500<span class="text-[0.65em] font-medium text-muted">/kg</span></span>
+                            <span class="text-[11px] text-muted line-through leading-none">$2.880/kg</span>
                         </div>
-                        <span class="text-[12px] text-muted font-medium mt-[3px]">Precio de lista: $3.200/kg</span>
-                        <span class="text-[12px] text-muted font-medium mt-[2px]">Bolsa 15kg: $37.500</span>
-                    </div>
-                </div>
-                <div class="px-[16px] pb-4">
-                    <div class="w-full inline-flex items-center justify-center gap-2 p-2 text-[11px] font-semibold rounded-full border-2 border-primary bg-primary text-white">
-                        <iconify-icon icon="lucide:shopping-bag" width="13" height="13"></iconify-icon>
-                        Agregar al carrito
+                        <span class="text-[10.5px] text-muted leading-none">Lista: $3.200/kg</span>
+                        <span class="text-[10.5px] text-muted leading-none">Bolsa 15kg: $37.500</span>
                     </div>
                 </div>
             </div>
-            <div class="mt-3 text-center">
-                <div class="text-[11px] font-bold tracking-[2px] uppercase text-primary">04 — Dual · Oferta</div>
-                <div class="text-[11px] text-muted mt-1 leading-[1.5]">$/kg oferta, efectivo tachado al lado. Lista y bolsa como secundarios.</div>
+            <div class="mt-3">
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">04 — Dual · Oferta</div>
+                <div class="text-[10.5px] text-muted mt-1 leading-[1.5]">$/kg oferta, cash tachado al lado. Lista y bolsa secundarios.</div>
             </div>
         </div>
 
@@ -846,29 +818,25 @@
 
         <!-- Modifier A: Sin stock (applied over a dual standard) -->
         <div class="flex flex-col">
-            <div class="bg-white rounded-[20px] border border-hairline overflow-hidden flex flex-col">
-                <div class="aspect-square bg-gradient-to-br from-primary-light to-[#F2EDE6] flex items-center justify-center">
-                    <iconify-icon icon="lucide:beef" width="52" height="52" class="text-primary opacity-25"></iconify-icon>
+            <div class="bg-white rounded-xl border border-hairline overflow-hidden flex flex-col max-w-[220px]">
+                <div class="relative aspect-square bg-canvas flex items-center justify-center">
+                    <iconify-icon icon="lucide:beef" width="42" height="42" class="text-primary opacity-20"></iconify-icon>
+                    <span class="absolute inset-0 bg-white/85 grid place-items-center text-[11px] font-bold uppercase tracking-[1px] text-error">Sin stock</span>
                 </div>
-                <div class="px-[16px] py-3.5 flex-1 flex flex-col gap-1.5">
-                    <span class="inline-flex text-[10px] font-bold uppercase tracking-[0.6px] text-primary bg-primary-light px-2 py-[3px] rounded-full w-fit">Balanceado</span>
-                    <span class="text-[14px] font-semibold text-navy leading-[1.35]">Pro Plan Adulto Raza Mediana</span>
-                    <span class="text-[12px] text-muted">Pro Plan</span>
-                    <div class="mt-auto pt-2 flex flex-col items-start gap-0.5">
-                        <span class="inline-block px-[9px] py-[3px] text-[10px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full mb-0.5">Efectivo o transferencia</span>
-                        <span class="text-[18px] font-bold text-navy leading-[1.1]">$2.880<span class="text-[0.55em] font-medium text-muted">/kg</span></span>
-                        <span class="text-[12px] text-muted font-medium mt-[3px]">Precio de lista: $3.200/kg</span>
-                        <span class="text-[12px] text-muted font-medium mt-[2px]">Bolsa 15kg: $43.200</span>
+                <div class="px-2.5 py-2.5 flex-1 flex flex-col gap-0.5">
+                    <span class="text-[12.5px] font-medium text-navy leading-[1.3]">Pro Plan Adulto Raza Mediana</span>
+                    <span class="text-[11px] text-muted leading-tight">Pro Plan</span>
+                    <div class="mt-auto pt-1.5 flex flex-col items-start gap-0.5">
+                        <span class="inline-block px-[6px] py-[1px] text-[9px] font-bold tracking-[0.4px] uppercase text-teal-deep bg-teal-wash rounded-full">Ef./Transf.</span>
+                        <span class="text-[15px] font-bold text-navy leading-none">$2.880<span class="text-[0.65em] font-medium text-muted">/kg</span></span>
+                        <span class="text-[10.5px] text-muted leading-none">Lista: $3.200/kg</span>
+                        <span class="text-[10.5px] text-muted leading-none">Bolsa 15kg: $43.200</span>
                     </div>
-                    <span class="inline-flex items-center gap-1 text-error text-[12px] font-bold uppercase tracking-[0.3px] mt-2">
-                        <iconify-icon icon="lucide:x-circle" width="14" height="14"></iconify-icon>
-                        Sin stock
-                    </span>
                 </div>
             </div>
             <div class="mt-3">
                 <div class="text-[11px] font-bold tracking-[2px] uppercase text-teal">Modificador · Sin Stock</div>
-                <div class="text-[11px] opacity-65 mt-1 leading-[1.6]">Cuando no hay inventario, el botón "Agregar al carrito" desaparece y se muestra una leyenda roja. La tarjeta mantiene todos los precios visibles — el cliente debe poder consultarla igual. Puede combinarse con el estado Oferta.</div>
+                <div class="text-[11px] opacity-65 mt-1 leading-[1.6]">Cuando no hay inventario, se superpone una leyenda "Sin stock" sobre la imagen. La tarjeta mantiene toda la info de precio abajo — el cliente debe poder consultarla igual. Puede combinarse con el estado Oferta.</div>
             </div>
         </div>
 
@@ -890,7 +858,7 @@
 
                     <div>
                         <div class="font-bold text-teal mb-1">¿Hay stock?</div>
-                        <div class="opacity-75">Sí → botón CTA "Agregar al carrito".<br>No → leyenda "Sin stock" en rojo, sin CTA.</div>
+                        <div class="opacity-75">Sí → card clickable al detalle.<br>No → overlay "Sin stock" sobre la imagen.</div>
                     </div>
                 </div>
             </div>
@@ -908,7 +876,8 @@
             <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">El badge "¡Oferta!" <strong>sólo aparece cuando hay un precio debajo del efectivo</strong> — nunca en las variantes estándar (01, 03).</li>
             <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">En variantes de oferta (02, 04) el precio líder es la oferta. El precio de efectivo normal se muestra al lado con <code>line-through</code> — sin label. La lista queda debajo.</li>
             <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">En productos duales, el <strong>$/kg</strong> lidera siempre — la bolsa cerrada va como referencia secundaria.</li>
-            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">Imagen cuadrada 1:1 sobre gradiente primary-light → cream. Fallback: ícono de categoría al 20-25% opacidad.</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">Imagen cuadrada 1:1 sobre fondo canvas. Fallback: ícono de categoría al 20% opacidad.</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">La card completa es clickable hacia el detalle. <strong>No hay botón "Agregar al carrito"</strong> en el grid — se compra desde la página de producto (estilo ML/Temu: densidad &gt; CTAs en card).</li>
         </ul>
     </div>
 

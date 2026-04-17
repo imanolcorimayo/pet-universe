@@ -5,7 +5,7 @@ define('API_KEY', 'xxx');
 define('ALLOWED_BUSINESS_IDS', ['xxx']); // Firebase business document IDs
 
 // Rate limiting (per IP)
-define('RATE_LIMIT_MAX', 30);       // max requests per window
+define('RATE_LIMIT_MAX', 150);      // max requests per window
 define('RATE_LIMIT_WINDOW', 3600);  // window in seconds (1 hour)
 
 // DigitalOcean Spaces
