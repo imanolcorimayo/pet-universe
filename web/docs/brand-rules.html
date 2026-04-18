@@ -698,10 +698,13 @@
     <p class="text-base leading-[1.8] max-w-[620px] mb-2">
         Todo producto tiene <strong>precio de lista</strong> y <strong>precio por efectivo/transferencia</strong> — el efectivo es el precio normal con el que opera el local, no una promoción. Una <strong>oferta</strong> es un tercer precio por debajo del efectivo, aplicado sólo cuando el producto está en promoción especial.
     </p>
+    <p class="text-[13px] leading-[1.7] max-w-[620px] text-muted mb-2">
+        Todas las tarjetas se muestran <strong>por unidad</strong>, incluso las de balanceados que en el local se venden sueltos por kg. La venta por kg se resuelve en el detalle del producto con una nota al pedido (ver página 18) — no es una variante de tarjeta.
+    </p>
 
-    <div class="mt-8 grid grid-cols-4 gap-4 max-w-[900px]">
+    <div class="mt-8 grid grid-cols-2 gap-6 max-w-[620px]">
 
-        <!-- Variant 1: Unit — Estándar -->
+        <!-- Variant 1: Estándar -->
         <div class="flex flex-col">
             <div class="bg-white rounded-xl border border-hairline overflow-hidden flex flex-col h-full">
                 <div class="relative aspect-square bg-canvas flex items-center justify-center">
@@ -718,12 +721,12 @@
                 </div>
             </div>
             <div class="mt-3">
-                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">01 — Unidad · Estándar</div>
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">01 — Estándar</div>
                 <div class="text-[10.5px] text-muted mt-1 leading-[1.5]">Efectivo destacado, lista como referencia. <strong>Estado por defecto</strong>.</div>
             </div>
         </div>
 
-        <!-- Variant 2: Unit — Oferta -->
+        <!-- Variant 2: Oferta -->
         <div class="flex flex-col">
             <div class="bg-white rounded-xl border border-hairline overflow-hidden flex flex-col h-full">
                 <div class="relative aspect-square bg-canvas flex items-center justify-center">
@@ -744,58 +747,8 @@
                 </div>
             </div>
             <div class="mt-3">
-                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">02 — Unidad · Oferta</div>
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">02 — Oferta</div>
                 <div class="text-[10.5px] text-muted mt-1 leading-[1.5]">Oferta lidera, <strong>cash tachado al lado</strong>. Badge ¡Oferta! en la imagen.</div>
-            </div>
-        </div>
-
-        <!-- Variant 3: Dual — Estándar -->
-        <div class="flex flex-col">
-            <div class="bg-white rounded-xl border border-hairline overflow-hidden flex flex-col h-full">
-                <div class="relative aspect-square bg-canvas flex items-center justify-center">
-                    <iconify-icon icon="lucide:beef" width="42" height="42" class="text-primary opacity-20"></iconify-icon>
-                </div>
-                <div class="px-2.5 py-2.5 flex-1 flex flex-col gap-0.5">
-                    <span class="text-[12.5px] font-medium text-navy leading-[1.3]">Pro Plan Adulto Raza Mediana</span>
-                    <span class="text-[11px] text-muted leading-tight">Pro Plan</span>
-                    <div class="mt-auto pt-1.5 flex flex-col items-start gap-0.5">
-                        <span class="inline-block px-[6px] py-[1px] text-[9px] font-bold tracking-[0.4px] uppercase text-teal-deep bg-teal-wash rounded-full">Ef./Transf.</span>
-                        <span class="text-[15px] font-bold text-navy leading-none">$2.880<span class="text-[0.65em] font-medium text-muted">/kg</span></span>
-                        <span class="text-[10.5px] text-muted leading-none">Lista: $3.200/kg</span>
-                        <span class="text-[10.5px] text-muted leading-none">Bolsa 15kg: $43.200</span>
-                    </div>
-                </div>
-            </div>
-            <div class="mt-3">
-                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">03 — Dual · Estándar</div>
-                <div class="text-[10.5px] text-muted mt-1 leading-[1.5]">$/kg lidera, lista y bolsa como referencia. <strong>Default dual</strong>.</div>
-            </div>
-        </div>
-
-        <!-- Variant 4: Dual — Oferta -->
-        <div class="flex flex-col">
-            <div class="bg-white rounded-xl border border-hairline overflow-hidden flex flex-col h-full">
-                <div class="relative aspect-square bg-canvas flex items-center justify-center">
-                    <iconify-icon icon="lucide:beef" width="42" height="42" class="text-primary opacity-20"></iconify-icon>
-                    <span class="absolute top-2 left-2 bg-teal text-navy text-[10px] font-extrabold tracking-[0.6px] uppercase px-2 py-[3px] rounded-md shadow-[0_3px_10px_rgba(0,206,206,0.32)] rotate-[-4deg]">¡Oferta!</span>
-                </div>
-                <div class="px-2.5 py-2.5 flex-1 flex flex-col gap-0.5">
-                    <span class="text-[12.5px] font-medium text-navy leading-[1.3]">Pro Plan Adulto Raza Mediana</span>
-                    <span class="text-[11px] text-muted leading-tight">Pro Plan</span>
-                    <div class="mt-auto pt-1.5 flex flex-col items-start gap-0.5">
-                        <span class="inline-block px-[6px] py-[1px] text-[9px] font-bold tracking-[0.4px] uppercase text-teal-deep bg-teal-wash rounded-full">Ef./Transf.</span>
-                        <div class="flex items-baseline gap-1.5 flex-wrap">
-                            <span class="text-[15px] font-bold text-navy leading-none">$2.500<span class="text-[0.65em] font-medium text-muted">/kg</span></span>
-                            <span class="text-[11px] text-muted line-through leading-none">$2.880/kg</span>
-                        </div>
-                        <span class="text-[10.5px] text-muted leading-none">Lista: $3.200/kg</span>
-                        <span class="text-[10.5px] text-muted leading-none">Bolsa 15kg: $37.500</span>
-                    </div>
-                </div>
-            </div>
-            <div class="mt-3">
-                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">04 — Dual · Oferta</div>
-                <div class="text-[10.5px] text-muted mt-1 leading-[1.5]">$/kg oferta, cash tachado al lado. Lista y bolsa secundarios.</div>
             </div>
         </div>
 
@@ -816,21 +769,20 @@
 
     <div class="grid grid-cols-2 gap-5 mt-8">
 
-        <!-- Modifier A: Sin stock (applied over a dual standard) -->
+        <!-- Modifier A: Sin stock -->
         <div class="flex flex-col">
             <div class="bg-white rounded-xl border border-hairline overflow-hidden flex flex-col max-w-[220px]">
                 <div class="relative aspect-square bg-canvas flex items-center justify-center">
-                    <iconify-icon icon="lucide:beef" width="42" height="42" class="text-primary opacity-20"></iconify-icon>
+                    <iconify-icon icon="mdi:teddy-bear" width="42" height="42" class="text-primary opacity-20"></iconify-icon>
                     <span class="absolute inset-0 bg-white/85 grid place-items-center text-[11px] font-bold uppercase tracking-[1px] text-error">Sin stock</span>
                 </div>
                 <div class="px-2.5 py-2.5 flex-1 flex flex-col gap-0.5">
-                    <span class="text-[12.5px] font-medium text-navy leading-[1.3]">Pro Plan Adulto Raza Mediana</span>
-                    <span class="text-[11px] text-muted leading-tight">Pro Plan</span>
+                    <span class="text-[12.5px] font-medium text-navy leading-[1.3]">Kong Classic Mediano</span>
+                    <span class="text-[11px] text-muted leading-tight">Kong</span>
                     <div class="mt-auto pt-1.5 flex flex-col items-start gap-0.5">
                         <span class="inline-block px-[6px] py-[1px] text-[9px] font-bold tracking-[0.4px] uppercase text-teal-deep bg-teal-wash rounded-full">Ef./Transf.</span>
-                        <span class="text-[15px] font-bold text-navy leading-none">$2.880<span class="text-[0.65em] font-medium text-muted">/kg</span></span>
-                        <span class="text-[10.5px] text-muted leading-none">Lista: $3.200/kg</span>
-                        <span class="text-[10.5px] text-muted leading-none">Bolsa 15kg: $43.200</span>
+                        <span class="text-[15px] font-bold text-navy leading-none">$13.050</span>
+                        <span class="text-[10.5px] text-muted leading-none">Lista: $14.500</span>
                     </div>
                 </div>
             </div>
@@ -848,12 +800,7 @@
                 <div class="space-y-3 text-[12px] leading-[1.6] opacity-90">
                     <div class="pb-3 border-b border-white/10">
                         <div class="font-bold text-teal mb-1">¿El producto tiene <code>precioOferta</code>?</div>
-                        <div class="opacity-75">Sí → variante <strong>Oferta</strong> (02 o 04).<br>No → variante <strong>Estándar</strong> (01 o 03).</div>
-                    </div>
-
-                    <div class="pb-3 border-b border-white/10">
-                        <div class="font-bold text-teal mb-1">¿El producto es <code>dual</code>?</div>
-                        <div class="opacity-75">Sí → precio líder es <strong>$/kg</strong>, la bolsa va como referencia secundaria.<br>No → precio líder es la unidad.</div>
+                        <div class="opacity-75">Sí → variante <strong>Oferta</strong> (02).<br>No → variante <strong>Estándar</strong> (01).</div>
                     </div>
 
                     <div>
@@ -864,7 +811,7 @@
             </div>
             <div class="mt-3">
                 <div class="text-[11px] font-bold tracking-[2px] uppercase text-teal">Lógica de estados</div>
-                <div class="text-[11px] opacity-65 mt-1 leading-[1.6]">El estado base lo determinan dos preguntas: "¿hay oferta?" y "¿es dual?". Encima se superpone el modificador "¿hay stock?".</div>
+                <div class="text-[11px] opacity-65 mt-1 leading-[1.6]">Una sola pregunta define el estado base: "¿hay oferta?". Encima se superpone el modificador "¿hay stock?".</div>
             </div>
         </div>
     </div>
@@ -873,9 +820,9 @@
         <div class="text-[11px] font-bold tracking-[2px] uppercase mb-3 text-teal">Reglas del componente</div>
         <ul class="list-none space-y-2 text-sm leading-[1.7] opacity-85">
             <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold"><strong>Efectivo/transferencia es el precio normal</strong>, no una promo. Siempre se muestra con el chip turquesa, y la lista abajo como referencia.</li>
-            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">El badge "¡Oferta!" <strong>sólo aparece cuando hay un precio debajo del efectivo</strong> — nunca en las variantes estándar (01, 03).</li>
-            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">En variantes de oferta (02, 04) el precio líder es la oferta. El precio de efectivo normal se muestra al lado con <code>line-through</code> — sin label. La lista queda debajo.</li>
-            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">En productos duales, el <strong>$/kg</strong> lidera siempre — la bolsa cerrada va como referencia secundaria.</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">El badge "¡Oferta!" <strong>sólo aparece cuando hay un precio debajo del efectivo</strong> — nunca en la variante estándar (01).</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">En la variante de oferta (02) el precio líder es la oferta. El precio de efectivo normal se muestra al lado con <code>line-through</code> — sin label. La lista queda debajo.</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold"><strong>Todas las tarjetas son por unidad.</strong> Los balanceados que en el local se venden sueltos por kg también se muestran como unidad (bolsa cerrada) — la opción "por kg" se maneja en el detalle como nota al pedido, no como variante de tarjeta.</li>
             <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">Imagen cuadrada 1:1 sobre fondo canvas. Fallback: ícono de categoría al 20% opacidad.</li>
             <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">La card completa es clickable hacia el detalle. <strong>No hay botón "Agregar al carrito"</strong> en el grid — se compra desde la página de producto (estilo ML/Temu: densidad &gt; CTAs en card).</li>
         </ul>
@@ -885,10 +832,10 @@
         <div class="text-[10px] font-bold tracking-[3px] uppercase mb-3 text-teal">Pendientes técnicos</div>
         <ul class="list-none space-y-3 text-sm leading-[1.7] opacity-85">
             <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['①'] before:text-teal before:font-bold">
-                <strong>Precio de oferta en el schema:</strong> hoy el admin no tiene un campo <code>priceOferta</code> / <code>priceKgOferta</code> diferenciado — sólo existen <code>regular</code> y <code>cash</code>. Para habilitar las variantes 02 y 04 hay que agregar el campo al <code>ProductSchema</code> y al sync de Meilisearch. <strong>Además, corregir <code>_product_card.php</code>:</strong> hoy muestra el badge "¡Oferta!" ante cualquier diferencia entre lista y cash — semánticamente incorrecto.
+                <strong>Precio de oferta en el schema:</strong> hoy el admin no tiene un campo <code>priceOferta</code> diferenciado — sólo existen <code>regular</code> y <code>cash</code>. Para habilitar la variante 02 hay que agregar el campo al <code>ProductSchema</code> y al sync de Meilisearch. <strong>Además, corregir <code>_product_card.php</code> (grid legacy):</strong> hoy muestra el badge "¡Oferta!" ante cualquier diferencia entre lista y cash — semánticamente incorrecto.
             </li>
             <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['②'] before:text-teal before:font-bold">
-                <strong>Promo "+3kg" en balanceados:</strong> el admin ya soporta descuento por bolsa grande (<code>threePlusMarkupPercentage</code>, <code>prices.kg.threePlusDiscount</code>), pero no se publica al storefront. A definir: ¿una quinta variante de tarjeta ("Desde 3kg: $X/kg"), o sólo precio aplicado en carrito al superar el umbral?
+                <strong>Promo "+3kg" en balanceados:</strong> el admin ya soporta descuento por bolsa grande (<code>threePlusMarkupPercentage</code>, <code>prices.kg.threePlusDiscount</code>), pero no se publica al storefront. Dado que ahora la venta por kg se resuelve por nota, probablemente alcance con mostrarla como aclaración en el detalle — a revisar.
             </li>
         </ul>
     </div>
@@ -903,7 +850,7 @@
     <div class="text-[11px] font-bold tracking-[4px] uppercase mb-10 text-primary">Detalle de Producto — Variantes de Precio</div>
 
     <p class="text-base leading-[1.8] max-w-[620px] mb-6">
-        En la página de detalle, el bloque de precio es más grande que en la tarjeta. Para productos duales, aparece un toggle <em>Por kg / Por bolsa</em> que cambia el precio líder; la variante (estándar u oferta) se mantiene.
+        En la página de detalle, el bloque de precio es más grande que en la tarjeta. El precio siempre es <strong>por unidad</strong> (la bolsa cerrada, en el caso de balanceados). Debajo del precio aparece un input de <strong>notas</strong> para que el cliente pida cantidades distintas o aclaraciones — el local las confirma por WhatsApp.
     </p>
 
     <div class="grid grid-cols-2 gap-5">
@@ -916,7 +863,7 @@
                 <span class="text-[1rem] text-muted line-through font-medium">$14.500</span>
             </div>
             <div class="mt-auto pt-3 border-t border-hairline">
-                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">01 — Unidad · Estándar</div>
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">01 — Estándar</div>
             </div>
         </div>
 
@@ -930,50 +877,34 @@
             </div>
             <span class="text-[13px] text-muted font-medium">Precio de lista: $14.500</span>
             <div class="mt-auto pt-3 border-t border-hairline">
-                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">02 — Unidad · Oferta</div>
-            </div>
-        </div>
-
-        <!-- Dual Estándar -->
-        <div class="p-6 bg-white rounded-[20px] border border-hairline flex flex-col gap-2.5">
-            <div class="flex border-2 border-primary rounded-full overflow-hidden w-fit text-[12px]">
-                <span class="py-1.5 px-4 font-semibold bg-primary text-white">Por kg</span>
-                <span class="py-1.5 px-4 font-semibold text-primary bg-white">Por bolsa (15kg)</span>
-            </div>
-            <span class="inline-block px-[10px] py-[4px] text-[11px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full w-fit">Efectivo o transferencia</span>
-            <div class="flex items-baseline gap-3 flex-wrap">
-                <span class="font-bold text-[1.75rem] text-navy leading-[1.1]">$2.880<span class="text-[0.55em] font-medium text-muted">/kg</span></span>
-                <span class="text-[1rem] text-muted line-through font-medium">$3.200/kg</span>
-            </div>
-            <span class="text-[13px] text-muted font-medium">Bolsa 15kg: $43.200</span>
-            <div class="mt-auto pt-3 border-t border-hairline">
-                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">03 — Dual · Estándar</div>
-            </div>
-        </div>
-
-        <!-- Dual Oferta -->
-        <div class="p-6 bg-white rounded-[20px] border border-hairline flex flex-col gap-2.5 relative">
-            <span class="absolute -top-2 right-5 bg-teal text-navy text-[11px] font-extrabold tracking-[0.8px] uppercase px-3 py-[5px] rounded-md shadow-[0_4px_12px_rgba(0,206,206,0.32)] rotate-[-4deg]">¡Oferta!</span>
-            <div class="flex border-2 border-primary rounded-full overflow-hidden w-fit text-[12px]">
-                <span class="py-1.5 px-4 font-semibold bg-primary text-white">Por kg</span>
-                <span class="py-1.5 px-4 font-semibold text-primary bg-white">Por bolsa (15kg)</span>
-            </div>
-            <span class="inline-block px-[10px] py-[4px] text-[11px] font-bold tracking-[0.6px] uppercase text-teal-deep bg-teal-wash rounded-full w-fit">Efectivo o transferencia</span>
-            <div class="flex items-baseline gap-3 flex-wrap">
-                <span class="font-bold text-[1.75rem] text-navy leading-[1.1]">$2.500<span class="text-[0.55em] font-medium text-muted">/kg</span></span>
-                <span class="text-[1rem] text-muted line-through font-medium">$2.880/kg</span>
-            </div>
-            <span class="text-[13px] text-muted font-medium">Precio de lista: $3.200/kg</span>
-            <span class="text-[13px] text-muted font-medium">Bolsa 15kg: $37.500</span>
-            <div class="mt-auto pt-3 border-t border-hairline">
-                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">04 — Dual · Oferta</div>
+                <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary">02 — Oferta</div>
             </div>
         </div>
 
     </div>
 
+    <!-- Dual-tracked info panel + notes input (for balanceados sold loose) -->
+    <div class="mt-6 p-6 bg-white rounded-[20px] border border-hairline">
+        <div class="text-[10px] font-bold tracking-[2px] uppercase text-primary mb-3">Agregado para productos duales · Venta por kg</div>
+        <div class="flex flex-col gap-3">
+            <div class="flex gap-3 items-start p-3.5 rounded-xl bg-teal-wash border border-teal/20">
+                <iconify-icon icon="lucide:info" width="18" height="18" class="text-teal-deep shrink-0 mt-0.5"></iconify-icon>
+                <div class="flex-1 text-[12.5px] text-navy leading-[1.55]">
+                    <strong class="font-semibold">También se vende suelto por kg</strong> en el local.
+                    Si preferís llevar una cantidad distinta a la bolsa cerrada, agregala en las notas y lo coordinamos por WhatsApp.
+                </div>
+            </div>
+            <label class="flex flex-col gap-1">
+                <span class="text-[11px] font-semibold text-navy">Notas para el pedido <span class="text-muted font-normal">(opcional)</span></span>
+                <textarea rows="2" readonly
+                          class="w-full py-2 px-3 border border-hairline rounded-xl text-[12.5px] leading-[1.5] bg-canvas text-muted resize-none"
+                          >Ej.: quiero 3 kg sueltos en vez de la bolsa cerrada</textarea>
+            </label>
+        </div>
+    </div>
+
     <div class="mt-5 text-[12px] text-muted leading-[1.7]">
-        Nota: cuando el usuario selecciona "Por bolsa" en el toggle, el bloque cambia al precio de la bolsa cerrada como líder ($43.200 en estándar, $37.500 en oferta), manteniendo el mismo patrón de chip / line-through / referencias.
+        Nota: las notas viajan con cada línea del pedido al chat de WhatsApp, así el local responde con la confirmación antes de cerrar la venta.
     </div>
 
     <div class="absolute bottom-9 right-[72px] text-[10px] font-medium tracking-[2px] opacity-30">18</div>
@@ -986,7 +917,7 @@
     <div class="text-[11px] font-bold tracking-[4px] uppercase mb-10 text-teal">Carrito — Variantes de Línea</div>
 
     <p class="text-base leading-[1.8] max-w-[620px] opacity-85 mb-6">
-        Cada línea del carrito muestra el precio unitario que paga el cliente (efectivo o oferta) con el precio de referencia tachado al lado. El badge "¡Oferta!" se replica en la línea para que el cliente identifique qué items están en promo.
+        Cada línea del carrito muestra el precio unitario que paga el cliente (efectivo o oferta) con el precio de referencia tachado al lado. El badge "¡Oferta!" se replica en la línea para que el cliente identifique qué items están en promo. Debajo del nombre, cada línea lleva un campo de <strong>notas</strong> editable — útil sobre todo en balanceados que se venden sueltos por kg.
     </p>
 
     <div class="bg-white rounded-[20px] overflow-hidden text-navy">
@@ -1006,7 +937,12 @@
                     <td class="py-4 px-4 border-b border-hairline align-top">
                         <div class="font-semibold text-[13px]">Kong Classic Mediano</div>
                         <div class="text-[11px] text-muted">Kong</div>
-                        <div class="mt-1.5 text-[9px] font-bold tracking-[1.5px] uppercase text-primary">01 · Unidad · Estándar</div>
+                        <div class="mt-2">
+                            <textarea rows="1" readonly
+                                      class="w-full py-1.5 px-2 border border-hairline rounded-md text-[11px] leading-[1.4] bg-canvas text-muted resize-none"
+                                      placeholder="Notas para este producto (opcional)"></textarea>
+                        </div>
+                        <div class="mt-1.5 text-[9px] font-bold tracking-[1.5px] uppercase text-primary">01 · Estándar</div>
                     </td>
                     <td class="py-4 px-4 border-b border-hairline align-top">
                         <div class="flex items-baseline gap-2 flex-wrap">
@@ -1022,10 +958,15 @@
                 <tr>
                     <td class="py-4 px-4 border-b border-hairline align-top">
                         <div class="flex items-start gap-2">
-                            <div>
+                            <div class="min-w-0 flex-1">
                                 <div class="font-semibold text-[13px]">Kong Classic Mediano</div>
                                 <div class="text-[11px] text-muted">Kong</div>
-                                <div class="mt-1.5 text-[9px] font-bold tracking-[1.5px] uppercase text-primary">02 · Unidad · Oferta</div>
+                                <div class="mt-2">
+                                    <textarea rows="1" readonly
+                                              class="w-full py-1.5 px-2 border border-hairline rounded-md text-[11px] leading-[1.4] bg-canvas text-muted resize-none"
+                                              placeholder="Notas para este producto (opcional)"></textarea>
+                                </div>
+                                <div class="mt-1.5 text-[9px] font-bold tracking-[1.5px] uppercase text-primary">02 · Oferta</div>
                             </div>
                             <span class="shrink-0 mt-0.5 bg-teal text-navy text-[9px] font-extrabold tracking-[0.8px] uppercase px-2 py-[3px] rounded">¡Oferta!</span>
                         </div>
@@ -1040,43 +981,26 @@
                     <td class="py-4 px-4 border-b border-hairline align-top text-right font-bold text-[14px] text-navy">$23.000</td>
                 </tr>
 
-                <!-- Row 3: Dual kg Estándar -->
-                <tr>
-                    <td class="py-4 px-4 border-b border-hairline align-top">
-                        <div class="font-semibold text-[13px]">Pro Plan Adulto Raza Mediana <span class="text-muted font-normal">(por kg)</span></div>
-                        <div class="text-[11px] text-muted">Pro Plan</div>
-                        <div class="mt-1.5 text-[9px] font-bold tracking-[1.5px] uppercase text-primary">03 · Dual por kg · Estándar</div>
-                    </td>
-                    <td class="py-4 px-4 border-b border-hairline align-top">
-                        <div class="flex items-baseline gap-2 flex-wrap">
-                            <span class="font-semibold text-[14px] text-navy">$2.880<span class="text-[0.7em] text-muted font-medium">/kg</span></span>
-                            <span class="text-[12px] text-muted line-through">$3.200/kg</span>
-                        </div>
-                    </td>
-                    <td class="py-4 px-4 border-b border-hairline align-top text-[12px] text-navy">3 kg</td>
-                    <td class="py-4 px-4 border-b border-hairline align-top text-right font-bold text-[14px] text-navy">$8.640</td>
-                </tr>
-
-                <!-- Row 4: Dual kg Oferta -->
+                <!-- Row 3: Unit + Nota (caso dual) -->
                 <tr>
                     <td class="py-4 px-4 align-top">
-                        <div class="flex items-start gap-2">
-                            <div>
-                                <div class="font-semibold text-[13px]">Pro Plan Adulto Raza Mediana <span class="text-muted font-normal">(por kg)</span></div>
-                                <div class="text-[11px] text-muted">Pro Plan</div>
-                                <div class="mt-1.5 text-[9px] font-bold tracking-[1.5px] uppercase text-primary">04 · Dual por kg · Oferta</div>
-                            </div>
-                            <span class="shrink-0 mt-0.5 bg-teal text-navy text-[9px] font-extrabold tracking-[0.8px] uppercase px-2 py-[3px] rounded">¡Oferta!</span>
+                        <div class="font-semibold text-[13px]">Pro Plan Adulto Raza Mediana</div>
+                        <div class="text-[11px] text-muted">Pro Plan · Bolsa 15kg</div>
+                        <div class="mt-2">
+                            <textarea rows="1" readonly
+                                      class="w-full py-1.5 px-2 border border-primary/40 rounded-md text-[11px] leading-[1.4] bg-white text-navy resize-none"
+                                      >Quiero 3 kg sueltos en vez de la bolsa, coordiname por WhatsApp</textarea>
                         </div>
+                        <div class="mt-1.5 text-[9px] font-bold tracking-[1.5px] uppercase text-primary">01 · Estándar · Con nota</div>
                     </td>
                     <td class="py-4 px-4 align-top">
                         <div class="flex items-baseline gap-2 flex-wrap">
-                            <span class="font-semibold text-[14px] text-navy">$2.500<span class="text-[0.7em] text-muted font-medium">/kg</span></span>
-                            <span class="text-[12px] text-muted line-through">$2.880/kg</span>
+                            <span class="font-semibold text-[14px] text-navy">$43.200</span>
+                            <span class="text-[12px] text-muted line-through">$48.000</span>
                         </div>
                     </td>
-                    <td class="py-4 px-4 align-top text-[12px] text-navy">3 kg</td>
-                    <td class="py-4 px-4 align-top text-right font-bold text-[14px] text-navy">$7.500</td>
+                    <td class="py-4 px-4 align-top text-[12px] text-navy">1</td>
+                    <td class="py-4 px-4 align-top text-right font-bold text-[14px] text-navy">$43.200</td>
                 </tr>
 
             </tbody>
@@ -1087,7 +1011,8 @@
         <div class="text-[10px] font-bold tracking-[2px] uppercase mb-2 text-teal">Reglas de la línea</div>
         <ul class="list-none space-y-1.5 text-[13px] leading-[1.6] opacity-85">
             <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">El subtotal es siempre <code>cantidad × precio líder</code> — efectivo en estándar, oferta en promo.</li>
-            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">Productos duales entran al carrito como líneas separadas: "(por kg)" o "(bolsa Xkg)". Cada línea es una unidad de compra distinta.</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">Todos los ítems se cobran <strong>por unidad</strong>. El subtotal es <code>cantidad × precio líder</code>, nunca por kg — esa parte se coordina por WhatsApp a partir de la nota.</li>
+            <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">Cada línea tiene su propio <strong>campo de notas</strong> editable, visible debajo del nombre del producto. Las notas viajan al mensaje de WhatsApp como sub-bullet de cada ítem.</li>
             <li class="pl-5 relative before:absolute before:left-0 before:top-0 before:content-['·'] before:text-teal before:font-bold">El badge "¡Oferta!" en la línea usa un tamaño más chico que en la tarjeta — función informativa, no decorativa.</li>
         </ul>
     </div>

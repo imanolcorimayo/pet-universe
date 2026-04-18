@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= htmlspecialchars($page_title ?? SITE_NAME) ?></title>
   <meta name="description" content="<?= htmlspecialchars($page_description ?? SITE_NAME . ' — ' . SITE_TAGLINE . '. Alimentos, accesorios y más para tu mascota en Córdoba.') ?>">
+  <?php if (!empty($isNoindex)): ?>
+  <meta name="robots" content="noindex, nofollow">
+  <?php endif; ?>
 
   <meta property="og:title" content="<?= htmlspecialchars($page_title ?? SITE_NAME) ?>">
   <meta property="og:description" content="<?= htmlspecialchars($page_description ?? SITE_NAME . ' — ' . SITE_TAGLINE) ?>">
@@ -34,7 +37,14 @@
 </head>
 <body class="bg-canvas text-navy min-h-dvh flex flex-col antialiased">
 
-  <?php $v4Categories = function_exists('getCategories') ? getCategories() : []; ?>
+  <?php
+    // Categories may fail to load (e.g. Meilisearch down on the 503 error page).
+    // Degrade gracefully instead of taking the whole header with it.
+    $v4Categories = [];
+    if (function_exists('getCategories')) {
+        try { $v4Categories = getCategories(); } catch (Throwable $e) { $v4Categories = []; }
+    }
+  ?>
 
   <!-- ─── Utility strip (desktop only, not sticky) ─── -->
   <div class="hidden md:block bg-navy text-white/75 text-[12px] border-b border-white/5">

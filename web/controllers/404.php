@@ -1,20 +1,31 @@
 <?php
 $page_title = 'Página no encontrada — ' . SITE_NAME;
-require __DIR__ . '/../includes/header.php';
+require __DIR__ . '/../includes/header-v4.php';
 ?>
 
-<section class="text-center px-4 py-[88px]">
-  <div class="w-[120px] h-[120px] mx-auto mb-7 rounded-full bg-teal-wash text-teal grid place-items-center">
-    <iconify-icon icon="mdi:paw" width="52" height="52"></iconify-icon>
+<section class="py-12 md:py-20">
+  <div class="w-full max-w-[620px] mx-auto px-5 text-center">
+    <div class="inline-flex items-center justify-center w-[96px] h-[96px] mb-6 rounded-full bg-teal-wash text-teal-deep">
+      <iconify-icon icon="mdi:paw" width="44" height="44"></iconify-icon>
+    </div>
+    <div class="font-display text-[72px] md:text-[96px] font-semibold text-primary-light leading-none mb-1">404</div>
+    <h1 class="font-display text-[22px] md:text-[28px] font-semibold text-navy mb-2.5">Página no encontrada</h1>
+    <p class="text-muted text-[14.5px] leading-relaxed mb-7 max-w-[420px] mx-auto">
+      La página que buscás no existe o fue movida. Probá volver al inicio o explorar los productos.
+    </p>
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+      <a href="/"
+         class="inline-flex items-center justify-center gap-2 px-6 py-3 text-[14px] font-semibold tracking-[0.3px] rounded-full border-2 border-primary bg-primary text-white transition-all hover:bg-navy hover:border-navy hover:-translate-y-px hover:shadow-[0_6px_24px_rgba(64,15,255,0.28)]">
+        <iconify-icon icon="lucide:home" width="16" height="16"></iconify-icon>
+        Volver al inicio
+      </a>
+      <a href="/productos"
+         class="inline-flex items-center justify-center gap-2 px-6 py-3 text-[14px] font-semibold tracking-[0.3px] rounded-full border border-hairline bg-white text-navy transition-all hover:border-primary hover:text-primary">
+        <iconify-icon icon="lucide:package" width="16" height="16"></iconify-icon>
+        Ver productos
+      </a>
+    </div>
   </div>
-  <h1 class="text-[5rem] text-primary-light leading-none mb-2">404</h1>
-  <h2 class="text-2xl mb-2.5">Página no encontrada</h2>
-  <p class="text-muted mb-7">La página que buscás no existe o fue movida.</p>
-  <a href="/"
-     class="inline-flex items-center justify-center gap-2 px-7 py-[13px] text-[14px] font-semibold tracking-[0.3px] rounded-full border-2 border-primary bg-primary text-white transition-all hover:bg-navy hover:border-navy hover:-translate-y-px hover:shadow-[0_6px_24px_rgba(64,15,255,0.28)]">
-    <iconify-icon icon="lucide:home" width="16" height="16"></iconify-icon>
-    Volver al inicio
-  </a>
 </section>
 
-<?php require __DIR__ . '/../includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer-v4.php'; ?>

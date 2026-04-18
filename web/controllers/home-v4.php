@@ -18,31 +18,21 @@ $pool = searchProducts('', [
 ]);
 $poolHits = $pool['hits'] ?? [];
 
-// TODO (mockup only): ProductSchema doesn't have priceOferta / priceKgOferta yet.
-// Synthesize an oferta price for ~1/3 of the pool so variants 02 and 04 render.
+// TODO (mockup only): ProductSchema doesn't have priceOferta yet.
+// Synthesize an oferta price for ~1/3 of the pool so variant 02 renders.
 // Keyed by id via crc32 so page refresh is stable. Remove when schema ships.
 foreach ($poolHits as &$p) {
     $id = (string)($p['id'] ?? '');
     if ($id === '' || crc32($id) % 3 !== 0) continue;
 
-    if (($p['trackingType'] ?? '') === 'dual') {
-        if (!empty($p['priceKgCash'])) {
-            $p['priceKgOferta'] = (int) round($p['priceKgCash'] * 0.85);
-        }
-        $bagBase = $p['priceCash'] ?? $p['priceRegular'] ?? 0;
-        if ($bagBase) {
-            $p['priceOferta'] = (int) round($bagBase * 0.85);
-        }
-    } elseif (!empty($p['priceCash'])) {
-        $p['priceOferta'] = (int) round($p['priceCash'] * 0.85);
+    $base = $p['priceCash'] ?? $p['priceRegular'] ?? 0;
+    if ($base) {
+        $p['priceOferta'] = (int) round($base * 0.85);
     }
 }
 unset($p);
 
 $isOffer = function(array $p): bool {
-    if (($p['trackingType'] ?? '') === 'dual') {
-        return !empty($p['priceKgOferta']) && $p['priceKgOferta'] < ($p['priceKgCash'] ?? 0);
-    }
     return !empty($p['priceOferta']) && $p['priceOferta'] < ($p['priceCash'] ?? 0);
 };
 

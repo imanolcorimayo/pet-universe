@@ -21,30 +21,51 @@ if ($isAjax) {
 }
 
 $page_title = "Buscar: $query — " . SITE_NAME;
-$products = $results['hits'] ?? [];
-$totalHits = $results['estimatedTotalHits'] ?? 0;
+$products   = $results['hits'] ?? [];
+$totalHits  = $results['estimatedTotalHits'] ?? 0;
 
-require __DIR__ . '/../includes/header.php';
+require __DIR__ . '/../includes/header-v4.php';
 ?>
 
-<section class="py-10 md:py-14">
-  <div class="w-full max-w-[1200px] mx-auto px-5">
+<section class="py-5 md:py-8">
+  <div class="w-full max-w-[1280px] mx-auto px-3 md:px-5">
 
-    <?php if ($query): ?>
-      <p class="text-[14px] text-muted mb-6">
-        <strong class="text-navy"><?= $totalHits ?></strong> resultado<?= $totalHits !== 1 ? 's' : '' ?> para "<strong class="text-navy"><?= htmlspecialchars($query) ?></strong>"
-      </p>
-    <?php endif; ?>
+    <nav class="flex items-center gap-2 text-[12.5px] text-muted mb-3 md:mb-4 flex-wrap">
+      <a href="/" class="text-muted transition-colors hover:text-primary">Inicio</a>
+      <iconify-icon icon="lucide:chevron-right" width="13" height="13" class="opacity-40"></iconify-icon>
+      <span class="text-navy">Búsqueda<?= $query ? ': ' . htmlspecialchars($query) : '' ?></span>
+    </nav>
+
+    <div class="flex items-end justify-between gap-3 mb-3 md:mb-4 flex-wrap">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary-light text-primary">
+          <iconify-icon icon="lucide:search" width="15" height="15"></iconify-icon>
+        </span>
+        <h1 class="font-display text-[18px] md:text-[22px] font-semibold text-navy leading-none">
+          <?php if ($query): ?>
+            Resultados para "<?= htmlspecialchars($query) ?>"
+          <?php else: ?>
+            Búsqueda
+          <?php endif; ?>
+        </h1>
+        <?php if ($query): ?>
+          <span class="text-[12.5px] text-muted tabular-nums pl-1"><?= $totalHits ?> resultado<?= $totalHits !== 1 ? 's' : '' ?></span>
+        <?php endif; ?>
+      </div>
+    </div>
 
     <?php if (empty($products)): ?>
-      <div class="text-center px-4 py-14 text-muted">
+      <div class="text-center px-4 py-14 text-muted bg-white rounded-2xl border border-hairline">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary-light text-primary mb-3">
+          <iconify-icon icon="lucide:search-x" width="26" height="26"></iconify-icon>
+        </div>
         <h3 class="font-display text-[1.2rem] mb-2.5 text-navy">No se encontraron productos</h3>
-        <p>Proba con otra busqueda o <a href="/productos" class="text-primary hover:text-navy transition-colors">explora todas las categorias</a>.</p>
+        <p>Probá con otra búsqueda o <a href="/productos" class="text-primary hover:text-navy transition-colors">explorá todas las categorías</a>.</p>
       </div>
     <?php else: ?>
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-[18px]">
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3">
         <?php foreach ($products as $product): ?>
-          <?php require __DIR__ . '/_product_card.php'; ?>
+          <?php require __DIR__ . '/_product_card-v4.php'; ?>
         <?php endforeach; ?>
       </div>
     <?php endif; ?>
@@ -52,4 +73,4 @@ require __DIR__ . '/../includes/header.php';
   </div>
 </section>
 
-<?php require __DIR__ . '/../includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer-v4.php'; ?>

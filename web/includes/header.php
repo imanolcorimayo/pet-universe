@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= htmlspecialchars($page_title ?? SITE_NAME) ?></title>
   <meta name="description" content="<?= htmlspecialchars($page_description ?? SITE_NAME . ' — ' . SITE_TAGLINE . '. Alimentos, accesorios y más para tu mascota en Córdoba.') ?>">
+  <?php if (!empty($isNoindex)): ?>
+  <meta name="robots" content="noindex, nofollow">
+  <?php endif; ?>
 
   <!-- Open Graph -->
   <meta property="og:title" content="<?= htmlspecialchars($page_title ?? SITE_NAME) ?>">

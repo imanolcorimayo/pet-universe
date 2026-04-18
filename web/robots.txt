@@ -1,7 +1,20 @@
 User-agent: *
 Allow: /
+
+# Transactional — not useful in search
 Disallow: /carrito
 Disallow: /checkout
+
+# Search results
+Disallow: /buscar
+
+# Design history / legacy variants (v4 is what `/` renders)
+Disallow: /v1
+Disallow: /v2
+Disallow: /v3
+Disallow: /v4
+
+# Internal docs / brand rules
 Disallow: /internal/
 
 Sitemap: https://petuniversecba.com/sitemap.xml

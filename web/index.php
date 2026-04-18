@@ -26,6 +26,14 @@ $routes = [
     '/api/category-preview' => 'api-category-preview',
 ];
 
+// Pages that should emit `<meta name="robots" content="noindex, nofollow">`.
+// robots.txt blocks crawlers, but noindex is needed for URLs crawlers may
+// find linked elsewhere — otherwise they can still be indexed without being
+// fetched. Variants (/v1..v4) are duplicates of /; search/cart/checkout are
+// transactional or ephemeral.
+$noindexRoutes = ['/v1', '/v2', '/v3', '/v4', '/buscar', '/carrito', '/checkout'];
+$isNoindex = in_array($uri, $noindexRoutes, true);
+
 try {
     // Check exact routes first
     if (isset($routes[$uri])) {
@@ -67,10 +75,12 @@ try {
 
     // 404
     http_response_code(404);
+    $isNoindex = true;
     require __DIR__ . '/controllers/404.php';
 
 } catch (Exception $e) {
     // Meilisearch or other service down
     http_response_code(503);
+    $isNoindex = true;
     require __DIR__ . '/controllers/error.php';
 }

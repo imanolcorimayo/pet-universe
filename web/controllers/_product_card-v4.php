@@ -1,39 +1,21 @@
 <?php
-// Expects $product. Compact card aligned with brand-rules variants 01–04.
-// 01 Unit · Estándar   → chip + cash lead + list reference
-// 02 Unit · Oferta     → chip + oferta lead + cash tachado inline + list reference + "¡Oferta!" badge
-// 03 Dual · Estándar   → chip + cash/kg lead + list/kg reference + bolsa reference
-// 04 Dual · Oferta     → chip + oferta/kg lead + cash/kg tachado inline + list/kg + bolsa + badge
-$isDual  = ($product['trackingType'] ?? '') === 'dual';
+// Expects $product. Compact card aligned with brand-rules variants 01–02.
+// 01 Estándar → chip + cash lead + list reference
+// 02 Oferta   → chip + oferta lead + cash tachado inline + list reference + "¡Oferta!" badge
+//
+// Dual-tracked products (sold loose per kg at the store) are rendered here as
+// a regular unit card — the "per kg" option is surfaced only on the product
+// detail page and handled via an order note. Keeps the grid uniform.
 $inStock = !isset($product['inStock']) || $product['inStock'];
 
-if ($isDual) {
-    $cashKg    = $product['priceKgCash']   ?? 0;
-    $listKg    = $product['priceKgRegular'] ?? 0;
-    $ofertaKg  = $product['priceKgOferta']  ?? 0;
-    $hasOferta = $ofertaKg > 0 && $cashKg > 0 && $ofertaKg < $cashKg;
-    $leadPrice   = $hasOferta ? $ofertaKg : $cashKg;
-    $strikePrice = $hasOferta ? $cashKg   : 0;
-    $listRef     = $listKg;
-    $unitSuffix  = '/kg';
-    // Bag reference: oferta bag if present, else cash bag, else list bag.
-    $bagPrice = ($hasOferta && !empty($product['priceOferta']))
-        ? $product['priceOferta']
-        : ($product['priceCash'] ?? $product['priceRegular'] ?? 0);
-    $bagLabel = (!empty($product['unitWeight']) && $bagPrice)
-        ? 'Bolsa ' . $product['unitWeight'] . 'kg: ' . formatPrice($bagPrice)
-        : '';
-} else {
-    $cash      = $product['priceCash']    ?? 0;
-    $list      = $product['priceRegular'] ?? 0;
-    $oferta    = $product['priceOferta']  ?? 0;
-    $hasOferta = $oferta > 0 && $cash > 0 && $oferta < $cash;
-    $leadPrice   = $hasOferta ? $oferta : $cash;
-    $strikePrice = $hasOferta ? $cash   : 0;
-    $listRef     = $list;
-    $unitSuffix  = '';
-    $bagLabel    = '';
-}
+$cash    = $product['priceCash']    ?? 0;
+$list    = $product['priceRegular'] ?? 0;
+$oferta  = $product['priceOferta']  ?? 0;
+$hasOferta = $oferta > 0 && $cash > 0 && $oferta < $cash;
+
+$leadPrice   = $hasOferta ? $oferta : $cash;
+$strikePrice = $hasOferta ? $cash   : 0;
+$listRef     = $list;
 
 $showListRef = $listRef > 0 && $listRef > $leadPrice;
 $imgV = $product['imageUpdatedAt'] ?? 0;
@@ -83,17 +65,14 @@ $imgV = $product['imageUpdatedAt'] ?? 0;
       <span class="inline-block px-[6px] py-[1px] text-[9px] font-bold tracking-[0.4px] uppercase text-teal-deep bg-teal-wash rounded-full">Ef./Transf.</span>
       <div class="flex items-baseline gap-1.5 flex-wrap">
         <span class="text-[15px] font-bold text-navy leading-none">
-          <?= formatPrice($leadPrice) ?><?php if ($unitSuffix): ?><span class="text-[0.65em] font-medium text-muted"><?= $unitSuffix ?></span><?php endif; ?>
+          <?= formatPrice($leadPrice) ?>
         </span>
         <?php if ($strikePrice): ?>
-          <span class="text-[11px] text-muted line-through leading-none"><?= formatPrice($strikePrice) ?><?= $unitSuffix ?></span>
+          <span class="text-[11px] text-muted line-through leading-none"><?= formatPrice($strikePrice) ?></span>
         <?php endif; ?>
       </div>
       <?php if ($showListRef): ?>
-        <span class="text-[10.5px] text-muted leading-none">Lista: <?= formatPrice($listRef) ?><?= $unitSuffix ?></span>
-      <?php endif; ?>
-      <?php if ($bagLabel): ?>
-        <span class="text-[10.5px] text-muted leading-none"><?= $bagLabel ?></span>
+        <span class="text-[10.5px] text-muted leading-none">Lista: <?= formatPrice($listRef) ?></span>
       <?php endif; ?>
     </div>
   </div>

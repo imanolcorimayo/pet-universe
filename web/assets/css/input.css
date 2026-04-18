@@ -115,8 +115,43 @@ iconify-icon { display: inline-flex; vertical-align: middle; }
 .scroll-row { scrollbar-width: none; }
 .scroll-row::-webkit-scrollbar { display: none; }
 
-/* Mega-menu (v4 desktop category panel) */
-.mega-visible { opacity: 1 !important; pointer-events: auto !important; }
+/* Mega-menu (v4 desktop category panel)
+   The panel wrapper spans the full viewport width, but only the centered
+   1280px inner box should capture pointer events. Otherwise the dark
+   side-strips swallow clicks/hovers, preventing the overlay from closing
+   the menu and the panel's own mouseleave from ever firing. */
+.mega-visible { opacity: 1 !important; }
+#mega-overlay.mega-visible { pointer-events: auto !important; }
+#mega-panel.mega-visible > div { pointer-events: auto; }
+
+/* Mobile filter drawer (< md, 768px).
+   Shares the same <aside> as the desktop sidebar. On mobile the aside is
+   hidden by default; when body.filters-open, it pops up as a right-side
+   drawer with its own scroll. Overrides Tailwind's `hidden` via !important. */
+@media (max-width: 767px) {
+  body.filters-open { overflow: hidden; }
+  body.filters-open #filters-sidebar {
+    display: block !important;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(86vw, 380px);
+    z-index: 102;
+    overflow-y: auto;
+    border-radius: 0;
+    border: 0;
+    border-left: 1px solid var(--color-hairline, #E6E4EF);
+    padding: 18px;
+    padding-bottom: 40px;
+    box-shadow: -8px 0 32px rgba(32, 28, 78, 0.2);
+    animation: filterDrawerIn 220ms ease-out;
+  }
+}
+@keyframes filterDrawerIn {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
 
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
 .reveal.is-visible { opacity: 1; transform: translateY(0); }
