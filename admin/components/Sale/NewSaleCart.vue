@@ -349,16 +349,35 @@
             <div
               v-for="(payment, index) in paymentMethods"
               :key="index"
-              class="bg-white border border-gray-200 rounded-lg p-2"
+              :class="[
+                'border rounded-lg p-2 transition-colors',
+                !payment.paymentMethodId
+                  ? 'bg-red-50 border-red-300 ring-1 ring-red-200'
+                  : 'bg-white border-gray-200'
+              ]"
             >
               <div class="flex items-start gap-2">
                 <div class="flex-1 space-y-2">
-                  <FinancePaymentMethodSelector
-                    :model-value="payment.paymentMethodId"
-                    label=""
-                    placeholder="Buscar método de pago..."
-                    @update:model-value="updatePaymentMethod(index, 'paymentMethodId', $event)"
-                  />
+                  <div class="flex gap-2 items-end">
+                    <div class="flex-1 min-w-0">
+                      <FinancePaymentMethodSelector
+                        :model-value="payment.paymentMethodId"
+                        label=""
+                        placeholder="Buscar método de pago..."
+                        @update:model-value="updatePaymentMethod(index, 'paymentMethodId', $event)"
+                      />
+                    </div>
+                    <button
+                      v-if="!payment.paymentMethodId && defaultPaymentMethod"
+                      type="button"
+                      @click="updatePaymentMethod(index, 'paymentMethodId', defaultPaymentMethod.id)"
+                      class="shrink-0 px-2.5 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 text-xs font-medium whitespace-nowrap inline-flex items-center gap-1 transition-colors"
+                      :title="`Usar ${defaultPaymentMethod.name}`"
+                    >
+                      <LucideZap class="w-3 h-3" />
+                      {{ defaultPaymentMethod.name }}
+                    </button>
+                  </div>
 
                   <div class="relative">
                     <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">$</span>
@@ -421,7 +440,9 @@
                 :key="index"
                 class="flex justify-between text-xs"
               >
-                <span class="text-gray-600">{{ getPaymentMethodName(payment.paymentMethodId) }}</span>
+                <span :class="payment.paymentMethodId ? 'text-gray-600' : 'text-red-600 font-medium'">
+                  {{ payment.paymentMethodId ? getPaymentMethodName(payment.paymentMethodId) : 'Sin método (selecciona uno)' }}
+                </span>
                 <span class="text-gray-800">{{ formatCurrency(payment.amount) }}</span>
               </div>
             </div>
@@ -592,6 +613,7 @@ import LucideCheck from '~icons/lucide/check';
 import LucideAlertTriangle from '~icons/lucide/alert-triangle';
 import LucideFileText from '~icons/lucide/file-text';
 import LucideScissors from '~icons/lucide/scissors';
+import LucideZap from '~icons/lucide/zap';
 
 const props = defineProps({
   cartItems: {
@@ -675,6 +697,14 @@ const availableClients = computed(() => {
 
 const availablePaymentMethods = computed(() => {
   return paymentMethodsStore.activePaymentMethods || [];
+});
+
+const defaultPaymentMethod = computed(() => {
+  const methods = availablePaymentMethods.value;
+  return methods.find(m =>
+    m.name.toLowerCase().includes('efectivo') ||
+    m.code?.toLowerCase().includes('efectivo')
+  ) || null;
 });
 
 const subtotal = computed(() => {

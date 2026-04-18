@@ -443,10 +443,14 @@ const activeProducts = computed(() => {
       if (!categoryNameCache.has(p.category)) {
         categoryNameCache.set(p.category, productStore.getCategoryName(p.category));
       }
+      const categoryName = categoryNameCache.get(p.category);
+      const brandPart = p.brand ? `${p.brand} - ` : '';
+      const weightPart = (p.trackingType === 'dual' && p.unitWeight) ? ` - ${p.unitWeight}kg` : '';
+      const displayLabel = `${brandPart}${p.name}${weightPart}`;
       return {
         ...p,
-        categoryName: categoryNameCache.get(p.category),
-        _searchString: `${p.brand || ''} ${p.name} ${p.productCode || ''} ${p.description || ''}`.toLowerCase()
+        categoryName,
+        _searchString: `${displayLabel} ${p.brand || ''} ${p.name} ${p.productCode || ''} ${p.description || ''} ${categoryName || ''}`.toLowerCase()
       };
     });
 });
@@ -614,14 +618,12 @@ function goToPaymentStep() {
     return;
   }
 
-  // Initialize payment with default method and total
-  const defaultMethod = getDefaultPaymentMethod();
   const total = cartItems.value.reduce((sum, item) => sum + item.totalPrice, 0);
 
   paymentMethods.value = [{
-    paymentMethodId: defaultMethod,
+    paymentMethodId: '',
     amount: total,
-    isReported: isReported.value // Use the global isReported as default
+    isReported: isReported.value
   }];
 
   isPaymentStep.value = true;
@@ -629,15 +631,6 @@ function goToPaymentStep() {
 
 function backToCart() {
   isPaymentStep.value = false;
-}
-
-function getDefaultPaymentMethod() {
-  const methods = paymentMethodsStore.activePaymentMethods || [];
-  const efectivo = methods.find(m =>
-    m.name.toLowerCase().includes('efectivo') ||
-    m.code.toLowerCase().includes('efectivo')
-  );
-  return efectivo?.id || methods[0]?.id || '';
 }
 
 async function submitSale() {
