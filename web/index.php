@@ -13,11 +13,7 @@ $uri = rtrim($uri, '/') ?: '/';
 
 // Route map
 $routes = [
-    '/'           => 'home',       // dispatcher → currently renders v2
-    '/v1'         => 'home-v1',    // original design (hand-written CSS)
-    '/v2'         => 'home-v2',    // Tailwind — "almacén de barrio, editorialized"
-    '/v3'         => 'home-v3',    // Tailwind — next variant (cloned from v2)
-    '/v4'         => 'home-v4',    // Tailwind — mercado-style, density-first (brand palette)
+    '/'           => 'home',
     '/productos'  => 'productos',
     '/buscar'     => 'buscar',
     '/carrito'    => 'carrito',
@@ -29,9 +25,8 @@ $routes = [
 // Pages that should emit `<meta name="robots" content="noindex, nofollow">`.
 // robots.txt blocks crawlers, but noindex is needed for URLs crawlers may
 // find linked elsewhere — otherwise they can still be indexed without being
-// fetched. Variants (/v1..v4) are duplicates of /; search/cart/checkout are
-// transactional or ephemeral.
-$noindexRoutes = ['/v1', '/v2', '/v3', '/v4', '/buscar', '/carrito', '/checkout'];
+// fetched. Search/cart/checkout are transactional or ephemeral.
+$noindexRoutes = ['/buscar', '/carrito', '/checkout'];
 $isNoindex = in_array($uri, $noindexRoutes, true);
 
 try {

@@ -24,7 +24,7 @@ $page_title = "Buscar: $query — " . SITE_NAME;
 $products   = $results['hits'] ?? [];
 $totalHits  = $results['estimatedTotalHits'] ?? 0;
 
-require __DIR__ . '/../includes/header-v4.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="py-5 md:py-8">
@@ -65,7 +65,7 @@ require __DIR__ . '/../includes/header-v4.php';
     <?php else: ?>
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3">
         <?php foreach ($products as $product): ?>
-          <?php require __DIR__ . '/_product_card-v4.php'; ?>
+          <?php require __DIR__ . '/_product_card.php'; ?>
         <?php endforeach; ?>
       </div>
     <?php endif; ?>
@@ -73,4 +73,4 @@ require __DIR__ . '/../includes/header-v4.php';
   </div>
 </section>
 
-<?php require __DIR__ . '/../includes/footer-v4.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

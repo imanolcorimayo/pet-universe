@@ -139,7 +139,7 @@ if ($ofertaFilter)       $activeFilterCount++;
 if ($priceMax > 0)       $activeFilterCount++;
 $activeFilterCount += count($brandFilters);
 
-require __DIR__ . '/../includes/header-v4.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="py-5 md:py-8">
@@ -307,7 +307,7 @@ require __DIR__ . '/../includes/header-v4.php';
         <?php else: ?>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-3">
             <?php foreach ($products as $product): ?>
-              <?php require __DIR__ . '/_product_card-v4.php'; ?>
+              <?php require __DIR__ . '/_product_card.php'; ?>
             <?php endforeach; ?>
           </div>
 
@@ -436,4 +436,4 @@ function toggleFilters(open) {
 })();
 </script>
 
-<?php require __DIR__ . '/../includes/footer-v4.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

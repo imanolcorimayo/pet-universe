@@ -4,10 +4,7 @@
 @source "../../controllers/*.php";
 
 @theme {
-  /* ──────────────────────────────────────────────────
-     v1 storefront palette — shared by /, /productos,
-     /producto, /carrito, /checkout, /buscar, 404, error
-     ────────────────────────────────────────────────── */
+  /* Storefront palette — shared by every page */
   --color-primary:       #400FFF;
   --color-primary-light: #EDE8FF;
   --color-canvas:        #F8F8FC;
@@ -16,40 +13,15 @@
   --color-success:       #25D366;
   --color-error:         #E63946;
 
-  /* ──────────────────────────────────────────────────
-     v2/v3 paper palette — kept for /v2, /v3
-     ────────────────────────────────────────────────── */
-  --color-paper:       #FAF6EE;
-  --color-paper-deep:  #F2EADC;
-  --color-cream:       #FFF8E8;
-  --color-ink:         #1A1815;
-  --color-ink-soft:    #4A4640;
-  --color-ink-muted:   #8A847C;
-  --color-navy:        #201C4E;
-  --color-navy-soft:   #2D2766;
-  --color-teal:        #00CECE;
-  --color-teal-deep:   #00A8A8;
-  --color-teal-wash:   #E0FAFA;
-  --color-rust:        #C65D3C;
-  --color-rust-deep:   #A54A2E;
-  --color-rust-wash:   #FBEADF;
-  --color-mint:        #D9EFE6;
-  --color-mustard:     #D4A843;
+  /* Accents used in headings, icons and info bands */
+  --color-navy:          #201C4E;
+  --color-navy-soft:     #2D2766;
+  --color-teal:          #00CECE;
+  --color-teal-deep:     #00A8A8;
+  --color-teal-wash:     #E0FAFA;
 
-  /* v3 — playful purple stage */
-  --color-purple:      #7242F0;
-  --color-purple-deep: #5A2DD9;
-  --color-purple-soft: #8F67F4;
-  --color-purple-wash: #F0EBFF;
-  --color-yellow:      #FFD93D;
-  --color-yellow-deep: #EBC116;
-  --color-yellow-wash: #FFF8D6;
-
-  /* Fonts (shared) */
   --font-display: 'Fraunces', Georgia, serif;
   --font-body:    'DM Sans', system-ui, sans-serif;
-  --font-hand:    'Caveat', cursive;
-  --font-chunky:  'Baloo 2', 'DM Sans', sans-serif;
 }
 
 html { scroll-behavior: smooth; }
@@ -63,59 +35,10 @@ h1, h2, h3, h4 { font-family: var(--font-display); }
 
 iconify-icon { display: inline-flex; vertical-align: middle; }
 
-/* ──────────────────────────────────────────────────
-   Shared custom utilities (used across versions)
-   ────────────────────────────────────────────────── */
-
-@keyframes marquee {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.animate-marquee { animation: marquee 38s linear infinite; }
-.animate-marquee:hover { animation-play-state: paused; }
-.marquee-mask {
-  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-}
-
-.sticker { display: inline-block; }
-.sticker-tilt-1 { transform: rotate(-3deg); }
-.sticker-tilt-2 { transform: rotate(2deg); }
-.sticker-tilt-3 { transform: rotate(-1.5deg); }
-.sticker-tilt-4 { transform: rotate(4deg); }
-
-.hand-underline {
-  position: relative;
-  display: inline-block;
-  white-space: nowrap;
-}
-.hand-underline::after {
-  content: '';
-  position: absolute;
-  left: -4px; right: -4px; bottom: 0;
-  height: 14px;
-  background: var(--color-rust);
-  opacity: 0.22;
-  border-radius: 50% / 60%;
-  transform: rotate(-1deg);
-  z-index: -1;
-}
-
-.dots-divider {
-  background-image: radial-gradient(circle, var(--color-ink-muted) 1px, transparent 1.2px);
-  background-size: 12px 12px;
-  background-repeat: repeat-x;
-  background-position: center;
-  height: 4px;
-  opacity: 0.35;
-}
-
-.lift-on-hover { transition: transform 300ms ease, box-shadow 300ms ease; }
-.lift-on-hover:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(26, 24, 21, 0.08); }
-
 .scroll-row { scrollbar-width: none; }
 .scroll-row::-webkit-scrollbar { display: none; }
 
-/* Mega-menu (v4 desktop category panel)
+/* Mega-menu (desktop category panel)
    The panel wrapper spans the full viewport width, but only the centered
    1280px inner box should capture pointer events. Otherwise the dark
    side-strips swallow clicks/hovers, preventing the overlay from closing
@@ -153,64 +76,11 @@ iconify-icon { display: inline-flex; vertical-align: middle; }
   to   { transform: translateX(0); }
 }
 
-.reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
-.reveal.is-visible { opacity: 1; transform: translateY(0); }
-
-.paper-noise {
-  background-image:
-    radial-gradient(circle at 0% 0%, rgba(198, 93, 60, 0.03) 0, transparent 50%),
-    radial-gradient(circle at 100% 100%, rgba(0, 206, 206, 0.03) 0, transparent 50%);
-}
-
 /* ══════════════════════════════════════════════════════════
    Component classes — consumed by JS-injected markup and by
-   a few SSR templates (producto, carrito) where inlining
-   Tailwind utilities would duplicate across JS + PHP sources.
+   a few SSR templates where inlining Tailwind utilities would
+   duplicate across JS + PHP sources.
    ══════════════════════════════════════════════════════════ */
-
-/* ── Keyframes (hero slideshow animations, search bar fade-in) ── */
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(28px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@keyframes float {
-  0%, 100% { transform: translateY(0) rotate(var(--rotate, 0deg)); }
-  50%      { transform: translateY(-12px) rotate(var(--rotate, 0deg)); }
-}
-
-/* ── Scroll-triggered reveal (home-v1) ── */
-.animate-on-scroll {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
-}
-.animate-on-scroll.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.stagger-children.is-visible > *:nth-child(1)  { transition-delay: 0ms; }
-.stagger-children.is-visible > *:nth-child(2)  { transition-delay: 60ms; }
-.stagger-children.is-visible > *:nth-child(3)  { transition-delay: 120ms; }
-.stagger-children.is-visible > *:nth-child(4)  { transition-delay: 180ms; }
-.stagger-children.is-visible > *:nth-child(5)  { transition-delay: 240ms; }
-.stagger-children.is-visible > *:nth-child(6)  { transition-delay: 300ms; }
-.stagger-children.is-visible > *:nth-child(7)  { transition-delay: 360ms; }
-.stagger-children.is-visible > *:nth-child(8)  { transition-delay: 420ms; }
-
-.stagger-children > * {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
-}
-.stagger-children.is-visible > * {
-  opacity: 1;
-  transform: translateY(0);
-}
 
 /* ── Search autocomplete (injected by search.js) ── */
 .search-result-item {
@@ -275,81 +145,4 @@ iconify-icon { display: inline-flex; vertical-align: middle; }
   font-weight: 600;
   outline: none;
   background: #fff;
-}
-
-/* ── Buy mode toggle button (producto, toggled by setBuyMode JS) ── */
-.buy-mode-btn {
-  padding: 10px 22px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-primary);
-  background: #fff;
-  transition: background 280ms ease, color 280ms ease;
-  border: none;
-  cursor: pointer;
-}
-.buy-mode-btn:not(:last-child) { border-right: 2px solid var(--color-primary); }
-.buy-mode-btn.active { background: var(--color-primary); color: #fff; }
-.buy-mode-btn:hover:not(.active) { background: var(--color-primary-light); }
-
-/* ── Cart table (carrito + injected by cart.js) ── */
-.cart-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.cart-table th {
-  text-align: left;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--color-muted);
-  padding: 14px 8px;
-  border-bottom: 2px solid var(--color-hairline);
-}
-.cart-table td {
-  padding: 18px 8px;
-  border-bottom: 1px solid var(--color-hairline);
-  vertical-align: middle;
-}
-.cart-table th:nth-child(1), .cart-table td:nth-child(1) { width: 40%; }
-.cart-table th:nth-child(2), .cart-table td:nth-child(2) { width: 14%; }
-.cart-table th:nth-child(3), .cart-table td:nth-child(3) { width: 18%; }
-.cart-table th:nth-child(4), .cart-table td:nth-child(4) { width: 16%; }
-.cart-table th:nth-child(5), .cart-table td:nth-child(5) { width: 12%; text-align: right; }
-.cart-item-name { font-weight: 600; }
-.cart-item-brand { font-size: 12px; color: var(--color-muted); }
-.cart-item-price { font-weight: 600; white-space: nowrap; }
-.cart-item-subtotal { font-weight: 700; color: var(--color-navy); white-space: nowrap; }
-.cart-item-remove {
-  color: var(--color-error);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  background: none;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 12px;
-  transition: background 280ms ease;
-}
-.cart-item-remove:hover { background: rgba(230, 57, 70, 0.08); }
-
-@media (max-width: 767px) {
-  .cart-table thead { display: none; }
-  .cart-table tr {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 18px 0;
-    border-bottom: 1px solid var(--color-hairline);
-    align-items: center;
-  }
-  .cart-table td { border: none; padding: 0; }
-  .cart-table td:first-child { width: 100%; }
-}
-
-/* ── Checkout summary row (injected by cart.js) ── */
-.checkout-summary-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 0;
-  font-size: 14px;
-  border-bottom: 1px solid var(--color-hairline);
 }

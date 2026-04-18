@@ -66,7 +66,7 @@ $waText = urlencode("Hola! Quiero consultar por: " . $product['name']);
 $imgV = $product['imageUpdatedAt'] ?? 0;
 $page_og_image = !empty($product['hasImage']) ? productImageUrl($product['slug'], 'lg', 'jpg') . '?v=' . $imgV : null;
 
-require __DIR__ . '/../includes/header-v4.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="py-5 md:py-8">
@@ -260,7 +260,7 @@ require __DIR__ . '/../includes/header-v4.php';
       <div class="rail-scroll scroll-row flex gap-2 md:gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth">
         <?php foreach ($relatedProducts as $product): ?>
           <div class="shrink-0 snap-start w-[44vw] sm:w-[30vw] md:w-[200px] lg:w-[204px]">
-            <?php require __DIR__ . '/_product_card-v4.php'; ?>
+            <?php require __DIR__ . '/_product_card.php'; ?>
           </div>
         <?php endforeach; ?>
       </div>
@@ -298,7 +298,7 @@ require __DIR__ . '/../includes/header-v4.php';
 </script>
 <?php endif; ?>
 
-<?php require __DIR__ . '/../includes/footer-v4.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>
 
 <script>
   function addToCartFromDetail(productJson) {

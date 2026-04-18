@@ -2,6 +2,10 @@
 
 Pet shop management system. Nuxt 3 (Vue 3), Tailwind CSS, Firebase, Pinia. Package manager: **yarn**.
 
+## Local dev URLs
+
+- Web storefront (PHP): **http://petuniverse.local/** — use this for smoke-testing routes. Don't spin up `php -S localhost:...`.
+
 ## Workflow
 
 ### 1. Plan Mode Default

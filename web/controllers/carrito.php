@@ -1,6 +1,6 @@
 <?php
 $page_title = 'Carrito — ' . SITE_NAME;
-require __DIR__ . '/../includes/header-v4.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="py-8 md:py-10">
@@ -91,5 +91,5 @@ require __DIR__ . '/../includes/header-v4.php';
   </div>
 </section>
 
-<?php require __DIR__ . '/../includes/footer-v4.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>
 <script>renderCartPage();</script>

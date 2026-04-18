@@ -1,6 +1,6 @@
 <?php
 $page_title = 'Estamos con problemas — ' . SITE_NAME;
-require __DIR__ . '/../includes/header-v4.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="py-12 md:py-20">
@@ -23,4 +23,4 @@ require __DIR__ . '/../includes/header-v4.php';
   </div>
 </section>
 
-<?php require __DIR__ . '/../includes/footer-v4.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

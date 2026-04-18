@@ -8,12 +8,6 @@ Disallow: /checkout
 # Search results
 Disallow: /buscar
 
-# Design history / legacy variants (v4 is what `/` renders)
-Disallow: /v1
-Disallow: /v2
-Disallow: /v3
-Disallow: /v4
-
 # Internal docs / brand rules
 Disallow: /internal/
 

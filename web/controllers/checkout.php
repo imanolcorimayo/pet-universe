@@ -1,6 +1,6 @@
 <?php
 $page_title = 'Finalizar compra — ' . SITE_NAME;
-require __DIR__ . '/../includes/header-v4.php';
+require __DIR__ . '/../includes/header.php';
 
 $inputClass = 'w-full py-3 px-4 border border-hairline rounded-xl text-[15px] transition-all outline-none bg-white focus:border-primary focus:shadow-[0_0_0_3px_rgba(64,15,255,0.1)]';
 ?>
@@ -143,5 +143,5 @@ $inputClass = 'w-full py-3 px-4 border border-hairline rounded-xl text-[15px] tr
   </div>
 </section>
 
-<?php require __DIR__ . '/../includes/footer-v4.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>
 <script>renderCheckoutSummary();</script>
