@@ -397,9 +397,7 @@ function renderCheckoutSummary() {
   items.forEach(item => {
     const lead = leadPrice(item);
     const line = el('li', {
-      className: 'flex flex-col gap-0.5 text-[13px] transition-opacity',
-      'data-checkout-line': '',
-      'data-slug': item.slug || '',
+      className: 'flex flex-col gap-0.5 text-[13px]',
     }, [
       el('div', { className: 'flex justify-between gap-3 items-baseline' }, [
         el('span', { className: 'text-navy flex-1', textContent: item.quantity + 'x ' + item.name }),
@@ -411,10 +409,6 @@ function renderCheckoutSummary() {
     ]);
     list.appendChild(line);
   });
-
-  // Fire-and-forget stock check — flags items that are out of stock on the
-  // storefront index without blocking the WhatsApp submit.
-  checkCheckoutStock(items);
 
   // ── Summary totals ──
   let subtotalList = 0;
@@ -451,52 +445,6 @@ function renderCheckoutSummary() {
       savingsEl.style.display = 'none';
     }
   }
-}
-
-/**
- * Ask the server which cart items are currently in stock and annotate each
- * checkout row accordingly. Stock freshness depends on the Firestore →
- * Meilisearch sync cadence, so this is a soft hint — we never block submit.
- * Items missing from the response (hidden, deleted, or slug renamed) are
- * treated as unavailable.
- */
-async function checkCheckoutStock(items) {
-  const slugs = items.map(i => i.slug).filter(Boolean);
-  if (slugs.length === 0) return;
-
-  let info = {};
-  try {
-    const res = await fetch('/api/stock-check?slugs=' + encodeURIComponent(slugs.join(',')));
-    if (!res.ok) return;
-    info = (await res.json()).items || {};
-  } catch {
-    return;
-  }
-
-  let anyUnavailable = false;
-  document.querySelectorAll('[data-checkout-line]').forEach(line => {
-    const slug = line.getAttribute('data-slug');
-    if (!slug) return;
-    const status = info[slug];
-    const available = status && status.inStock;
-    if (available) return;
-
-    anyUnavailable = true;
-    line.classList.add('opacity-70');
-    const row = line.firstElementChild;
-    if (row && !row.querySelector('[data-stock-pill]')) {
-      const pill = el('span', {
-        className: 'inline-flex items-center gap-1 px-1.5 py-[1px] text-[9.5px] font-bold tracking-[0.4px] uppercase text-amber-700 bg-amber-100 rounded-full shrink-0 ml-1',
-        'data-stock-pill': '',
-        textContent: 'A confirmar',
-      });
-      const nameSpan = row.firstElementChild;
-      if (nameSpan) nameSpan.appendChild(pill);
-    }
-  });
-
-  const note = document.getElementById('checkout-stock-note');
-  if (note) note.style.display = anyUnavailable ? 'flex' : 'none';
 }
 
 /**

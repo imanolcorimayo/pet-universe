@@ -69,6 +69,22 @@ class FirestoreHandler {
     }
 
     /**
+     * Patches specific fields on an existing document. Uses updateMask so
+     * other fields stay untouched.
+     */
+    public function patchDocument(string $collection, string $docId, array $fields): void {
+        if (empty($fields)) return;
+        $mask = array_map(fn($k) => 'updateMask.fieldPaths=' . urlencode($k), array_keys($fields));
+        $url = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents/{$collection}/{$docId}?"
+             . implode('&', $mask);
+
+        $body = [
+            'fields' => array_map(fn($v) => $this->encodeValue($v), $fields),
+        ];
+        $this->sendPatch($url, $body);
+    }
+
+    /**
      * Fetches a single document by ID. Returns null if not found.
      */
     public function getDocument(string $collection, string $docId): ?array {
@@ -101,6 +117,9 @@ class FirestoreHandler {
         if (is_int($value))    return ['integerValue' => (string)$value];
         if (is_float($value))  return ['doubleValue' => $value];
         if (is_null($value))   return ['nullValue' => null];
+        if ($value instanceof DateTimeInterface) {
+            return ['timestampValue' => $value->format('Y-m-d\TH:i:s.v\Z')];
+        }
         if (is_array($value)) {
             return ['arrayValue' => [
                 'values' => array_map(fn($v) => $this->encodeValue($v), $value),
@@ -206,6 +225,30 @@ class FirestoreHandler {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER     => [
+                'Authorization: Bearer ' . $token,
+                'Content-Type: application/json',
+            ],
+            CURLOPT_POSTFIELDS     => json_encode($body),
+            CURLOPT_TIMEOUT        => 15,
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false || $httpCode < 200 || $httpCode >= 300) {
+            throw new RuntimeException("Firestore HTTP $httpCode $curlErr $response");
+        }
+        return json_decode($response, true) ?? [];
+    }
+
+    private function sendPatch(string $url, array $body): array {
+        $token = $this->getAccessToken();
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_CUSTOMREQUEST  => 'PATCH',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER     => [
                 'Authorization: Bearer ' . $token,

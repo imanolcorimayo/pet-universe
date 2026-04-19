@@ -15,7 +15,7 @@ function corsHeaders(): void {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
     if (in_array($origin, ALLOWED_ORIGINS, true)) {
         header("Access-Control-Allow-Origin: $origin");
-        header('Access-Control-Allow-Methods: POST, OPTIONS');
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
         header('Access-Control-Allow-Headers: Content-Type, X-API-Key');
     }
 }

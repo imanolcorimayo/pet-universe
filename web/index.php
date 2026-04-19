@@ -20,7 +20,6 @@ $routes = [
     '/checkout'   => 'checkout',
     '/sitemap.xml'=> 'sitemap',
     '/api/category-preview' => 'api-category-preview',
-    '/api/stock-check'      => 'api-stock-check',
 ];
 
 // Pages that should emit `<meta name="robots" content="noindex, nofollow">`.

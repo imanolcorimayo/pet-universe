@@ -15,6 +15,9 @@ $routes = [
     '/upload'               => 'upload',
     '/scan-invoice'         => 'scan-invoice',
     '/commit-invoice-image' => 'commit-invoice-image',
+    '/product-stats'        => 'product-stats',
+    '/product-featured'     => 'product-featured',
+    '/product-insights'     => 'product-insights',
 ];
 
 try {

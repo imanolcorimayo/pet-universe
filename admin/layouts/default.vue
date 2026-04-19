@@ -196,9 +196,16 @@
               <NuxtLink
                 to="/productos"
                 class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
-                :class="navLinkClass('/productos')"
+                :class="navLinkClass('/productos', true)"
               >
-                <MingcuteInventoryFill :class="navIconClass('/productos')" /> Lista de productos
+                <MingcuteInventoryFill :class="navIconClass('/productos', true)" /> Lista de productos
+              </NuxtLink>
+              <NuxtLink
+                to="/productos/estadisticas"
+                class="flex items-center gap-2 px-1 py-2 rounded transition-colors"
+                :class="navLinkClass('/productos/estadisticas')"
+              >
+                <PhChartBarFill :class="navIconClass('/productos/estadisticas')" /> Estadísticas
               </NuxtLink>
               <NuxtLink
                 to="/inventario"
