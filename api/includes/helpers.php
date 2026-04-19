@@ -399,6 +399,67 @@ function parseLocalizedAmount($raw): float {
     return (float) $str;
 }
 
+// Lowercase + strip accents + collapse whitespace. Used for case/accent-insensitive
+// comparison of brand names and invoice text tokens.
+function normalizeText(string $s): string {
+    $s = mb_strtolower(trim($s), 'UTF-8');
+    $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+    if ($ascii !== false && $ascii !== '') {
+        $s = $ascii;
+    }
+    return trim(preg_replace('/\s+/', ' ', $s));
+}
+
+// Extracts the first weight mentioned in an invoice line as kilograms. Handles
+// "20 Kg", "7,5kg", "500 grs", "1.5 kg". Grams are converted to kg. Returns
+// null if no weight token is present.
+function extractWeightKg(string $rawText): ?float {
+    if (preg_match('/(\d+(?:[.,]\d+)?)\s*(kg|grs?|g)\b/i', $rawText, $m)) {
+        $value = parseLocalizedAmount($m[1]);
+        $unit = strtolower($m[2]);
+        if ($unit === 'g' || $unit === 'gr' || $unit === 'grs') {
+            return $value / 1000.0;
+        }
+        return $value;
+    }
+    return null;
+}
+
+// Fallback brand detector: returns the first brand from $brands whose
+// normalized form appears as a whole word in $rawText. Runs when Pass 1 of
+// scan-invoice didn't map the line to a catalog brand. Word boundaries are
+// important so "mini" inside "ENERCAN MINI" doesn't match a brand called
+// "MINI" — but a true whole-word brand mention still matches through
+// surrounding punctuation.
+function matchBrandInText(string $rawText, array $brands): ?string {
+    $normText = normalizeText($rawText);
+    foreach ($brands as $brand) {
+        $normBrand = normalizeText($brand);
+        if ($normBrand === '') continue;
+        if (preg_match('/\b' . preg_quote($normBrand, '/') . '\b/', $normText)) {
+            return $brand;
+        }
+    }
+    return null;
+}
+
+// Distinct non-empty brands from a catalog array. Dedupes case/accent-insensitively
+// but preserves the first catalog casing so the AI sees brands written naturally.
+function distinctBrands(array $catalog): array {
+    $seen = [];
+    $result = [];
+    foreach ($catalog as $p) {
+        $brand = trim($p['brand'] ?? '');
+        if ($brand === '') continue;
+        $key = normalizeText($brand);
+        if (isset($seen[$key])) continue;
+        $seen[$key] = true;
+        $result[] = $brand;
+    }
+    sort($result, SORT_STRING | SORT_FLAG_CASE);
+    return $result;
+}
+
 // Normalizes a date string to YYYY-MM-DD. Returns '' if unparseable.
 function parseInvoiceDate(?string $raw): string {
     if ($raw === null) return '';
