@@ -68,6 +68,7 @@ export class ProductSchema extends Schema {
       default: () => ({
         regular: 0,
         cash: 0,
+        oferta: 0,
         vip: 0,
         bulk: 0
       })
@@ -124,6 +125,16 @@ export class ProductSchema extends Schema {
       type: 'boolean',
       required: false,
       default: true
+    },
+    featured: {
+      type: 'boolean',
+      required: false,
+      default: false
+    },
+    webVisible: {
+      type: 'boolean',
+      required: false,
+      default: false
     },
     createdBy: {
       type: 'string',
@@ -193,7 +204,7 @@ export class ProductSchema extends Schema {
     const errors: any[] = [];
     
     if (data.prices && typeof data.prices === 'object') {
-      const requiredPriceFields = ['regular', 'cash', 'vip', 'bulk'];
+      const requiredPriceFields = ['regular', 'cash', 'oferta', 'vip', 'bulk'];
       
       // Check base price fields
       for (const field of requiredPriceFields) {

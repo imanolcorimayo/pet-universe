@@ -14,6 +14,7 @@
           <col class="w-[150px]" />
           <col class="w-[150px]" />
           <col class="w-[150px]" />
+          <col class="w-[150px]" />
         </colgroup>
         <thead class="sticky top-0 bg-gray-50 z-10">
           <tr>
@@ -31,6 +32,11 @@
               class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px] bg-white"
             >
               Efectivo
+            </th>
+            <th
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px] bg-red-50"
+            >
+              Oferta
             </th>
             <th
               class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px] bg-white"
@@ -252,6 +258,7 @@ function getActionMessage(action) {
       
       if (updates.prices) {
         if (updates.prices.cash !== undefined) changes.push(`efectivo: $${updates.prices.cash.toFixed(2)}`);
+        if (updates.prices.oferta !== undefined) changes.push(`oferta: $${updates.prices.oferta.toFixed(2)}`);
         if (updates.prices.regular !== undefined) changes.push(`regular: $${updates.prices.regular.toFixed(2)}`);
         if (updates.prices.vip !== undefined) changes.push(`VIP: $${updates.prices.vip.toFixed(2)}`);
         if (updates.prices.bulk !== undefined) changes.push(`mayorista: $${updates.prices.bulk.toFixed(2)}`);

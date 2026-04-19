@@ -64,7 +64,65 @@ $productJson = htmlspecialchars(json_encode([
 
 $waText = urlencode("Hola! Quiero consultar por: " . $product['name']);
 $imgV = $product['imageUpdatedAt'] ?? 0;
-$page_og_image = !empty($product['hasImage']) ? productImageUrl($product['slug'], 'lg', 'jpg') . '?v=' . $imgV : null;
+if (!empty($product['hasImage'])) {
+    $page_og_image   = productImageUrl($product['slug'], 'lg', 'jpg') . '?v=' . $imgV;
+    $page_og_image_w = 1000;
+    $page_og_image_h = 1000;
+    $page_og_image_alt = $product['name'];
+}
+$page_canonical = SITE_URL . '/producto/' . $product['slug'];
+
+// Structured data: Product (with offer) + breadcrumb trail.
+$productLd = [
+    '@context'    => 'https://schema.org',
+    '@type'       => 'Product',
+    'name'        => $product['name'],
+    'description' => trim((string)($product['description'] ?? $product['name'])),
+    'sku'         => (string)($product['id'] ?? $product['slug']),
+    'url'         => $page_canonical,
+];
+if (!empty($product['brand'])) {
+    $productLd['brand'] = ['@type' => 'Brand', 'name' => $product['brand']];
+}
+if (!empty($page_og_image)) {
+    $productLd['image'] = $page_og_image;
+}
+if ($leadPrice > 0) {
+    $productLd['offers'] = [
+        '@type'         => 'Offer',
+        'url'           => $page_canonical,
+        'priceCurrency' => 'ARS',
+        'price'         => $leadPrice,
+        'availability'  => $inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        'itemCondition' => 'https://schema.org/NewCondition',
+    ];
+}
+
+$crumbs = [
+    ['@type' => 'ListItem', 'position' => 1, 'name' => 'Inicio',    'item' => SITE_URL . '/'],
+    ['@type' => 'ListItem', 'position' => 2, 'name' => 'Productos', 'item' => SITE_URL . '/productos'],
+];
+if ($productCategory) {
+    $crumbs[] = [
+        '@type'    => 'ListItem',
+        'position' => 3,
+        'name'     => $productCategory['name'],
+        'item'     => SITE_URL . '/productos?categoria=' . urlencode($productCategory['slug']),
+    ];
+}
+$crumbs[] = [
+    '@type'    => 'ListItem',
+    'position' => count($crumbs) + 1,
+    'name'     => $product['name'],
+    'item'     => $page_canonical,
+];
+$breadcrumbLd = [
+    '@context'        => 'https://schema.org',
+    '@type'           => 'BreadcrumbList',
+    'itemListElement' => $crumbs,
+];
+
+$page_jsonld = [$productLd, $breadcrumbLd];
 
 require __DIR__ . '/../includes/header.php';
 ?>

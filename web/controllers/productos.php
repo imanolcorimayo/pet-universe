@@ -1,5 +1,6 @@
 <?php
 $page_title = 'Productos — ' . SITE_NAME;
+$page_description = 'Catálogo de alimentos, accesorios y productos para tu mascota. Retirá en el local o envíos a domicilio en Córdoba.';
 
 $categories = getCategories();
 
@@ -24,13 +25,34 @@ $activeCategory = null;
 if ($categorySlug) {
     foreach ($categories as $cat) {
         if (($cat['slug'] ?? '') === $categorySlug) {
-            $categoryId     = $cat['id'];
-            $activeCategory = $cat;
-            $page_title     = htmlspecialchars($cat['name']) . ' — ' . SITE_NAME;
+            $categoryId       = $cat['id'];
+            $activeCategory   = $cat;
+            $page_title       = htmlspecialchars($cat['name']) . ' — ' . SITE_NAME;
+            $page_description = htmlspecialchars($cat['name']) . ' para tu mascota en Pet Universe Córdoba. ' . SITE_TAGLINE . '.';
+            $page_canonical   = SITE_URL . '/productos?categoria=' . urlencode($categorySlug);
             break;
         }
     }
 }
+
+// Breadcrumb JSON-LD: Home → Productos → [Category if any]
+$breadcrumb = [
+    '@context' => 'https://schema.org',
+    '@type'    => 'BreadcrumbList',
+    'itemListElement' => [
+        ['@type' => 'ListItem', 'position' => 1, 'name' => 'Inicio',    'item' => SITE_URL . '/'],
+        ['@type' => 'ListItem', 'position' => 2, 'name' => 'Productos', 'item' => SITE_URL . '/productos'],
+    ],
+];
+if ($activeCategory) {
+    $breadcrumb['itemListElement'][] = [
+        '@type'    => 'ListItem',
+        'position' => 3,
+        'name'     => $activeCategory['name'],
+        'item'     => SITE_URL . '/productos?categoria=' . urlencode($categorySlug),
+    ];
+}
+$page_jsonld = [$breadcrumb];
 
 // ─── Build Meili filters ──────────────────────────────
 // Base filter = inStock + optional category. Brands are applied on top
@@ -48,6 +70,9 @@ if (!empty($brandFilters)) {
     $brandList = array_map(fn($b) => '"' . addslashes($b) . '"', $brandFilters);
     $productFilters[] = 'brand IN [' . implode(',', $brandList) . ']';
 }
+if ($ofertaFilter) {
+    $productFilters[] = 'priceOferta > 0';
+}
 $productFilterString = implode(' AND ', $productFilters);
 
 // ─── Sort map ─────────────────────────────────────────
@@ -58,7 +83,7 @@ $sortMap = [
 ];
 $sort = $sortMap[$sortParam] ?? $sortMap['name_asc'];
 
-// ─── Fetch products (large limit — post-filter ofertas / priceMax in PHP) ─
+// ─── Fetch products (large limit — priceMax is still post-filtered in PHP) ─
 $results = searchProducts('', [
     'limit'  => 500,
     'sort'   => $sort,
@@ -77,13 +102,6 @@ $brandFacets = $facetResults['facetDistribution']['brand'] ?? [];
 // ─── Post-filters ─────────────────────────────────────
 $priceMaxBound = 120000;
 
-if ($ofertaFilter) {
-    $allHits = array_values(array_filter($allHits, function ($p) {
-        $oferta = $p['priceOferta'] ?? 0;
-        $cash   = $p['priceCash']   ?? 0;
-        return $oferta > 0 && $cash > 0 && $oferta < $cash;
-    }));
-}
 if ($priceMax > 0 && $priceMax < $priceMaxBound) {
     $allHits = array_values(array_filter($allHits, function ($p) use ($priceMax) {
         $price = $p['priceCash'] ?: ($p['priceRegular'] ?? 0);
@@ -91,12 +109,15 @@ if ($priceMax > 0 && $priceMax < $priceMaxBound) {
     }));
 }
 
-$ofertaCount = 0;
-foreach ($results['hits'] ?? [] as $p) {
-    $oferta = $p['priceOferta'] ?? 0;
-    $cash   = $p['priceCash']   ?? 0;
-    if ($oferta > 0 && $cash > 0 && $oferta < $cash) $ofertaCount++;
-}
+// Count of in-stock ofertas for the filter chip label. Cheap separate query
+// that ignores brand filters so the chip reflects the full category scope.
+$ofertaCountFilters = $baseFilters;
+$ofertaCountFilters[] = 'priceOferta > 0';
+$ofertaCountResult = searchProducts('', [
+    'limit'  => 0,
+    'filter' => implode(' AND ', $ofertaCountFilters),
+]);
+$ofertaCount = $ofertaCountResult['estimatedTotalHits'] ?? 0;
 
 // Brands that are still checked but absent from current facets (e.g. the
 // user followed a link with a stale brand filter). Re-inject them with a

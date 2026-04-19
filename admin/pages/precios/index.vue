@@ -18,7 +18,7 @@
 
     <!-- Search and Filter Section -->
     <div class="bg-white rounded-lg shadow p-4">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Search -->
         <div>
           <label class="label mb-2">
@@ -68,6 +68,23 @@
             <option value="dual">Unidades y Peso</option>
           </select>
         </div>
+
+        <!-- Storefront Filter -->
+        <div>
+          <label class="label mb-2">
+            Tienda
+          </label>
+          <select
+            v-model="selectedWebFilter"
+            class="select"
+          >
+            <option value="">Todos</option>
+            <option value="visible">Visibles en tienda</option>
+            <option value="hidden">Ocultos de tienda</option>
+            <option value="featured">Destacados</option>
+            <option value="not-featured">No destacados</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -90,8 +107,8 @@
         </div>
         <h3 class="text-lg font-medium text-gray-900 mb-2">No se encontraron productos</h3>
         <p class="text-gray-600">
-          {{ searchQuery || selectedCategory || selectedTrackingType ? 
-             'Intenta ajustar los filtros de búsqueda' : 
+          {{ searchQuery || selectedCategory || selectedTrackingType || selectedWebFilter ?
+             'Intenta ajustar los filtros de búsqueda' :
              'No hay productos registrados en el sistema' }}
         </p>
       </div>
@@ -144,6 +161,7 @@ const isUpdating = ref(false);
 const searchQuery = ref('');
 const selectedCategory = ref('');
 const selectedTrackingType = ref('');
+const selectedWebFilter = ref('');
 const showBulkUpdateModal = ref(false);
 
 // Computed properties
@@ -186,7 +204,18 @@ const filteredProducts = computed(() => {
   if (selectedTrackingType.value) {
     products = products.filter(product => product.trackingType === selectedTrackingType.value);
   }
-  
+
+  // Apply storefront filter
+  if (selectedWebFilter.value === 'visible') {
+    products = products.filter(product => product.webVisible === true);
+  } else if (selectedWebFilter.value === 'hidden') {
+    products = products.filter(product => !product.webVisible);
+  } else if (selectedWebFilter.value === 'featured') {
+    products = products.filter(product => product.featured === true);
+  } else if (selectedWebFilter.value === 'not-featured') {
+    products = products.filter(product => !product.featured);
+  }
+
   // Sort by name
   return products.sort((a, b) => a.name.localeCompare(b.name));
 });
@@ -235,7 +264,7 @@ async function handleUpdateProduct(productId, updates) {
   
   try {
     console.log('Updating product:', { productId, updates });
-    const success = await productStore.updateProduct(productId, updates);
+    const success = await productStore.updateProduct(productId, updates, { silent: true });
     if (success) {
       useToast(ToastEvents.success, 'Producto actualizado correctamente');
     } else {

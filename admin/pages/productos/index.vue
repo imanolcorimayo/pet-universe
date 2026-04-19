@@ -9,6 +9,17 @@
       
       <div class="flex gap-2">
         <button
+          v-if="!initialLoading && localFilteredProducts.length > 0"
+          @click="openBulkWebModal"
+          class="btn bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+          title="Aplicar visibilidad / destacado a todos los productos filtrados"
+        >
+          <span class="flex items-center gap-1">
+            <LucideGlobe class="h-4 w-4" />
+            Acciones en tienda ({{ localFilteredProducts.length }})
+          </span>
+        </button>
+        <button
           @click="addNewProduct"
           class="btn bg-primary text-white hover:bg-primary/90"
         >
@@ -49,16 +60,28 @@
               class="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value="all">Todas las categorías</option>
-              <option 
-                v-for="category in activeCategories" 
-                :key="category.id" 
+              <option
+                v-for="category in activeCategories"
+                :key="category.id"
                 :value="category.id"
               >
                 {{ category.name }}
               </option>
             </select>
           </div>
-          
+
+          <!-- Image Filter -->
+          <div class="flex gap-2">
+            <select
+              v-model="imageFilter"
+              class="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option value="all">Todas las imágenes</option>
+              <option value="with">Con imagen</option>
+              <option value="without">Sin imagen</option>
+            </select>
+          </div>
+
           <!-- Status Filter -->
           <div class="flex gap-2">
             <button
@@ -98,6 +121,9 @@
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Stock
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Tienda
               </th>
               <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Acciones
@@ -139,6 +165,12 @@
                       <span v-else-if="product.trackingType === 'weight'">Peso</span>
                       <span v-else>Unidades</span>
                     </span>
+                    <span
+                      v-if="product.prices?.oferta > 0 && product.prices.oferta < (product.prices.cash || 0)"
+                      class="text-[10px] font-semibold uppercase tracking-wide bg-red-100 text-red-700 px-1.5 py-0.5 rounded"
+                    >
+                      Oferta
+                    </span>
                   </div>
                 </div>
               </td>
@@ -162,6 +194,56 @@
                 </div>
                 <div v-if="getMinimumStock(product) > 0" class="text-xs text-gray-500">
                   Mín: {{ getMinimumStock(product) }}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    :disabled="togglingProductId === product.id"
+                    @click="toggleWebVisible(product)"
+                    class="group flex items-center gap-2 disabled:opacity-50"
+                    :title="product.webVisible ? 'Ocultar de la tienda' : 'Publicar en la tienda'"
+                  >
+                    <span
+                      class="relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors"
+                      :class="product.webVisible ? 'bg-teal-500' : 'bg-gray-300'"
+                    >
+                      <span
+                        class="inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform"
+                        :class="product.webVisible ? 'translate-x-3.5' : 'translate-x-0.5'"
+                      />
+                    </span>
+                    <span
+                      class="text-xs font-medium"
+                      :class="product.webVisible ? 'text-teal-700' : 'text-gray-400'"
+                    >
+                      Visible
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="togglingProductId === product.id"
+                    @click="toggleFeatured(product)"
+                    class="group flex items-center gap-2 disabled:opacity-50"
+                    :title="product.featured ? 'Quitar de destacados' : 'Destacar en tienda'"
+                  >
+                    <span
+                      class="relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors"
+                      :class="product.featured ? 'bg-primary' : 'bg-gray-300'"
+                    >
+                      <span
+                        class="inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform"
+                        :class="product.featured ? 'translate-x-3.5' : 'translate-x-0.5'"
+                      />
+                    </span>
+                    <span
+                      class="text-xs font-medium"
+                      :class="product.featured ? 'text-primary' : 'text-gray-400'"
+                    >
+                      Destacado
+                    </span>
+                  </button>
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -193,7 +275,7 @@
             </tr>
             <!-- Show More -->
             <tr v-if="hasMoreProducts">
-              <td colspan="7" class="px-6 py-3 text-center">
+              <td colspan="8" class="px-6 py-3 text-center">
                 <button
                   @click="showMoreProducts"
                   class="text-sm text-primary hover:text-primary/80 font-medium"
@@ -219,7 +301,7 @@
       </div>
       <h3 class="text-lg font-medium text-gray-900 mb-2">No se encontraron productos</h3>
       <p class="text-gray-500 mb-4">
-        {{ searchQuery || selectedCategory !== 'all' || noCodeFilter ? 'No hay resultados para tu búsqueda.' : 'Agrega tu primer producto para comenzar.' }}
+        {{ searchQuery || selectedCategory !== 'all' || noCodeFilter || imageFilter !== 'all' ? 'No hay resultados para tu búsqueda.' : 'Agrega tu primer producto para comenzar.' }}
       </p>
       <button
         @click="productFormModal.showModal()"
@@ -235,6 +317,7 @@
     <!-- Modals -->
     <ProductFormModal ref="productFormModal" :edit-mode="isEditing" :product-data="selectedProductData" @product-saved="onProductSaved" />
     <ProductDetailsModal ref="productDetailsModal" :product-id="selectedProductId" @deleted="onProductDeleted" @updated="onProductSaved" />
+    <ProductBulkWebModal ref="bulkWebModal" :products="localFilteredProducts" />
 
     <ConfirmDialogue ref="confirmDialogue" />
   </div>
@@ -248,6 +331,7 @@ import TablerPackages from '~icons/tabler/packages';
 import LucideSearch from '~icons/lucide/search';
 import LucidePlus from '~icons/lucide/plus';
 import LucideImage from '~icons/lucide/image';
+import LucideGlobe from '~icons/lucide/globe';
 
 const productStore = useProductStore();
 const inventoryStore = useInventoryStore();
@@ -273,13 +357,22 @@ const debouncedQuery = refDebounced(searchQuery, 200);
 const selectedCategory = ref('all');
 const loadingProduct = ref(false);
 const noCodeFilter = ref(false);
+const imageFilter = ref('all');
+const togglingProductId = ref(null);
+const bulkWebModal = ref(null);
 
-// Computed for applying local no-code filter on top of store filtering
+// Computed for applying local filters on top of store filtering
 const localFilteredProducts = computed(() => {
-  if (!noCodeFilter.value) {
-    return filteredProducts.value;
+  let list = filteredProducts.value;
+  if (noCodeFilter.value) {
+    list = list.filter(product => !product.productCode);
   }
-  return filteredProducts.value.filter(product => !product.productCode);
+  if (imageFilter.value === 'with') {
+    list = list.filter(product => product.hasImage === true);
+  } else if (imageFilter.value === 'without') {
+    list = list.filter(product => !product.hasImage);
+  }
+  return list;
 });
 
 // Display limit to avoid rendering 900+ DOM rows
@@ -388,6 +481,48 @@ function onProductDeleted() {
 function onProductSaved() {
   isEditing.value = false;
   selectedProductData.value = null;
+}
+
+async function toggleWebVisible(product) {
+  if (togglingProductId.value === product.id) return;
+  togglingProductId.value = product.id;
+  const previous = !!product.webVisible;
+  product.webVisible = !previous; // optimistic flip
+  try {
+    const ok = await productStore.updateProduct(product.id, { webVisible: !previous }, { silent: true });
+    if (!ok) {
+      product.webVisible = previous; // rollback
+      useToast(ToastEvents.error, 'No se pudo cambiar la visibilidad');
+    }
+  } catch {
+    product.webVisible = previous;
+    useToast(ToastEvents.error, 'No se pudo cambiar la visibilidad');
+  } finally {
+    togglingProductId.value = null;
+  }
+}
+
+async function toggleFeatured(product) {
+  if (togglingProductId.value === product.id) return;
+  togglingProductId.value = product.id;
+  const previous = !!product.featured;
+  product.featured = !previous;
+  try {
+    const ok = await productStore.updateProduct(product.id, { featured: !previous }, { silent: true });
+    if (!ok) {
+      product.featured = previous;
+      useToast(ToastEvents.error, 'No se pudo cambiar el destacado');
+    }
+  } catch {
+    product.featured = previous;
+    useToast(ToastEvents.error, 'No se pudo cambiar el destacado');
+  } finally {
+    togglingProductId.value = null;
+  }
+}
+
+function openBulkWebModal() {
+  bulkWebModal.value?.showModal();
 }
 
 onMounted(async () => {

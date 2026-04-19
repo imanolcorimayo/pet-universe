@@ -7,7 +7,7 @@
           <div class="font-medium text-gray-900 text-sm min-w-0 w-full">
             {{ displayName }}
           </div>
-          <div class="flex items-center gap-2 mt-1">
+          <div class="flex items-center gap-2 mt-1 flex-wrap">
             <span v-if="product.productCode" class="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">
               {{ product.productCode }}
             </span>
@@ -21,6 +21,22 @@
               :class="stockBadgeClass"
             >
               {{ stockLabel }}
+            </span>
+            <span
+              v-if="product.webVisible"
+              class="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded"
+              title="Visible en la tienda online"
+            >
+              <LucideGlobe class="w-2.5 h-2.5" />
+              Web
+            </span>
+            <span
+              v-if="product.featured"
+              class="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded"
+              title="Destacado en 'Más populares'"
+            >
+              <LucideStar class="w-2.5 h-2.5" />
+              Destacado
             </span>
           </div>
         </div>
@@ -85,6 +101,31 @@
           min="0"
           class="professional-input w-full"
           placeholder="0.00"
+        />
+      </div>
+    </td>
+
+    <!-- Precio Oferta -->
+    <td class="px-4 py-4 w-[100px] bg-red-50/40">
+      <div v-if="!isEditing" class="flex flex-col">
+        <div
+          class="text-sm font-medium"
+          :class="displayPrices.oferta > 0 ? 'text-red-600' : 'text-gray-400'"
+        >
+          {{ displayPrices.oferta > 0 ? `$${formatNumber(displayPrices.oferta)}` : "—" }}
+        </div>
+        <div v-if="displayPrices.oferta > 0" class="text-xs text-red-600 font-medium">
+          {{ formatMargin(displayPrices.oferta) }}
+        </div>
+      </div>
+      <div v-else>
+        <input
+          v-model="editValues.oferta"
+          type="number"
+          step="0.01"
+          min="0"
+          class="professional-input w-full"
+          placeholder="— (sin oferta)"
         />
       </div>
     </td>
@@ -345,6 +386,8 @@
 <script setup>
 import LucideChevronDown from '~icons/lucide/chevron-down';
 import LucideRefreshCw from '~icons/lucide/refresh-cw';
+import LucideGlobe from '~icons/lucide/globe';
+import LucideStar from '~icons/lucide/star';
 
 // Helper for standard 2-decimal rounding (used for all prices except cash)
 const roundTo2Decimals = (num) => Math.round(num * 100) / 100;
@@ -383,6 +426,7 @@ const editValues = ref({
   cost: 0,
   margin: 30,
   cash: 0,
+  oferta: 0,
   regular: 0,
   vip: 0,
   bulk: 0,
@@ -473,16 +517,18 @@ const displayPrices = computed(() => {
   if (isEditing.value) {
     return {
       cash: editValues.value.cash,
+      oferta: editValues.value.oferta,
       regular: editValues.value.regular,
       vip: editValues.value.vip,
       bulk: editValues.value.bulk,
     };
   }
-  
+
   // Use stored product prices, fallback to freshly calculated only if not set
   const storedPrices = props.product.prices || {};
   return {
     cash: storedPrices.cash ?? freshlyCalculatedPrices.value.cash,
+    oferta: storedPrices.oferta ?? 0,
     regular: storedPrices.regular ?? freshlyCalculatedPrices.value.regular,
     vip: storedPrices.vip ?? freshlyCalculatedPrices.value.vip,
     bulk: storedPrices.bulk ?? freshlyCalculatedPrices.value.bulk,
@@ -570,6 +616,7 @@ function startEditing() {
     cost: currentCost.value,
     margin: currentMargin.value,
     cash: displayPrices.value.cash,
+    oferta: displayPrices.value.oferta,
     regular: displayPrices.value.regular,
     vip: displayPrices.value.vip,
     bulk: displayPrices.value.bulk,
@@ -718,6 +765,7 @@ function saveChanges() {
   const costValue = parseFloat(editValues.value.cost) || 0;
   const marginValue = parseFloat(editValues.value.margin) || 0;
   const cashValue = parseFloat(editValues.value.cash) || 0;
+  const ofertaValue = parseFloat(editValues.value.oferta) || 0;
   const regularValue = parseFloat(editValues.value.regular) || 0;
   const vipValue = parseFloat(editValues.value.vip) || 0;
   const bulkValue = parseFloat(editValues.value.bulk) || 0;
@@ -756,6 +804,9 @@ function saveChanges() {
 
   if (Math.abs(cashValue - parseFloat(initial.cash)) > 0.001) {
     pricingData.cash = cashValue;
+  }
+  if (Math.abs(ofertaValue - parseFloat(initial.oferta || 0)) > 0.001) {
+    pricingData.oferta = ofertaValue;
   }
   if (Math.abs(regularValue - parseFloat(initial.regular)) > 0.001) {
     pricingData.regular = regularValue;

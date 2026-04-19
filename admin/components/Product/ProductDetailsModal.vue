@@ -105,7 +105,7 @@
               <h4 class="text-sm font-medium mb-2 border-b pb-1">
                 Precios por Unidad
               </h4>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div>
                   <p class="text-sm text-gray-600">Regular</p>
                   <p class="font-semibold">
@@ -116,6 +116,12 @@
                   <p class="text-sm text-gray-600">Efectivo</p>
                   <p class="font-semibold">
                     {{ formatCurrency(product.prices.cash) }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-sm text-gray-600">Oferta</p>
+                  <p class="font-semibold" :class="product.prices.oferta > 0 ? 'text-red-600' : 'text-gray-400'">
+                    {{ product.prices.oferta > 0 ? formatCurrency(product.prices.oferta) : "—" }}
                   </p>
                 </div>
                 <div>
@@ -176,7 +182,7 @@
           </div>
 
           <!-- Standard Pricing for non-dual products -->
-          <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div v-else class="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <p class="text-sm text-gray-600">Regular</p>
               <p class="font-semibold">
@@ -187,6 +193,12 @@
               <p class="text-sm text-gray-600">Efectivo</p>
               <p class="font-semibold">
                 {{ formatCurrency(product.prices.cash) }}
+              </p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600">Oferta</p>
+              <p class="font-semibold" :class="product.prices.oferta > 0 ? 'text-red-600' : 'text-gray-400'">
+                {{ product.prices.oferta > 0 ? formatCurrency(product.prices.oferta) : "—" }}
               </p>
             </div>
             <div>
@@ -233,6 +245,25 @@
               <p class="text-sm text-gray-600">Permite Venta a Granel</p>
               <p class="font-semibold">
                 {{ product.allowsLooseSales ? "Sí" : "No" }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tienda web -->
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <h3 class="text-lg font-medium mb-3">Tienda web</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-gray-600">Visible en la tienda</p>
+              <p class="font-semibold" :class="product.webVisible ? 'text-green-600' : 'text-gray-500'">
+                {{ product.webVisible ? "Sí" : "No" }}
+              </p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600">Destacado</p>
+              <p class="font-semibold" :class="product.featured ? 'text-teal-600' : 'text-gray-500'">
+                {{ product.featured ? "Sí" : "No" }}
               </p>
             </div>
           </div>

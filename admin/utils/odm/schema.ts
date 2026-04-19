@@ -13,6 +13,7 @@ import {
   serverTimestamp,
   onSnapshot,
   runTransaction,
+  writeBatch,
   type Timestamp,
   type Unsubscribe,
   type Transaction,
@@ -434,6 +435,68 @@ export abstract class Schema {
     } catch (error) {
       console.error(`Error updating ${this.collectionName}:`, error);
       return { success: false, error: `Error al actualizar documento: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  // Bulk update many documents in a single round trip using writeBatch.
+  // Each entry is a partial update — fields are validated individually via the
+  // schema (skipping "required but missing" errors since this is a partial).
+  // Timestamps and updatedBy are filled in automatically.
+  // Chunks at 450 ops per batch (Firestore's limit is 500, leaving headroom).
+  async bulkUpdate(
+    entries: Array<{ id: string; data: any }>
+  ): Promise<{ success: boolean; updated: number; error?: string }> {
+    if (!entries.length) return { success: true, updated: 0 };
+
+    try {
+      const db = this.getFirestore();
+      const user = this.getCurrentUser();
+      const updatedBy = user.value?.uid ?? 'Unknown';
+      const updatedByName = user.value?.displayName ?? 'Unknown';
+      const hasUpdatedAt = Object.hasOwn(this.schema, 'updatedAt');
+
+      // Validate each entry's supplied fields against the schema (partial mode).
+      for (const entry of entries) {
+        for (const [fieldName, fieldValue] of Object.entries(entry.data)) {
+          const definition = this.schema[fieldName];
+          if (!definition) continue;
+          const errors = Validator.validateField(fieldName, fieldValue, definition);
+          if (errors.length > 0) {
+            return {
+              success: false,
+              updated: 0,
+              error: `Error de validación en ${entry.id}: ${errors.map(e => e.message).join(', ')}`
+            };
+          }
+        }
+      }
+
+      const CHUNK_SIZE = 450;
+      let updated = 0;
+      for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+        const chunk = entries.slice(i, i + CHUNK_SIZE);
+        const batch = writeBatch(db);
+        for (const entry of chunk) {
+          const payload: Record<string, any> = { ...entry.data };
+          if (hasUpdatedAt) {
+            payload.updatedAt = serverTimestamp();
+            payload.updatedBy = updatedBy;
+            payload.updatedByName = updatedByName;
+          }
+          batch.update(doc(db, this.collectionName, entry.id), payload);
+        }
+        await batch.commit();
+        updated += chunk.length;
+      }
+
+      return { success: true, updated };
+    } catch (error) {
+      console.error(`Error in bulkUpdate for ${this.collectionName}:`, error);
+      return {
+        success: false,
+        updated: 0,
+        error: `Error al actualizar documentos: ${error instanceof Error ? error.message : String(error)}`
+      };
     }
   }
 

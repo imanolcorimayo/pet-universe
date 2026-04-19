@@ -13,6 +13,7 @@ let firstSnapshotPromise: Promise<void> | null = null;
 interface ProductPrices {
   regular: number;
   cash: number;
+  oferta: number;
   vip: number;
   bulk: number;
 
@@ -45,7 +46,10 @@ interface Product {
   supplierIds: string[];
   profitMarginPercentage: number;
   threePlusMarkupPercentage: number;
-  
+
+  featured?: boolean;
+  webVisible?: boolean;
+
   isActive: boolean;
   createdBy: string;
   createdAt: string;
@@ -79,7 +83,7 @@ interface ProductFormData {
   category: string;
   subcategory: string;
   brand: string;
-  
+
   trackingType: "unit" | "weight" | "dual";
   unitWeight: number;
   unitType: string;
@@ -447,6 +451,7 @@ export const useProductStore = defineStore("product", {
         const defaultPrices: ProductPrices = {
           regular: 0,
           cash: 0,
+          oferta: 0,
           vip: 0,
           bulk: 0,
         };
@@ -551,6 +556,9 @@ export const useProductStore = defineStore("product", {
         if (updates.supplierIds !== undefined) productUpdates.supplierIds = updates.supplierIds;
         if (updates.hasImage !== undefined) productUpdates.hasImage = updates.hasImage;
         if (updates.imageUpdatedAt !== undefined) productUpdates.imageUpdatedAt = updates.imageUpdatedAt;
+
+        if (updates.featured !== undefined) productUpdates.featured = updates.featured;
+        if (updates.webVisible !== undefined) productUpdates.webVisible = updates.webVisible;
         
         // Handle pricing fields
         if (updates.profitMarginPercentage !== undefined) {
@@ -607,6 +615,54 @@ export const useProductStore = defineStore("product", {
         if (!silent) useToast(ToastEvents.error, "Hubo un error al actualizar el producto. Por favor intenta nuevamente.");
         this.isLoading = false;
         return false;
+      }
+    },
+
+    // Bulk toggle storefront flags (webVisible / featured) across many products.
+    // Routed through ProductSchema.bulkUpdate so validation + timestamp metadata
+    // stay consistent with the rest of the ODM.
+    async bulkUpdateWebState(
+      productIds: string[],
+      updates: { webVisible?: boolean; featured?: boolean }
+    ): Promise<boolean> {
+      if (!productIds.length) return true;
+      if (updates.webVisible === undefined && updates.featured === undefined) return true;
+
+      try {
+        this.isLoading = true;
+        const productSchema = this._getProductSchema();
+        const data: Record<string, any> = {};
+        if (updates.webVisible !== undefined) data.webVisible = updates.webVisible;
+        if (updates.featured !== undefined) data.featured = updates.featured;
+
+        const entries = productIds.map((id) => ({ id, data }));
+        const result = await productSchema.bulkUpdate(entries);
+
+        if (!result.success) {
+          useToast(ToastEvents.error, result.error || "Error al actualizar los productos");
+          return false;
+        }
+
+        // Optimistic local state update so chips/toggles reflect immediately
+        // (the Firestore subscription will converge shortly after).
+        const nowIso = new Date().toISOString();
+        for (const id of productIds) {
+          const product = this.productsByIdMap.get(id);
+          if (!product) continue;
+          if (updates.webVisible !== undefined) product.webVisible = updates.webVisible;
+          if (updates.featured !== undefined) product.featured = updates.featured;
+          product.updatedAt = nowIso;
+        }
+
+        const n = result.updated;
+        useToast(ToastEvents.success, `${n} producto${n === 1 ? "" : "s"} actualizado${n === 1 ? "" : "s"}`);
+        return true;
+      } catch (error) {
+        console.error("Error in bulk web state update:", error);
+        useToast(ToastEvents.error, "Error al actualizar los productos. Intenta nuevamente.");
+        return false;
+      } finally {
+        this.isLoading = false;
       }
     },
 

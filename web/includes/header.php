@@ -1,39 +1,74 @@
+<?php
+$_title        = $page_title       ?? SITE_NAME . ' — ' . SITE_TAGLINE;
+$_description  = $page_description ?? SITE_NAME . ' — ' . SITE_TAGLINE . '. Alimentos, accesorios y más para tu mascota en Córdoba.';
+$_canonical    = $page_canonical   ?? currentCanonical();
+$_ogImage      = !empty($page_og_image) ? $page_og_image : absoluteUrl('/assets/img/hero/og-default.jpg');
+$_ogImageW     = $page_og_image_w  ?? 1200;
+$_ogImageH     = $page_og_image_h  ?? 630;
+$_ogImageAlt   = $page_og_image_alt ?? 'Frente del local Pet Universe en Luis Agote 1924, Córdoba';
+$_ogType       = $page_og_type     ?? 'website';
+$FONTS_HREF    = 'https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&display=swap';
+?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-AR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><?= htmlspecialchars($page_title ?? SITE_NAME) ?></title>
-  <meta name="description" content="<?= htmlspecialchars($page_description ?? SITE_NAME . ' — ' . SITE_TAGLINE . '. Alimentos, accesorios y más para tu mascota en Córdoba.') ?>">
+  <meta name="theme-color" content="#201C4E">
+  <title><?= htmlspecialchars($_title) ?></title>
+  <meta name="description" content="<?= htmlspecialchars($_description) ?>">
   <?php if (!empty($isNoindex)): ?>
   <meta name="robots" content="noindex, nofollow">
   <?php endif; ?>
 
-  <meta property="og:title" content="<?= htmlspecialchars($page_title ?? SITE_NAME) ?>">
-  <meta property="og:description" content="<?= htmlspecialchars($page_description ?? SITE_NAME . ' — ' . SITE_TAGLINE) ?>">
-  <meta property="og:type" content="website">
+  <link rel="canonical" href="<?= htmlspecialchars($_canonical) ?>">
+
+  <!-- Favicons -->
+  <link rel="icon" href="/assets/img/favicon/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/favicon/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/img/favicon/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/img/favicon/apple-touch-icon.png">
+  <link rel="manifest" href="/assets/site.webmanifest">
+
+  <!-- Open Graph -->
+  <meta property="og:site_name" content="<?= htmlspecialchars(SITE_NAME) ?>">
+  <meta property="og:title" content="<?= htmlspecialchars($_title) ?>">
+  <meta property="og:description" content="<?= htmlspecialchars($_description) ?>">
+  <meta property="og:type" content="<?= htmlspecialchars($_ogType) ?>">
   <meta property="og:locale" content="es_AR">
-  <?php if (!empty($page_og_image)): ?>
-  <meta property="og:image" content="<?= $page_og_image ?>">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="1200">
-  <?php endif; ?>
+  <meta property="og:url" content="<?= htmlspecialchars($_canonical) ?>">
+  <meta property="og:image" content="<?= htmlspecialchars($_ogImage) ?>">
+  <meta property="og:image:width" content="<?= (int)$_ogImageW ?>">
+  <meta property="og:image:height" content="<?= (int)$_ogImageH ?>">
+  <meta property="og:image:alt" content="<?= htmlspecialchars($_ogImageAlt) ?>">
 
-  <?php if (!empty($page_canonical)): ?>
-  <link rel="canonical" href="<?= $page_canonical ?>">
-  <?php endif; ?>
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<?= htmlspecialchars($_title) ?>">
+  <meta name="twitter:description" content="<?= htmlspecialchars($_description) ?>">
+  <meta name="twitter:image" content="<?= htmlspecialchars($_ogImage) ?>">
+  <meta name="twitter:image:alt" content="<?= htmlspecialchars($_ogImageAlt) ?>">
 
+  <!-- Fonts: async load (display=swap lets fallback render immediately) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="<?= htmlspecialchars($FONTS_HREF) ?>">
+  <link rel="stylesheet" href="<?= htmlspecialchars($FONTS_HREF) ?>" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="<?= htmlspecialchars($FONTS_HREF) ?>"></noscript>
 
-  <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
+  <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js" defer></script>
 
   <link rel="stylesheet" href="<?= asset('css/style.css') ?>">
 
   <script>
   function imgFallback(img){var p=img.closest('picture');if(p){p.style.display='none';var f=p.nextElementSibling;if(f)f.style.display=''}}
   </script>
+
+  <?php if (!empty($page_jsonld)): ?>
+  <?php foreach ((array)$page_jsonld as $ld): ?>
+  <script type="application/ld+json"><?= json_encode($ld, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
+  <?php endforeach; ?>
+  <?php endif; ?>
 </head>
 <body class="bg-canvas text-navy min-h-dvh flex flex-col antialiased">
 
@@ -86,6 +121,7 @@
       <div class="hidden md:flex items-center gap-8 h-[84px]">
         <a href="/" class="shrink-0 group flex items-center transition-transform hover:scale-[1.03]">
           <img src="<?= asset('img/logo.png') ?>" alt="<?= SITE_NAME ?>"
+               width="498" height="291"
                class="h-[64px] w-auto rounded-full">
         </a>
 
@@ -135,6 +171,7 @@
           </button>
           <a href="/" class="flex items-center">
             <img src="<?= asset('img/logo.png') ?>" alt="<?= SITE_NAME ?>"
+                 width="498" height="291"
                  class="h-[52px] w-auto rounded-full">
           </a>
           <a href="/carrito" aria-label="Carrito"

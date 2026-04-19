@@ -143,6 +143,7 @@ async function syncProducts() {
       // Bag / unit prices.
       priceRegular: data.prices?.regular || 0,
       priceCash: data.prices?.cash || 0,
+      priceOferta: data.prices?.oferta || 0,
       // Per-kg prices (duals).
       // `priceKgCash` is NOT stored on the product — it's derived from the bag
       // cash price divided by unit weight, matching the admin convention
@@ -158,6 +159,9 @@ async function syncProducts() {
       hasImage: data.hasImage || false,
       imageUpdatedAt: data.imageUpdatedAt || 0,
       inStock,
+      featured: data.featured === true,
+      // Storefront is opt-in — products must be explicitly published from the admin.
+      webVisible: data.webVisible === true,
       updatedAt: data.updatedAt ? new Date(data.updatedAt).getTime() : Date.now(),
     };
   });
@@ -170,8 +174,8 @@ async function syncProducts() {
   console.log('Updating index settings...');
   await index.updateSettings({
     searchableAttributes: ['name', 'brand', 'description', 'categoryName', 'productCode'],
-    filterableAttributes: ['category', 'categoryName', 'inStock', 'brand', 'subcategory', 'slug', 'trackingType'],
-    sortableAttributes: ['name', 'priceRegular', 'updatedAt'],
+    filterableAttributes: ['category', 'categoryName', 'inStock', 'brand', 'subcategory', 'slug', 'trackingType', 'featured', 'webVisible', 'priceOferta'],
+    sortableAttributes: ['name', 'priceRegular', 'priceOferta', 'updatedAt'],
     pagination: { maxTotalHits: 1000 },
   });
 

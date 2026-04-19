@@ -1,65 +1,82 @@
 <?php
-$page_title = SITE_NAME . ' — ' . SITE_TAGLINE;
+$page_title       = SITE_NAME . ' — ' . SITE_TAGLINE;
+$page_description = SITE_NAME . ' — ' . SITE_TAGLINE . '. Pet shop en Luis Agote 1924, Córdoba. Alimentos, accesorios, juguetes e higiene para tu mascota. Envíos a domicilio.';
 
-/**
- * Pool of recent in-stock products. We fetch a surplus so we can:
- *   1. extract real ofertas (cash discount) for the top rail
- *   2. populate the main grid without duplicating ofertas
- *
- * TODO: once ProductSchema exposes `hasCashDiscount` and `featured` flags and
- * they are indexed in Meili, replace the PHP-side filtering with proper
- * `filter` clauses (e.g. 'filter' => 'inStock = true AND hasCashDiscount = true')
- * and add a separate query for the Destacados rail.
- */
-$pool = searchProducts('', [
+// Structured data: the store (PetStore), plus a WebSite with a search action
+// so Google can surface our search box in the SERP.
+$page_jsonld = [
+    [
+        '@context'   => 'https://schema.org',
+        '@type'      => 'PetStore',
+        'name'       => SITE_NAME,
+        'url'        => SITE_URL . '/',
+        'image'      => absoluteUrl('/assets/img/hero/og-default.jpg'),
+        'logo'       => absoluteUrl('/assets/img/logo.png'),
+        'telephone'  => '+' . WHATSAPP_NUMBER,
+        'priceRange' => '$',
+        'address'    => [
+            '@type'           => 'PostalAddress',
+            'streetAddress'   => 'Luis Agote 1924',
+            'addressLocality' => 'Córdoba',
+            'addressRegion'   => 'Córdoba',
+            'addressCountry'  => 'AR',
+        ],
+        'openingHoursSpecification' => [[
+            '@type'     => 'OpeningHoursSpecification',
+            'dayOfWeek' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+            'opens'     => '09:00',
+            'closes'    => '20:00',
+        ]],
+        'sameAs' => [STORE_INSTAGRAM_URL],
+    ],
+    [
+        '@context'        => 'https://schema.org',
+        '@type'           => 'WebSite',
+        'name'            => SITE_NAME,
+        'url'             => SITE_URL . '/',
+        'potentialAction' => [
+            '@type'       => 'SearchAction',
+            'target'      => [
+                '@type'       => 'EntryPoint',
+                'urlTemplate' => SITE_URL . '/buscar?q={search_term_string}',
+            ],
+            'query-input' => 'required name=search_term_string',
+        ],
+    ],
+];
+
+// Ofertas rail: products the admin marked with an explicit sale price.
+$ofertasResult = searchProducts('', [
+    'limit'  => 12,
+    'sort'   => ['updatedAt:desc'],
+    'filter' => 'inStock = true AND priceOferta > 0',
+]);
+$ofertas = $ofertasResult['hits'] ?? [];
+$ofertaIds = [];
+foreach ($ofertas as $p) $ofertaIds[$p['id']] = true;
+
+// Destacados rail: curated by the admin via the `featured` flag.
+$destacadosResult = searchProducts('', [
+    'limit'  => 12,
+    'sort'   => ['updatedAt:desc'],
+    'filter' => 'inStock = true AND featured = true',
+]);
+$destacados = [];
+$destacadoIds = [];
+foreach ($destacadosResult['hits'] ?? [] as $p) {
+    if (isset($ofertaIds[$p['id']])) continue;
+    $destacados[] = $p;
+    $destacadoIds[$p['id']] = true;
+}
+
+// Main grid: recent in-stock products, excluding those already shown in the rails.
+$gridResult = searchProducts('', [
     'limit'  => 60,
     'sort'   => ['updatedAt:desc'],
     'filter' => 'inStock = true',
 ]);
-$poolHits = $pool['hits'] ?? [];
-
-// TODO (mockup only): ProductSchema doesn't have priceOferta yet.
-// Synthesize an oferta price for ~1/3 of the pool so variant 02 renders.
-// Keyed by id via crc32 so page refresh is stable. Remove when schema ships.
-foreach ($poolHits as &$p) {
-    $id = (string)($p['id'] ?? '');
-    if ($id === '' || crc32($id) % 3 !== 0) continue;
-
-    $base = $p['priceCash'] ?? $p['priceRegular'] ?? 0;
-    if ($base) {
-        $p['priceOferta'] = (int) round($base * 0.85);
-    }
-}
-unset($p);
-
-$isOffer = function(array $p): bool {
-    return !empty($p['priceOferta']) && $p['priceOferta'] < ($p['priceCash'] ?? 0);
-};
-
-$ofertas = [];
-$ofertaIds = [];
-foreach ($poolHits as $p) {
-    if ($isOffer($p)) {
-        $ofertas[] = $p;
-        $ofertaIds[$p['id']] = true;
-        if (count($ofertas) >= 12) break;
-    }
-}
-
-// TODO: replace with real ProductSchema.featured flag once available.
-// For now the rail is populated with non-oferta products from the pool, just
-// so we can preview the layout alongside the Ofertas rail.
-$destacados = [];
-$destacadoIds = [];
-foreach ($poolHits as $p) {
-    if (isset($ofertaIds[$p['id']])) continue;
-    $destacados[] = $p;
-    $destacadoIds[$p['id']] = true;
-    if (count($destacados) >= 12) break;
-}
-
 $productos = array_values(array_filter(
-    $poolHits,
+    $gridResult['hits'] ?? [],
     fn($p) => !isset($ofertaIds[$p['id']]) && !isset($destacadoIds[$p['id']])
 ));
 $productos = array_slice($productos, 0, 30);
@@ -105,7 +122,7 @@ require __DIR__ . '/../includes/header.php';
 </section>
 <?php endif; ?>
 
-<!-- ─── Destacados rail (pending featured flag) ─────── -->
+<!-- ─── Destacados rail ─────────────────────────────── -->
 <?php if (!empty($destacados)): ?>
 <section class="pt-4 md:pt-6 pb-1">
   <div class="w-full max-w-[1280px] mx-auto px-3 md:px-5">
