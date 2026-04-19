@@ -96,6 +96,13 @@ $inputClass = 'w-full py-3 px-4 border border-hairline rounded-xl text-[15px] tr
               <!-- Populated by cart.js -->
             </ul>
 
+            <div id="checkout-stock-note"
+                 class="items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11.5px] text-navy leading-snug"
+                 style="display:none;">
+              <iconify-icon icon="lucide:info" width="14" height="14" class="text-amber-600 shrink-0 mt-0.5"></iconify-icon>
+              <span>Confirmamos disponibilidad por WhatsApp antes de cerrar el pedido.</span>
+            </div>
+
             <div class="border-t border-hairline"></div>
 
             <div class="flex flex-col gap-2">

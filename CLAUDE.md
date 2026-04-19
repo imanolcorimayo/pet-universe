@@ -72,3 +72,9 @@ Pet shop management system. Nuxt 3 (Vue 3), Tailwind CSS, Firebase, Pinia. Packa
 - Profit margin in `product.profitMarginPercentage`, cost in `inventory.lastPurchaseCost`
 - Use `productStore.calculatePricing()` and `productStore.calculateMarginFromPrice()`
 - All pricing changes require user confirmation via modal
+
+## Documentation
+
+Technical deep-dives for sharp edges live in `docs/`. Read the relevant page **before** touching the subsystem, and update it when you change the behavior or uncover a new edge case.
+
+- `docs/ai-invoice-scanner.md` — Two-pass Gemini flow for purchase invoice scanning. Covers cross-brand hallucination, OCR-hallucinated accents/cedillas (the ENERÇAN case), unit-tracked products with no `unitWeight`, and the open bonus-bag duplicate-line behavior. **Required reading before changing `api/controllers/scan-invoice.php`, any AI prompt in that flow, or the normalization helpers in `api/includes/helpers.php`.**

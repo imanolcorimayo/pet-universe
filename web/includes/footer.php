@@ -71,6 +71,11 @@
     <iconify-icon icon="mdi:whatsapp" width="26" height="26"></iconify-icon>
   </a>
 
+  <script>
+    window.PETU_CONFIG = {
+      whatsappNumber: '<?= WHATSAPP_NUMBER ?>',
+    };
+  </script>
   <script src="<?= asset('js/cart.js') ?>"></script>
   <script src="<?= asset('js/search.js') ?>"></script>
   <script src="<?= asset('js/mega-menu.js') ?>"></script>
