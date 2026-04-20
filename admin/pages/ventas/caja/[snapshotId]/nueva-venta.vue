@@ -168,8 +168,6 @@
                       <div class="flex items-center gap-2">
                         <span class="text-gray-500 w-16">Efectivo:</span>
                         <span class="text-green-600">{{ formatCurrency(product.prices?.cash || 0) }}/u</span>
-                        <span class="text-gray-400">|</span>
-                        <span class="text-green-600">{{ formatCurrency(product.unitWeight > 0 ? (product.prices?.cash || 0) / product.unitWeight : 0) }}/kg</span>
                       </div>
                       <div class="flex items-center gap-2">
                         <span class="text-gray-500 w-16">3+ kg:</span>
