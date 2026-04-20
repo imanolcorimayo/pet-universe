@@ -448,7 +448,9 @@ function renderCheckoutSummary() {
 }
 
 /**
- * Build WhatsApp message and redirect.
+ * Build WhatsApp message, open it in a new tab, and show the confirmation
+ * modal. Cart is preserved until the user explicitly confirms they sent
+ * the message — protects against popup blockers and accidental loss.
  */
 function handleCheckout(e) {
   e.preventDefault();
@@ -458,7 +460,7 @@ function handleCheckout(e) {
   const notes = form.querySelector('[name="notes"]')?.value?.trim();
 
   if (!name || !phone) {
-    alert('Por favor completa tu nombre y telefono.');
+    alert('Por favor completá tu nombre y teléfono.');
     return;
   }
 
@@ -479,9 +481,33 @@ function handleCheckout(e) {
 
   const waNumber = (window.PETU_CONFIG && window.PETU_CONFIG.whatsappNumber) || '';
   const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`;
-  cart.clear();
+
   window.open(waUrl, '_blank');
-  window.location.href = '/';
+  showCheckoutConfirmModal(waUrl);
+}
+
+function showCheckoutConfirmModal(waUrl) {
+  const modal = document.getElementById('checkout-confirm-modal');
+  if (!modal) {
+    // No modal in DOM — degrade to old behavior so the flow still completes.
+    cart.clear();
+    window.location.href = '/gracias';
+    return;
+  }
+
+  modal.querySelector('[data-reopen]').onclick = (e) => {
+    e.preventDefault();
+    window.open(waUrl, '_blank');
+  };
+  modal.querySelector('[data-sent]').onclick = () => {
+    cart.clear();
+    window.location.href = '/gracias';
+  };
+  modal.querySelector('[data-cancel]').onclick = () => {
+    modal.style.display = 'none';
+  };
+
+  modal.style.display = 'flex';
 }
 
 /**

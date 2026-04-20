@@ -143,5 +143,33 @@ $inputClass = 'w-full py-3 px-4 border border-hairline rounded-xl text-[15px] tr
   </div>
 </section>
 
+<!-- ─── Confirmation modal — shown after WhatsApp opens ─── -->
+<div id="checkout-confirm-modal"
+     class="fixed inset-0 z-[200] items-center justify-center px-5"
+     style="display:none;">
+  <div class="absolute inset-0 bg-black/55"></div>
+  <div class="relative bg-white rounded-2xl shadow-[0_24px_60px_rgba(32,28,78,0.32)] max-w-[440px] w-full p-6 md:p-7">
+    <div class="inline-flex items-center justify-center w-[56px] h-[56px] rounded-full bg-success/10 text-success mb-4">
+      <iconify-icon icon="mdi:whatsapp" width="28" height="28"></iconify-icon>
+    </div>
+    <h2 class="font-display text-[22px] md:text-[24px] font-semibold text-navy mb-2">¿Enviaste el mensaje?</h2>
+    <p class="text-[13.5px] text-muted leading-relaxed mb-5">
+      Te abrimos WhatsApp en otra pestaña. Si no se abrió,
+      <a data-reopen href="#" class="text-primary font-semibold hover:underline">tocá acá para reabrirlo</a>.
+    </p>
+    <div class="flex flex-col gap-2.5">
+      <button type="button" data-sent
+              class="inline-flex items-center justify-center gap-2 px-6 py-3 text-[14px] font-bold rounded-full bg-success text-white transition-all hover:bg-[#1EBE57] hover:-translate-y-0.5 hover:shadow-[0_8px_22px_rgba(37,211,102,0.32)]">
+        <iconify-icon icon="lucide:check" width="16" height="16"></iconify-icon>
+        Sí, ya lo envié
+      </button>
+      <button type="button" data-cancel
+              class="inline-flex items-center justify-center gap-2 px-6 py-3 text-[13px] font-semibold rounded-full border border-hairline text-navy bg-white transition-all hover:border-primary hover:text-primary">
+        Todavía no
+      </button>
+    </div>
+  </div>
+</div>
+
 <?php require __DIR__ . '/../includes/footer.php'; ?>
 <script>renderCheckoutSummary();</script>

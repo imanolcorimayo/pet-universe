@@ -1,47 +1,51 @@
 /**
  * Pet Universe — Search Autocomplete
+ * Wires up both desktop (#search-input) and mobile (#search-input-mobile) inputs.
  */
 (function() {
-  let debounceTimer = null;
   const DEBOUNCE_MS = 300;
   const MIN_CHARS = 2;
 
-  const input = document.getElementById('search-input');
-  const dropdown = document.getElementById('search-autocomplete');
-  if (!input || !dropdown) return;
+  function setupSearch(inputId, dropdownId) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    if (!input || !dropdown) return;
 
-  input.addEventListener('input', function() {
-    const query = this.value.trim();
-    clearTimeout(debounceTimer);
+    let debounceTimer = null;
 
-    if (query.length < MIN_CHARS) {
+    input.addEventListener('input', function() {
+      const query = this.value.trim();
+      clearTimeout(debounceTimer);
+
+      if (query.length < MIN_CHARS) {
+        dropdown.replaceChildren();
+        return;
+      }
+
+      debounceTimer = setTimeout(() => fetchResults(query, dropdown), DEBOUNCE_MS);
+    });
+
+    // Close dropdown on outside click
+    const searchForm = input.closest('form');
+    document.addEventListener('click', function(e) {
+      if (e.target === input) return;
+      if (dropdown.contains(e.target)) return;
+      if (searchForm && searchForm.contains(e.target)) return;
       dropdown.replaceChildren();
-      return;
-    }
+    });
+  }
 
-    debounceTimer = setTimeout(() => fetchResults(query), DEBOUNCE_MS);
-  });
-
-  // Close dropdown on outside click
-  const searchForm = input.closest('form');
-  document.addEventListener('click', function(e) {
-    if (e.target === input) return;
-    if (dropdown.contains(e.target)) return;
-    if (searchForm && searchForm.contains(e.target)) return;
-    dropdown.replaceChildren();
-  });
-
-  async function fetchResults(query) {
+  async function fetchResults(query, dropdown) {
     try {
       const res = await fetch(`/buscar?q=${encodeURIComponent(query)}&ajax=1`);
       const data = await res.json();
-      renderDropdown(data.hits || [], query);
+      renderDropdown(data.hits || [], query, dropdown);
     } catch {
       dropdown.replaceChildren();
     }
   }
 
-  function renderDropdown(hits, query) {
+  function renderDropdown(hits, query, dropdown) {
     dropdown.replaceChildren();
 
     if (hits.length === 0) {
@@ -73,7 +77,7 @@
 
       const price = document.createElement('span');
       price.className = 'search-result-price';
-      price.textContent = '$' + Math.round(hit.priceRegular).toLocaleString('es-AR');
+      price.textContent = '$' + Math.round(leadPrice(hit)).toLocaleString('es-AR');
       link.appendChild(price);
 
       dropdown.appendChild(link);
@@ -86,4 +90,7 @@
     viewAll.textContent = 'Ver todos los resultados';
     dropdown.appendChild(viewAll);
   }
+
+  setupSearch('search-input', 'search-autocomplete');
+  setupSearch('search-input-mobile', 'search-autocomplete-mobile');
 })();

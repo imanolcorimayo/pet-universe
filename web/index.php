@@ -18,6 +18,7 @@ $routes = [
     '/buscar'     => 'buscar',
     '/carrito'    => 'carrito',
     '/checkout'   => 'checkout',
+    '/gracias'    => 'gracias',
     '/sitemap.xml'=> 'sitemap',
     '/api/category-preview' => 'api-category-preview',
 ];
@@ -26,7 +27,7 @@ $routes = [
 // robots.txt blocks crawlers, but noindex is needed for URLs crawlers may
 // find linked elsewhere — otherwise they can still be indexed without being
 // fetched. Search/cart/checkout are transactional or ephemeral.
-$noindexRoutes = ['/buscar', '/carrito', '/checkout'];
+$noindexRoutes = ['/buscar', '/carrito', '/checkout', '/gracias'];
 $isNoindex = in_array($uri, $noindexRoutes, true);
 
 try {

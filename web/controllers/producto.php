@@ -9,8 +9,20 @@ if (!$product) {
     return;
 }
 
-$page_title = htmlspecialchars($product['name']) . ' — ' . SITE_NAME;
-$page_description = trim(($product['brand'] ?? '') . ' ' . $product['name'] . '. ' . ($product['description'] ?? ''));
+$page_title   = $product['name'] . ' — ' . SITE_NAME;
+$page_og_type = 'product';
+
+// Build a snippet for <meta description>. Cap at ~160 chars at a word
+// boundary — Google truncates beyond that and rewrites long ones.
+$_descRaw = trim(($product['brand'] ?? '') . ' ' . $product['name'] . '. ' . ($product['description'] ?? ''));
+$_descRaw = preg_replace('/\s+/', ' ', $_descRaw);
+if (mb_strlen($_descRaw) > 160) {
+    $_cut = mb_substr($_descRaw, 0, 157);
+    $_lastSpace = mb_strrpos($_cut, ' ');
+    $page_description = ($_lastSpace !== false ? mb_substr($_cut, 0, $_lastSpace) : $_cut) . '…';
+} else {
+    $page_description = $_descRaw;
+}
 
 $isDual       = ($product['trackingType'] ?? '') === 'dual';
 $priceRegular = (int)($product['priceRegular'] ?? 0);
@@ -89,12 +101,13 @@ if (!empty($page_og_image)) {
 }
 if ($leadPrice > 0) {
     $productLd['offers'] = [
-        '@type'         => 'Offer',
-        'url'           => $page_canonical,
-        'priceCurrency' => 'ARS',
-        'price'         => $leadPrice,
-        'availability'  => $inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-        'itemCondition' => 'https://schema.org/NewCondition',
+        '@type'            => 'Offer',
+        'url'              => $page_canonical,
+        'priceCurrency'    => 'ARS',
+        'price'            => $leadPrice,
+        'priceValidUntil'  => date('Y-m-d', strtotime('+30 days')),
+        'availability'     => $inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        'itemCondition'    => 'https://schema.org/NewCondition',
     ];
 }
 
@@ -162,6 +175,8 @@ require __DIR__ . '/../includes/header.php';
               alt="<?= htmlspecialchars($product['name']) ?>"
               width="600"
               height="600"
+              loading="eager"
+              fetchpriority="high"
               onerror="imgFallback(this)"
             >
           </picture>
