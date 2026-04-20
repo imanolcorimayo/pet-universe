@@ -176,12 +176,6 @@
                           (-{{ Math.round((1 - product.prices.kg.threePlusDiscount / product.prices.kg.regular) * 100) }}%)
                         </span>
                       </div>
-                      <div v-if="product.prices?.vip || product.prices?.kg?.vip" class="flex items-center gap-2">
-                        <span class="text-gray-500 w-16">VIP:</span>
-                        <span class="text-purple-600">{{ formatCurrency(product.prices?.vip || 0) }}/u</span>
-                        <span class="text-gray-400">|</span>
-                        <span class="text-purple-600">{{ formatCurrency(product.prices?.kg?.vip || 0) }}/kg</span>
-                      </div>
                     </template>
                     <!-- For regular products -->
                     <template v-else>
@@ -192,10 +186,6 @@
                       <div class="flex items-center gap-2">
                         <span class="text-gray-500 w-16">Efectivo:</span>
                         <span class="text-green-600">{{ formatCurrency(product.prices?.cash || 0) }}</span>
-                      </div>
-                      <div v-if="product.prices?.vip" class="flex items-center gap-2">
-                        <span class="text-gray-500 w-16">VIP:</span>
-                        <span class="text-purple-600">{{ formatCurrency(product.prices?.vip || 0) }}</span>
                       </div>
                       <div v-if="product.prices?.bulk" class="flex items-center gap-2">
                         <span class="text-gray-500 w-16">Mayorista:</span>
